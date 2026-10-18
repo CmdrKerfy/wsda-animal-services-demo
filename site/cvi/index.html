@@ -6,7 +6,7 @@
      it builds itself. Network connections only to the opt-in tile basemaps' hosts (app/basemaps.js; the outer limit:
      the page itself fetches only the chosen basemap's hosts, and nothing while the offline county map is shown).
      Defense in depth only; local-only behavior is verified by recorded browser observations. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; worker-src blob:; child-src blob:; style-src 'self' file: 'unsafe-inline'; img-src data: blob:; connect-src https://a.tile.opentopomap.org https://basemap.nationalmap.gov https://data.wsdot.wa.gov https://tiles.openfreemap.org; font-src 'self' file:; media-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; worker-src blob:; child-src blob:; style-src 'self' file: 'unsafe-inline'; img-src data: blob:; connect-src https://a.tile.opentopomap.org https://basemap.nationalmap.gov https://basemaps.cartocdn.com https://data.wsdot.wa.gov https://server.arcgisonline.com https://tiles-a.basemaps.cartocdn.com https://tiles-b.basemaps.cartocdn.com https://tiles-c.basemaps.cartocdn.com https://tiles-d.basemaps.cartocdn.com https://tiles.basemaps.cartocdn.com https://tiles.openfreemap.org; font-src 'self' file:; media-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CVI Traceability — WSDA Animal Services</title>
@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="../shared/brand.css">
 <style>
   /* Colors by use (--primary, --heading, --muted ...), the banner, the footer and the messages come from
-     shared/brand.css (UI pass). */
+     shared/brand.css, the look every page shares. */
   * { box-sizing: border-box; }
   .layout { display: flex; min-height: calc(100vh - var(--banner-height)); }
   aside.sidebar { width: 310px; flex: 0 0 310px; border-right: 1px solid var(--border); padding: 0.75rem; overflow-y: auto; max-height: calc(100vh - var(--banner-height)); background: #fff; }
@@ -237,7 +237,7 @@
   @media (max-width: 700px) { .chart-grid { grid-template-columns: minmax(0, 1fr); } }
   .chart-card { margin: 0; border: 1px solid var(--border); border-radius: 4px; background: #fff; padding: 0.25rem; min-width: 0; }
   .chart-svg svg { display: block; max-width: 100%; height: auto; }
-  /* "Show as table" (UI pass): each chart's numbers under it, on request. */
+  /* "Show as table": each chart's numbers under it, on request. */
   .chart-table-tools { padding: 0.15rem 0.35rem 0.25rem; }
   .chart-table { padding: 0 0.35rem 0.35rem; overflow-x: auto; }
   table.chart-data { border-collapse: collapse; font-size: 0.75rem; width: 100%; }
@@ -251,7 +251,7 @@
   .chart-pick:focus { outline: none; }
   .chart-pick:focus-visible .chart-hit, .chart-pick:hover .chart-hit { fill-opacity: 0.06; }
   .chart-pick:focus-visible .chart-hit { stroke: var(--primary); stroke-width: 1.5px; }
-  /* MC: the chart filters bar (existing styles; the UI pass restyles it later). */
+  /* MC: the chart filters bar. */
   .chart-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0.75rem 0;
     padding: 0.35rem 0.6rem; background: var(--notice-bg); border: 1px solid var(--notice-border); border-radius: 4px; font-size: 0.85rem; }
   .chart-filters[hidden] { display: none; }
@@ -403,14 +403,14 @@
   .lk-legend .lg-title { font-weight: 700; margin-bottom: 0.15rem; }
   .lk-legend .lg-item { display: flex; align-items: center; gap: 0.35rem; }
   .lk-legend .lg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); flex: 0 0 auto; }
-  /* The query site's bullseye in the match map's legend (UI pass), as the map draws it. */
+  /* The query site's bullseye in the match map's legend, as the map draws it. */
   .lk-legend .lg-bullseye { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 3px solid;
     flex: 0 0 auto; box-sizing: border-box; }   /* its colors from lookupmap.js, as the other legend marks' */
   .lk-legend .lg-ring { display: inline-block; width: 14px; height: 10px; border: 2px solid; border-radius: 2px; flex: 0 0 auto; }
   #lookup-main [hidden] { display: none !important; }   /* a hidden part stays hidden whatever its display (the tiles' grid) */
   .lk-fac-scroll { overflow-x: auto; margin-bottom: 0.6rem; }
   .lk-fac-counts { border-collapse: collapse; font-size: 0.85rem; }
-  /* Many facility layers: the counts table scrolls sideways inside its card (UI pass). */
+  /* Many facility layers: the counts table scrolls sideways inside its card. */
   #lk-fac-counts { max-width: 100%; overflow-x: auto; }
   .lk-fac-counts th, .lk-fac-counts td { padding: 0.25rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
   .lk-fac-counts th { white-space: normal; max-width: 8rem; vertical-align: bottom; }
@@ -446,7 +446,6 @@
 <header class="top">
   <img class="brand-logo" data-wsda-logo alt="Washington State Department of Agriculture" width="78" height="32">
   <h1>Animal Services Division &middot; Visualization Platform <span class="dashboard-name">CVI Traceability</span></h1>
-  <span class="badge" title="Synthetic test data only; not for real records.">SYNTHETIC DATA ONLY</span>
 </header>
 <div id="bundle-banner" role="note" hidden></div>
 <div class="layout">
@@ -795,7 +794,7 @@
           <p class="help-note" id="help-fo-outlines" hidden>Shows every county's outline on the live map. The focus counties stay highlighted either way.</p>
         </div>
         </div>
-        <!-- S4: National Flow style (CVI's flow_* inputs). Its Label style and Boundary style only affect CVI's PNG export: left for that slice. -->
+        <!-- S4: National Flow style (CVI's flow_* inputs). Its Label style and Boundary style only affect CVI's PNG export, so the branded PNG handles them. -->
         <div id="flow-style" hidden>
         <h6 class="map-section"><span data-icon="globe-americas"></span> National Flow Style</h6>
         <!-- CH: shaded states (choropleth.js; not in CVI). Lines stays the default. -->
@@ -1276,8 +1275,7 @@
   </main>
 </div>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Synthetic test data only. Not an official WSDA service. Runs entirely in this browser tab; the chosen file is never
-  uploaded.</p>
+  Runs entirely in this browser tab; the chosen file is never uploaded.</p>
   <details class="credits"><summary>Data sources and credits</summary>
   <p><span id="attrib"></span></p>
   <p>Shaded-map colors: ColorBrewer 2.0, by Cynthia A. Brewer, Penn State (Apache License 2.0).</p>

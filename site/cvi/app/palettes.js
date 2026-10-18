@@ -43,7 +43,7 @@
     'Single — Slate Gray': solid('#555555')
   };
 
-  // CVI's values where the page's differ (S1.1): [palette, entry, CVI's value]; the tests check every other value is CVI's.
+  // CVI's values where the page's differ on purpose: [palette, entry, CVI's value]; the tests check every other value is CVI's.
   const CVI_VALUES = [['direction', 'WSDA Brand', 'Outbound', '#ee7e2c'], ['direction', 'Single — WSDA Orange', 'Inbound', '#ee7e2c'],
     ['direction', 'Single — WSDA Orange', 'Outbound', '#ee7e2c'], ['species', 'WSDA Brand', 'Exotic Hoofstock', '#ee7e2c'],
     ['species', 'WSDA Brand', 'Poultry', '#4ea2c4'], ['species', 'WSDA Brand', 'Small Ruminants', '#76a553'],

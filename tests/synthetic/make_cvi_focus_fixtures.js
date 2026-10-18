@@ -167,6 +167,7 @@ function generatePremises(payloads = false) {
     add({ farm_entity_id_dest: 'THREE', CVI: 'SYN-C', 'Total.Animals': 1 });
     add({ farm_entity_id_dest: 'THREE', CVI: 'SYN-A', 'Total.Animals': 1 });
     add({ farm_entity_id_dest: 'THREE', CVI: 'SYN-B', 'Total.Animals': 1 });
+    // Every CVI number below is invented in the real format and refers to no real certificate.
     // The real CVI number format (capitals, digits, hyphens), shuffled: mixed lengths, years, states and
     // the -B/A suffix pair that a hyphen-ignoring collation would reverse. Popup sort pins all nine. Own point, so
     // coordinate fallback never merges them with the markup CVI above (symbols sort differently in R's ICU order).

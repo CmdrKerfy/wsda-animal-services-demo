@@ -29,10 +29,14 @@ How the pages themselves are built is in [`docs/DEVELOPER_GUIDE.md`](../docs/DEV
   `data.table`, `geosphere`, `sf`, `classInt` (0.4-11), `jsonlite`, `openssl`, `shiny`, `bslib`, `shinyjs`, `cli`,
   `glue`, `DT`, `mapgl`, `bsicons`, `scales`, `ggplot2`, `rlang`, and for the S9 reference also `cowplot`, `png` and
   `shadowtext`. The scripts load several of these through CVI's own code. `gifski` is not needed.
-- **The CVI_Traceability checkout** beside this repository (`../CVI_Traceability`). The oracle scripts and the S9 unit
-  suite also accept another location in the environment variable `CVI_TRACEABILITY_DIR`, but the S5 and S6 unit
-  suites (and the S5 mutation runner) read `../CVI_Traceability` directly, so keep the checkout beside the
-  repository; the UI unit suite checks CVI's font file only when the checkout is there. CVI's files are only read.
+- **The CVI_Traceability checkout** beside this repository (`../CVI_Traceability`). CVI_Traceability is an internal
+  WSDA repository; it is not published with a public copy of this project. Without it, the F1, CH, UI and NR suites
+  (Node and Chrome), the AB, CH and UI mutation runners and the Safari `--ab`, `--ui` and `--ch` parts still run; every
+  other suite compares the pages with references written from CVI's own code and needs the checkout. The oracle
+  scripts and the S9 unit suite also accept another location in the environment variable `CVI_TRACEABILITY_DIR`,
+  but the S5 and S6 unit suites (and the S5 mutation runner) read `../CVI_Traceability` directly, so keep the
+  checkout beside the repository; the UI unit suite checks CVI's font file only when the checkout is there. CVI's
+  files are only read.
 - **Public source files** (not in the repository; see `site/PROVENANCE.md`): the Census and Statistics Canada zips in
   `local-test-artifacts/nr/` for `nr_regions_check.R` and `s4_states_check.R`, and the four population downloads in
   `local-test-artifacts/pc/src/` for `pc_population_oracle.R`. Without them those scripts stop or report "not run".
@@ -41,9 +45,10 @@ How the pages themselves are built is in [`docs/DEVELOPER_GUIDE.md`](../docs/DEV
 
 Most suites compare the pages with reference files written by earlier steps. On a fresh clone, run these once, in
 this order. Later, rerun a step only when its inputs change (CVI's checkout, an oracle script or a fixture): the
-Node suites check the references' SHA-256 digests and say when one is stale. Without any R reference, the F1, CH,
-UI and NR unit suites already run on a fresh clone; the others stop or fail with a message naming the R script to
-run first (for example "S3 oracle missing: run Rscript tests/oracle/cvi_r_oracle.R first").
+Node suites check the references' SHA-256 digests and say when one is stale. Without any R reference, and without
+the CVI_Traceability checkout, the F1, CH, UI and NR unit suites already run on a fresh clone; the others stop or
+fail with a message naming the R script to run first (for example "S3 oracle missing: run Rscript
+tests/oracle/cvi_r_oracle.R first"), and those R scripts need the checkout.
 
 1. `node tests/synthetic/make_cvi_master_fixtures.js` regenerates the committed `cvi_master_wa39.csv` and
    `cvi_master_s4.csv`; `git status` must then show them unchanged. Optional, as a check.
@@ -153,11 +158,6 @@ preparation as the matching Chrome suite. Hosted mode: `SAFARI_PAGE_URL=http://1
 are in `local-test-artifacts/f1/safari_run.json` and each part's folder; `S5_SAFARI_OUTPUT=<folder>` (relative to
 `local-test-artifacts/s5/`) keeps the core run's County Focus screenshots apart from earlier ones.
 
-### Older output-folder flags
-
-`--s6-day4`, `--s6-day5`, `--s6-day6`, `--s6-r15` and `--s6-r16` on the S5, S6 and Safari suites only choose which
-`local-test-artifacts/s6/<run>/` folder receives the results, so earlier runs' evidence is kept.
-
 ## 4. The full regression chain
 
 Run the whole chain before a release and after any change that could reach more than one slice. The scripts are in
@@ -266,7 +266,7 @@ the unmutated suite.
   page 1 to 6 per call; PC unit 5 s, build 30 s; S1.1 unit seconds, page 1 to 3 min; S4 page 4.6 min (one or two per
   call); S5 page two per call; S6 page up to four per call; S7 page 1 to 6 per call; S9 unit 40 s (up to about 12 per
   call), page 1 to 6 per call; S11 unit 8 s, page 12 s, day4 20 s; UI unit 2 s, page 30 s to 2 min.
-- **Ledgers and logs** go to `local-test-artifacts/<slice>/mutations/` (S6: `local-test-artifacts/s6/r16/mutations/`).
+- **Ledgers and logs** go to `local-test-artifacts/<slice>/mutations/` (S6: `local-test-artifacts/s6/mutations/`).
 - Page groups run in the foreground. Unit groups, and the PC `build` group, may run as background jobs.
 
 ## 5b. Testing another copy of the site
@@ -282,6 +282,13 @@ A copy without the held-back providers offers fewer basemaps and no Esri PNG bac
 own `release.js` (S3 through `SITE_ROOT`; S6, S9 and S11 by asking the page) and check that nothing held back is
 offered, in place of the checks of those providers. The Node suites that run on a fresh clone (F1, CH, UI, NR) run
 inside the copy itself; S3 unit too, with its R reference copied in.
+
+A copy already hosted elsewhere is tested the same way without the local server: `CHAIN_HOST` gives the address of
+its `site/` folder (no trailing slash), and `SITE_ROOT` a local folder holding the same files, for the S3 suite's
+lists:
+
+    export CHAIN_HOST=https://<host>/<path>/site SITE_ROOT=<copy>/site CHAIN_LOGS=local-test-artifacts/hosted-chain
+    bash tests/chain/chrome.sh http <batch>     and     bash tests/chain/safari.sh http <parts>
 
 ## 6. Screenshots
 

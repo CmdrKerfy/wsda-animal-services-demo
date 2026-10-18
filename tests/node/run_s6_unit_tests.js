@@ -161,7 +161,7 @@ async function entryFlow() {
   const showing = slow.show(input), switching = slow.setProfile(I, { reuseShared: true }); release(); await Promise.all([showing, switching]);
   check(slow.state.profile.id === 'infrastructure' && slow.state.bundle.info.profile === 'cvi' && slow.state.result.datasets.find(d => d.id === 'feedlots').status === 'found', 'pending bundle/profile generation guard');
   const baseline = JSON.parse(fs.readFileSync(path.join(OUT, 'baseline.json')));
-  // site/shared/sample.js is no longer pinned by its hash: the Charts work gave its ZIP writer an optional entry date
+  // site/shared/sample.js is no longer pinned by its hash: its ZIP writer later gained an optional entry date
   // (default unchanged). Its output is checked instead: "sample ZIP matches dedicated generator" above, and the sample
   // bundle byte-identical in the F1 unit run.
   for (const [name, hash] of Object.entries(baseline).filter(([n]) => n.includes('/tiers/') || n.includes('day4-owner') || n === 'site/cvi/sample.js'))

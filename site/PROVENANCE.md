@@ -86,7 +86,7 @@ below), each only after the user chooses one. Paths below are relative to `site/
 - S5, two more, made the same way (2026-10-08; the stored `map` and `house` checked identical to that
   output first): `bullseye` (the County Focus button and its sections' headings) and `buildings` (its Premises box), as
   CVI's.
-- UI pass, twelve more, made the same way (`bsicons::bs_icon()`, bsicons 0.1.2, 2026-10-15; nothing installed):
+- For the shared look, twelve more, made the same way (`bsicons::bs_icon()`, bsicons 0.1.2, 2026-10-15; nothing installed):
   `eye`, `table`, `bar-chart`, `clipboard-data`, `download`, `search`,
   `plus-lg`, `dash-lg`, `x-lg`, `x-circle`, `box-arrow-up-right`, `file-earmark-zip` (the buttons' icons; CVI's own
   buttons carry Font Awesome icons, which the site does not ship, so their Bootstrap counterparts are used).
@@ -94,7 +94,7 @@ below), each only after the user chooses one. Paths below are relative to `site/
   `cvi/app/bootstrap-icons-LICENSE.txt` (2026-10-06). The installed bsicons
   package holds only CRAN's two-line stub ("YEAR: 2022 / COPYRIGHT HOLDER: bsicons authors"; its DESCRIPTION names
   Mark Otto, Bootstrap Icons maintainer, as a copyright holder), so the file is the standard MIT text with
-  "The Bootstrap Authors". It is identical to upstream's `LICENSE` (twbs/icons, compared on 2026-10-18).
+  "The Bootstrap Authors". It is identical to upstream's `LICENSE` (twbs/icons, compared on 2026-10-17).
 - No icon font and nothing fetched.
 
 ## Tile basemaps (S3; opt-in, fetched only when chosen; `cvi/app/basemaps.js`)
@@ -103,18 +103,18 @@ Nothing of these providers is stored in the repository: the page fetches their s
 time when the user picks the basemap (the page's CSP `connect-src` lists only these hosts). No API keys. Terms as checked
 on 2026-10-06; live check on 2026-10-07.
 
-| Basemap(s) | Host | Credit shown (map and screenshot) | Terms | Public copy |
+| Basemap(s) | Host | Credit shown (map and screenshot) | Terms | WSDA's pages |
 |---|---|---|---|---|
 | OpenFreeMap Liberty, Bright, Positron (vector; CVI's list) and Dark (vector; added) | `tiles.openfreemap.org` (style, TileJSON, tiles, sprites, fonts, Natural Earth relief) | From the provider's TileJSON: "OpenFreeMap © OpenMapTiles Data from OpenStreetMap" (links) | Free, no key, no stated limits; "as is"; OpenStreetMap data ODbL | Cleared |
-| USGS The National Map: Topo, Imagery, Imagery + Topo, Shaded Relief, Hydro (raster; added) | `basemap.nationalmap.gov` (tiles only) | Topo: "Tiles courtesy of the U.S. Geological Survey (The National Map)"; the others the dataset from the service's own credit text: "USDA, USGS The National Map: Orthoimagery", "USGS The National Map: Orthoimagery and US Topo", "USGS The National Map: 3D Elevation Program", "USGS The National Map: National Hydrography Dataset" | US federal service, no key; USGS data generally public domain (*unverified* on its credits page). Topo's full service credit: "USGS The National Map: National Boundaries Dataset, 3DEP Elevation Program, Geographic Names Information System, National Hydrography Dataset, National Land Cover Database, National Structures Dataset, and National Transportation Dataset; USGS Global Ecosystems; U.S. Census Bureau TIGER/Line data; USFS Road data; Natural Earth Data; U.S. Department of State HIU; NOAA National Centers for Environmental Information." | Cleared |
+| USGS The National Map: Topo, Imagery, Imagery + Topo, Shaded Relief, Hydro (raster; added) | `basemap.nationalmap.gov` (tiles only) | Topo: "Tiles courtesy of the U.S. Geological Survey (The National Map)"; the others name their dataset, as the service's own credit text gives it: "USDA, USGS The National Map: Orthoimagery", "USGS The National Map: Orthoimagery and US Topo", "USGS The National Map: 3D Elevation Program", "USGS The National Map: National Hydrography Dataset" | US federal service, no key; USGS data generally public domain (not confirmed on the service's credits page). Topo's full service credit: "USGS The National Map: National Boundaries Dataset, 3DEP Elevation Program, Geographic Names Information System, National Hydrography Dataset, National Land Cover Database, National Structures Dataset, and National Transportation Dataset; USGS Global Ecosystems; U.S. Census Bureau TIGER/Line data; USFS Road data; Natural Earth Data; U.S. Department of State HIU; NOAA National Centers for Environmental Information." | Cleared |
 | OpenTopoMap (raster; CVI's list) | `a.tile.opentopomap.org` (CVI's address, one host) | CVI's: "© OpenTopoMap (CC-BY-SA), © OpenStreetMap contributors" | CC-BY-SA, no key; volunteer servers, no bulk or heavy use | Cleared |
-| CARTO Light, Voyager (labeled); Light, Dark, Voyager (no labels); Dark (labeled) (vector; CVI's list) | `basemaps.cartocdn.com` (style), `tiles.basemaps.cartocdn.com` (TileJSON, sprites, fonts), `tiles-a`…`tiles-d.basemaps.cartocdn.com` (tiles) | From CARTO's TileJSON: "© CARTO, © OpenStreetMap contributors" (links) | Keyless vector styles work; free use is non-commercial up to 5 M tiles/month; whether agency use counts is not stated | **Held back** until CARTO confirms government use |
-| Esri World Topo, Shaded Relief, Hillshade, Physical, World Imagery, World Streets (raster; CVI's list) | `server.arcgisonline.com` | CVI's: "Source: Esri, USGS, NOAA"; "Source: Esri"; "Source: Esri"; "Source: Esri, National Geographic"; "Source: Esri, Maxar, Earthstar Geographics"; "Source: Esri, HERE, Garmin" | Keyless requests work; no Esri page found granting keyless use in a public page. Shaded Relief and Physical on Esri's retirement list (March 2028; the page says so under the picker) | **Held back** until WSDA's Esri administrator confirms |
-| WSDOT Washington basemap (raster; added) | `data.wsdot.wa.gov` (`Shared/WebBaseMapWebMercator` tiles) | "Washington State Department of Transportation" (the service's copyright text) | © WSDOT; "planning use only", no warranty, indemnify WSDOT; agreement for a public page not asked | **Cleared** for public copies |
+| CARTO Light, Voyager (labeled); Light, Dark, Voyager (no labels); Dark (labeled) (vector; CVI's list) | `basemaps.cartocdn.com` (style), `tiles.basemaps.cartocdn.com` (TileJSON, sprites, fonts), `tiles-a`…`tiles-d.basemaps.cartocdn.com` (tiles) | From CARTO's TileJSON: "© CARTO, © OpenStreetMap contributors" (links) | Keyless vector styles work; free use is non-commercial up to 5 M tiles/month; whether agency use counts is not stated | **Cleared** for WSDA's pages (October 2026); left out of a copy made with `publicCopy` true |
+| Esri World Topo, Shaded Relief, Hillshade, Physical, World Imagery, World Streets (raster; CVI's list) | `server.arcgisonline.com` | CVI's: "Source: Esri, USGS, NOAA"; "Source: Esri"; "Source: Esri"; "Source: Esri, National Geographic"; "Source: Esri, Maxar, Earthstar Geographics"; "Source: Esri, HERE, Garmin" | Keyless requests work; no Esri page found granting keyless use in a public page. Shaded Relief and Physical on Esri's retirement list (March 2028; the page says so under the picker) | **Cleared** for WSDA's pages (October 2026); left out of a copy made with `publicCopy` true |
+| WSDOT Washington basemap (raster; added) | `data.wsdot.wa.gov` (`Shared/WebBaseMapWebMercator` tiles) | "Washington State Department of Transportation" (the service's copyright text) | © WSDOT; "planning use only", no warranty, indemnify WSDOT | **Cleared**: WSDOT's Washington basemap is a public service of a Washington state agency, reviewed and cleared by WSDA for its own pages; its terms (planning use only, no warranty) are kept with the credit |
 
 Live check: every provider answers with CORS headers (`Access-Control-Allow-Origin: *`;
 WSDOT echoes the page's origin, also `null` from `file://`), so every basemap's tiles can be drawn into the screenshot;
-all 23 drew in headless Chrome from this Mac with only their own hosts asked, and their screenshots were made. Zoom
+all 23 drew in headless Chrome on a Mac (arm64) with only their own hosts asked, and their screenshots were made. Zoom
 ranges found (Seattle and Spokane tiles): USGS Topo, Imagery, Imagery + Topo to 16 (404 from 17); USGS Shaded Relief
 to 8 (404 at 9–11, service limit about zoom 7), so `maxZoom` 8; USGS Hydro to 12 (404 at 13–14), so `maxZoom` 12;
 WSDOT 7–17 (404 below and above), so `minZoom` 7, `maxZoom` 17; OpenTopoMap to 17 (beyond: a small image without CORS
@@ -130,13 +130,13 @@ nothing outside the box −125.5…−116.0 longitude, 45.0…49.6 latitude.
 redirecting (for example to a new versioned path) makes its basemap show the failure message until its address in
 `cvi/app/basemaps.js` is updated. None of the 23 redirected at the live checks.
 
-**Before any republish:** a public copy is made with `shared/release.js` `publicCopy` set to true, so the held-back
-basemaps (`publish: false`: CARTO, Esri, unless cleared by then) leave the list and the picker, and with the
-`connect-src` of both dashboards' CSPs (`cvi/index.html` and `infrastructure/index.html`) fitted to the hosts the copy
-offers; the S3 unit tests compare both pages' CSPs with the list, in the copy too. Without the Esri terms, the three
-Esri tile backgrounds of the branded PNGs (next section, `publish: false` in `shared/tiles.js`) leave the CVI, Premise
-Lookup and Infrastructure pickers by the same switch. A check that the published files are identical to the reviewed
-ones applies to that filtered copy, which itself needs review.
+**Copies for other hosts:** `shared/release.js` holds one setting, `publicCopy`. On WSDA's pages it is false and every
+basemap is offered. A copy for a host not covered by CARTO's and Esri's terms sets it to true, and the basemaps
+marked `publish: false` (CARTO, Esri) are left out of the list, the picker and the allowed hosts; the three Esri tile
+backgrounds of the branded PNGs (next section, `publish: false` in `shared/tiles.js`) are left out of the CVI, Premise
+Lookup and Infrastructure pickers by the same switch. Both dashboards' CSP `connect-src` (`cvi/index.html` and
+`infrastructure/index.html`) list only the hosts the copy offers; the S3 unit tests compare both pages' CSPs with the
+list. How such a copy is made is in `docs/DEVELOPER_GUIDE.md` ("A public copy").
 
 **Trust boundary:** what a provider sends is data the page does not control. Its style decides
 what MapLibre draws and asks for next (every such request still passes the page's host check and is fetched by the
@@ -155,9 +155,8 @@ one is picked. Each picture carries the credit `tiles.js` gives it, as CVI does:
 Geographics" (Satellite) and "Source: Esri" (Shaded Relief, Hillshade). The requests follow the live map's rules: no
 redirect followed, no credentials, no referrer.
 
-- Terms: the same as the Esri basemaps above. **Held back** from a public copy until WSDA's Esri administrator
-  confirms keyless use in a public page (they fall under the same switch as the Esri basemaps); see "Before any
-  republish" above.
+- Terms: the same as the Esri basemaps above: **cleared** for WSDA's pages, and left out of a copy made with
+  `publicCopy` true by the same switch as the Esri basemaps; see "Copies for other hosts" above.
 
 ## National Flow state outlines and centers (`geo/us-states.js`, `geo/state-centers.js`, S4)
 
@@ -189,8 +188,8 @@ redirect followed, no credentials, no referrer.
 
 ## National Flow's Alaska and Hawaii insets (`geo/us-insets.js`)
 
-- Outlines of Alaska and Hawaii for the two inset boxes: the same Census
-  file and SHA-256 as `us-states.js` (`cb_2023_us_county_500k.zip`, already on this computer; nothing downloaded),
+- Outlines of Alaska and Hawaii for the two inset boxes: the same Census file and SHA-256 as `us-states.js`
+  (`cb_2023_us_county_500k.zip`, already on the development machine; nothing downloaded),
   each state's counties unioned in its own equal-area projection: Alaska in Alaska Albers (EPSG:3338), islands under
   150 km2 left out, simplified to 3 km (43 polygons, 2,179 points, 99.6% of the land kept); Hawaii's main islands (east
   of 161 degrees west, as `derive_states.R`'s center check) in Hawaii Albers (ESRI:102007's parameters), islands
@@ -202,7 +201,7 @@ redirect followed, no credentials, no referrer.
 - Derivation: `build/derive_insets.R` (SHA-256; validity; each outline at least 97% of its land; the anchors' places),
   built 2026-10-17 with R 4.4.3, sf 1.1.0, GEOS 3.13.0, GDAL 3.8.5, PROJ 9.5.1.
 
-## WSDA site icon (`shared/brand.js`, UI pass)
+## WSDA site icon (`shared/brand.js`, the shared look)
 
 The tab icon of every page is WSDA's own site icon: `https://agr.wa.gov/content/icons/favicon.ico`, the icon declared by
 the agency's pages (`<link rel="icon">` on `https://agr.wa.gov/departments/animals-livestock-and-pets`). Fetched once
@@ -212,8 +211,8 @@ bytes, three images (16, 32 and 48 px, 32 bits per pixel), SHA-256
 `431f7371f542d0474b2005c8d5c9ac42f351c54d28ee5f8f6a2bd8765bdbd67f`; copied byte for byte as base64 into
 `shared/brand.js` (`WSDA.brand.FAVICON`), which gives it to each page's `<link rel="icon">` (it holds `data:,` until
 then, so the browser never asks the network for an icon). `tests/node/run_ui_unit_tests.js` checks the bytes against
-that SHA-256. Its use follows the WSDA logo's (below): the Communications Office's approval before public hosting
-covers it.
+that SHA-256. Its use follows the WSDA logo's (below): it is approved for WSDA's pages, a public demo copy
+included.
 
 ## WSDA logo (`shared/brand.js`, S9)
 
@@ -222,13 +221,13 @@ SHA-256 `1bdff086b0bc3aab9b0adb3135714ffc08d10e028e77940cb82f810cec2d9b72`, CVI 
 byte as base64 into `shared/brand.js` (the page's Content Security Policy allows pictures only as `data:` or `blob:`
 addresses). `tests/node/run_s9_unit_tests.js` checks the decoded bytes against that SHA-256 and, when the CVI
 checkout is present, against CVI's file. Used in the header of the branded map PNGs, as CVI's branded exports use it,
-and, since the UI pass, at the left of every page's banner, as CVI's app shows it (32 px high; the page's
+and, as part of the shared look, at the left of every page's banner, as CVI's app shows it (32 px high; the page's
 `<img data-wsda-logo>` gets the same `data:` picture from `shared/brand.js`, so the site keeps one copy).
 The WSDA brand guide (AGR Publication No. 140-608) governs its use; brand use is approved, including in a public
 demo copy (2026-10-07). The brand colors in the same file are the
 guide's values.
 
-## Open Sans (`shared/fonts/`, UI pass)
+## Open Sans (`shared/fonts/`, the shared look)
 
 - `shared/fonts/OpenSans-Variable-latin.woff2`: CVI's own file `shiny/www/fonts/OpenSans-Variable-latin.woff2` (CVI
   HEAD `daf1a1f`), copied byte for byte on 2026-10-15; 48,320 bytes, SHA-256
@@ -238,7 +237,7 @@ guide's values.
   <http://scripts.sil.org/OFL>.
 - License: SIL Open Font License 1.1, which allows bundling the font with software when the copyright notice and the
   license go with it: `shared/fonts/OFL.txt`: the font's copyright line, then the official OFL 1.1 text as
-  <https://openfontlicense.org/documents/OFL.txt> gives it (read and compared on 2026-10-18).
+  <https://openfontlicense.org/documents/OFL.txt> gives it (read and compared on 2026-10-17).
 - Loaded by `shared/brand.css` (`@font-face`) from the site itself; each page's policy allows fonts from the site's own
   files only (`font-src 'self' file:`). Nothing is fetched from the network.
 
@@ -298,7 +297,7 @@ ColorBrewer file is bundled and nothing is fetched.
 - Credit: ColorBrewer 2.0, Cynthia A. Brewer, Geography, Pennsylvania State University (<https://colorbrewer2.org>).
   The CVI page's "Data sources and credits" fold names it.
 - License: the Apache License 2.0, as ColorBrewer publishes it (axismaps/colorbrewer, `LICENCE.txt`, read on
-  2026-10-18). `COLORBREWER_LICENSE.txt` beside this file holds its attribution notice ("This product includes color
+  2026-10-17). `COLORBREWER_LICENSE.txt` beside this file holds its attribution notice ("This product includes color
   specifications and designs developed by Cynthia Brewer (http://colorbrewer.org/).") and that license text.
 
 ## Own code
@@ -307,9 +306,10 @@ Everything in `site/` except `vendor/`, `shared/fonts/` and the generated data f
 above): the landing page (`index.html`, `landing.js`), the CVI page (`cvi/`, with `cvi/app/choropleth.js`, whose colors
 are ColorBrewer's, above), the Infrastructure dashboard (`infrastructure/`), the shared code (`shared/*.js`,
 `shared/brand.css`), the build scripts (`build/*.R`) and `geo/regions/index.js`, and the tests, are new WSDA work
-product (internal, not licensed for reuse, per the repository README). No CVI or PDV source code was copied; the CVI files
-copied are the state centers above (S4), the WSDA logo (S9) and the Open Sans font file (UI pass). The behavior is
-ported from CVI's R code and checked against CVI's functions run unmodified.
+product (internal, not licensed for reuse, per the repository README). No source code of CVI or of the Partner Data
+Viewer (another internal WSDA tool) was copied; the CVI files copied are the state centers above (S4), the WSDA logo
+(S9) and the Open Sans font file (for the shared look). The behavior is ported from CVI's R code and checked against
+CVI's functions run unmodified.
 
 
 **Infrastructure dashboard (S6):** it uses the same MapLibre files, map adapter, basemap list and

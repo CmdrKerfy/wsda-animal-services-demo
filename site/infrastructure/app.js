@@ -240,7 +240,7 @@
       const c = document.createElement('div'), n = document.createElement('strong'), label = document.createElement('span');
       c.className = 'count-card';
       n.textContent = l.count.toLocaleString('en-US');
-      // The layer's own mark beside its name, as on the map (UI pass).
+      // The layer's own mark beside its name, as on the map.
       label.className = 'count-card-label';
       label.append(W.facilities.markElement(l, 18), document.createTextNode(l.liveLabel));
       c.append(n, label);

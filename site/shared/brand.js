@@ -1,4 +1,4 @@
-/* WSDA brand values for the branded map exports (S9) and the banner's logo (UI pass). Colors from the WSDA brand
+/* WSDA brand values for the branded map exports (S9) and the banner's logo. Colors from the WSDA brand
  * guide ("Brand Guidelines", AGR Publication No. 140-608, pages 7 and 8), with the gray and gold CVI's branded PNG
  * renderer uses (CVI shiny/R/static_map_renderer.R, lines 24 to 27). The logo is CVI's own file
  * shiny/www/img/wsda_logo.png (1760 x 724, symbol only), copied byte for byte as base64 because the page's Content
@@ -776,7 +776,7 @@
     ].join('')
   };
 
-  // Button icons (UI pass): a Bootstrap icon from CVIWA.icons (cvi/app/icons.js, loaded before this file) in
+  // Button icons: a Bootstrap icon from CVIWA.icons (cvi/app/icons.js, loaded before this file) in
   // a <span class="btn-icon">, before the button's words. iconHtml() gives the markup for buttons a script writes;
   // buttonText() changes a button's words and keeps its icon.
   const iconSvg = name => (root.CVIWA && root.CVIWA.icons && root.CVIWA.icons[name]) || '';
@@ -789,7 +789,7 @@
     if (icon) button.prepend(icon);
   }
 
-  // The glossary (UI pass): terms that recur on every page, written once here and shown in each page's footer
+  // The glossary: terms that recur on every page, written once here and shown in each page's footer
   // as a fold, closed at first, in every <div data-wsda-glossary>.
   const GLOSSARY = [
     ['CVI', 'Certificate of Veterinary Inspection: the health certificate a veterinarian issues for animals being ' +
@@ -826,7 +826,7 @@
     return fold;
   }
 
-  // The tab icon (UI pass): WSDA's own site icon, agr.wa.gov's /content/icons/favicon.ico (the
+  // The tab icon: WSDA's own site icon, agr.wa.gov's /content/icons/favicon.ico (the
   // icon its pages declare), copied byte for byte (16, 32 and 48 px versions; site/PROVENANCE.md). Given to the page's
   // <link rel="icon">, which holds "data:," until then so the browser never asks the network for an icon.
   const FAVICON = {
@@ -1018,7 +1018,7 @@
   root.WSDA = root.WSDA || {};
   root.WSDA.brand = { COLORS, LOGO, FAVICON, GLOSSARY, iconHtml, buttonText, glossaryElement, setFavicon };
 
-  // The banner's logo (UI pass): every <img data-wsda-logo> on the page shows this file, so the site keeps
+  // The banner's logo: every <img data-wsda-logo> on the page shows this file, so the site keeps
   // one copy of it. The banner reserves the logo's size, so nothing moves when it appears. Then every button icon
   // written in the page's markup, the glossary in the footer, and the tab icon.
   if (root.document) {

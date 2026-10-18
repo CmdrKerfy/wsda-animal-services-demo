@@ -471,10 +471,9 @@ if (!process.argv.includes('--ab') && !process.argv.includes('--ui') && !process
 
 // S6's entry check only; the CVI/Focus suite above remains available unchanged.
 async function runS6Entry() {
-  // Fixtures stay in s6/day2/fixtures; --s6-day6 (or --s6-r15, --s6-r16) writes the results and pictures to s6/day6 (or
-  // s6/r15, s6/r16) in place of s6/day2, keeping the results already there.
+  // Reads the fixtures in s6/day2/fixtures; writes the results and pictures to s6/day2.
   const fix = path.join(ROOT, 'local-test-artifacts/s6/day2/fixtures');
-  const out = path.join(ROOT, process.argv.includes('--s6-r16') ? 'local-test-artifacts/s6/r16/entry' : process.argv.includes('--s6-r15') ? 'local-test-artifacts/s6/r15/entry' : process.argv.includes('--s6-day6') ? 'local-test-artifacts/s6/day6/entry' : 'local-test-artifacts/s6/day2');
+  const out = path.join(ROOT, 'local-test-artifacts/s6/day2');
   fs.mkdirSync(out, { recursive: true });
   let d, timer;
   const run = { page: PAGE, started: new Date().toISOString(), limitation: 'Safari does not observe network/CSP; Chrome supplies that evidence.' };
@@ -539,7 +538,7 @@ async function runS6Entry() {
 if (process.argv.includes('--s6-entryflow')) runS6Entry().catch(e=>{console.error(e.stack);process.exitCode=2;});
 
 async function runS6Facilities() {
- const out=path.join(ROOT,process.argv.includes('--s6-r16') ? 'local-test-artifacts/s6/r16/infrastructure' : process.argv.includes('--s6-r15') ? 'local-test-artifacts/s6/r15/infrastructure' : process.argv.includes('--s6-day6') ? 'local-test-artifacts/s6/day6/infrastructure' : process.argv.includes('--s6-day5') ? 'local-test-artifacts/s6/day5/infrastructure' : process.argv.includes('--s6-day4') ? 'local-test-artifacts/s6/day4/infrastructure' : 'local-test-artifacts/s6/day3'),mode=PAGE.startsWith('file:')?'file':'http';fs.mkdirSync(out,{recursive:true});
+ const out=path.join(ROOT,'local-test-artifacts/s6/day3'),mode=PAGE.startsWith('file:')?'file':'http';fs.mkdirSync(out,{recursive:true});
  const result={page:PAGE,started:new Date().toISOString(),limitation:'Synthetic FileList; network/CSP unobservable. Real pointer clicks, no DOM click substitute.'};let d,timer;
  try {
   d=await launch();result.safari=d.version;await d.size(1366,768);
@@ -605,7 +604,7 @@ async function runS6Facilities() {
 if(process.argv.includes('--s6-facilities'))runS6Facilities().catch(e=>{console.error(e.stack);process.exitCode=2;});
 
 async function runS6Focus() {
- const out=path.join(ROOT,process.argv.includes('--s6-r16')?'local-test-artifacts/s6/r16/focus':process.argv.includes('--s6-r15')?'local-test-artifacts/s6/r15/focus':process.argv.includes('--s6-day6')?'local-test-artifacts/s6/day6/focus':process.argv.includes('--s6-day5')?'local-test-artifacts/s6/day5/focus':'local-test-artifacts/s6/day4'),mode=PAGE.startsWith('file:')?'file':'http',H='CVIWA.state.focusHandle',F='CVIWA.focusState';fs.mkdirSync(out,{recursive:true});
+ const out=path.join(ROOT,'local-test-artifacts/s6/day4'),mode=PAGE.startsWith('file:')?'file':'http',H='CVIWA.state.focusHandle',F='CVIWA.focusState';fs.mkdirSync(out,{recursive:true});
  const result={page:PAGE,started:new Date().toISOString(),limitation:'Synthetic FileList; network/CSP unobservable. Real pointer actions, no DOM click substitution.'};let d,timer;
  try{
   d=await launch();result.safari=d.version;await d.size(1366,768);
@@ -652,7 +651,7 @@ async function runS6Focus() {
 if(process.argv.includes('--s6-focus'))runS6Focus().catch(e=>{console.error(e.stack);process.exitCode=2;});
 
 async function runS6Activity() {
- const out=path.join(ROOT,process.argv.includes('--s6-r16')?'local-test-artifacts/s6/r16/activity':process.argv.includes('--s6-r15')?'local-test-artifacts/s6/r15/activity':process.argv.includes('--s6-day6')?'local-test-artifacts/s6/day6/activity':'local-test-artifacts/s6/day5/activity'),mode=PAGE.startsWith('file:')?'file':'http',S='WSDA.infrastructure.state',H=S+'.map',A=S+'.activity';fs.mkdirSync(out,{recursive:true});let d,timer;
+ const out=path.join(ROOT,'local-test-artifacts/s6/day5/activity'),mode=PAGE.startsWith('file:')?'file':'http',S='WSDA.infrastructure.state',H=S+'.map',A=S+'.activity';fs.mkdirSync(out,{recursive:true});let d,timer;
  const result={page:PAGE,started:new Date().toISOString(),limitation:'Synthetic FileList; network/CSP unobservable; screenshot blob checked without writing to user Downloads. Real pointer controls.'};
  try {
   d=await launch();result.safari=d.version;await d.size(1366,768);
@@ -2497,8 +2496,8 @@ async function runUI() {
     glossary: (function(g){return g ? {open: g.open, terms: Array.from(g.querySelectorAll('dt')).map(function(x){return x.textContent;})} : null;})(document.querySelector('footer.foot details.glossary')),
     icon: /^data:image\\/x-icon;base64,/.test(document.querySelector('link[rel="icon"]').href), title: document.title};`;
   const brandOk = (b, name) => {
-    check(b.font && b.logo && b.logo[0] === 1760 && b.logo[1] === 724 && b.badges.length === 1 && b.badges[0] === 'SYNTHETIC DATA ONLY',
-      'UI Safari: ' + name + ': Open Sans loaded, the logo drawn, one badge', b);
+    check(b.font && b.logo && b.logo[0] === 1760 && b.logo[1] === 724 && b.badges.length === 0,
+      'UI Safari: ' + name + ': Open Sans loaded, the logo drawn, no badge', b);
     check(b.icon && / — /.test(b.title) && /WSDA Animal Services/.test(b.title), 'UI Safari: ' + name + ': the WSDA symbol as the tab icon, the tab title', b.title);
     // Five terms, with "Shaded map (choropleth)".
     check(b.glossary && !b.glossary.open && b.glossary.terms.join() === 'CVI,Premises,WA-to-WA,Bundle,Shaded map (choropleth)',
@@ -2616,7 +2615,7 @@ if (process.argv.includes('--ui')) runUI().catch(e => { console.error(e.stack); 
 // Shared by --gif and --ch: the CVI page opened in Safari at 1400 x 1000 with the Full tier
 // (test-tables/tier_full_master.csv), page errors trapped, and the export's ZIP kept from the bytes handed to the
 // download (S7_CAPTURE: nothing is saved).
-async function coOpenCvi(d) {
+async function partOpenCvi(d) {
   await d.size(1400, 1000);
   await d.goto(new URL('cvi/index.html', new URL('.', PAGE)).href);
   await d.waitFor('window.CVIWA && CVIWA.timeseries && CVIWA.choropleth && CVIWA.state && CVIWA.state.mapHandle && ' +
@@ -2629,7 +2628,7 @@ async function coOpenCvi(d) {
   await sleep(800);
 }
 // A real click on Export, then the ZIP's entries from the captured download.
-async function coExport(d) {
+async function partExport(d) {
   const n = await d.run('return window.__s7downloads.length;');
   await d.run(`document.getElementById('export-section').open = true;
     document.getElementById('run-export').scrollIntoView({ block: 'center' }); return true;`);
@@ -2666,9 +2665,9 @@ const CO_GIF_FIRST = `var bin = atob(args[0]), u = new Uint8Array(bin.length);
   var same = await score(CVIWA.state.lastGif.parts[0]), other = await score(CVIWA.state.lastGif.parts[1]);
   URL.revokeObjectURL(url);
   return { width: img.naturalWidth, height: img.naturalHeight, same: same, other: other };`;
-async function coRun(name, file, body) {
+async function partRun(name, file, body) {
   const mode = PAGE.startsWith('file:') ? 'file' : 'http';
-  const out = path.join(ROOT, 'local-test-artifacts', 'closeout', 'safari');
+  const out = path.join(ROOT, 'local-test-artifacts', 'safari');
   fs.mkdirSync(out, { recursive: true });
   if (!fs.existsSync(MC_TIER_FULL)) { console.error('Missing ' + MC_TIER_FULL + ' (run node tests/synthetic/make_test_tables.js).'); process.exit(2); }
   const result = { page: PAGE, started: new Date().toISOString(),
@@ -2704,10 +2703,10 @@ async function coRun(name, file, body) {
 // interval, "GIF frame i of n: label" for each frame; the file read block by block here (GIF89a, 1650 x 1275, loop
 // forever, one frame per quarter, 0.8 s and the last 2.4 s); Safari's own decoder opens it and its first frame
 // matches the page drawn for it. The same on County Focus (two counties), with the box grayed while "Hide CVI
-// circles" is on. Writes local-test-artifacts/closeout/safari/safari_gif_<file|http>.json.
+// circles" is on. Writes local-test-artifacts/safari/safari_gif_<file|http>.json.
 async function runGIF() {
-  await coRun('GIF', 'gif', async (d, result) => {
-    await coOpenCvi(d);
+  await partRun('GIF', 'gif', async (d, result) => {
+    await partOpenCvi(d);
     const box = `var g = document.getElementById('export-gif'), w = document.getElementById('export-gif-why');
       return { shown: g.getClientRects().length > 0, disabled: g.disabled, why: w.hidden ? null : w.textContent };`;
     // The box grayed while a switch is on (a real click on, then off).
@@ -2742,7 +2741,7 @@ async function runGIF() {
         new MutationObserver(function () { if (t.textContent && window.__gifTexts[window.__gifTexts.length - 1] !== t.textContent) window.__gifTexts.push(t.textContent); })
           .observe(t, { childList: true, characterData: true, subtree: true }); return true;`);
       const t0 = Date.now();
-      const entries = await coExport(d);
+      const entries = await partExport(d);
       const ms = Date.now() - t0;
       const lg = await d.run(`var g = CVIWA.state.lastGif; return { view: g.view, labels: g.models.map(function (m) { return m.frame.label; }),
         delays: g.models.map(function (m) { return m.frame.delay; }), texts: window.__gifTexts };`);
@@ -2801,7 +2800,7 @@ if (process.argv.includes('--gif')) runGIF().catch(e => { console.error(e.stack)
 // hatch); Export with the PNG and the GIF (export_params.json records the shaded map; every GIF frame shaded with one
 // set of classes); back to Circles. National Flow's "Show states as: Shaded states": no lines, each state's fill its
 // class's color, Washington white, white state lines; Preview Map's page shaded as the live map with no lines; back
-// to Lines. Writes local-test-artifacts/closeout/safari/safari_ch_<file|http>.json.
+// to Lines. Writes local-test-artifacts/safari/safari_ch_<file|http>.json.
 // The Chrome suite's source, read when the CH step first needs it (read at load, every Safari mode would fail to start
 // without that file).
 let CH_SRC = null;
@@ -2818,7 +2817,7 @@ function chConst(name) {
   return new Function('return ' + rest.slice(0, end).trim().replace(/;$/, ''))();
 }
 async function runCH() {
-  await coRun('CH', 'ch', async (d, result) => {
+  await partRun('CH', 'ch', async (d, result) => {
     const UI = chConst('UI'), EXPECT = chConst('EXPECT'), DRAWN = chConst('DRAWN'), PIXEL = chConst('PIXEL');
     const WA_PNG_PIXELS = chConst('WA_PNG_PIXELS'), FLOW_UI = chConst('FLOW_UI'), FLOW_EXPECT = chConst('FLOW_EXPECT');
     const FLOW_DRAWN = chConst('FLOW_DRAWN'), FLOW_PIXEL = chConst('FLOW_PIXEL');
@@ -2833,7 +2832,7 @@ async function runCH() {
       await d.waitFor(counter + ' > ' + v, 8000, 'redrawn after ' + sel);
       await sleep(400);
     };
-    await coOpenCvi(d);
+    await partOpenCvi(d);
     const W = 'CVIWA.state.version';
 
     // WA State: Shaded counties.
@@ -2894,7 +2893,7 @@ async function runCH() {
 
     // Export: the PNG and the GIF.
     await d.run(CO_FORMATS, ['branded_png', 'branded_gif']);
-    const entries = await coExport(d);
+    const entries = await partExport(d);
     const names = entries.map(e => e.name.split('/').pop());
     check(names.some(n => /^CVI_County_Map_.*\.png$/.test(n)) && names.some(n => /TimeSeries.*\.gif$/.test(n)),
       'CH Safari: WA State: the export holds the PNG and the GIF', names);

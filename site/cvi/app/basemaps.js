@@ -3,9 +3,10 @@
  * (.resolve_label_boundary_style). The offline county map is the default and fetches nothing; a tile basemap is
  * fetched only when chosen, and only from its own hosts (allowed() is the gate map.js applies to every request
  * MapLibre makes; the page's Content-Security-Policy lists the hosts of this list as the outer limit). No API keys.
- * publish: false marks a basemap held back from any public copy of the page until its terms are confirmed (CARTO,
- * Esri). WSDOT's terms were confirmed. In a public copy (shared/release.js publicCopy true) those basemaps are left
- * out of the list, the picker and the hosts.
+ * publish: false marks a basemap whose terms are cleared for WSDA's own pages but not for a copy on another host (CARTO,
+ * Esri). WSDOT's Washington basemap is a public service of a Washington state agency, reviewed and cleared by WSDA for
+ * its own pages; its terms (planning use only, no warranty) are kept with its credit. In a copy made with
+ * shared/release.js publicCopy true, the publish: false basemaps are left out of the list, the picker and the hosts.
  * Pure functions, also loaded by tests/node/run_s3_unit_tests.js. */
 (function (root) {
   'use strict';

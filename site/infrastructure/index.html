@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Local scripts, styles and the site's own font file, and offline by default. Connections are limited to the
      existing opt-in basemap hosts. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; worker-src blob:; child-src blob:; style-src 'self' file: 'unsafe-inline'; img-src data: blob:; connect-src https://a.tile.opentopomap.org https://basemap.nationalmap.gov https://data.wsdot.wa.gov https://tiles.openfreemap.org; font-src 'self' file:; media-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; worker-src blob:; child-src blob:; style-src 'self' file: 'unsafe-inline'; img-src data: blob:; connect-src https://a.tile.opentopomap.org https://basemap.nationalmap.gov https://basemaps.cartocdn.com https://data.wsdot.wa.gov https://server.arcgisonline.com https://tiles-a.basemaps.cartocdn.com https://tiles-b.basemaps.cartocdn.com https://tiles-c.basemaps.cartocdn.com https://tiles-d.basemaps.cartocdn.com https://tiles.basemaps.cartocdn.com https://tiles.openfreemap.org; font-src 'self' file:; media-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Infrastructure — WSDA Animal Services</title>
@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="../shared/brand.css">
 <style>
   /* Colors by use (--primary, --heading, --muted ...), the banner, the footer and the messages come from
-     shared/brand.css (UI pass). */
+     shared/brand.css, the look every page shares. */
   * { box-sizing: border-box; }
   main { max-width: 1600px; margin: 0 auto; padding: 1rem; }
   h2 { font-size: 1.05rem; color: var(--primary); margin: 0.5rem 0 0.6rem; }
@@ -183,7 +183,6 @@
 <header class="top">
   <img class="brand-logo" data-wsda-logo alt="Washington State Department of Agriculture" width="78" height="32">
   <h1>Animal Services Division &middot; Visualization Platform <span class="dashboard-name">Infrastructure</span></h1>
-  <span class="badge" title="Synthetic test data only; not for real records.">SYNTHETIC DATA ONLY</span>
 </header>
 <div id="bundle-banner" role="note" hidden></div>
 <main>
@@ -350,7 +349,7 @@
 
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Synthetic test data only. Not an official WSDA service.</p>
+  Runs entirely in this browser tab; the files you load are never uploaded.</p>
   <details class="credits"><summary>Data sources and credits</summary>
   <p>Adapted from Statistics Canada, 2021 Census Boundary Files (census divisions, cartographic), reference date 2021. This does not constitute an endorsement by Statistics Canada of this product. Contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada">Open Government Licence – Canada</a>.</p></details>
   <div data-wsda-glossary></div></footer>

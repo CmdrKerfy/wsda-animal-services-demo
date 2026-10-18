@@ -31,8 +31,8 @@ const UNIT = [   // [name, file, text, replacement]
   ['a tint not the color mixed with white', CSS, '--dark-blue-10: #e8eff3;', '--dark-blue-10: #e8eff4;'],
   ['controls under the floor', CSS, 'button, input, select, textarea { font-family: inherit; font-size: 0.85rem; }',
     'button, input, select, textarea { font-family: inherit; font-size: 0.8rem; }'],
-  ['a second badge text', INFRA, 'title="Synthetic test data only; not for real records.">SYNTHETIC DATA ONLY</span>',
-    'title="Synthetic test data only; not for real records.">SYNTHETIC DATA</span>'],
+  ['a badge back in the banner', INFRA, '<span class="dashboard-name">Infrastructure</span></h1>\n</header>',
+    '<span class="dashboard-name">Infrastructure</span></h1>\n  <span class="badge">SYNTHETIC DATA ONLY</span>\n</header>'],
   ['the font refused by the page policy', INFRA, "font-src 'self' file:;", "font-src 'none';"],
   ['the logo hook gone', BRAND, "root.document.querySelectorAll('img[data-wsda-logo]').forEach(img => { img.src = LOGO.dataUrl; });", ''],
   // facility colors, chart tables and PNG shapes

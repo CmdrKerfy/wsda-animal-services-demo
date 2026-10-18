@@ -48,3 +48,67 @@ Hand-written, made-up rows in the CVI master shape (the same 15 columns), writte
   (named like a JavaScript object property) from Wyoming is in no palette either.
 - Eight raw Cattle species from California and eight species groups from Idaho (top 6 plus "Other: N").
 - 2025 Q2 has only WA-to-WA rows (the Flow slider skips it); one row has no year.
+
+## `cvi_master_small.csv` (S1: WA State map basics)
+
+Twenty-two hand-written, made-up rows in the CVI master shape (15 columns). Each row is there for one rule of the WA
+State map: the movement spellings (`Import`, `import`, `Imports`, `EXPORTS`, `Inbound`, `Outbound`, `intrastate`), `King`
+beside `King County`, quarters written `Q1` and `1`, one CVI on two rows, a species name with a comma, blank, non-numeric
+and zero counts, a row with no Movement and one with no year. Read by the S1 suites, the S1 part of
+`tests/oracle/cvi_r_oracle.R` and `make_bundles.js` (the ZIP cases).
+
+## `cvi_master_small_expected.json` (S1: hand oracle)
+
+The expected map for `cvi_master_small.csv`, worked out by hand from CVI's mapping rules: county totals, which
+counties each direction includes, label anchors and circle radii (log, linear and square root) for eight views.
+Independent of the R and JavaScript code; read by `tests/node/run_s1_unit_tests.js`.
+
+## `cvi_master_wa39.csv` (S1: all 39 WA counties)
+
+About 1,500 made-up rows covering every WA county over two years and four quarters, written by
+`make_cvi_master_fixtures.js` (through `site/cvi/sample.js`, which also builds the landing page's sample). Counts, CVI
+numbers and coordinates are invented; the county points are the Census-derived label points of `site/geo/wa-counties.js`.
+
+## `cvi_master_movement.csv` (MC: within-state movement)
+
+About 600 made-up rows written by `make_cvi_movement_fixtures.js`: a few heavy corridors between neighboring counties,
+within-county movement, a long tail of light pairs, some interstate rows, and edge rows at the end (one rule each).
+Read by the MC suites and `tests/oracle/mc_oracle.R`.
+
+## `nr_crossborder.csv` (NR: places across the border)
+
+Thirty made-up places, each a facility site or a master's origin or destination in Washington, Idaho, Oregon, British
+Columbia or outside them, with the result expected from `locate()` and `resolve()` (`ok` with its county key,
+`mismatch`, `unknown`, `outside` or `none`) and a note saying why. Read by `tests/node/run_nr_unit_tests.js`.
+
+## `f1_checklist_matrix.json` (F1: expected checklists)
+
+Written by hand from the loader's rules, not from its code: for each bundle case made by `make_bundles.js` (the tiers
+and the negative cases), the dataset each file is used as, the files not used and why, and the features offered. Read
+by the F1 unit and Chrome suites and the Safari core run.
+
+## Generators
+
+Each generator is deterministic (no clock, no random numbers without a fixed seed) and writes only synthetic values.
+Run them from the repository root; `tests/README.md`, section 2, gives the order.
+
+- `make_cvi_master_fixtures.js` rewrites the committed `cvi_master_wa39.csv` and `cvi_master_s4.csv`.
+- `make_cvi_movement_fixtures.js` rewrites the committed `cvi_master_movement.csv`.
+- `make_bundles.js` writes the F1 example bundles under `local-test-artifacts/f1/`: ZIPs written the way common tools
+  write them, damaged and hostile archives, the Full, Partner and Public tiers, the negative cases and the
+  landing page's sample. The F1 unit suite runs it.
+- `make_test_tables.js` copies synthetic tables into `test-tables/` for the suites and for trying the pages by hand;
+  it keeps any file it did not make. The F1 unit suite runs it at the end.
+- `make_cvi_focus_fixtures.js --<mode>` writes the County Focus (S5) inputs under `local-test-artifacts/s5/`, one mode
+  per call: `--scaling-gate`, `--membership`, `--premises`, `--payloads`, `--module-route`, `--module-facilities`,
+  `--module-tiers`, `--facilities` and `--clusters`.
+- `make_cvi_facilities_fixtures.js` writes the Infrastructure (S6) inputs to `local-test-artifacts/s6/day1/`; with
+  `--entryflow`, the entry-flow fixtures to `local-test-artifacts/s6/day2/fixtures/`.
+- `make_cvi_s7_fixtures.js` writes the Charts (S7) master, with all 38 of CVI's master columns and the values CVI's
+  CSV reader and writer treat specially, to `local-test-artifacts/s7/fixtures/`.
+- `make_s9_facilities.js` writes facility layers for the branded PNGs (S9): one set inside the two focus counties
+  (`local-test-artifacts/s9/facilities/`) and one statewide set (`local-test-artifacts/s9/facilities-wa/`).
+- `make_s9_tiles.js` is a module, not a command: the S9 Chrome suite uses it to answer the page's map-tile requests
+  with checkerboard PNGs, so the tile backgrounds are tested with no network.
+- `make_s11_fixtures.js` writes the Premise Lookup (S11) scenarios to `local-test-artifacts/s11/fixtures/` and the
+  `s11_*` files to `test-tables/`.

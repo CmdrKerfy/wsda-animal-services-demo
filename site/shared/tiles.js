@@ -17,8 +17,8 @@
   const HOST = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
   // CVI's choices (mod_maps.R 4463-4468), their services, credits (TB 91-103), largest zooms (TB 31-39) and themes
   // (static_map_renderer.R 1526-1600: "satellite" and "hillshade" have their own; Shaded Relief keeps the standard).
-  // publish: false: held back from a public copy with the Esri basemaps until WSDA's Esri terms are confirmed
-  // (site/PROVENANCE.md); a public copy (shared/release.js) offers none of them.
+  // publish: false: cleared for WSDA's own pages with the Esri basemaps (site/PROVENANCE.md); a copy made with
+  // shared/release.js publicCopy true offers none of them.
   const ALL_BACKGROUNDS = {
     'raster:esri_satellite': { label: 'Satellite', service: 'World_Imagery/MapServer', maxZoom: 19,
       attribution: 'Source: Esri, Maxar, Earthstar Geographics', theme: 'satellite', publish: false },

@@ -40,7 +40,7 @@
   // The point layer and the cluster layer for each selected facility layer.
   function facilityLayers(st) {
     return (st.facilityLayers || []).flatMap((l, i) => [
-      // A facility in its layer's mark (UI pass); a cluster stays a circle in the layer's color, under its count.
+      // A facility in its layer's mark; a cluster stays a circle in the layer's color, under its count.
       root.CVIWA.map.markLayer(POINT(i), SRC(i), root.CVIWA.map.markId(l.shape, l.color),
         { filter: ['!', ['has', 'point_count']] }),
       { id: CLUSTER(i), type: 'circle', source: SRC(i), filter: ['has', 'point_count'],

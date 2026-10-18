@@ -78,7 +78,7 @@
     { key: 'restricted', file: 'wa_state_restricted_holding_facilities.csv', nameColumn: 'NAME', color: '#ca3014',
       label: 'Restricted', liveLabel: 'Restricted Holding Facilities', group: 'Holding & Feeding' }
   ];
-  // The built-in layers' marks (UI pass): a shape each, and Feedlots
+  // The built-in layers' marks: a shape each, and Feedlots
   // in the guide's Blue Green (CVI: #0097a7). The other built-in colors are CVI's, already guide colors.
   const BUILTIN_MARKS = {
     slaughterhouses: { shape: 'square' },
@@ -257,7 +257,7 @@
     return { ok: true, points, dropped, outOfRange, nameColumn: nc };
   }
 
-  // ---- UI pass: one mark (a shape and a color) per facility layer -------------------------------------------------
+  // ---- One mark (a shape and a color) per facility layer ----------------------------------------------------------
   // Ten shapes; every layer gets a shape and color pair no other layer has, and one shape never carries two colors that
   // look alike, in normal vision or in the three simulated color-vision types. The pages draw the same mark on the live
   // maps, the PNGs, the legends, the layer lists and the Infrastructure count cards.

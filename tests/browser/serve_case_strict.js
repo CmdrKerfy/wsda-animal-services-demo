@@ -16,7 +16,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-// SITE_ROOT: another copy of site/ to serve (for example the release copy, local-test-artifacts/release-copy/copy/site).
+// SITE_ROOT: another copy of site/ to serve (for example a public copy's site/ folder).
 const SITE = process.env.SITE_ROOT ? path.resolve(process.env.SITE_ROOT) : path.resolve(__dirname, '..', '..', 'site');
 const PORT = Number(process.argv[2] || 8765);
 const TYPES = {

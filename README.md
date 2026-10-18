@@ -23,8 +23,8 @@ decides; third-party materials keep their own terms (`site/PROVENANCE.md`).
 
 ## About this copy
 
-- Synthetic (made-up) data only; not an official WSDA service. Do not load real records into a hosted copy.
-- Map backgrounds whose terms are not yet confirmed for public use (CARTO, and Esri's basemaps and PNG
-  backgrounds) are left out; the others are free public services (`site/PROVENANCE.md`).
+- The pages read the files a user loads, in the browser tab; nothing is uploaded or stored. The data files in
+  this repository (the test fixtures and the downloadable samples) are synthetic (made up).
+- Map backgrounds and their terms: `site/PROVENANCE.md`.
 - Contributions keep to synthetic fixtures only, and add no personal paths, user names, secrets or
   machine-specific settings to code or configuration.

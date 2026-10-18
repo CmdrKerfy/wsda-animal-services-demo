@@ -8,7 +8,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.resolve(__dirname, '..', '..');
 const SB = { console, URL };
 vm.createContext(SB);
-// shared/release.js first, as on the pages: in a public copy (phase B) the list offered is the cleared basemaps only.
+// shared/release.js first, as on the pages: in a public copy the list offered is the cleared basemaps only.
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'site', 'shared', 'release.js'), 'utf8'), SB, { filename: 'release.js' });
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'site', 'cvi', 'app', 'basemaps.js'), 'utf8'), SB, { filename: 'basemaps.js' });
 const B = SB.CVIWA.basemaps;
@@ -135,7 +135,7 @@ const html = fs.readFileSync(path.join(ROOT, 'site', 'cvi', 'index.html'), 'utf8
 const csp = (/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html) || [])[1] || '';
 const dir = name => ((new RegExp('(?:^|;)\\s*' + name + ' ([^;]*)')).exec(csp) || [])[1];
 check(same((dir('connect-src') || '').trim().split(/\s+/).sort(), plain(B.hosts()).map(h => 'https://' + h).sort()), 'CSP connect-src: exactly the basemap hosts, https', { csp: dir('connect-src'), hosts: B.hosts() });
-// font-src: the site's own Open Sans file (was 'none' before the UI pass).
+// font-src: the site's own Open Sans file (was 'none' before the site had its own font).
 check(dir('default-src') === "'none'" && dir('img-src') === 'data: blob:' && dir('font-src') === "'self' file:" && dir('script-src') === "'self' file:" && dir('frame-src') === "'none'"
   && dir('form-action') === "'none'" && dir('base-uri') === "'none'", 'CSP: other directives as before S3 (fonts: the site\'s own file)', csp);
 check(/<meta name="referrer" content="no-referrer">/.test(html), 'referrer off (no-referrer)');
@@ -148,7 +148,7 @@ check(same(infraConnect.trim().split(/\s+/).sort(), plain(B.hosts()).map(h => 'h
 check(/<meta name="referrer" content="no-referrer">/.test(infraHtml), 'Infrastructure: referrer off (no-referrer)');
 check(same(plain(B.hosts()), [...new Set(OFFERED.flatMap(b => b.hosts))].sort()), 'hosts(): every host of the list, sorted, once');
 
-// 7. The public-copy switch (phase B, shared/release.js): with publicCopy true, the list, the picker and the hosts
+// 7. The public-copy switch (shared/release.js): with publicCopy true, the list, the picker and the hosts
 // keep only the basemaps cleared for public use, and the PNG backgrounds held back with the Esri basemaps are gone.
 const PB = { console, URL };
 vm.createContext(PB);

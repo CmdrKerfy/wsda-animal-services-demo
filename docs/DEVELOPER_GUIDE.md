@@ -47,10 +47,10 @@ Each page sets a Content Security Policy in a `<meta http-equiv="Content-Securit
 The offline county map is the default and fetches nothing. A tile basemap is fetched only when the user picks one.
 The list of basemaps and their hosts is in `site/cvi/app/basemaps.js` (`allowed()` is the gate that `map.js`
 applies to every request MapLibre makes). The CSP's `connect-src` on the CVI and Infrastructure pages is the outer
-limit and must list the same hosts. A basemap marked `publish: false` is held back from any public copy until its
-terms are confirmed. The branded PNG tile backgrounds come from Esri's `server.arcgisonline.com`, through
-`site/shared/tiles.js`, with the live map's request rules (no redirect, no credentials, no referrer); they are under
-the same Esri hold as the Esri basemaps, so a public copy without Esri's terms removes them from the pickers too
+limit and must list the same hosts. A basemap marked `publish: false` (CARTO, Esri) has terms that cover WSDA's own
+pages only; a copy for another host leaves it out (section 4, "A public copy"). The branded PNG tile backgrounds come from Esri's `server.arcgisonline.com`, through
+`site/shared/tiles.js`, with the live map's request rules (no redirect, no credentials, no referrer); they follow
+the Esri basemaps, so a copy without Esri's terms removes them from the pickers too
 (`site/PROVENANCE.md`).
 
 ## 2. How the pages are put together
@@ -384,12 +384,15 @@ hosts.
 
 ### A public copy
 
-`site/shared/release.js` holds one setting, `publicCopy` (false in this repository). Set to true, `basemaps.js`
+`site/shared/release.js` holds one setting, `publicCopy`: false on WSDA's pages, which offer every provider; a copy
+for another host, whose use of CARTO's and Esri's services is not covered, is made with it set to true and leaves out
+the providers marked `publish: false`. Set to true, `basemaps.js`
 offers only the basemaps with `publish: true`, `tiles.js` offers only the PNG backgrounds with `publish: true`, and
 `tiles.js`'s `prunePickers()` (called by `cvi/app/ui.js` and `infrastructure/app.js`) takes the others out of the
 PNG pickers. A public copy is made with it set to true and both dashboards' CSP `connect-src` fitted to the hosts of
-the basemaps it offers (the S3 unit tests compare the two). When a held-back provider's terms are confirmed, set its
-entries to `publish: true` and add its hosts back to `connect-src`.
+the basemaps it offers (the S3 unit tests compare the two, in the copy too). Review the copy itself before it is
+published, and check that the published files are identical to the reviewed ones. When a provider's terms come to
+cover any host, set its entries to `publish: true`.
 
 ## 5. Coding conventions
 
@@ -531,9 +534,9 @@ These decisions shape the code and the release. Keep to them unless the agency d
   redirects are refused and the credit is shown. National Flow and Premise Lookup's address lookup are offline only,
   and the tests make no network requests. A network address lookup, if ever added, would be the Census geocoder only,
   opt-in and with a notice, and needs the agency's decision.
-- **Held-back providers.** CARTO (six basemaps) and Esri (six basemaps and the three PNG tile backgrounds) stay out
-  of any public copy until their terms are confirmed; WSDOT and the WA Department of Revenue city limits are cleared.
-  The public-copy switch handles this (section 4, "A public copy").
+- **Providers cleared for WSDA's pages only.** CARTO (six basemaps) and Esri (six basemaps and the three PNG tile
+  backgrounds) are cleared for WSDA's own pages; a copy for another host leaves them out with the public-copy switch
+  (section 4, "A public copy"). WSDOT and the WA Department of Revenue city limits are cleared for any copy.
 - **Parity with CVI.** CVI's app is the reference and is never changed; the tests compare the pages with CVI's own R
   functions. Branded PNGs and GIFs follow CVI at structural parity (the same elements, values, colors and layout
   regions), not pixel for pixel. Every deliberate difference is listed in `docs/DELIBERATE_DIFFERENCES.md`; a new one
@@ -541,7 +544,7 @@ These decisions shape the code and the release. Keep to them unless the agency d
 - **Brand and accessibility.** WSDA-named palettes use the brand guide's exact colors; other CVI palettes are
   unchanged. Open Sans is bundled; text keeps to 0.85rem for body text and 0.75rem for notes and tables. Page text
   meets 4.5:1 contrast; on the PNGs and GIFs, text under 11 pt is only black or white. Facility layers get a shape as
-  well as a color. The logo and tab icon need the Communications Office's approval before public hosting.
+  well as a color. The logo and tab icon are approved for WSDA's pages, a public demo copy included.
 - **Conventions.** American spelling in all new text (quotes and proper names as written); readable code in the
   surrounding style (section 5); no new library or install without approval.
 - **Release wording.** The banner's "SYNTHETIC DATA ONLY" badge and the footer line "Synthetic test data only. Not an

@@ -1,4 +1,4 @@
-/* WA State map period modes (S2b): Single period, Browse over time and Compare two periods.
+/* WA State map period modes: Single period, Browse over time and Compare two periods.
  * Port of CVI's WA map module (county_period_mode, .time_slider_filter, .wire_time_slider, the master-load domains,
  * county_circle_data_b, county_period_summary, the compare labels and the period part of Reset All). Pure functions;
  * ui.js keeps the state and draws. Deliberate differences: the Browse header names the period on

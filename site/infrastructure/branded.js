@@ -712,7 +712,7 @@
       out.push({ y: hdr + sz(0.05), rule: { color: '#bbbbbb', width: 0.3, x0: 0.06, x1: 0.94 } });
       out.push({ gap: 6, pageOnly: true });   // the page's layout: room under the divider
       out.push({ y: hdr, text: 'CLUSTER SIZE', pt: BR.textPt(sz(3.2)), color: '#222222', bold: true });
-      // CVI: "circle size"; the marks have their layer's shape since the UI pass, so "mark size".
+      // CVI: "circle size"; the marks have their layer's shape, so "mark size".
       out.push({ y: hdr - sz(0.058), text: 'mark size = facilities in county', pt: BR.textPt(sz(2.5)), color: gray,
         italic: true });
       const counts = g.classes.legend.counts;

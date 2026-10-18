@@ -790,7 +790,7 @@ async function partDay4(b) {
     bg: document.getElementById('lk-png-background').value, qualityHidden: document.getElementById('lk-png-quality-field').hidden,
     res: document.getElementById('lk-png-resolution').value, labels: document.getElementById('lk-png-labels').checked,
     options: [...document.getElementById('lk-png-background').options].map(o => o.value) }))()`);
-  // A public copy (phase B, shared/release.js) offers no Esri background: Streets and Default only, and the
+  // A public copy (shared/release.js) offers no Esri background: Streets and Default only, and the
   // tile-background checks below stay with the private build.
   const publicCopy = await p.eval('!!(window.WSDA && WSDA.release && WSDA.release.publicCopy)');
   const esri = publicCopy ? [] : ['raster:esri_satellite', 'raster:esri_relief', 'raster:esri_hillshade'];
@@ -1609,10 +1609,12 @@ async function partDay5(b) {
   } finally {
     check(!b.log.exceptions.length, 'page: no exceptions', b.log.exceptions);
     check(!b.log.csp.length, 'page: no Content Security Policy reports', b.log.csp);
-    // Requests the suite answered itself (part day4's tile backgrounds) never leave the computer.
-    const outside = b.log.requests.filter(u => !/^(file:|data:|blob:|about:|http:\/\/127\.0\.0\.1:8765\/)/.test(u) &&
+    // Requests the suite answered itself (part day4's tile backgrounds) are not counted.
+    // Only the site's own files (file://, the local server or a hosted copy of site/) and in-page addresses.
+    const siteBase = new URL('../', PAGE).href;
+    const outside = b.log.requests.filter(u => !/^(data:|blob:|about:)/.test(u) && !u.startsWith(siteBase) &&
       !(b.answered && b.answered(u)));
-    check(!outside.length, 'page: no request leaves this computer', outside);
+    check(!outside.length, 'page: no request outside the site', outside);
     await b.close();
   }
   run.passed = passed;

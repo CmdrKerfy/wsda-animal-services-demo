@@ -41,11 +41,11 @@ const OUT = path.join(ROOT, 'local-test-artifacts', 'choropleth', 'browser');
 const PAGE = process.env.CH_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'cvi', 'index.html')).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ALL_PARTS = ['wa', 'records', 'flow', 'insets', 'png'];
-// Parts run only when named on the command line.
-const BOARD_PARTS = [];
+// Every part a command may name.
+const KNOWN_PARTS = ALL_PARTS.slice();
 const asked = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const PARTS = asked.length ? asked : ALL_PARTS;
-if (PARTS.some(x => ALL_PARTS.indexOf(x) < 0 && BOARD_PARTS.indexOf(x) < 0)) throw new Error('Unknown part: ' + PARTS);
+if (PARTS.some(x => KNOWN_PARTS.indexOf(x) < 0)) throw new Error('Unknown part: ' + PARTS);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 

@@ -24,7 +24,7 @@
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const listOf = a => a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
   const label = c => typeof c === 'string' ? c : c.label;
-  // A button's icon (UI pass), when the page has the icons (the Node suites build the guide without them).
+  // A button's icon, when the page has the icons (the Node suites build the guide without them).
   const icon = name => (root.WSDA && root.WSDA.brand && root.WSDA.brand.iconHtml ? root.WSDA.brand.iconHtml(name) : '');
   const size = n => n < 1048576 ? Math.round(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
   const colWord = cols => 'the ' + listOf(cols.map(c => '"' + c + '"')) + (cols.length === 1 ? ' column' : ' columns');
@@ -131,9 +131,9 @@
     '    │   └── (each layer the manifest lists)',
     '    └── emergency/                           later, with the Emergency dashboard'
   ].join('\n');
-  const ALL_EXAMPLE = { label: 'WSDA Animal Services – full data, October 2026', prepared: '2026-10-13',
+  const ALL_EXAMPLE = { label: 'Example bundle – October 2026', prepared: '2026-10-13',
     coverage: { from: '2019-01-01', to: '2026-09-30' }, profiles: ['cvi', 'infrastructure'],
-    release: { name: 'Internal – full', version: '1', date: '2026-10-13' } };
+    release: { name: 'Example', version: '1', date: '2026-10-13' } };
   const LAYOUT_POINTS = [
     'Folders are for people. Each file is recognized by its own name and columns, so folders can be renamed or left out.',
     'Shared data goes in once: the facility layers sit in one folder, and every dashboard uses the same copy.',

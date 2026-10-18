@@ -8,9 +8,9 @@
 // The unmutated suites run first in the same copy and must pass. No installations or source-project writes.
 const fs = require('fs'), path = require('path'), cp = require('child_process'), crypto = require('crypto');
 const ROOT = path.resolve(__dirname, '../..');
-// Logs and a ledger: local-test-artifacts/s6/r16/mutations/.
-const OUT = path.join(ROOT, 'local-test-artifacts/s6/r16/mutations');
-const TEMP = path.join(ROOT, 'local-test-artifacts/s6/r16/mutation-copy'), COPY = path.join(TEMP, 'platform');
+// Logs and a ledger: local-test-artifacts/s6/mutations/.
+const OUT = path.join(ROOT, 'local-test-artifacts/s6/mutations');
+const TEMP = path.join(ROOT, 'local-test-artifacts/s6/mutation-copy'), COPY = path.join(TEMP, 'platform');
 const FAC = 'site/shared/facilities.js', MAP = 'site/shared/facilitymap.js', UI = 'site/shared/facility-ui.js';
 const DET = 'site/shared/facility-details.js', INFRA = 'site/infrastructure/app.js', CVI_UI = 'site/cvi/app/ui.js';
 const FOCUS = 'site/cvi/app/focusmap.js', LAND = 'site/landing.js';
@@ -139,7 +139,7 @@ try {
 
   const run = (arg, name) => {
     const t = Date.now();
-    const r = cp.spawnSync(process.execPath, [suite, arg, '--s6-r16'], { cwd: COPY, env, encoding: 'utf8',
+    const r = cp.spawnSync(process.execPath, [suite, arg, '--by-part'], { cwd: COPY, env, encoding: 'utf8',
       maxBuffer: 64 << 20, timeout: 7 * 60000, killSignal: 'SIGINT' });
     const out = (r.stdout || '') + (r.stderr || '');
     fs.writeFileSync(path.join(OUT, mode + '-' + name + '.log'), out);

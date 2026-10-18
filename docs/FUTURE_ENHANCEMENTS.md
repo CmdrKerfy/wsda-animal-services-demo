@@ -70,11 +70,10 @@ scope and approval when its time comes.
     `export_params.json` records the choices behind an export. To decide later: a fuller provenance block (file
     names, preparation date, filters) as an optional footer, shown first as a mock-up beside today's PNG.
 
-11. **CVI's later candidates** (none in this release). From CVI's own backlog, not built in CVI either: a preferences
-    page (settings kept in the browser; CVI C21), color by an attribute for one facility layer (C29), glyph and label
-    size controls for the facility PNGs (P2-B), a small-multiples grid export (C17; a leadership priority in CVI's
-    plan), and a directional gradient along the flow lines. (CVI's Alaska and Hawaii insets, also on that list, were
-    built for this release.)
+11. **CVI's later candidates** (none in this release). From CVI's own list of later work, not built in CVI either: a
+    preferences page (settings kept in the browser), color by an attribute for one facility layer, glyph and label
+    size controls for the facility PNGs, a small-multiples grid export (high on CVI's list), and a directional
+    gradient along the flow lines. (CVI's Alaska and Hawaii insets, also on that list, were built for this release.)
 
 12. **A size limit for the CVI master table.** The loader accepts any file up to 512 MB, but a master is read whole
     and takes about 25 times its size in the browser's memory, so a very large one is slow or fails with no word

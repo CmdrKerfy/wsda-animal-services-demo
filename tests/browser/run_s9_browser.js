@@ -677,7 +677,7 @@ async function partAdditions(b) {
 }
 
 // ── Part: tile backgrounds (no network) ───────────────────────────────────────────────────────────────────────
-// A public copy (phase B, shared/release.js) offers no Esri background: the tile-background checks stay with the
+// A public copy (shared/release.js) offers no Esri background: the tile-background checks stay with the
 // private build, and a public copy checks instead that its pickers offer none.
 const publicCopy = p => p.eval('!!(window.WSDA && WSDA.release && WSDA.release.publicCopy)');
 const noEsriOffered = (p, id) => p.eval(`[...document.getElementById('${id}').options].map(o => o.value)`)
@@ -1695,10 +1695,12 @@ async function partViewGif(b) {
   } finally {
     check(!b.log.exceptions.length, 'page: no exceptions', b.log.exceptions);
     check(!b.log.csp.length, 'page: no Content Security Policy reports', b.log.csp);
-    // Requests the suite answered itself (the backgrounds part) never leave the computer.
-    const outside = b.log.requests.filter(u => !/^(file:|data:|blob:|about:|http:\/\/127\.0\.0\.1:8765\/)/.test(u) &&
+    // Requests the suite answered itself (the backgrounds part) are not counted.
+    // Only the site's own files (file://, the local server or a hosted copy of site/) and in-page addresses.
+    const siteBase = new URL('../', PAGE).href;
+    const outside = b.log.requests.filter(u => !/^(data:|blob:|about:)/.test(u) && !u.startsWith(siteBase) &&
       !(b.answered && b.answered(u)));
-    check(!outside.length, 'page: no request leaves this computer', outside);
+    check(!outside.length, 'page: no request outside the site', outside);
     await b.close();
   }
   run.passed = passed;

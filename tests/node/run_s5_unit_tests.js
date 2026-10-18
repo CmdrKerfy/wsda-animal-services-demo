@@ -862,8 +862,8 @@ function runFacilities() {
       const l = reg.layers.find(x => x.key === rl.key);
       if (!l) return;
       layersCompared++;
-      // CVI's color is kept as cviColor; `color` is the layer's mark color since the UI pass (Feedlots #0094aa, added
-      // layers from six guide color families), a deliberate difference checked in the UI unit suite.
+      // CVI's color is kept as cviColor; `color` is the layer's own mark color on these pages (Feedlots #0094aa,
+      // added layers from six guide color families), a deliberate difference checked in the UI unit suite.
       for (const [a, b] of [['file', 'file'], ['nameColumn', 'name_col'], ['cviColor', 'color'], ['label', 'label'], ['liveLabel', 'live_label'], ['group', 'group']])
         check(l[a] === rl[b], name + '/' + rl.key + ' ' + a, [l[a], rl[b]]);
       const fp = path.join(dir, l.file);
@@ -894,7 +894,7 @@ function runFacilities() {
   pr = probe('name,lat,long\nInvalid,91,-122\nOutside picked county,46,-117\n');
   check(pr.ok && pr.points.length === 1 && pr.points[0].name === 'Outside picked county' && pr.outOfRange === 1,
     'probe: valid coordinates remain usable even outside selected counties', pr);
-  // R 4.4.3 on this Mac: make.names(c("a","a","a.1","","if","2x",".5","é b","_x","a b","TRUE"), unique = TRUE).
+  // R 4.4.3 on a Mac (arm64): make.names(c("a","a","a.1","","if","2x",".5","é b","_x","a b","TRUE"), unique = TRUE).
   check(F.makeNames(['a', 'a', 'a.1', '', 'if', '2x', '.5', 'é b', '_x', 'a b', 'TRUE']).join('|') === 'a|a.2|a.1|X|if.|X2x|X.5|é.b|X_x|a.b|TRUE.', 'probe: make.names as R\'s (recorded output)');
   const result = { passed, failed, failures, cases: Object.keys(meta.cases).length, layersCompared, pointsCompared,
     sourceSha256: hash(path.join(ROOT, 'site/shared/facilities.js')), referenceSha256: hash(refPath), oracleSha256: ref.meta.oracle_sha256 };

@@ -1586,8 +1586,10 @@ async function partSpecial(b) {
   } finally {
     check(!b.log.exceptions.length, 'page: no exceptions', b.log.exceptions);
     check(!b.log.csp.length, 'page: no Content Security Policy reports', b.log.csp);
-    const outside = b.log.requests.filter(u => !/^(file:|data:|blob:|http:\/\/127\.0\.0\.1:8765\/)/.test(u));
-    check(!outside.length, 'page: no request leaves this computer', outside);
+    // Only the site's own files (file://, the local server or a hosted copy of site/) and in-page data addresses.
+    const siteBase = new URL('../', PAGE).href;
+    const outside = b.log.requests.filter(u => !/^(data:|blob:)/.test(u) && !u.startsWith(siteBase));
+    check(!outside.length, 'page: no request outside the site', outside);
     await b.close();
   }
   run.passed = passed;

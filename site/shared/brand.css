@@ -86,7 +86,7 @@ button, input, select, textarea { font-family: inherit; font-size: 0.85rem; }
 /* The banner: the WSDA symbol as CVI's app shows it (32 px high, about 0.8 inch wide, above the guide's
    0.75 inch minimum), full color with its white interior on Dark Blue (the guide's page 3), with clear space larger
    than the height of its "W" (about 8.3 px) on every side: 9 px above and below, 16 px left and right;
-   then the platform's name, the dashboard's name and one badge. 50 px high (--banner-height), which the CVI page's
+   then the platform's name and the dashboard's name. 50 px high (--banner-height), which the CVI page's
    layout subtracts from the window's height. */
 :root { --banner-height: 50px; }
 header.top { background: var(--primary); color: #fff; min-height: var(--banner-height); padding: 9px 1rem;
@@ -95,8 +95,6 @@ header.top .brand-logo { display: block; flex: none; height: 32px; width: auto; 
 header.top h1 { font-size: 1.1rem; margin: 0; font-weight: 600; }
 header.top .dashboard-name { font-weight: 400; margin-left: 0.4rem; padding-left: 0.65rem;
   border-left: 1px solid rgba(255, 255, 255, 0.7); }
-.badge { font-size: 0.75rem; background: var(--wsda-gold); color: var(--wsda-dark-brown); padding: 0.15rem 0.5rem;
-  border-radius: 3px; font-weight: 700; }
 
 /* The footer: the agency's name on every page (the symbol-only logo needs it nearby), then the page's own lines. */
 footer.foot { font-size: 0.75rem; color: var(--muted); padding: 0.4rem 1rem; border-top: 1px solid var(--border); }
@@ -124,7 +122,7 @@ footer.foot details.glossary dd { margin: 0; }
 .status.warn { background: var(--notice-bg); color: var(--notice-text); }
 .status.err { background: var(--error-bg); color: var(--error-text); }
 
-/* A facility layer's mark (UI pass): its shape and color as on the map, in the layer lists, the legends and
+/* A facility layer's mark: its shape and color as on the map, in the layer lists, the legends and
    the Infrastructure count cards. The pages' own .facility-swatch rules give the place; this box drops the old
    round color dot. */
 .facility-swatch.facility-mark-box { width: 18px; height: 18px; flex: 0 0 18px; border-radius: 0;
@@ -133,7 +131,7 @@ footer.foot details.glossary dd { margin: 0; }
 .count-card-label { display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem; }
 .count-card-label .facility-mark-box { margin: 0; }
 
-/* Buttons (UI pass): every action button the same size on every page (0.85rem words, at least 2rem high),
+/* Buttons: every action button the same size on every page (0.85rem words, at least 2rem high),
    Dark Blue words and edge on white, a Bootstrap icon (.btn-icon) before the words. Filled Dark Blue for a section's
    main action (.primary, .export-btn); gray for Reset All, full width at the end of the filters on every dashboard. */
 .btn { font: inherit; font-size: 0.85rem; font-weight: 600; line-height: 1.2; min-height: 2rem; padding: 0.35rem 0.7rem;

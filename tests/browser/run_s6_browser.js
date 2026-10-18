@@ -25,11 +25,12 @@ const keepsFocus = async (page, settle, ids, check) => {
   }
 };
 // S6 entry flow (by default and with --entry-regression; --facilities, --focus and --activity run the other suites)
-// through installed Chrome, foreground command, offline; no packages.
+// through installed Chrome, foreground command, offline; no packages. With --by-part (the S6 mutation runner uses it)
+// each part writes to its own folder, local-test-artifacts/s6/by-part/<entry|infrastructure|focus|activity>/.
 const { spawn } = require('child_process');
 const fs = require('fs'), path = require('path'), { pathToFileURL } = require('url');
-const ROOT = path.resolve(__dirname, '../..'), LATE_DAY = ['r16', 'r15', 'day6', 'day5'].find(d => process.argv.includes('--s6-' + d)),
-  OUT = path.join(ROOT, 'local-test-artifacts/s6', LATE_DAY ? LATE_DAY + '/' + (process.argv.includes('--activity') ? 'activity' : process.argv.includes('--facilities') ? 'infrastructure' : process.argv.includes('--focus') ? 'focus' : 'entry') : process.argv.includes('--focus') ? 'day4' : process.argv.includes('--facilities') ? (process.argv.includes('--s6-day4') ? 'day4/infrastructure' : 'day3') : process.argv.includes('--entry-regression') ? (process.argv.includes('--s6-day4') ? 'day4/entry' : 'day3/entry') : 'day2');
+const ROOT = path.resolve(__dirname, '../..'), BY_PART = process.argv.includes('--by-part'),
+  OUT = path.join(ROOT, 'local-test-artifacts/s6', BY_PART ? 'by-part/' + (process.argv.includes('--activity') ? 'activity' : process.argv.includes('--facilities') ? 'infrastructure' : process.argv.includes('--focus') ? 'focus' : 'entry') : process.argv.includes('--focus') ? 'day4' : process.argv.includes('--facilities') ? 'day3' : process.argv.includes('--entry-regression') ? 'day3/entry' : 'day2');
 const FIX = path.join(ROOT, 'local-test-artifacts/s6/day2/fixtures');
 const PAGE = process.env.S6_PAGE_URL || pathToFileURL(path.join(ROOT, 'site/index.html')).href;
 const SITE_BASE = new URL('.', PAGE).href;

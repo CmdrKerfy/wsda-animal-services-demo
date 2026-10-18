@@ -411,8 +411,8 @@ async function partChecks(b) {
     check(f.logo && f.logo.above >= 9 && f.logo.below >= 9, tag + 'at least 9 px above and below the logo', f.logo);
     check(f.h1 === 'Animal Services Division · Visualization Platform' + (dashboard ? ' ' + dashboard : ''),
       tag + 'the banner\'s names', f.h1);
-    check(f.badges.length === 1 && f.badges[0] === 'SYNTHETIC DATA ONLY', tag + 'one badge', f.badges);
-    check(/^Washington State Department of Agriculture · Synthetic test data only\. Not an official WSDA service\./.test(f.foot || ''),
+    check(f.badges.length === 0, tag + 'no badge in the banner', f.badges);
+    check(/^Washington State Department of Agriculture · Runs entirely in this browser tab; .* never uploaded\./.test(f.foot || ''),
       tag + 'the footer line', f.foot);
     check(first.counts.texts > 40 && second.counts.texts > first.counts.texts,
       tag + 'the page\'s text read (' + first.counts.texts + ' texts, ' + second.counts.texts + ' with the sections open)',
@@ -915,6 +915,7 @@ async function partChartLabels(b) {
   fs.writeFileSync(path.join(OUT, 'chart_labels.json'), JSON.stringify(found, null, 1));
   return { out: found.length };
 }
+
 
 
 // ── Run ────────────────────────────────────────────────────────────────────────────────────────────────────────

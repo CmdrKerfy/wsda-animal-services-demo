@@ -5,9 +5,8 @@
 # Usage (repository root):  Rscript tests/oracle/cvi_r_oracle.R [parts]
 #   parts: any of s1 (S1, F1 tiers and engine cases), s1_1 (S1.1: CVI's palettes and the legend radii by CVI's
 #   .compute_radius, from the s1 files), s2 (S2 and S2b), s3, s4, s5 (scaling gate ONLY), s5-module-route (bounded synthetic module probe), s5-module-facilities (bounded facility injection), s5-module-tiers (actual tier subsets), s5-premises (bounded pure grouping/subsets), s5-payloads (bounded popup/species), s5-facilities (CVI's facility loader, manifest registry and groups on the --facilities fixture);
-#   default all completed parts (s1 through s4); gate-only s5 must be requested explicitly until its full oracle
-#   is built. A part left out is not
-#   written, so its earlier output stays as it was (the full chain runs all parts).
+#   default: s1, s1_1, s2, s3 and s4. The s5 parts run only when named, each after its own fixture (tests/README.md,
+#   section 2, step 4). A part left out is not written, so its earlier output stays as it was.
 # CVI checkout: ../CVI_Traceability (sibling of this repository) or env CVI_TRACEABILITY_DIR.
 # Output: local-test-artifacts/s1/oracle_<fixture>.json, oracle_tier_<tier>.json (F1) and oracle_engine.json; S2 (CVI's
 # WA map module itself, see the S2 section): local-test-artifacts/s2/oracle_s2_<name>.json and format_cases_s2.json
@@ -875,7 +874,7 @@ if (want("s4")) {
 
 # S5 first gate ONLY. Runs the unmodified Focus builder on synthetic CSVs through CVI's loader, using log sizing
 # to get the premises set without a random sample. Independently run exact classInt Fisher (sampling disabled)
-# beside seeded CVI's sampled sizing. The full summary/module/membership oracle waits behind this gate.
+# beside seeded CVI's sampled sizing. The other s5 parts check the module, the premises, the payloads and facilities.
 if ("s5" %in% parts) {
   s5_out <- file.path(repo_root, "local-test-artifacts", "s5")
   s5_gate <- file.path(s5_out, "gate")

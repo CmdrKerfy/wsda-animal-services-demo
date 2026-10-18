@@ -527,7 +527,8 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     await clickMapPoint(actualPremise.lon, actualPremise.lat);
     clicked = await tab.page.eval(`({tables:document.querySelectorAll('#focus-map .focus-click table').length,stack:${h}.clickStack})`);
     check(clicked.tables === 1 && clicked.stack.keys.length > 0, 'Full ZIP Focus: real click at zoom 13 opens the actual premises CVI table', clicked);
-    fs.writeFileSync(path.join(OUT, 'handoff', 's5_r20_full_focus.json'), JSON.stringify({facilities:fd,clicked},null,2));
+    fs.mkdirSync(path.join(OUT, 'handoff'), { recursive: true });
+    fs.writeFileSync(path.join(OUT, 'handoff', 'full_focus.json'), JSON.stringify({facilities:fd,clicked},null,2));
     await tab.page.eval(`if(${h}.clickPopup)${h}.clickPopup.remove()`);
     await tab.page.click(`document.getElementById('show-wa').click()`); await sleep(200);
     // A species ticked under "Refine by species" with Full does not carry over to a master without Species

@@ -19,7 +19,7 @@
 # Usage (repository root):  Rscript tests/oracle/s7_charts_oracle.R [fixture ...]
 # Pictures (for side-by-side comparison with the page):  S7_PICTURES=1 Rscript tests/oracle/s7_charts_oracle.R tier_full s7
 #   saves CVI's drawer charts at the drawer's size (640 x 320 pixels at Shiny's 96 dpi) and copies CVI's export
-#   chart PNGs, for the scenarios in PICTURE_SCENARIOS only, into local-test-artifacts/s7/boards/cvi/; it writes
+#   chart PNGs, for the scenarios in PICTURE_SCENARIOS only, into local-test-artifacts/s7/pictures/cvi/; it writes
 #   no reference JSON.
 # Needs: node tests/node/run_f1_unit_tests.js first (it writes the three tier bundles) and
 #        node tests/synthetic/make_cvi_s7_fixtures.js (the S7 fixture).
@@ -108,7 +108,7 @@ fixtures <- list(
 pictures <- nzchar(Sys.getenv("S7_PICTURES"))
 PICTURE_SCENARIOS <- list(wa = c("default", "one_period"), flow = c("inbound", "combined"),
                           focus = c("two_counties", "all_counties"))
-pictures_dir <- file.path(out_dir, "boards", "cvi")
+pictures_dir <- file.path(out_dir, "pictures", "cvi")
 if (pictures) { unlink(pictures_dir, recursive = TRUE); dir.create(pictures_dir, recursive = TRUE) }
 # Optional arguments name fixtures to run alone (for example: s7 tier_full); the formats always run.
 only <- commandArgs(trailingOnly = TRUE)

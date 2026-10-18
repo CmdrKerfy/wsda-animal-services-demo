@@ -4,8 +4,6 @@ Static web pages that show animal movement and facility data on maps, charts and
 the browser tab: nothing is installed, nothing is uploaded, and the pages make no network request unless you pick an
 online background map. The data comes from the files you load; the site itself holds no records.
 
-**This copy holds synthetic (made-up) test data only.** It is not an official WSDA service.
-
 ## What is here
 
 | Page | What it does |
@@ -45,8 +43,8 @@ downloaded file.
 The maps are drawn offline from county, state and regional outlines in `geo/`. On the CVI page, **Map Style →
 Basemap** offers online background maps (OpenStreetMap-based, USGS, WSDOT and others); a background is fetched only when
 picked, and only from that provider. The page's security policy allows no other address. Credits and licenses:
-[PROVENANCE.md](PROVENANCE.md). Some providers' terms for a public copy are still to be confirmed before public
-hosting (see PROVENANCE.md).
+[PROVENANCE.md](PROVENANCE.md). Every provider's terms are confirmed for WSDA's pages;
+a copy for another host leaves out CARTO and Esri, whose terms cover WSDA's own pages only (see PROVENANCE.md).
 
 ## Known limits of the CVI and Infrastructure release
 

@@ -5,7 +5,9 @@ Where the page differs from CVI's own app on purpose, and why.
 The CVI Traceability dashboard follows CVI's own app (`CVI_Traceability`, its Shiny modules and the R functions behind
 them) wherever it can, and its tests compare the page with CVI's functions run on the same synthetic files. Where the
 page does something else on purpose, it is listed here with its reason. The first section lists CVI behaviors kept on
-purpose even though they may look odd. New differences are added to the top of the second section.
+purpose even though they may look odd. New differences are added to the top of the second section. A copy for another host,
+made with `publicCopy` set to true (`site/shared/release.js`), leaves out the CARTO and Esri basemaps and the Esri PNG
+backgrounds this document mentions.
 
 ## Known CVI behaviors reproduced on purpose
 
@@ -39,7 +41,7 @@ purpose even though they may look odd. New differences are added to the top of t
   written as CVI's writer writes them: a cell starting with `=`, `+`, `-` or `@` is kept as it is, so a spreadsheet may
   read it as a formula. Only the page's own facilities CSV guards such cells; the rule covers all three of CVI's files.
 - Fractional animal counts: R sums them in long double on x86-64 (e.g. CVI on a Windows PC), the browser in double, so
-  a total with fractions could differ in its last bit there (not seen on the test Mac, arm64, where R also sums in
+  a total with fractions could differ in its last bit there (not seen on an arm64 Mac, where R also sums in
   double; synthetic fixtures use exactly representable fractions only; not verified on Windows).
 
 ## Deliberate differences from CVI
@@ -503,8 +505,8 @@ purpose even though they may look odd. New differences are added to the top of t
   — tile fetch blocked for PNG)") and "Esri Physical (low zoom)" (CVI: "Esri Physical (live map only — low zoom,
   blocky PNG)"). Under the picker, WSDOT says what it covers (Washington and the land just around it, from the
   whole-state view closer; nothing is asked for outside a box around that), and Esri Shaded Relief and Physical say
-  Esri plans to retire them in March 2028. **Held back from any public copy** (`publish: false` in `basemaps.js`):
-  CARTO x6 and Esri x6 (terms). WSDOT is cleared for a public copy.
+  Esri plans to retire them in March 2028. **Left out of a copy for another host** (`publish: false` in
+  `basemaps.js`): CARTO x6 and Esri x6 (their terms cover WSDA's own pages). WSDOT is cleared for any copy.
 - Label style and Boundary style: CVI's choices and colors. **OpenFreeMap Dark counts as dark for Auto** (CVI's rule
   matches satellite, imagery and dark-matter names, and would give dark gray text on near-black here). USGS Imagery
   and Imagery + Topo count as dark because CVI's rule matches "imagery". When a basemap cannot load, Auto gives the
@@ -525,18 +527,17 @@ purpose even though they may look odd. New differences are added to the top of t
   switch off. The map credit adds "Adapted from Statistics Canada" while BC is drawn (MapLibre's " | " between
   credits); the footer carries Statistics Canada's statement and the Open Government Licence – Canada link at all
   times. Circles, numbers, the opening view and Fit to Washington stay Washington-only.
-- **County Focus popup readability:** premises table text is 14px (CVI's `.mk_focus_popup` uses 0.78em; the page
-  previously rendered about 10.14px under its 13px popup). CVI's columns, 25-row limit and overflow note remain. Header
-  and body cells have 10px horizontal padding on each side (20px between adjacent columns), unlike CVI's unpadded body
-  cells. The table scrolls horizontally and vertically within a 240px limit, reduced in small windows to reserve space
-  for navigation, padding and the popup tip within half the 77vh map (so the popup stays inside the map in Safari);
-  navigation repositions the popup after replacing the table. This is a browser readability difference; CVI is
-  unchanged.
-- **County Focus cluster raw-species labels:** leaf totals use a dictionary without inherited object properties, so
-  supported file labels such as `__proto__`, `constructor` and `toString` keep their numeric sums and appear in hover
-  text. CVI's embedded `applyLeaves` inherits a JavaScript object-key defect for these labels. This narrow safe-label
-  correction keeps the existing sum, sorting and rounding rules; cluster geometry, collision priorities and no-click
-  behavior are unchanged. CVI source is read-only.
+- **County Focus popup readability:** premises table text is 14px, for reading in the browser (CVI's
+  `.mk_focus_popup` uses 0.78em, about 10.14px under the page's 13px popup). CVI's columns, 25-row limit and overflow
+  note are kept. Header and body cells have 10px horizontal padding on each side (20px between adjacent columns; CVI's
+  body cells have none). The table scrolls horizontally and vertically within a 240px limit, less in small windows to
+  leave room for navigation, padding and the popup tip within half the 77vh map (so the popup stays inside the map in
+  Safari); navigation places the popup again after replacing the table.
+- **County Focus cluster raw-species labels:** a species labeled `__proto__`, `constructor`, `toString` or another
+  name every JavaScript object already carries keeps its sum and shows in the cluster's hover text. CVI's embedded
+  `applyLeaves` adds the totals into a plain JavaScript object, so these labels go wrong there. Only these labels
+  differ: the sums, sorting and rounding, the cluster shapes, the collision priorities and the clusters' lack of a
+  click action are CVI's.
 - **County Focus, several premises under a click (a deliberate addition):** CVI opens the CVI table of the premises on
   top only. When a click hits several premises, the page's table has a bar above it, "1 of N · Exporter" (the role of
   the premises shown), with previous and next buttons through every premises under the pointer, topmost first: the

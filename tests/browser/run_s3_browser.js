@@ -33,7 +33,7 @@ const CHROME = process.env.CHROME_BIN || (process.platform === 'darwin' ? '/Appl
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // The page's basemap list, read the way the page reads it (shared/release.js first), from the site under test: this
-// repository's site/, or another copy named by SITE_ROOT (such as the release copy, which offers fewer basemaps).
+// repository's site/, or another copy of site/ named by SITE_ROOT (a public copy offers fewer basemaps).
 const SITE = process.env.SITE_ROOT ? path.resolve(process.env.SITE_ROOT) : path.join(ROOT, 'site');
 const SB = { console, URL };
 vm.createContext(SB);

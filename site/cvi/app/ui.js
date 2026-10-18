@@ -982,7 +982,7 @@
   }
 
   // ---- legend (mod_maps.R map_legend_ui, county branch) ----------------------------------------------------------
-  // S1.1 (deliberate differences): each direction swatch shows the circles' color as the map draws it
+  // A deliberate difference: each direction swatch shows the circles' color as the map draws it
   // (the palette color at the circle opacity over Washington's land fill, over white on a light tile basemap; at full
   // strength on a dark one, whose near-black or imagery has no single color); the white ring as on the
   // map); while a basemap's style is still loading the county map shows and the swatch already follows the basemap;
@@ -2784,7 +2784,7 @@
   }
 
   // The PNG controls follow the view, as CVI's: National Flow offers the Default background only, with a note, and no
-  // A public copy offers only the PNG backgrounds cleared for public use (shared/release.js; phase B).
+  // A public copy offers only the PNG backgrounds cleared for public use (shared/release.js).
   root.WSDA.tiles.prunePickers([$('export-background'), $('lk-png-background')]);
   // Export quality.
   function syncPngControls() {

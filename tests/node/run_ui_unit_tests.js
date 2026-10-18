@@ -230,26 +230,27 @@ PAGES.forEach(pg => {
   const h = headers[0] || '';
   check(/<img class="brand-logo" data-wsda-logo alt="Washington State Department of Agriculture" width="78" height="32">/.test(h),
     tag + 'banner: the logo first, 32 px high (78 x 32, the file\'s 1760 x 724), with its alt text');
-  check(h.indexOf('<img') < h.indexOf('<h1>') && h.indexOf('<h1>') < h.indexOf('class="badge"'), tag + 'banner order: logo, names, badge');
+  check(h.indexOf('<img') >= 0 && h.indexOf('<img') < h.indexOf('<h1>'), tag + 'banner order: logo, then the names');
   const h1 = (/<h1>([\s\S]*?)<\/h1>/.exec(h) || [])[1] || '';
   // The platform's name: "Animal Services Division · Visualization Platform" (it was "WSDA Visualization Platform"; the symbol reads "WSDA" and every footer names the agency).
   const NAME = 'Animal Services Division &middot; Visualization Platform';
   const want = pg.dashboard ? NAME + ' <span class="dashboard-name">' + pg.dashboard + '</span>' : NAME;
   check(h1 === want, tag + 'banner: "Animal Services Division · Visualization Platform"' + (pg.dashboard ? ' and "' + pg.dashboard + '"' : ''), h1);
   const badges = h.match(/<span class="badge"[^>]*>([^<]*)<\/span>/g) || [];
-  check(badges.length === 1 && />SYNTHETIC DATA ONLY</.test(badges[0]), tag + 'banner: one badge, "SYNTHETIC DATA ONLY"', badges);
+  check(badges.length === 0 && !/synthetic/i.test(h), tag + 'banner: no badge and no "synthetic" wording', badges);
   check(!/EXPERIMENT|experiment\)/.test(html.replace(/<!--[\s\S]*?-->/g, '')), tag + 'no slice names in the page (no "EXPERIMENT")');
   const foot = (/<footer class="foot">([\s\S]*?)<\/footer>/.exec(html) || [])[1] || '';
   const line = (/<p class="foot-line">([\s\S]*?)<\/p>/.exec(foot) || [])[1] || '';
   footLines.push(textOf(line).replace(/ Runs entirely.*$/, ''));
+  check(/ Runs entirely in this browser tab; .* never uploaded\.$/.test(textOf(line)) && !/synthetic/i.test(textOf(line)),
+    tag + 'footer: the page runs in the browser tab and uploads nothing; no "synthetic" wording', textOf(line));
   check(foot.trim().startsWith('<p class="foot-line"><span class="agency">Washington State Department of Agriculture</span>'),
     tag + 'footer: opens with the agency\'s name');
   const js = html.indexOf('<script src="' + pg.js + '"></script>');
   check(js > html.indexOf('</header>'), tag + 'loads ' + pg.js + ' after the banner (it sets the logo)');
 });
-check(new Set(footLines).size === 1 && footLines[0] ===
-  'Washington State Department of Agriculture · Synthetic test data only. Not an official WSDA service.',
-  'every page: the same footer line', footLines);
+check(new Set(footLines).size === 1 && footLines[0] === 'Washington State Department of Agriculture ·',
+  'every page: the same footer line (the agency, then that the page runs in the browser tab)', footLines);
 
 // ── 5. The pages' own styles ──────────────────────────────────────────────────────────────────────────────────
 // Map items keep their own colors by design (S1.1, MC, S9, PC, S11): county and place names, counts, legends,

@@ -76,7 +76,7 @@ const before = Object.fromEntries(files.map(f => [f, sha(path.join(ROOT, f))]));
 fs.rmSync(COPY, { recursive: true, force: true });
 fs.cpSync(path.join(ROOT, 'site'), path.join(COPY, 'site'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'tests'), path.join(COPY, 'tests'), { recursive: true, filter: src => !src.startsWith(__dirname) });   // not tests/mutation/
-// The browser suite writes into local-test-artifacts/f1/handoff/ without making the folder (it exists in the repository).
+// The browser suite writes into local-test-artifacts/f1/handoff/ without making the folder first, so the copy makes it.
 fs.mkdirSync(path.join(COPY, 'local-test-artifacts', 'f1', 'handoff'), { recursive: true });
 
 const ENV = Object.assign({}, process.env); delete ENV.F1_PAGE_URL;

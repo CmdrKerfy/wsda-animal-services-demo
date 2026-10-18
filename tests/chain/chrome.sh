@@ -6,7 +6,7 @@ cd "$(dirname "$0")/../.." || exit 2
 source tests/chain/step.sh
 M=$1
 if [ "$M" = http ]; then
-  H=http://127.0.0.1:8765
+  H=${CHAIN_HOST:-http://127.0.0.1:8765}   # CHAIN_HOST: another address of site/ (for example a hosted copy)
   export F1_PAGE_URL=$H/index.html S6_PAGE_URL=$H/index.html UI_SITE_URL=$H/
   for v in S1 S2 S3 S4 S5 S7 S9 MC NR PC S11 CH; do export ${v}_PAGE_URL=$H/cvi/index.html; done
   export PC_INFRA_URL=$H/infrastructure/index.html S9_INFRA_URL=$H/infrastructure/index.html

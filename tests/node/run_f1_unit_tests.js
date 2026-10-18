@@ -487,7 +487,7 @@ async function throwsZip(fn, re, name) {
     const get = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
     const win = { addEventListener() {}, WSDA: { load: { fromFileList: () => new Promise(res => pending.push(res)) } } };
     const ctx = vm.createContext({ window: win, document: { getElementById: get, addEventListener() {}, createElement: node, querySelectorAll: () => [] }, TextDecoder, TextEncoder });
-    // shared/brand.js since the UI pass: the landing page's buttons take their icon and words through it.
+    // shared/brand.js as well: the landing page's buttons take their icon and words through it.
     for (const f of ['shared/brand.js', 'shared/facility-datasets.js', 'shared/recognize.js', 'shared/bundle.js', 'shared/checklist.js', 'shared/sample.js', 'shared/guide.js', 'cvi/datasets.js', 'cvi/sample.js', 'infrastructure/datasets.js', 'infrastructure/sample.js', 'landing.js']) vm.runInContext(fs.readFileSync(path.join(ROOT, 'site', f), 'utf8'), ctx);
     const result = p => ({ items: [{ id: 'f1', path: p, name: p, source: 'files', size: 9, text: async () => 'a,b\n1,2\n' }], ignored: [], errors: [], sources: [] });
     const tick = () => new Promise(r => setImmediate(r));
@@ -880,7 +880,7 @@ async function throwsZip(fn, re, name) {
       /Partner Data Viewer/.test(curator), 'AB guide: the safety note one line, its full text and the Partner Data Viewer line in the curators\' fold');
     check(/cvi\/[\s\S]*CVI_Consolidated_Master\.csv[\s\S]*facilities\/[\s\S]*emergency\//.test(hg) && /Do not put a ZIP inside the ZIP/.test(hg), 'AB guide: the folder layout and its points');
     const ex = await B.read([item(JSON.stringify(G.ALL_EXAMPLE))]);
-    check(ex.found && ex.warnings.length === 0 && String(ex.info.profiles) === 'cvi,infrastructure' && /release Internal – full, version 1, 2026-10-13$/.test(ex.banner),
+    check(ex.found && ex.warnings.length === 0 && String(ex.info.profiles) === 'cvi,infrastructure' && /release Example, version 1, 2026-10-13$/.test(ex.banner),
       'AB guide: its bundle.json example reads without a warning', ex);
     const gc = { innerHTML: '', addEventListener() {} };
     G.create({ container: gc, profiles: [{ id: 'cvi', name: 'CVI', list: CVI, sample: { build: async () => null } }], allInOne: { build: async () => null } });

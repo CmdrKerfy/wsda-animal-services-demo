@@ -36,7 +36,7 @@ const zlib = require('zlib');
 const fs = require('fs'), path = require('path'), vm = require('vm'), crypto = require('crypto');
 const { pathToFileURL, fileURLToPath } = require('url');
 const ROOT = path.resolve(__dirname, '..', '..');
-const OUT = process.argv.includes('--s6-r16') ? path.join(ROOT,'local-test-artifacts/s6/r16/s5',process.env.S5_PAGE_URL ? 'http' : 'file') : process.argv.includes('--s6-r15') ? path.join(ROOT,'local-test-artifacts/s6/r15/s5',process.env.S5_PAGE_URL ? 'http' : 'file') : process.argv.includes('--s6-day6') ? path.join(ROOT,'local-test-artifacts/s6/day6/s5',process.env.S5_PAGE_URL ? 'http' : 'file') : process.argv.includes('--s6-day5') ? path.join(ROOT,'local-test-artifacts/s6/day5/s5',process.env.S5_PAGE_URL ? 'http' : 'file') : process.argv.includes('--s6-day4') ? path.join(ROOT,'local-test-artifacts/s6/day4/s5',process.env.S5_PAGE_URL ? 'http' : 'file') : path.join(ROOT, 'local-test-artifacts', 's5', 'browser');
+const OUT = path.join(ROOT, 'local-test-artifacts', 's5', 'browser');
 const PAGE = process.env.S5_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'cvi', 'index.html')).href;
 const SITE_BASE = new URL('..', PAGE).href;
 const PAGE_LABEL = /^file:/.test(PAGE) ? path.relative(ROOT, fileURLToPath(PAGE)).split(path.sep).join('/') + ' (file://)' : PAGE.split(/[?#]/)[0];
