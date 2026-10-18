@@ -1,0 +1,51 @@
+CVI,Species.Group,Species,Reporting.Year,Reporting.Quarter,Movement,Total.Animals,Origin.State,Origin.County,Origin.County.Lat,Origin.County.Long,Dest.State,Dest.County,Dest.County.Lat,Dest.County.Long
+F001,Cattle,Beef cattle,2024,Q1,Import,1200,ID,N/A,40,-100,WA,Yakima,46.46,-120.74
+F002,Cattle,Dairy cattle,2024,Q2,Import,800,OR,N/A,40,-100,WA,King,47.49,-121.81
+F003,Swine,Swine,2024,Q3,Import,100000,CA,N/A,40,-100,WA,Grant,47.2,-119.45
+F004,Poultry,Chickens,2024,Q4,Import,5000,MT,N/A,40,-100,WA,Spokane,47.62,-117.4
+F005,Equids,Horse,2025,Q1,Import,12,AK,N/A,40,-100,WA,King,47.49,-121.81
+F006,Small Ruminants,Sheep,2025,Q1,Import,45,HI,N/A,40,-100,WA,King,47.49,-121.81
+F007,Cattle,Beef cattle,2025,Q3,Import,300,XX,N/A,40,-100,WA,Benton,46.24,-119.51
+F008,Cattle,Beef cattle,2025,Q3,Import,250,BC,N/A,40,-100,WA,Benton,46.24,-119.51
+F009,Cattle,Beef cattle,2025,Q4,Import,75,"",N/A,40,-100,WA,Benton,46.24,-119.51
+F010,Cattle,Beef cattle,2025,Q4,Import,60,,N/A,40,-100,WA,Benton,46.24,-119.51
+F011,Swine,Swine,2026,Q1,Import,0,NV,N/A,40,-100,WA,Grant,47.2,-119.45
+F012,Poultry,Turkeys,2026,Q1,Import,,UT,N/A,40,-100,WA,Grant,47.2,-119.45
+F013,Poultry,Turkeys,2026,Q1,Import,many,UT,N/A,40,-100,WA,Grant,47.2,-119.45
+F014,Cattle,Beef cattle,2026,Q1,Import,40,UT,N/A,40,-100,WA,Grant,47.2,-119.45
+F015,Cattle,Beef cattle,2026,Q3,Import,500,CO,N/A,40,-100,WA,Yakima,46.46,-120.74
+F016,Cattle,Beef cattle,2026,Q3,Import,500,AZ,N/A,40,-100,WA,Yakima,46.46,-120.74
+F017,Camelids,Alpaca,2026,Q3,Import,7,NM,N/A,40,-100,WA,Spokane,47.62,-117.4
+F018,Camelids,Llama,2026,Q3,Import,2.5,NM,N/A,40,-100,WA,Spokane,47.62,-117.4
+F019,Cattle,Beef cattle,2024,Q2,Import,90,ID,N/A,40,-100,wa,King,47.49,-121.81
+F020,Cattle,Beef cattle,2024,Q2,Export,33,wa,Yakima,46.46,-120.74,TX,N/A,40,-100
+F021,Cattle,Beef cattle,2024,Q2,Import,21,wa,Yakima,46.46,-120.74,WA,King,47.49,-121.81
+F022,Cattle,Dairy cattle,2024,Q1,Export,400,WA,Yakima,46.46,-120.74,OR,N/A,40,-100
+F023,Swine,Swine,2024,Q3,Export,150,WA,Grant,47.2,-119.45,ID,N/A,40,-100
+F024,Poultry,Chickens,2025,Q1,Export,2000,WA,Spokane,47.62,-117.4,CA,N/A,40,-100
+F025,Small Ruminants,Goat,2025,Q3,Export,30,WA,Benton,46.24,-119.51,MT,N/A,40,-100
+F026,Cattle,Beef cattle,2024,Q4,Intrastate,70,WA,Yakima,46.46,-120.74,OR,N/A,40,-100
+F027,Equids,Horse,2025,Q4,,25,WA,King,47.49,-121.81,NV,N/A,40,-100
+F028,Cattle,Beef cattle,2026,Q1,Import,55,WA,Yakima,46.46,-120.74,ID,N/A,40,-100
+F029,Exotic Hoofstock,Bison,2026,Q3,Export,18,WA,Spokane,47.62,-117.4,TX,N/A,40,-100
+F030,Other,Rabbit,2026,Q4,Export,6,WA,King,47.49,-121.81,FL,N/A,40,-100
+F031,Cattle,Beef cattle,2024,Q2,Export,220,WA,Yakima,46.46,-120.74,NY,N/A,40,-100
+F032,Cattle,Beef cattle,2025,Q1,Import,640,CA,N/A,40,-100,WA,Yakima,46.46,-120.74
+F033,Cattle,Dairy cattle,2025,Q1,Import,520,CA,N/A,40,-100,WA,Yakima,46.46,-120.74
+F034,Cattle,Calves,2025,Q1,Import,410,CA,N/A,40,-100,WA,Yakima,46.46,-120.74
+F035,Cattle,Steers,2025,Q1,Import,300,CA,N/A,40,-100,WA,Yakima,46.46,-120.74
+F036,Cattle,Heifers,2025,Q1,Import,300,CA,N/A,40,-100,WA,Yakima,46.46,-120.74
+F037,Cattle,Bulls,2025,Q1,Import,85,CA,N/A,40,-100,WA,Yakima,46.46,-120.74
+F038,Cattle,Cows,2025,Q1,Import,64,CA,N/A,40,-100,WA,Yakima,46.46,-120.74
+F039,Cattle,Feeder cattle,2025,Q1,Import,9,CA,N/A,40,-100,WA,Yakima,46.46,-120.74
+F040,Swine,Swine,2025,Q3,Import,700,ID,N/A,40,-100,WA,Spokane,47.62,-117.4
+F041,Poultry,Chickens,2025,Q3,Import,3000,ID,N/A,40,-100,WA,Spokane,47.62,-117.4
+F042,Equids,Horse,2025,Q3,Import,14,ID,N/A,40,-100,WA,Spokane,47.62,-117.4
+F043,Small Ruminants,Sheep,2025,Q3,Import,260,ID,N/A,40,-100,WA,Spokane,47.62,-117.4
+F044,Exotic Hoofstock,Bison,2025,Q3,Import,22,ID,N/A,40,-100,WA,Spokane,47.62,-117.4
+F045,Other,Rabbit,2025,Q3,Import,3,ID,N/A,40,-100,WA,Spokane,47.62,-117.4
+F046,Camelids,Alpaca,2025,Q3,Import,5,ID,N/A,40,-100,WA,Spokane,47.62,-117.4
+F047,Cattle,Beef cattle,2025,Q2,Export,100,WA,Yakima,46.46,-120.74,WA,King,47.49,-121.81
+F048,Swine,Swine,2025,Q2,Intrastate,50,WA,Grant,47.2,-119.45,WA,Benton,46.24,-119.51
+F049,Cattle,Beef cattle,,Q1,Import,10,OR,N/A,40,-100,WA,King,47.49,-121.81
+F050,constructor,Odd name,2026,Q4,Import,4,WY,N/A,40,-100,WA,Benton,46.24,-119.51

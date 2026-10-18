@@ -1,0 +1,1334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Strict Content Security Policy: local scripts and the site's own font file only, MapLibre's worker from a Blob
+     it builds itself. Network connections only to the opt-in tile basemaps' hosts (app/basemaps.js; the outer limit:
+     the page itself fetches only the chosen basemap's hosts, and nothing while the offline county map is shown).
+     Defense in depth only; local-only behavior is verified by recorded browser observations. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; worker-src blob:; child-src blob:; style-src 'self' file: 'unsafe-inline'; img-src data: blob:; connect-src https://a.tile.opentopomap.org https://basemap.nationalmap.gov https://data.wsdot.wa.gov https://tiles.openfreemap.org; font-src 'self' file:; media-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CVI Traceability — WSDA Animal Services</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../vendor/maplibre-gl/maplibre-gl.css">
+<link rel="stylesheet" href="../shared/brand.css">
+<style>
+  /* Colors by use (--primary, --heading, --muted ...), the banner, the footer and the messages come from
+     shared/brand.css (UI pass). */
+  * { box-sizing: border-box; }
+  .layout { display: flex; min-height: calc(100vh - var(--banner-height)); }
+  aside.sidebar { width: 310px; flex: 0 0 310px; border-right: 1px solid var(--border); padding: 0.75rem; overflow-y: auto; max-height: calc(100vh - var(--banner-height)); background: #fff; }
+  main { flex: 1 1 auto; position: relative; min-width: 0; }
+  .map-frame { position: relative; }
+  #map, #map-b { height: 77vh; width: 100%; }
+  #map-b-status { position: absolute; top: 12px; left: 52px; right: 12px; z-index: 7; }
+  #map-status { position: absolute; top: 12px; left: 52px; right: 12px; z-index: 7; }
+  /* S3: basemap message clear of the screenshot button; a basemap's longer credit kept clear of the Legend button */
+  #basemap-status, #focus-basemap-status { position: absolute; top: 12px; left: 52px; right: 52px; z-index: 7; margin: 0; }
+  #basemap-status .btn, #focus-basemap-status .btn { margin-left: 0.5rem; padding: 0.15rem 0.5rem; font-size: 0.85rem; }
+  .map-frame .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib { max-width: calc(100% - 110px); }
+  h5 { margin: 0 0 0.4rem; font-size: 1rem; }
+  details.section { border: 1px solid var(--border); border-radius: 4px; margin-bottom: 0.4rem; }
+  details.section > summary { cursor: pointer; padding: 0.55rem 0.75rem; font-weight: 600; font-size: 0.9rem; color: var(--primary); background: var(--panel); list-style-position: inside; }
+  details.section[open] > summary { background: var(--panel-open); }
+  .section-body { padding: 0.75rem 0.85rem 0.4rem; }
+  h6.map-section { font-weight: 700; font-size: 0.85rem; color: var(--primary); margin: 0.2rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.04em; }
+  .field { margin-bottom: 0.75rem; }
+  .field > label.ctl, .field > span.ctl, .ctl-row .ctl { font-weight: 600; font-size: 0.85rem; color: var(--heading); display: block; margin-bottom: 0.3rem; }
+  .ctl-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .ctl-row .links { font-size: 0.85rem; }
+  /* Species Group and Spotlight Counties fold (closed on load); the header says what is ticked. */
+  .fold-toggle { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+  .fold-toggle::before { content: '\25B8'; display: inline-block; width: 0.9em; color: var(--muted); }
+  .fold-toggle[aria-expanded="true"]::before { content: '\25BE'; }
+  .fold-sum { font-weight: 400; color: var(--muted); font-size: 0.85rem; }   /* inside the fold's button: a control's text */
+  .fold-sum:not(:empty)::before { content: '\00A0\00B7\00A0'; }
+  .gated .fold-toggle { color: var(--disabled); cursor: not-allowed; }
+  .checklist { border: 1px solid var(--border-input); border-radius: 4px; padding: 0.3rem 0.5rem; max-height: 150px; overflow-y: auto; font-size: 0.85rem; }
+  .checklist label, .radio label, .check label { display: flex; align-items: flex-start; gap: 0.4rem; font-weight: 400; margin: 0.15rem 0; cursor: pointer; font-size: 0.85rem; line-height: 1.3; }
+  .radio label input, .check label input, .checklist label input { margin-top: 0.15rem; }
+  .radio label .muted, .radio label span { display: inline; }
+  .inline label { display: inline-flex; margin-right: 0.8rem; }
+  select { width: 100%; font: inherit; font-size: 0.88rem; padding: 0.3rem; border: 1px solid var(--border-input); border-radius: 4px; }
+  details.refine summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); margin: 0.25rem 0; }
+  .gif-progress:not([hidden]) { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .gif-progress .btn { flex: none; padding: 0.15rem 0.6rem; }
+  .legend-toggle { position: absolute; bottom: 10px; left: 10px; z-index: 5; opacity: 0.85; font-size: 0.85rem; padding: 0.2rem 0.5rem; background: #f8f9fa; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
+  .legend-panel { position: absolute; bottom: 42px; left: 10px; width: 190px; z-index: 5; background: rgba(255,255,255,0.93); border: 1px solid #ccc; border-radius: 4px; padding: 8px; font-size: 0.78em; max-height: calc(100% - 52px); overflow-y: auto; }
+  .lg-sizes { display: block; overflow: visible; }
+  .lg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .lg-dot { display: inline-block; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 1px #999; flex-shrink: 0; }
+  /* CH: a shaded map's class swatch (and the hatch for "No movements"), white-edged as the map's lines. */
+  .lg-shade { display: inline-block; width: 20px; height: 13px; border: 1px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18); flex-shrink: 0; }
+  .county-label { font-size: 11px; color: var(--county-label, #333333); text-shadow: -1.5px 0 var(--county-halo, #fff), 1.5px 0 var(--county-halo, #fff), 0 -1.5px var(--county-halo, #fff), 0 1.5px var(--county-halo, #fff), 0 0 3px var(--county-halo, #fff); pointer-events: none; white-space: nowrap; }
+  .county-label.hidden { display: none; }
+  .county-label.covered { visibility: hidden; }   /* S11: a name the match map hides over its sites (lookupmap.js) */
+  /* PC: the population layers' names (map.js), smaller and lighter than the county names; census-designated places in
+     italics; a name that would cover another is hidden but keeps its size (placement measures it). */
+  .county-label.pc-name { font-size: 10px; color: #444444; }
+  .county-label.pc-name.pc-cdp { font-style: italic; }
+  .county-label.pc-name.collided { visibility: hidden; }
+  #pc-block label:has(input:disabled) { color: var(--disabled); cursor: not-allowed; }
+  /* On National Flow the grayed group shows only its heading and the reason. */
+  #pc-block.pc-collapsed .tip-row, #pc-block.pc-collapsed .help-note, #pc-block.pc-collapsed .pc-names-note { display: none; }
+  .pc-tip .maplibregl-popup-content { pointer-events: none; font-size: 0.8rem; }
+  .pc-tip hr { border: 0; border-top: 1px solid #ddd; margin: 0.3rem 0; }
+  .lg-pc-line { display: inline-block; width: 18px; height: 0; border-top: 1.5px solid #737373; vertical-align: middle; margin-right: 0.4rem; }
+  .lg-pc-line.dashed { border-top-style: dashed; }
+  .lg-pc-swatch { display: inline-block; width: 14px; height: 10px; vertical-align: middle; margin-right: 0.4rem; border: 1px solid rgba(0, 0, 0, 0.15); }
+  .county-label.region-name { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
+  /* MC movement view: Washington's county names larger, semibold, with a 3 px halo over the lines
+     (map.js MC_LABEL, also in the screenshot) */
+  .mc-on .county-label:not(.region-name):not(.neighbor-county) { font-size: 12.5px; font-weight: 600; color: var(--county-label-strong, var(--county-label, #333333)); text-shadow: -3px 0 var(--county-halo, #fff), 3px 0 var(--county-halo, #fff), 0 -3px var(--county-halo, #fff), 0 3px var(--county-halo, #fff), -2.1px -2.1px var(--county-halo, #fff), 2.1px -2.1px var(--county-halo, #fff), -2.1px 2.1px var(--county-halo, #fff), 2.1px 2.1px var(--county-halo, #fff), 0 0 4.5px var(--county-halo, #fff); }
+  /* Neighboring regions: a region's counties switch sits under it, shown only while the region is on */
+  .nr-row label.nr-sub { margin-left: 1.4rem; }
+  .nr-row label.nr-sub[hidden] { display: none; }
+  #toast { position: absolute; top: 10px; right: 50px; z-index: 6; max-width: 320px; }
+  #toast div { background: var(--notice-bg); color: var(--notice-text); border: 1px solid var(--notice-border); border-radius: 4px; padding: 0.5rem 0.75rem; font-size: 0.85rem; margin-bottom: 0.4rem; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .maplibregl-popup-content { font-size: 13px; padding: 6px 10px; }
+  /* F1: controls whose data is missing (grayed, with the reason) */
+  [data-feature].gated summary { color: var(--disabled); cursor: not-allowed; }   /* outranks details.refine summary */
+  .gate-reason { font-size: 0.78rem; color: var(--muted); margin: 0 0 0.3rem; }
+  /* S2a: value boxes above the map and the summary strip below it (CVI's compact metric cards and strip) */
+  #value-boxes { padding: 0.5rem 0.75rem 0; }
+  .vb-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .vb-row > div { min-width: 170px; display: flex; }
+  .vb-row > div > .metric { flex: 1 1 auto; }   /* every box in a row the same height */
+  .metric { display: flex; align-items: center; gap: 0.6rem; background: #ffffff; border: 1px solid var(--border); border-radius: 4px; padding: 0.45rem 0.65rem; min-height: 0; }
+  .metric-icon { flex: 0 0 auto; width: 1.8rem; height: 1.8rem; font-size: 1rem; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #ffffff; }
+  .metric-text { min-width: 0; line-height: 1.1; }
+  .metric-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+  .metric-value { font-size: 1rem; font-weight: 600; color: var(--text); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .metric-zero { opacity: 0.55; }
+  .metric-zero .metric-value { color: var(--muted); font-weight: 500; }
+  .metric.gated { opacity: 0.55; }
+  .metric.gated .metric-value { color: var(--disabled); }
+  .metric.gated .metric-value.metric-reason { font-size: 0.75rem; font-weight: 400; color: var(--muted); margin-top: 0.25rem; }
+  .vb-alert { margin: 0 0 0.5rem 0; padding: 0.4rem 0.75rem; font-size: 0.85rem; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 4px; }
+  #summary-strip { padding: 0.5rem 1rem; border-top: 1px solid var(--border); background: var(--panel); }
+  .strip-items { display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.82rem; }
+  .strip-msg { color: var(--muted); font-size: 0.85rem; }
+  .strip-msg p { margin: 0 0 0.3rem; }
+  .strip-msg .detail { font-size: 0.75rem; line-height: 1.3; }
+  .tip { display: inline-flex; align-items: center; justify-content: center; width: 1.05em; height: 1.05em; margin-left: 0.37em; padding: 0; border: 1px solid var(--border-input); border-radius: 50%; background: #fff; color: var(--heading); font-size: 0.85rem; line-height: 1; cursor: help; vertical-align: 0.05em; text-transform: none; letter-spacing: 0; }
+  /* A 24 px hit area around the 14 px circle, which looks as before (WCAG 2.2 AA 2.5.8). */
+  .tip { position: relative; }
+  .tip::before { content: ""; position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; transform: translate(-50%, -50%); }
+  /* The 0.37em (5 px) margin keeps the 24 px hit area off the label's last letter. */
+  .help-note { font-size: 0.75rem; color: var(--muted); margin: 0.2rem 0 0; max-width: 46rem; }
+  .help-note[hidden] { display: none; }
+  .map-screenshot svg, .map-fit svg { width: 15px; height: 15px; display: block; margin: auto; color: #333; }
+  /* S2b: Period block (CVI's .period-block), Browse slider, Compare maps side by side (CVI: 74vh; stacked below 768 px here, CVI's columns most likely below 576 px) */
+  details.period-block { border: 1px solid var(--border); border-radius: 6px; background: var(--panel); padding: 0.45rem 0.65rem; margin-bottom: 0.75rem; }
+  details.period-block > summary { font-size: 0.85rem; font-weight: 700; color: var(--heading); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; user-select: none; padding: 0.1rem 0; list-style-position: inside; }
+  .period-summary { text-transform: none; letter-spacing: 0; color: var(--primary); font-weight: 600; }
+  .period-body { margin-top: 0.5rem; }
+  .browse-help { margin: -0.25rem 0 0.5rem; font-size: 0.8rem; }
+  .time-label { text-align: center; font-size: 1.05rem; color: var(--primary); font-weight: 700; letter-spacing: 0.04em; margin-bottom: 0.15rem; }
+  .slider-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .slider-row input[type=range] { flex: 1 1 auto; min-width: 0; accent-color: var(--primary); }
+  .play { flex: 0 0 auto; width: 2rem; height: 1.8rem; border: 1px solid var(--border-input); border-radius: 4px; background: #fff; color: var(--primary); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .callout { font-size: 0.85rem; font-weight: 600; padding: 0.35rem 0.5rem; margin-bottom: 0.4rem; }
+  .callout-a { background: var(--info-bg); border-left: 3px solid var(--primary); color: var(--primary); }
+  .callout-b { background: var(--gold-20); border-left: 3px solid var(--wsda-gold); color: var(--wsda-dark-brown); margin-top: 0.6rem; }
+  .maps.compare { display: flex; gap: 0.75rem; padding: 0 0.75rem; }
+  .maps.compare .map-col { flex: 1 1 50%; min-width: 0; }
+  .maps.compare #map, .maps.compare #map-b { height: 74vh; }
+  .map-head { text-align: center; font-size: 0.95rem; font-weight: 700; padding: 0.3rem 0.5rem; margin-bottom: 0.25rem; }
+  .head-a { background: var(--info-bg); border-left: 3px solid var(--primary); color: var(--primary); }
+  .head-b { background: var(--gold-20); border-left: 3px solid var(--wsda-gold); color: var(--wsda-dark-brown); }
+  .compare-note { text-align: center; margin: 0.35rem 0.75rem; }
+  @media (max-width: 767px) { .maps.compare { flex-direction: column; } }
+  /* S4: Map View (CVI's vertical button group: the active view filled, the others outlined) and the National Flow map */
+  .map-toggle-group { display: flex; flex-direction: column; margin-bottom: 0.75rem; }
+  .map-toggle-group .btn { display: flex; align-items: center; gap: 0.4rem; border-radius: 0; font-weight: 400; font-size: 0.85rem; padding: 0.3rem 0.6rem; border-color: var(--muted); color: var(--muted); background: #fff; }
+  .map-toggle-group .btn + .btn { margin-top: -1px; }
+  .map-toggle-group .btn:first-child { border-radius: 4px 4px 0 0; }
+  .map-toggle-group .btn:last-child { border-radius: 0 0 4px 4px; }
+  .map-toggle-group .btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; position: relative; z-index: 1; }
+  #maps[hidden] { display: none; }   /* outranks .maps.compare while the National Flow view is shown */
+  #flow-map { height: 77vh; width: 100%; }
+  #flow-status { position: absolute; top: 12px; left: 52px; right: 52px; z-index: 7; }
+  #flow-toast { position: absolute; top: 10px; right: 50px; z-index: 6; max-width: 320px; }
+  #flow-toast div { background: var(--notice-bg); color: var(--notice-text); border: 1px solid var(--notice-border); border-radius: 4px; padding: 0.5rem 0.75rem; font-size: 0.85rem; margin-bottom: 0.4rem; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .state-label { font-size: 11px; color: #555555; text-shadow: -1.5px 0 #fff, 1.5px 0 #fff, 0 -1.5px #fff, 0 1.5px #fff, 0 0 3px #fff; pointer-events: none; white-space: nowrap; }
+  .state-label.hidden { display: none; }
+  .state-label.collided { visibility: hidden; }
+  .lg-bar { display: inline-block; flex-shrink: 0; }
+  .tip-row { display: flex; align-items: flex-start; gap: 0.1rem; }
+  .tip-row[hidden] { display: none; }   /* without this, the display above would show a hidden row */
+  .tip-row > label { flex: 0 1 auto; }
+  .tip-row > .tip { margin-top: 0.2rem; flex: none; }   /* kept round beside a long label */
+  /* S5: the County Focus map (CVI's intrastate_map), made the first time the view is chosen */
+  #focus-map { height: 77vh; width: 100%; }
+  #focus-status { position: absolute; top: 12px; left: 52px; right: 52px; z-index: 7; }
+  #focus-toast { position: absolute; top: 10px; right: 50px; z-index: 6; max-width: 320px; }
+  #focus-toast div { background: var(--notice-bg); color: var(--notice-text); border: 1px solid var(--notice-border); border-radius: 4px; padding: 0.5rem 0.75rem; font-size: 0.85rem; margin-bottom: 0.4rem; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  /* County Focus cluster counts (CVI's count symbols: 14 px bold white, halo 1.2 px in the direction's dark color) */
+  .focus-counts { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+  .focus-count { position: absolute; left: 0; top: 0; font-size: 14px; font-weight: 700; line-height: 1; color: #fff; white-space: nowrap; pointer-events: none; text-shadow: -1.2px 0 var(--count-halo), 1.2px 0 var(--count-halo), 0 -1.2px var(--count-halo), 0 1.2px var(--count-halo), 0 0 2px var(--count-halo); }
+  .focus-count-in { --count-halo: #0d4f6e; }
+  .focus-count-out { --count-halo: #7a3f17; }
+  .focus-count.collided { visibility: hidden; }
+  /* Passive hover cards must not cover the next pointer location or swallow clicks on a circle. */
+  .focus-tip .maplibregl-popup-content { pointer-events: none; }
+  .focus-fac-click .maplibregl-popup-content > div { padding-right: 14px; }
+  details.fac-block { border-top: 1px solid var(--border); margin-top: 0.75rem; padding-top: 0.6rem; }
+  details.fac-block > summary { cursor: pointer; user-select: none; list-style-position: inside; }
+  .fac-head { font-size: 0.85rem; font-weight: 700; color: var(--primary); letter-spacing: 0.04em; text-transform: uppercase; }
+  .fac-note { font-size: 0.78rem; margin: 0.35rem 0 0.5rem; }
+  .facility-layer label { display: block; margin: 4px 0; }
+  /* Checkbox, dot and name on one line; a long name wraps beside the dot, as in Infrastructure */
+  .facility-layer label.fac-row { display: flex; align-items: flex-start; }
+  .facility-layer .fac-row input { margin-top: 0.15em; }
+  .facility-layer .fac-row .facility-swatch { margin-top: 0.05em; }
+  .facility-layer .fac-row .facility-title { min-width: 0; }
+  .facility-refine-block { margin: 4px 0; }
+  /* A layer's attribute filters fold away, closed at first */
+  .facility-filters { margin: 0.2rem 0 0.3rem 1.6em; }
+  .facility-filters > summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+  .facility-refine { max-height: 120px; }
+  .facility-layer h3, .fac-list h3 { font-size: 12px; }
+  .facility-layer p { font-size: 12px; margin: 3px 0; }
+  .facility-swatch { display: inline-block; flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; margin: 0 5px; }
+  .facility-local-count { font-size: 12px; white-space: nowrap; }
+  .facility-details { font-size: 14px; line-height: 1.5; max-height: min(220px, 25vh, calc(38.5vh - 80px)); overflow: auto; overflow-wrap: anywhere; padding-right: 14px; }
+  .fac-list { font-size: 0.85rem; }
+  .fac-grp { font-size: 0.75rem; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.03em; margin: 0.5rem 0 0.15rem; }
+  .fac-row { display: flex; align-items: center; gap: 0.45em; margin: 0 0 1px; cursor: pointer; }
+  .fac-row input { margin: 0; flex: 0 0 auto; }
+  .fac-dot { font-size: 0.85rem; line-height: 1; }
+  .fac-row.unusable { color: var(--disabled); cursor: not-allowed; }
+  .fac-why { display: block; font-size: 0.75rem; color: var(--notice-text); margin: 0 0 3px 1.6em; }
+  .fac-why[hidden] { display: none; }   /* the notice stays hidden after Reset All */
+  .gif-why { font-size: 0.75rem; color: var(--notice-text); margin: 0 0 3px 1.6em; }
+  .lg-cl { display: inline-block; width: 20px; height: 20px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; line-height: 20px; text-align: center; border: 1.5px solid #fff; box-sizing: content-box; flex-shrink: 0; }
+  .lg-note { font-size: 0.75rem; color: #666; line-height: 1.3; }
+  .focus-stack { display: flex; align-items: center; gap: 6px; margin: 0 18px 4px 0; font-size: 0.75rem; color: #444; }
+  .focus-stack button { min-width: 22px; padding: 0 4px; font-size: 15px; line-height: 18px; border: 1px solid #bbb; border-radius: 3px; background: #fff; color: #245566; cursor: pointer; }
+  .focus-stack button:disabled { color: #bbb; border-color: #ddd; cursor: default; }
+  /* S7: the layout switch (Map, Map + charts, Charts) and the chart panel. Map + charts puts the charts in a column
+     beside the map, or under the maps in windows narrower than 1,200 px and in Compare (class "below"). */
+  .layout-bar { display: flex; justify-content: center; padding: 0.5rem 0.75rem 0; }
+  .layout-switch { display: inline-flex; }
+  .layout-switch .btn { border-radius: 0; font-weight: 400; border-color: var(--muted); color: var(--text); padding: 0.25rem 0.8rem; }
+  .layout-switch .btn + .btn { margin-left: -1px; }
+  .layout-switch .btn:first-child { border-radius: 4px 0 0 4px; }
+  .layout-switch .btn:last-child { border-radius: 0 4px 4px 0; }
+  .layout-switch .btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; position: relative; z-index: 1; }
+  .view-area { display: flex; gap: 0.75rem; }
+  .map-area { flex: 1 1 auto; min-width: 0; }
+  .map-area[hidden] { display: none; }
+  .chart-panel { position: relative; padding: 0 0.75rem 0.75rem; }
+  .chart-panel[hidden] { display: none; }
+  .view-area.split:not(.below) .chart-panel { flex: 0 0 clamp(360px, 38%, 560px); height: 77vh; overflow-y: auto; padding-left: 0; }
+  .view-area.below, .view-area.charts { flex-direction: column; }
+  /* "Show charts by:" in a shaded bar across the top of the chart panel, so it reads as applying to every chart;
+     it stays in view while the chart column scrolls. */
+  .chart-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0.25rem 0 0.6rem;
+    padding: 0.5rem 0.75rem; background: var(--info-bg); border: 1px solid var(--info-border); border-radius: 4px;
+    position: sticky; top: 0; z-index: 2; }
+  .chart-head label.ctl { margin: 0; font-weight: 700; font-size: 0.95rem; color: var(--primary); }
+  .chart-head select { width: auto; font-size: 0.95rem; padding: 0.3rem 0.5rem; }
+  .chart-head .gate-reason { margin: 0; }
+  .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  .view-area.split:not(.below) .chart-grid { grid-template-columns: minmax(0, 1fr); }
+  @media (max-width: 700px) { .chart-grid { grid-template-columns: minmax(0, 1fr); } }
+  .chart-card { margin: 0; border: 1px solid var(--border); border-radius: 4px; background: #fff; padding: 0.25rem; min-width: 0; }
+  .chart-svg svg { display: block; max-width: 100%; height: auto; }
+  /* "Show as table" (UI pass): each chart's numbers under it, on request. */
+  .chart-table-tools { padding: 0.15rem 0.35rem 0.25rem; }
+  .chart-table { padding: 0 0.35rem 0.35rem; overflow-x: auto; }
+  table.chart-data { border-collapse: collapse; font-size: 0.75rem; width: 100%; }
+  table.chart-data caption { text-align: left; font-weight: 600; color: var(--heading); padding: 0 0 0.25rem; }
+  table.chart-data th, table.chart-data td { border-bottom: 1px solid var(--border); padding: 0.15rem 0.35rem; text-align: left; font-weight: 400; }
+  table.chart-data thead th { font-weight: 600; }
+  table.chart-data .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .chart-tools { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; padding: 0.15rem 0.3rem 0.25rem; color: var(--heading); }
+  .chart-tools select { width: auto; font-size: 0.85rem; padding: 0.15rem 0.3rem; }
+  .chart-pick { cursor: pointer; }
+  .chart-pick:focus { outline: none; }
+  .chart-pick:focus-visible .chart-hit, .chart-pick:hover .chart-hit { fill-opacity: 0.06; }
+  .chart-pick:focus-visible .chart-hit { stroke: var(--primary); stroke-width: 1.5px; }
+  /* MC: the chart filters bar (existing styles; the UI pass restyles it later). */
+  .chart-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0.75rem 0;
+    padding: 0.35rem 0.6rem; background: var(--notice-bg); border: 1px solid var(--notice-border); border-radius: 4px; font-size: 0.85rem; }
+  .chart-filters[hidden] { display: none; }
+  .cf-label { font-weight: 700; color: var(--notice-text); }
+  .cf-chips { display: contents; }
+  .cf-chip { display: inline-flex; align-items: center; gap: 0.2rem; background: #fff; border: 1px solid var(--notice-border);
+    border-radius: 12px; padding: 0.05rem 0.2rem 0.05rem 0.55rem; }
+  .cf-x { border: 0; background: none; font-size: 1rem; line-height: 1; padding: 0 0.3rem; cursor: pointer; color: var(--notice-text); }
+  .cf-x:hover, .cf-x:focus-visible { color: var(--error-text); }
+  .chart-filters .cf-clear { font-size: 0.85rem; padding: 0.1rem 0.5rem; }
+  .cf-msg { flex-basis: 100%; color: var(--notice-text); font-size: 0.8rem; }
+  .cf-msg[hidden] { display: none; }
+  /* MC: the movement view's control and legend rows. */
+  /* MC: the movement switch at the size of the other check boxes. */
+  .mv-switch { display: flex; align-items: flex-start; gap: 0.4rem; font-weight: 400; margin: 0.15rem 0; cursor: pointer; font-size: 0.85rem; line-height: 1.3; }
+  .mv-switch input { margin-top: 0.15rem; }
+  .mv-cap { display: flex; align-items: center; gap: 0.4rem; margin: 0.25rem 0 0 1.4rem; font-size: 0.85rem; }
+  .mv-cap[hidden] { display: none; }
+  .mv-cap select { width: auto; }
+  .lg-mv { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  .lg-mv svg { flex: none; }
+  .lg-mv-note { color: #555; font-size: 0.75rem; line-height: 1.3; margin-top: 4px; max-width: 220px; }
+  .chart-tip { position: fixed; z-index: 20; max-width: 280px; background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.8rem; color: var(--text); box-shadow: 0 2px 6px rgba(0,0,0,0.15); pointer-events: none; }
+  .chart-tip .hint { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 0.15rem; }
+  /* S7: the Export & Preview section (CVI's, without the S9/S10 controls and GeoPackage) and the preview dialogs. */
+  .export-subhead { font-weight: 600; font-size: 0.78rem; color: var(--primary); margin: 0.7rem 0 0.35rem;
+    padding-bottom: 0.2rem; border-bottom: 1px dashed var(--border); text-transform: uppercase; letter-spacing: 0.03em; }
+  .export-subhead.first { margin-top: 0.3rem; }
+  summary.export-subhead { font-size: 0.85rem; cursor: pointer; }   /* a folding sub-heading is a control */
+  .tip-row > label.ctl { font-weight: 600; font-size: 0.85rem; color: var(--heading); margin-bottom: 0.3rem; }
+  .export-input { width: 100%; font: inherit; font-size: 0.88rem; padding: 0.3rem; border: 1px solid var(--border-input); border-radius: 4px; }
+  .export-prompt { font-size: 0.78rem; color: var(--muted); margin: 0.25rem 0; }
+  .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 4px; }
+  .preview-grid .btn { font-size: 0.85rem; padding: 0.3rem 0.4rem; }
+  .preview-grid .wide { grid-column: 1 / -1; }
+  #export-section .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  #export-result { font-size: 0.85rem; overflow-wrap: anywhere; word-break: break-word; }
+  #export-result div:first-child { font-weight: 700; }
+  .export-history { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+  .export-history p { font-size: 0.82rem; margin: 0 0 0.25rem; }
+  .export-history ul { padding-left: 1rem; margin: 0; }
+  .export-history li { font-size: 0.78rem; margin-bottom: 0.2rem; }
+  .export-history .when { color: var(--muted); }
+  .preview-dialog { border: none; border-radius: 6px; padding: 0; box-shadow: 0 6px 24px rgba(0,0,0,0.3); max-height: 90vh; color: var(--text); }
+  .preview-dialog.size-xl { width: min(1140px, 95vw); }
+  .preview-dialog.size-l { width: min(800px, 95vw); }
+  .preview-dialog[open] { display: flex; flex-direction: column; }
+  .preview-dialog::backdrop { background: rgba(0,0,0,0.5); }
+  .preview-head { display: flex; align-items: center; justify-content: space-between; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); }
+  .preview-title { margin: 0; font-size: 1.15rem; font-weight: 600; }
+  .preview-x { border: none; background: none; font-size: 1.5rem; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 0.25rem; }
+  .preview-body { padding: 1rem; overflow: auto; flex: 1 1 auto; }
+  .preview-foot { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; border-top: 1px solid var(--border); }
+  .preview-note { color: var(--muted); font-size: 0.8rem; margin-right: auto; }
+  .stats-text { white-space: pre-wrap; font-family: Menlo, Consolas, monospace; font-size: 0.85rem; background: var(--panel);
+    padding: 12px; border: 1px solid var(--border); border-radius: 4px; max-height: 65vh; overflow-y: auto; margin: 0; }
+  .chart-previews hr { margin: 0.75rem 0; border: none; border-top: 1px solid var(--border); }
+  .chart-preview { margin: 0; }
+  .chart-preview img { display: block; width: 100%; height: auto; }
+  .chart-preview figcaption { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+  .dt { font-size: 0.85rem; }
+  .dt-top { display: flex; justify-content: flex-end; margin-bottom: 0.5rem; }
+  .dt-search { margin-left: 0.3rem; font: inherit; padding: 0.2rem 0.35rem; border: 1px solid var(--border-input); border-radius: 4px; }
+  .dt-scroll { overflow-x: auto; }
+  .dt-table { border-collapse: collapse; width: 100%; }
+  .dt-table th, .dt-table td { padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  .dt-table td.num, .dt-table th.num { text-align: right; }
+  .dt-table tbody tr:nth-child(odd) { background: var(--panel); }
+  .dt-sort { border: none; background: none; font: inherit; font-weight: 700; padding: 0; cursor: pointer; color: inherit; }
+  .dt-sort::after { content: " \2195"; color: var(--disabled); font-weight: 400; }
+  th.sorted-up .dt-sort::after { content: " \2191"; color: var(--text); }
+  th.sorted-down .dt-sort::after { content: " \2193"; color: var(--text); }
+  .dt-filters th { padding-top: 0; font-weight: 400; }
+  .dt-filter { width: 100%; min-width: 4rem; font: inherit; font-size: 0.85rem; padding: 0.15rem 0.3rem; border: 1px solid var(--border-input); border-radius: 3px; }
+  .dt-empty { text-align: center !important; color: var(--muted); }
+  .dt-info { margin-top: 0.5rem; color: var(--muted); }
+  .dt-pager { display: flex; flex-wrap: wrap; gap: 2px; justify-content: flex-end; margin-top: 0.4rem; }
+  .dt-page { border: 1px solid var(--border); background: #fff; font: inherit; font-size: 0.85rem; padding: 0.15rem 0.5rem; border-radius: 3px; cursor: pointer; }
+  .dt-page.current { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .dt-page:disabled { color: var(--disabled); cursor: default; }
+  .dt-gap { padding: 0.15rem 0.3rem; }
+  .county-label.focus-label { font-size: 12px; text-shadow: -1.8px 0 var(--county-halo, #fff), 1.8px 0 var(--county-halo, #fff), 0 -1.8px var(--county-halo, #fff), 0 1.8px var(--county-halo, #fff), 0 0 3px var(--county-halo, #fff); }
+  /* S11: the Maps / Premise Lookup switch and the Premise Lookup side (lookup.js) */
+  .tool-switch { display: flex; margin-bottom: 0.75rem; }
+  .tool-switch .btn { flex: 1 1 50%; border-radius: 0; font-weight: 400; border-color: var(--muted); color: var(--muted); background: #fff; }
+  .tool-switch .btn:first-child { border-radius: 4px 0 0 4px; }
+  .tool-switch .btn + .btn { margin-left: -1px; border-radius: 0 4px 4px 0; }
+  .tool-switch .btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; position: relative; z-index: 1; }
+  .lk-input { width: 100%; font: inherit; font-size: 0.88rem; padding: 0.3rem; border: 1px solid var(--border-input); border-radius: 4px; }
+  textarea.lk-input { resize: vertical; }
+  .lk-pair { display: flex; gap: 0.5rem; }
+  .lk-pair .field { flex: 1 1 50%; min-width: 0; }
+  .lk-presets { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .lk-presets .btn { padding: 0.2rem 0.55rem; font-weight: 400; }
+  .lk-subhead { font-weight: 700; font-size: 0.85rem; color: var(--heading); margin: 0.5rem 0 0.3rem; }
+  .lk-go { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn.lk-danger { border-color: var(--error-text); color: var(--error-text); }
+  .lk-row-buttons { display: flex; gap: 0.4rem; margin: 0.4rem 0 0.6rem; }
+  .lk-row-buttons .btn { padding: 0.2rem 0.55rem; font-weight: 400; }
+  details.lk-bulk { margin: 0.25rem 0 0.5rem; }
+  details.lk-bulk > summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
+  details.lk-bulk .btn { margin-top: 0.4rem; }
+  .btn.lk-run { background: var(--primary); color: #fff; margin-top: 0.25rem; }
+  #lk-add-msg .status, #lk-bulk-msg .status { margin: 0.4rem 0 0; }
+  /* S11: the address box with Find coordinates beside it, as CVI's row. The typed boxes (address, Name, paste
+     and the table's cell editor) have spell check and autocomplete off, so no browser spelling service sees a premises
+     address. */
+  .lk-address { display: flex; gap: 0.4rem; align-items: stretch; }
+  .lk-address .lk-input { flex: 1 1 auto; min-width: 0; }
+  .lk-address .btn { flex: 0 0 auto; white-space: nowrap; }
+  #lk-geo-msg .status { margin: 0 0 0.5rem; }
+  #lk-run-lines .status { margin: 0 0 0.5rem; }
+  .lk-sites-card .lk-card-body { max-width: 760px; }
+  .lk-sites-card .lk-card-body > p { margin: 0 0 0.4rem; }
+  .lk-sites { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .lk-sites th, .lk-sites td { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  .lk-sites th { font-weight: 600; color: var(--heading); border-bottom: 1px solid var(--border-strong); }
+  .lk-sites .num { text-align: right; }
+  .lk-sites th.row-no, .lk-sites td.row-no { width: 2.5rem; color: var(--muted); }
+  .lk-sites td[data-field=name] { max-width: 18rem; overflow: hidden; text-overflow: ellipsis; }
+  .lk-sites tbody tr { cursor: pointer; }
+  .lk-sites tbody tr:nth-child(odd) td { background: var(--panel); }
+  .lk-sites tbody tr.selected td { background: var(--selected); }
+  /* Gray on the selected row's blue is 4.19:1, under 4.5:1: its row number and fixed cells turn dark. */
+  .lk-sites tbody tr.selected td.row-no, .lk-sites tbody tr.selected td.lk-fixed { color: var(--text); }
+  .lk-sites td:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .lk-sites td.editing { padding: 0; overflow: visible; }
+  .lk-sites td.editing input { width: 100%; font: inherit; padding: 0.2rem; border: 1px solid var(--primary); }
+  .lk-sites td.lk-empty-row { text-align: center; color: var(--muted); cursor: default; }
+  .lk-info { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; }
+  .lk-pager { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.2rem; }
+  #lookup-main { padding: 0.75rem 1rem; }
+  .lk-intro h2 { font-size: 1.15rem; margin: 0 0 0.2rem; color: var(--heading); }
+  .lk-intro p { margin: 0 0 0.75rem; font-size: 0.85rem; }
+  .lk-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.75rem; }
+  .lk-tiles > div { min-width: 0; }
+  .lk-card { border: 1px solid var(--border); border-radius: 4px; margin-bottom: 0.75rem; }
+  .lk-card-head { padding: 0.45rem 0.75rem; font-weight: 600; font-size: 0.9rem; color: var(--heading); background: var(--panel); border-bottom: 1px solid var(--border); }
+  .lk-card-body { padding: 0.6rem 0.75rem; }
+  #lookup-map { height: 55vh; width: 100%; }
+  /* S11: Pick on map, zones, facilities inside, the match map's legend, the export */
+  .lk-add-buttons { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  #lk-pick[aria-pressed=true] { background: var(--primary); border-color: var(--primary); color: #fff; }
+  #lookup-map.picking canvas { cursor: crosshair; }
+  #lk-zone-msg .status { margin: 0.4rem 0 0; }
+  .lk-sites td.lk-place { color: var(--text); max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
+  .lk-sites td.lk-fixed { color: var(--muted); cursor: default; }
+  .lk-legend { position: absolute; left: 10px; bottom: 10px; z-index: 5; background: rgba(255,255,255,0.92); border: 1px solid #ced4da; border-radius: 4px; padding: 0.35rem 0.5rem; font-size: 0.75rem; line-height: 1.35; color: #2c3e50; max-width: 220px; pointer-events: none; }
+  .lk-legend .lg-title { font-weight: 700; margin-bottom: 0.15rem; }
+  .lk-legend .lg-item { display: flex; align-items: center; gap: 0.35rem; }
+  .lk-legend .lg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); flex: 0 0 auto; }
+  /* The query site's bullseye in the match map's legend (UI pass), as the map draws it. */
+  .lk-legend .lg-bullseye { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 3px solid;
+    flex: 0 0 auto; box-sizing: border-box; }   /* its colors from lookupmap.js, as the other legend marks' */
+  .lk-legend .lg-ring { display: inline-block; width: 14px; height: 10px; border: 2px solid; border-radius: 2px; flex: 0 0 auto; }
+  #lookup-main [hidden] { display: none !important; }   /* a hidden part stays hidden whatever its display (the tiles' grid) */
+  .lk-fac-scroll { overflow-x: auto; margin-bottom: 0.6rem; }
+  .lk-fac-counts { border-collapse: collapse; font-size: 0.85rem; }
+  /* Many facility layers: the counts table scrolls sideways inside its card (UI pass). */
+  #lk-fac-counts { max-width: 100%; overflow-x: auto; }
+  .lk-fac-counts th, .lk-fac-counts td { padding: 0.25rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  .lk-fac-counts th { white-space: normal; max-width: 8rem; vertical-align: bottom; }
+  .lk-fac-counts th { font-weight: 600; color: var(--heading); border-bottom: 1px solid var(--border-strong); }
+  .lk-fac-counts .num { text-align: right; }
+  .lk-export-formats { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.88rem; }
+  #lk-export:disabled { opacity: 0.55; cursor: not-allowed; }
+  #lk-export-msg .status { margin: 0.4rem 0 0; }
+  /* S11: the branded PNG's options and Premise Lookup's population switches */
+  details.lk-png-options { margin: 0.5rem 0; }
+  details.lk-png-options > summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+  .lk-png-grid { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; max-width: 700px; margin-top: 0.4rem; }
+  .lk-png-grid .field { min-width: 11rem; }
+  .lk-png-labels-row { margin: 0.1rem 0 0.4rem; font-size: 0.88rem; }   /* its own line under Basemap and resolution */
+  .lk-export-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; margin-top: 0.5rem; }
+  .lk-export-buttons .btn.export-btn { margin-top: 0; }   /* both buttons the same size */
+  #lk-preview:disabled { opacity: 0.55; cursor: not-allowed; }
+  .lk-pc-block > label { display: flex; align-items: flex-start; gap: 0.4rem; margin: 0.15rem 0; cursor: pointer; font-size: 0.85rem; line-height: 1.3; }
+  .lk-pc-block > label input { margin-top: 0.15rem; }
+  .lk-pc-block label:has(input:disabled) { color: var(--disabled); cursor: not-allowed; }
+  .lk-legend .lg-pc-line { display: inline-block; width: 14px; height: 0; border-top: 1.5px solid #737373; flex: 0 0 auto; }
+  .lk-legend .lg-pc-line.dashed { border-top-style: dashed; }
+  .lk-legend .lg-pc-swatch { display: inline-block; width: 14px; height: 10px; flex: 0 0 auto; }
+  .lk-legend .lg-note { font-style: italic; margin-top: 0.15rem; }
+  .lk-warning { margin: 0.5rem 0 0; }
+  #lookup-status { position: absolute; top: 12px; left: 52px; right: 52px; z-index: 7; margin: 0; }
+  #lookup-toast { position: absolute; top: 10px; right: 50px; z-index: 6; max-width: 320px; }
+  #lookup-toast div { background: var(--notice-bg); color: var(--notice-text); border: 1px solid var(--notice-border); border-radius: 4px; padding: 0.5rem 0.75rem; font-size: 0.85rem; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  @media (max-width: 1100px) { .lk-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+</style>
+</head>
+<body>
+<header class="top">
+  <img class="brand-logo" data-wsda-logo alt="Washington State Department of Agriculture" width="78" height="32">
+  <h1>Animal Services Division &middot; Visualization Platform <span class="dashboard-name">CVI Traceability</span></h1>
+  <span class="badge" title="Synthetic test data only; not for real records.">SYNTHETIC DATA ONLY</span>
+</header>
+<div id="bundle-banner" role="note" hidden></div>
+<div class="layout">
+  <aside class="sidebar" aria-label="Map controls">
+    <!-- S11: Maps or Premise Lookup (lookup.js); both use the master dataset loaded below. -->
+    <div class="tool-switch" role="group" aria-label="Maps or Premise Lookup">
+      <button type="button" class="btn" id="show-maps" data-tool="maps" aria-pressed="true" title="The WA State, County Focus and National Flow maps.">Maps</button>
+      <button type="button" class="btn" id="show-lookup" data-tool="lookup" aria-pressed="false" title="Find CVIs whose origin or destination falls within a radius of one or more locations.">Premise Lookup</button>
+    </div>
+    <div id="maps-view-block">
+    <h5>Map View</h5>
+    <div class="map-toggle-group" role="group" aria-label="Map view">
+      <button type="button" class="btn" id="show-wa" data-view="wa" aria-pressed="true" title="Graduated circles per WA county sized by total animals (Inbound and/or Outbound)."><span data-icon="map"></span> WA State</button>
+      <button type="button" class="btn" id="show-focus" data-view="focus" aria-pressed="false" title="Zoom into one or more WA counties and see individual premises (importers vs exporters)."><span data-icon="bullseye"></span> County Focus</button>
+      <button type="button" class="btn" id="show-flow" data-view="flow" aria-pressed="false" title="Curved flow lines between WA and other US states — line width scales with animal volume."><span data-icon="globe-americas"></span> National Flow</button>
+    </div>
+    </div>
+    <h5>Master dataset</h5>
+    <input type="file" id="file-input" accept=".csv,text/csv" aria-label="Choose a CVI master table (CSV)">
+    <div id="master-status" class="status warn" role="status" aria-live="polite">No master dataset loaded. Choose a CVI master table (CSV).</div>
+    <div id="maps-side">
+
+    <details class="section" open>
+      <summary>Filters</summary>
+      <div class="section-body">
+        <div id="wa-filters">
+        <h6 class="map-section">WA State Filters</h6>
+        <div class="field">
+          <div class="ctl-row"><span class="ctl"><button type="button" class="fold-toggle" aria-expanded="false" aria-controls="f-species">Species Group<span class="fold-sum" data-fold-sum="species"></span></button></span><span class="links"><button type="button" data-all="species">All</button> &middot; <button type="button" data-clear="species">Clear</button></span></div>
+          <div class="checklist" id="f-species" role="group" aria-label="Species Group" hidden></div>
+          <div data-feature="species-refine">
+          <details class="refine"><summary>Refine by species</summary>
+            <div class="checklist" id="f-species-sub" role="group" aria-label="Refine by species"></div>
+            <div class="muted">None ticked = all species in the selected group(s).</div>
+          </details>
+          <p class="gate-reason" data-gate-reason hidden></p>
+          </div>
+        </div>
+        <div class="field" data-feature="spotlight">
+          <div class="ctl-row"><span class="ctl"><button type="button" class="fold-toggle" aria-expanded="false" aria-controls="f-spotlight">Spotlight Counties<span class="fold-sum" data-fold-sum="spotlight"></span></button><button type="button" class="tip" aria-expanded="false" data-help="spotlight" aria-controls="help-spotlight" aria-label="About Spotlight Counties" title="Spotlighted counties stay at full strength; the others fade to about 10%. Leave empty to show every county the same.">?</button></span><span class="links"><button type="button" data-clear="spotlight">Clear</button></span></div>
+          <div class="checklist" id="f-spotlight" role="group" aria-label="Spotlight Counties" hidden></div>
+          <p class="help-note" id="help-spotlight" hidden>Spotlighted counties stay at full strength; the others fade to about 10%. Leave empty to show every county the same.</p>
+          <p class="gate-reason" data-gate-reason hidden></p>
+        </div>
+        <!-- S2b: CVI's collapsible Period block (closed when the page opens), its summary in the header. -->
+        <details class="period-block" id="period-block">
+          <summary><span data-icon="calendar3"></span> Period &middot; <span class="period-summary" id="period-summary">Single: — —</span></summary>
+          <div class="period-body">
+            <div class="radio" role="radiogroup" aria-label="Period mode" data-feature="period-modes">
+              <label><input type="radio" name="period-mode" value="single" checked><span><span data-icon="calendar-event"></span> Single period</span></label>
+              <label><input type="radio" name="period-mode" value="browse"><span><span data-icon="clock-history"></span> Browse over time</span></label>
+              <label><input type="radio" name="period-mode" value="compare"><span><span data-icon="layout-split"></span> Compare two periods</span></label>
+              <p class="gate-reason" data-gate-reason hidden></p>
+            </div>
+            <div id="browse-block" hidden>
+              <p class="muted browse-help">Drag the slider or press Play to step through periods. Year + Quarter pickers are hidden while this is active.</p>
+              <div class="radio inline" role="radiogroup" aria-label="Step">
+                <label><input type="radio" name="time-step" value="quarter" checked> Step by Quarter</label>
+                <label><input type="radio" name="time-step" value="year"> Step by Year</label>
+              </div>
+              <div class="time-label" id="time-label" aria-live="polite">—</div>
+              <div class="field"><label class="ctl" for="time-speed"><span data-icon="speedometer2"></span> Playback speed</label>
+                <select id="time-speed"></select></div>
+              <div class="slider-row">
+                <input type="range" id="time-slider" min="1" max="1" step="1" value="1" aria-label="Period" aria-describedby="time-label">
+                <button type="button" class="play" id="time-play" aria-label="Play" title="Play"></button>
+              </div>
+            </div>
+            <div id="pickers-a">
+              <div id="left-head" hidden>
+                <div class="callout callout-a"><span data-icon="arrow-left-circle"></span> Left map</div>
+                <p class="muted"><span data-icon="arrow-up-short"></span> Species Group above sets the left map.</p>
+              </div>
+              <div class="field">
+                <div class="ctl-row"><label class="ctl">Year(s)</label><span class="links"><button type="button" data-all="years">All</button> &middot; <button type="button" data-clear="years">Clear</button></span></div>
+                <div class="checklist" id="f-years" role="group" aria-label="Years"></div>
+              </div>
+              <div class="field">
+                <div class="ctl-row"><label class="ctl">Quarter(s)</label><span class="links"><button type="button" data-all="quarters">All</button> &middot; <button type="button" data-clear="quarters">Clear</button></span></div>
+                <div class="checklist" id="f-quarters" role="group" aria-label="Quarters"></div>
+              </div>
+            </div>
+            <div id="right-block" hidden>
+              <div class="callout callout-b"><span data-icon="arrow-right-circle"></span> Right map</div>
+              <div class="field check"><label><input type="checkbox" id="species-b-on"> <span><span data-icon="layers"></span> Use different species on right map</span></label></div>
+              <div id="species-b-block" hidden>
+                <div class="field">
+                  <div class="ctl-row"><span class="ctl"><button type="button" class="fold-toggle" aria-expanded="false" aria-controls="f-species-b">Species Group<span class="fold-sum" data-fold-sum="speciesB"></span></button></span><span class="links"><button type="button" data-all="speciesB">All</button> &middot; <button type="button" data-clear="speciesB">Clear</button></span></div>
+                  <div class="checklist" id="f-species-b" role="group" aria-label="Right map Species Group" hidden></div>
+                  <div data-feature="species-refine">
+                  <details class="refine"><summary>Refine by species</summary>
+                    <div class="checklist" id="f-species-b-sub" role="group" aria-label="Right map Refine by species"></div>
+                    <div class="muted">None ticked = all species in the selected group(s).</div>
+                  </details>
+                  <p class="gate-reason" data-gate-reason hidden></p>
+                  </div>
+                </div>
+              </div>
+              <div class="field">
+                <div class="ctl-row"><label class="ctl">Year(s)</label><span class="links"><button type="button" data-all="yearsB">All</button> &middot; <button type="button" data-clear="yearsB">Clear</button></span></div>
+                <div class="checklist" id="f-years-b" role="group" aria-label="Right map Years"></div>
+              </div>
+              <div class="field">
+                <div class="ctl-row"><label class="ctl">Quarter(s)</label><span class="links"><button type="button" data-all="quartersB">All</button> &middot; <button type="button" data-clear="quartersB">Clear</button></span></div>
+                <div class="checklist" id="f-quarters-b" role="group" aria-label="Right map Quarters"></div>
+              </div>
+              <p class="muted">Species Group (unless toggled above), Direction, and Display Mode are shared across both maps. Refine by species is not: tick the box above to refine the right map.</p>
+            </div>
+          </div>
+        </details>
+        <div class="field check inline" role="group" aria-label="Direction">
+          <label class="ctl" title="Inbound: animals received INTO each WA county. Outbound: animals sent OUT of each WA county.">Direction</label>
+          <label><input type="checkbox" name="direction" value="Inbound" checked> Inbound</label>
+          <label><input type="checkbox" name="direction" value="Outbound" checked> Outbound</label>
+        </div>
+        <div class="field radio" role="radiogroup" aria-labelledby="s-mode-head">
+          <span class="ctl" id="s-mode-head">Display Mode<button type="button" class="tip" aria-expanded="false" data-help="s-mode" aria-controls="help-s-mode" aria-label="About Display Mode" title="Separate: each county shows an inbound and an outbound circle side by side. Combined: one circle for both directions. When both directions are ticked, each direction's circles are sized on their own scale, so compare sizes within a direction, not between Inbound and Outbound.">?</button></span>
+          <label><input type="radio" name="mode" value="side_by_side" checked><span>Separate inbound/outbound circles <span class="muted">(offset)</span></span></label>
+          <label><input type="radio" name="mode" value="total"> Combined total circle</label>
+          <p class="help-note" id="help-s-mode" hidden>Separate: each county shows an inbound and an outbound circle side by side. Combined: one circle for both directions. When both directions are ticked, each direction's circles are sized on their own scale, so compare sizes within a direction, not between Inbound and Outbound.</p>
+          <p class="gate-reason" id="mode-reason" hidden>Shaded counties show one value per county: the combined total of the directions ticked.</p>
+        </div>
+        <!-- MC: movement between WA counties, lines in place of the circles. -->
+        <div class="field mv-field" role="group" aria-label="Movement between counties" data-feature="movement">
+          <div class="ctl-row"><span class="ctl">Movement between counties<button type="button" class="tip" aria-expanded="false" data-help="movement" aria-controls="help-movement" aria-label="About Movement between counties" title="Lines join the centers of two Washington counties, with the arrowhead at the destination. Pairs are ranked by what &quot;Show charts by:&quot; counts (animals unless changed): ranks 1 to 5 thickest and darkest, then 6 to 10, 11 to 25 and 26 to 50, each thinner and lighter. A ring marks animals moved within one county. Lines are not travel routes. A movement within Washington is both a departure and an arrival, so Direction does not split this view.">?</button></span></div>
+          <p class="help-note" id="help-movement" hidden>Lines join the centers of two Washington counties, with the arrowhead at the destination. Pairs are ranked by what "Show charts by:" counts (animals unless changed): ranks 1 to 5 thickest and darkest, then 6 to 10, 11 to 25 and 26 to 50, each thinner and lighter. A ring marks animals moved within one county. Lines are not travel routes. A movement within Washington is both a departure and an arrival, so Direction does not split this view.</p>
+          <label class="mv-switch"><input type="checkbox" id="mv-on"><span>Show lines between WA counties<br><span class="muted">(in place of the circles)</span></span></label>
+          <div class="mv-cap" id="mv-cap-row" hidden>
+            <label for="mv-cap">Lines shown</label>
+            <select id="mv-cap" title="The busiest pairs of counties drawn. Every pair touching a spotlighted county is drawn whatever this says."></select>
+          </div>
+        </div>
+        </div>
+        <!-- S5: County Focus filters (CVI's intra_* inputs), shown while the County Focus view is on. -->
+        <div id="focus-filters" hidden>
+        <h6 class="map-section"><span data-icon="bullseye"></span> County Focus Filters</h6>
+        <div class="field">
+          <div class="ctl-row"><span class="ctl">Focus county / counties<button type="button" class="tip" aria-expanded="false" data-help="fo-counties" aria-controls="help-fo-counties" aria-label="About Focus county / counties" title="Pick the Washington counties to focus on. Each premises inside them gets a circle: blue for importers (animals received), orange for exporters (animals sent), as on the WA State map.">?</button></span><span class="links"><button type="button" data-clear="foCounties">Clear</button></span></div>
+          <p class="help-note" id="help-fo-counties" hidden>Pick the Washington counties to focus on. Each premises inside them gets a circle: blue for importers (animals received), orange for exporters (animals sent), as on the WA State map.</p>
+          <div class="checklist" id="fo-counties" role="group" aria-label="Focus counties"></div>
+        </div>
+        <div class="field radio inline" role="radiogroup" aria-labelledby="fo-direction-head">
+          <span class="ctl" id="fo-direction-head">Direction<button type="button" class="tip" aria-expanded="false" data-help="fo-direction" aria-controls="help-fo-direction" aria-label="About Direction" title="Combined: importers (blue) and exporters (orange) in the focus counties. Inbound: importers only (animals received). Outbound: exporters only (animals sent).">?</button></span>
+          <label><input type="radio" name="fo-direction" value="combined" checked> Combined</label>
+          <label><input type="radio" name="fo-direction" value="inbound"> Inbound</label>
+          <label><input type="radio" name="fo-direction" value="outbound"> Outbound</label>
+          <p class="help-note" id="help-fo-direction" hidden>Combined: importers (blue) and exporters (orange) in the focus counties. Inbound: importers only (animals received). Outbound: exporters only (animals sent).</p>
+        </div>
+        <div class="field radio inline" role="radiogroup" aria-labelledby="fo-mode-head">
+          <span class="ctl" id="fo-mode-head">Display Mode<button type="button" class="tip" aria-expanded="false" data-help="fo-mode" aria-controls="help-fo-mode" aria-label="About Display Mode" title="Overlapping: a premises' importer and exporter circles share one point; best when most premises only send or only receive. Side-by-side: importer circles (blue) move slightly west and exporter circles (orange) east, so a premises that does both shows two circles.">?</button></span>
+          <label><input type="radio" name="fo-mode" value="overlap" checked> Overlapping</label>
+          <label><input type="radio" name="fo-mode" value="side_by_side"> <span>Side-by-side <span class="muted">(offset)</span></span></label>
+          <p class="help-note" id="help-fo-mode" hidden>Overlapping: a premises' importer and exporter circles share one point; best when most premises only send or only receive. Side-by-side: importer circles (blue) move slightly west and exporter circles (orange) east, so a premises that does both shows two circles.</p>
+        </div>
+        <div class="field">
+          <div class="ctl-row"><span class="ctl"><button type="button" class="fold-toggle" aria-expanded="false" aria-controls="fo-species">Species Group<span class="fold-sum" data-fold-sum="foSpecies"></span></button></span><span class="links"><button type="button" data-all="foSpecies">All</button> &middot; <button type="button" data-clear="foSpecies">Clear</button></span></div>
+          <div class="checklist" id="fo-species" role="group" aria-label="County Focus Species Group" hidden></div>
+          <div data-feature="species-refine">
+          <details class="refine"><summary>Refine by species</summary>
+            <div class="checklist" id="fo-species-sub" role="group" aria-label="County Focus Refine by species"></div>
+            <div class="muted">None ticked = all species in the selected group(s).</div>
+          </details>
+          <p class="gate-reason" data-gate-reason hidden></p>
+          </div>
+        </div>
+        <!-- S5: CVI's .time_slider_filter("intra"), over the whole master's periods. -->
+        <div class="field check" data-feature="focus-map"><label><input type="checkbox" id="fo-browse"> <span><span data-icon="clock-history"></span> Browse over time</span></label></div>
+        <div id="fo-browse-block" hidden>
+          <p class="muted browse-help">Drag the slider or press Play to step through periods. Year + Quarter pickers are hidden while this is active.</p>
+          <div class="radio inline" role="radiogroup" aria-label="County Focus step">
+            <label><input type="radio" name="fo-time-step" value="quarter" checked> Step by Quarter</label>
+            <label><input type="radio" name="fo-time-step" value="year"> Step by Year</label>
+          </div>
+          <div class="time-label" id="fo-time-label" aria-live="polite">—</div>
+          <div class="field"><label class="ctl" for="fo-time-speed"><span data-icon="speedometer2"></span> Playback speed</label>
+            <select id="fo-time-speed"></select></div>
+          <div class="slider-row">
+            <input type="range" id="fo-time-slider" min="1" max="1" step="1" value="1" aria-label="County Focus period" aria-describedby="fo-time-label">
+            <button type="button" class="play" id="fo-time-play" aria-label="Play" title="Play"></button>
+          </div>
+        </div>
+        <div id="fo-pickers">
+          <div class="field">
+            <div class="ctl-row"><label class="ctl">Year(s)</label><span class="links"><button type="button" data-all="foYears">All</button> &middot; <button type="button" data-clear="foYears">Clear</button></span></div>
+            <div class="checklist" id="fo-years" role="group" aria-label="County Focus Years"></div>
+          </div>
+          <div class="field">
+            <div class="ctl-row"><label class="ctl">Quarter(s)</label><span class="links"><button type="button" data-all="foQuarters">All</button> &middot; <button type="button" data-clear="foQuarters">Clear</button></span></div>
+            <div class="checklist" id="fo-quarters" role="group" aria-label="County Focus Quarters"></div>
+          </div>
+        </div>
+        <!-- S5: CVI's Facility Locations fold (closed), grouped layer switches from the facility files supplied. -->
+        <details class="fac-block" id="fo-fac-block">
+          <summary><span class="fac-head">Facility Locations</span><span class="fold-sum" id="fo-fac-sum"></span></summary>
+          <p class="muted fac-note">Show infrastructure layers. Markers stay independent of Species / Year / Quarter filters.</p>
+          <div class="ctl-row"><span class="ctl">Show:</span><span class="links"><button type="button" id="fo-fac-all">All</button> &middot; <button type="button" id="fo-fac-clear">Clear</button></span></div>
+          <p id="fo-fac-notice" class="fac-why" role="status" hidden></p>
+          <div class="fac-list" id="fo-fac-list" role="group" aria-label="Facility layers"></div>
+          <p class="muted fac-note">Hover for a name; click for supplied details. Counts use the selected focus counties and facility attributes.</p>
+        </details>
+        </div>
+        <!-- S4: National Flow filters (CVI's flow_* inputs), shown while the National Flow view is on. -->
+        <div id="flow-filters" hidden>
+        <h6 class="map-section"><span data-icon="globe-americas"></span> National Flow Filters</h6>
+        <div class="field radio inline" role="radiogroup" aria-labelledby="fl-direction-head">
+          <span class="ctl" id="fl-direction-head">Direction<button type="button" class="tip" aria-expanded="false" data-help="fl-direction" aria-controls="help-fl-direction" aria-label="About Direction" title="Inbound: shipments into Washington from other states. Outbound: shipments from Washington to other states. Combined: both directions together.">?</button></span>
+          <label><input type="radio" name="fl-direction" value="inbound" checked> Inbound</label>
+          <label><input type="radio" name="fl-direction" value="outbound"> Outbound</label>
+          <label><input type="radio" name="fl-direction" value="combined"> Combined</label>
+          <p class="help-note" id="help-fl-direction" hidden>Inbound: shipments into Washington from other states. Outbound: shipments from Washington to other states. Combined: both directions together.</p>
+        </div>
+        <div class="field">
+          <div class="ctl-row"><span class="ctl"><button type="button" class="fold-toggle" aria-expanded="false" aria-controls="fl-species">Species Group<span class="fold-sum" data-fold-sum="flSpecies"></span></button></span><span class="links"><button type="button" data-all="flSpecies">All</button> &middot; <button type="button" data-clear="flSpecies">Clear</button></span></div>
+          <div class="checklist" id="fl-species" role="group" aria-label="National Flow Species Group" hidden></div>
+          <div data-feature="species-refine">
+          <details class="refine"><summary>Refine by species</summary>
+            <div class="checklist" id="fl-species-sub" role="group" aria-label="National Flow Refine by species"></div>
+            <div class="muted">None ticked = all species in the selected group(s).</div>
+          </details>
+          <p class="gate-reason" data-gate-reason hidden></p>
+          </div>
+        </div>
+        <div class="field check tip-row">
+          <label><input type="checkbox" id="fl-combine" checked> Combine species into one line per state</label><button type="button" class="tip" aria-expanded="false" data-help="fl-combine" aria-controls="help-fl-combine" aria-label="About Combine species" title="Adds the selected species together into one line per state (about 50 lines instead of 100 or more). For one color, pick a &quot;Single — …&quot; palette under Map Style.">?</button>
+        </div>
+        <p class="gate-reason" id="fl-combine-reason" hidden>Shaded states always add the species together.</p>
+        <p class="help-note" id="help-fl-combine" hidden>Adds the selected species together into one line per state (about 50 lines instead of 100 or more). For one color, pick a "Single — …" palette under Map Style.</p>
+        <div class="field check" data-feature="flow-map"><label><input type="checkbox" id="fl-browse"> <span><span data-icon="clock-history"></span> Browse over time</span></label></div>
+        <div id="fl-browse-block" hidden>
+          <p class="muted browse-help">Drag the slider or press Play to step through periods. Year + Quarter pickers are hidden while this is active.</p>
+          <div class="radio inline" role="radiogroup" aria-label="National Flow step">
+            <label><input type="radio" name="fl-time-step" value="quarter" checked> Step by Quarter</label>
+            <label><input type="radio" name="fl-time-step" value="year"> Step by Year</label>
+          </div>
+          <div class="time-label" id="fl-time-label" aria-live="polite">—</div>
+          <div class="field"><label class="ctl" for="fl-time-speed"><span data-icon="speedometer2"></span> Playback speed</label>
+            <select id="fl-time-speed"></select></div>
+          <div class="slider-row">
+            <input type="range" id="fl-time-slider" min="1" max="1" step="1" value="1" aria-label="National Flow period" aria-describedby="fl-time-label">
+            <button type="button" class="play" id="fl-time-play" aria-label="Play" title="Play"></button>
+          </div>
+        </div>
+        <div id="fl-pickers">
+          <div class="field">
+            <div class="ctl-row"><label class="ctl">Year(s)</label><span class="links"><button type="button" data-all="flYears">All</button> &middot; <button type="button" data-clear="flYears">Clear</button></span></div>
+            <div class="checklist" id="fl-years" role="group" aria-label="National Flow Years"></div>
+          </div>
+          <div class="field">
+            <div class="ctl-row"><label class="ctl">Quarter(s)</label><span class="links"><button type="button" data-all="flQuarters">All</button> &middot; <button type="button" data-clear="flQuarters">Clear</button></span></div>
+            <div class="checklist" id="fl-quarters" role="group" aria-label="National Flow Quarters"></div>
+          </div>
+        </div>
+        </div>
+        <hr style="margin: 0.75rem 0 0.5rem 0; border: 0; border-top: 1px solid var(--border);">
+        <button type="button" class="btn full reset" id="reset-all" title="Resets both maps. WA State: filters, period (Single period; the right map's choices), spotlight, display mode and style (scaling, bins, opacity, palette, county labels); county lines and the Browse slider, step and speed are kept, as in CVI. National Flow: filters, Combine species, style, state labels and lines, and Browse turned off (its slider, step and speed kept)."><span id="reset-icon" class="btn-icon" data-icon="arrow-counterclockwise" aria-hidden="true"></span>Reset All</button>
+      </div>
+    </details>
+
+    <details class="section" open>
+      <summary>Map Style</summary>
+      <div class="section-body">
+        <div id="wa-style">
+        <h6 class="map-section">WA State Style</h6>
+        <!-- CH: shaded counties (choropleth.js; not in CVI). Circles stays the default. -->
+        <div class="field radio" role="radiogroup" aria-labelledby="s-shape-head" id="shape-field">
+          <span class="ctl" id="s-shape-head">Show counties as<button type="button" class="tip" aria-expanded="false" data-help="s-shape" aria-controls="help-s-shape" aria-label="About Show counties as" title="Circles: one circle per county, sized by its animals. Shaded counties: each county filled by its animals, light to dark, in classes (a choropleth). On Total animals, bigger counties can look busier because they are bigger; Animals per square mile corrects for county size. Counties with no movements are hatched.">?</button></span>
+          <p class="help-note" id="help-s-shape" hidden>Circles: one circle per county, sized by its animals. Shaded counties: each county filled by its animals, light to dark, in classes (a choropleth). On Total animals, bigger counties can look busier because they are bigger; Animals per square mile corrects for county size. Counties with no movements are hatched.</p>
+          <label><input type="radio" name="wa-shape" value="circles" checked> Circles</label>
+          <label><input type="radio" name="wa-shape" value="shaded"> Shaded counties</label>
+          <p class="gate-reason" id="shape-reason" hidden></p>
+        </div>
+        <div class="field" id="measure-field" hidden><span class="ctl"><label for="s-measure">Measure</label><button type="button" class="tip" aria-expanded="false" data-help="s-measure" aria-controls="help-s-measure" aria-label="About Measure" title="Total animals: the county's animals for the filters and period, as the circles count them. Animals per square mile: that total divided by the county's land area (2020 Census), so large counties do not look busier only because of their size.">?</button></span>
+          <p class="help-note" id="help-s-measure" hidden>Total animals: the county's animals for the filters and period, as the circles count them. Animals per square mile: that total divided by the county's land area (2020 Census), so large counties do not look busier only because of their size.</p>
+          <select id="s-measure"><option value="total" selected>Total animals</option><option value="per_sq_mi">Animals per square mile</option></select></div>
+        <div class="field" id="classes-field" hidden><span class="ctl"><label for="s-classes">Shading classes</label><button type="button" class="tip" aria-expanded="false" data-help="s-classes" aria-controls="help-s-classes" aria-label="About Shading classes" title="How the counties are grouped into colors. Natural breaks: classes split where the values jump. Quantile: each class holds about the same number of counties. Set how many with Number of bins (at most 5 while shaded).">?</button></span>
+          <p class="help-note" id="help-s-classes" hidden>How the counties are grouped into colors. Natural breaks: classes split where the values jump. Quantile: each class holds about the same number of counties. Set how many with Number of bins (at most 5 while shaded).</p>
+          <select id="s-classes">
+            <option value="log" disabled>Logarithmic (circles only)</option><option value="sqrt" disabled>Square root (circles only)</option>
+            <option value="linear" disabled>Linear (circles only)</option><option value="quantile">Quantile (bins)</option><option value="natural" selected>Natural breaks (bins)</option>
+          </select>
+          <p class="gate-reason" id="classes-reason">Logarithmic, Square root and Linear size circles; shaded counties need classes.</p></div>
+        <div class="field" id="scaling-field"><span class="ctl"><label for="s-scaling">Circle size scaling</label><button type="button" class="tip" aria-expanded="false" data-help="s-scaling" aria-controls="help-s-scaling" aria-label="About Circle size scaling" title="How a county's animal count sets its circle's area. Logarithmic: shrinks big differences, so small counties stay visible; best when a few counties are far larger than the rest. Square root: a gentler squeeze. Linear: area in direct proportion; the largest get very large. Quantile: a few fixed sizes, each holding about the same number of counties. Natural breaks: a few fixed sizes, split where the counts jump. Set how many with Number of bins. This page opens on Logarithmic.">?</button></span>
+          <p class="help-note" id="help-s-scaling" hidden>How a county's animal count sets its circle's area. Logarithmic: shrinks big differences, so small counties stay visible; best when a few counties are far larger than the rest. Square root: a gentler squeeze. Linear: area in direct proportion; the largest get very large. Quantile: a few fixed sizes, each holding about the same number of counties. Natural breaks: a few fixed sizes, split where the counts jump. Set how many with Number of bins. This page opens on Logarithmic.</p>
+          <select id="s-scaling">
+            <option value="log" selected>Logarithmic (smooth)</option><option value="sqrt">Square root (smooth)</option>
+            <option value="linear">Linear (smooth)</option><option value="quantile">Quantile (bins)</option><option value="natural">Natural breaks (bins)</option>
+          </select></div>
+        <div class="field" id="bins-field" hidden><span class="ctl"><label for="s-bins">Number of bins</label><button type="button" class="tip" aria-expanded="false" data-help="s-bins" aria-controls="help-s-bins" aria-label="About Number of bins" title="The number of circle sizes for Quantile or Natural breaks. More sizes show finer differences but make a busier legend; 5 is a good default.">?</button></span>
+          <p class="help-note" id="help-s-bins" hidden>The number of circle sizes for Quantile or Natural breaks. More sizes show finer differences but make a busier legend; 5 is a good default.</p>
+          <select id="s-bins"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>10</option></select>
+          <p class="gate-reason" id="bins-reason" hidden>Shaded maps show at most 5 classes, so neighboring colors stay apart.</p></div>
+        <div class="field"><label class="ctl" for="s-opacity" id="s-opacity-label">Circle opacity</label>
+          <select id="s-opacity"><option value="0.2">Very light (20%)</option><option value="0.4">Light (40%)</option><option value="0.6" selected>Medium (60%)</option><option value="0.8">Heavy (80%)</option><option value="1.0">Solid (100%)</option></select></div>
+        <div class="field"><label class="ctl" for="s-palette">Color palette</label><select id="s-palette"></select>
+          <p class="gate-reason" id="palette-reason" hidden>Shaded counties use the ColorBrewer ramp of the direction shown.</p></div>
+        <div class="field"><label class="ctl" for="s-basemap">Basemap</label><select id="s-basemap"></select>
+          <p class="muted" id="basemap-note" hidden></p></div>
+        <div class="field"><label class="ctl" for="s-label-style">Label style</label>
+          <select id="s-label-style" title="Auto picks contrast based on the selected basemap. Override if needed."></select></div>
+        <div class="field"><label class="ctl" for="s-boundary-style">Boundary style</label>
+          <select id="s-boundary-style" title="Auto picks contrast based on the selected basemap. Override if needed."></select></div>
+        <div class="field check" id="nr-block" role="group" aria-labelledby="nr-head"><span class="ctl" id="nr-head">Neighboring regions</span>
+          <div id="nr-list"></div>
+          <p class="status err" id="nr-msg" role="alert" hidden></p></div>
+        <div class="field check" id="county-block" role="group" aria-labelledby="county-head"><span class="ctl" id="county-head">County lines and labels</span>
+          <label title="Washington's county names, and the neighboring regions' county names while their counties are turned on (shown from zoom 7)."><input type="checkbox" id="s-labels" checked> Show county labels</label>
+          <label title="Washington's county lines. Each neighboring region's lines have their own switches above."><input type="checkbox" id="s-lines" checked> Show county lines</label>
+        </div>
+        </div>
+        <!-- S5: County Focus style (CVI's intra_* inputs). -->
+        <div id="focus-style" hidden>
+        <h6 class="map-section"><span data-icon="bullseye"></span> County Focus Style</h6>
+        <div class="field check">
+          <div class="tip-row"><label><input type="checkbox" id="fo-hide"> Hide CVI circles</label><button type="button" class="tip" aria-expanded="false" data-help="fo-hide" aria-controls="help-fo-hide" aria-label="About Hide CVI circles" title="Hides the importer and exporter circles, their clusters and counts on this map and its screenshot; boundaries and labels stay. The value boxes and the summary still count them.">?</button></div>
+          <p class="help-note" id="help-fo-hide" hidden>Hides the importer and exporter circles, their clusters and counts on this map and its screenshot; boundaries and labels stay. The value boxes and the summary still count them.</p>
+        </div>
+        <div class="field check">
+          <div class="tip-row"><label><input type="checkbox" id="fo-group" checked> Group nearby premises</label><button type="button" class="tip" aria-expanded="false" data-help="fo-group" aria-controls="help-fo-group" aria-label="About Group nearby premises" title="Draws premises that are close together as one numbered bubble, as CVI does, until you zoom in. Bubbles keep one size and do not follow Circle size scaling or Side-by-side; single premises do. Untick to draw every premises at its own size at any zoom.">?</button></div>
+          <p class="help-note" id="help-fo-group" hidden>Draws premises that are close together as one numbered bubble, as CVI does, until you zoom in. Bubbles keep one size and do not follow Circle size scaling or Side-by-side; single premises do. Untick to draw every premises at its own size at any zoom.</p>
+        </div>
+        <div class="field"><span class="ctl"><label for="fo-scaling">Circle size scaling</label><button type="button" class="tip" aria-expanded="false" data-help="fo-scaling" aria-controls="help-fo-scaling" aria-label="About Circle size scaling" title="How a premises' animal count sets its circle's area. Logarithmic: shrinks big differences, so small premises stay visible; best when a few premises are far larger than the rest. Square root: a gentler squeeze. Linear: area in direct proportion; the largest get very large. Quantile: a few fixed sizes, each holding about the same number of premises. Natural breaks: a few fixed sizes, split where the counts jump. Set how many with Number of bins. This page opens on Logarithmic.">?</button></span>
+          <p class="help-note" id="help-fo-scaling" hidden>How a premises' animal count sets its circle's area. Logarithmic: shrinks big differences, so small premises stay visible; best when a few premises are far larger than the rest. Square root: a gentler squeeze. Linear: area in direct proportion; the largest get very large. Quantile: a few fixed sizes, each holding about the same number of premises. Natural breaks: a few fixed sizes, split where the counts jump. Set how many with Number of bins. This page opens on Logarithmic.</p>
+          <select id="fo-scaling">
+            <option value="log" selected>Logarithmic (smooth)</option><option value="sqrt">Square root (smooth)</option>
+            <option value="linear">Linear (smooth)</option><option value="quantile">Quantile (bins)</option><option value="natural">Natural breaks (bins)</option>
+          </select></div>
+        <div class="field" id="fo-bins-field" hidden><span class="ctl"><label for="fo-bins">Number of bins</label><button type="button" class="tip" aria-expanded="false" data-help="fo-bins" aria-controls="help-fo-bins" aria-label="About Number of bins" title="The number of circle sizes for Quantile or Natural breaks. More sizes show finer differences but make a busier legend; 5 is a good default.">?</button></span>
+          <p class="help-note" id="help-fo-bins" hidden>The number of circle sizes for Quantile or Natural breaks. More sizes show finer differences but make a busier legend; 5 is a good default.</p>
+          <select id="fo-bins"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>10</option></select></div>
+        <div class="field"><label class="ctl" for="fo-opacity">Circle opacity</label>
+          <select id="fo-opacity"><option value="0.2">Very light (20%)</option><option value="0.4">Light (40%)</option><option value="0.6">Medium (60%)</option><option value="0.8" selected>Heavy (80%)</option><option value="1.0">Solid (100%)</option></select></div>
+        <div class="field"><label class="ctl" for="fo-basemap">Basemap</label><select id="fo-basemap"></select>
+          <p class="muted" id="fo-basemap-note" hidden></p></div>
+        <div class="field"><label class="ctl" for="fo-label-style">Label style</label>
+          <select id="fo-label-style" title="Auto picks contrast based on the selected basemap. Override if needed."></select></div>
+        <div class="field"><label class="ctl" for="fo-boundary-style">Boundary style</label>
+          <select id="fo-boundary-style" title="Auto picks contrast based on the selected basemap. Override if needed."></select></div>
+        <!-- S5: the County Focus map's own neighboring-region switches (the WA map's NR, a deliberate addition; not in CVI). -->
+        <div class="field check" id="fo-nr-block" role="group" aria-labelledby="fo-nr-head"><span class="ctl" id="fo-nr-head">Neighboring regions</span>
+          <div id="fo-nr-list"></div>
+          <p class="status err" id="fo-nr-msg" role="alert" hidden></p></div>
+        <div class="field check">
+          <div class="tip-row"><label><input type="checkbox" id="fo-labels" checked> Show county labels</label><button type="button" class="tip" aria-expanded="false" data-help="fo-labels" aria-controls="help-fo-labels" aria-label="About Show county labels" title="Shows Washington county names on the live map and its screenshot.">?</button></div>
+          <p class="help-note" id="help-fo-labels" hidden>Shows Washington county names on the live map and its screenshot.</p>
+          <div class="tip-row"><label><input type="checkbox" id="fo-outlines" checked> Show county outlines</label><button type="button" class="tip" aria-expanded="false" data-help="fo-outlines" aria-controls="help-fo-outlines" aria-label="About Show county outlines" title="Shows every county's outline on the live map. The focus counties stay highlighted either way.">?</button></div>
+          <p class="help-note" id="help-fo-outlines" hidden>Shows every county's outline on the live map. The focus counties stay highlighted either way.</p>
+        </div>
+        </div>
+        <!-- S4: National Flow style (CVI's flow_* inputs). Its Label style and Boundary style only affect CVI's PNG export: left for that slice. -->
+        <div id="flow-style" hidden>
+        <h6 class="map-section"><span data-icon="globe-americas"></span> National Flow Style</h6>
+        <!-- CH: shaded states (choropleth.js; not in CVI). Lines stays the default. -->
+        <div class="field radio" role="radiogroup" aria-labelledby="fl-shape-head" id="fl-shape-field">
+          <span class="ctl" id="fl-shape-head">Show states as<button type="button" class="tip" aria-expanded="false" data-help="fl-shape" aria-controls="help-fl-shape" aria-label="About Show states as" title="Lines: one line from Washington to each state, colored by species, its width by the animals moved. Shaded states: each state filled by its animals moved with Washington, light to dark, in classes (a choropleth); species are added together; Washington is the white hub. States with no movements stay plain gray.">?</button></span>
+          <p class="help-note" id="help-fl-shape" hidden>Lines: one line from Washington to each state, colored by species, its width by the animals moved. Shaded states: each state filled by its animals moved with Washington, light to dark, in classes (a choropleth); species are added together; Washington is the white hub. States with no movements stay plain gray.</p>
+          <label><input type="radio" name="fl-shape" value="lines" checked> Lines</label>
+          <label><input type="radio" name="fl-shape" value="shaded"> Shaded states</label>
+        </div>
+        <div class="field" id="fl-classes-field" hidden><span class="ctl"><label for="fl-classes">Shading classes</label><button type="button" class="tip" aria-expanded="false" data-help="fl-classes" aria-controls="help-fl-classes" aria-label="About Shading classes" title="How the states are grouped into colors. Natural breaks: classes split where the values jump. Quantile: each class holds about the same number of states. Set how many with Number of bins (at most 5 while shaded).">?</button></span>
+          <p class="help-note" id="help-fl-classes" hidden>How the states are grouped into colors. Natural breaks: classes split where the values jump. Quantile: each class holds about the same number of states. Set how many with Number of bins (at most 5 while shaded).</p>
+          <select id="fl-classes">
+            <option value="log" disabled>Logarithmic (lines only)</option><option value="sqrt" disabled>Square root (lines only)</option>
+            <option value="linear" disabled>Linear (lines only)</option><option value="quantile">Quantile (bins)</option><option value="natural" selected>Natural breaks (bins)</option>
+          </select>
+          <p class="gate-reason">Logarithmic, Square root and Linear set line widths; shaded states need classes.</p></div>
+        <div class="field" id="fl-scaling-field"><span class="ctl"><label for="fl-scaling">Line width scaling</label><button type="button" class="tip" aria-expanded="false" data-help="fl-scaling" aria-controls="help-fl-scaling" aria-label="About Line width scaling" title="How the animals moved sets its line's width. Logarithmic: shrinks big differences, so small lines stay visible; best when a few lines are far larger than the rest. Square root: a gentler squeeze. Linear: width in direct proportion; the largest get very wide. Quantile: a few fixed widths, each holding about the same number of lines. Natural breaks: a few fixed widths, split where the counts jump. Set how many with Number of bins. This page opens on Natural breaks.">?</button></span>
+          <p class="help-note" id="help-fl-scaling" hidden>How the animals moved sets its line's width. Logarithmic: shrinks big differences, so small lines stay visible; best when a few lines are far larger than the rest. Square root: a gentler squeeze. Linear: width in direct proportion; the largest get very wide. Quantile: a few fixed widths, each holding about the same number of lines. Natural breaks: a few fixed widths, split where the counts jump. Set how many with Number of bins. This page opens on Natural breaks.</p>
+          <select id="fl-scaling">
+            <option value="log">Logarithmic (smooth)</option><option value="sqrt">Square root (smooth)</option>
+            <option value="linear">Linear (smooth)</option><option value="quantile">Quantile (bins)</option><option value="natural" selected>Natural breaks (bins)</option>
+          </select></div>
+        <div class="field" id="fl-bins-field"><span class="ctl"><label for="fl-bins">Number of bins</label><button type="button" class="tip" aria-expanded="false" data-help="fl-bins" aria-controls="help-fl-bins" aria-label="About Number of bins" title="The number of line widths for Quantile or Natural breaks. More widths show finer differences but make a busier legend; 5 is a good default.">?</button></span>
+          <p class="help-note" id="help-fl-bins" hidden>The number of line widths for Quantile or Natural breaks. More widths show finer differences but make a busier legend; 5 is a good default.</p>
+          <select id="fl-bins"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>10</option></select>
+          <p class="gate-reason" id="fl-bins-reason" hidden>Shaded maps show at most 5 classes, so neighboring colors stay apart.</p></div>
+        <div class="field"><label class="ctl" for="fl-opacity" id="fl-opacity-label">Line opacity</label><select id="fl-opacity"></select></div>
+        <div class="field"><span class="ctl"><label for="fl-mult">Line width</label><button type="button" class="tip" aria-expanded="false" data-help="fl-mult" aria-controls="help-fl-mult" aria-label="About Line width" title="Multiplies every line's width after the scaling above; 1.0 changes nothing. Raise it for thicker lines in screenshots and slides; lower it when many lines overlap.">?</button></span>
+          <p class="help-note" id="help-fl-mult" hidden>Multiplies every line's width after the scaling above; 1.0 changes nothing. Raise it for thicker lines in screenshots and slides; lower it when many lines overlap.</p>
+          <select id="fl-mult"></select>
+          <p class="gate-reason" id="fl-mult-reason" hidden>Shaded states have no lines.</p></div>
+        <div class="field"><span class="ctl"><label for="fl-palette">Color palette</label><button type="button" class="tip" aria-expanded="false" data-help="fl-palette" aria-controls="help-fl-palette" aria-label="About Color palette" title="Colors for the circles and lines. WSDA Brand uses colors from the WSDA brand guide. A &quot;Single — …&quot; palette uses one color for every species, useful with Combine species on the National Flow map.">?</button></span>
+          <p class="help-note" id="help-fl-palette" hidden>Colors for the circles and lines. WSDA Brand uses colors from the WSDA brand guide. A "Single — …" palette uses one color for every species, useful with Combine species on the National Flow map.</p>
+          <select id="fl-palette"></select>
+          <p class="gate-reason" id="fl-palette-reason" hidden>Shaded states use the ColorBrewer ramp of the direction shown.</p></div>
+        <p class="muted">The National Flow map does not use basemaps.</p>
+        <div class="field check">
+          <div class="tip-row"><label><input type="checkbox" id="fl-labels" checked> Show state labels</label><button type="button" class="tip" aria-expanded="false" data-help="fl-labels" aria-controls="help-fl-labels" aria-label="About Show state labels" title="Adds state abbreviations on top of the map.">?</button></div>
+          <p class="help-note" id="help-fl-labels" hidden>Adds state abbreviations on top of the map.</p>
+          <div class="tip-row"><label><input type="checkbox" id="fl-lines" checked> Show state lines</label><button type="button" class="tip" aria-expanded="false" data-help="fl-lines" aria-controls="help-fl-lines" aria-label="About Show state lines" title="Draws US state boundary outlines on the live map.">?</button></div>
+          <p class="help-note" id="help-fl-lines" hidden>Draws US state boundary outlines on the live map.</p>
+        </div>
+        </div>
+        <!-- PC: Population context (shared/population.js; layers that come with the site, not in CVI). One set of
+             switches for WA State (both Compare maps) and County Focus, all off when the page opens, grayed on National
+             Flow. A layer's file loads the first time its switch is turned on. The branded PNG follows the map. -->
+        <div class="field check" id="pc-block" role="group" aria-labelledby="pc-head"><span class="ctl" id="pc-head">Population context</span>
+          <div class="tip-row"><label><input type="checkbox" class="pc-on" id="pc-cities" data-layer="cities"> City limits (WA Dept. of Revenue)</label><button type="button" class="tip" aria-expanded="false" data-help="pc-cities" aria-controls="help-pc-cities" aria-label="About City limits (WA Dept. of Revenue)" title="The current legal limits of every incorporated city and town in Washington, from the WA Department of Revenue (updated quarterly), with each city's 2020 Census population. With Population centers also on, cities are outlined from these limits only.">?</button></div>
+          <p class="help-note" id="help-pc-cities" hidden>The current legal limits of every incorporated city and town in Washington, from the WA Department of Revenue (updated quarterly), with each city's 2020 Census population. With Population centers also on, cities are outlined from these limits only.</p>
+          <div class="tip-row"><label><input type="checkbox" class="pc-on" id="pc-places" data-layer="places"> Population centers (2020 Census)</label><button type="button" class="tip" aria-expanded="false" data-help="pc-places" aria-controls="help-pc-places" aria-label="About Population centers (2020 Census)" title="Every 2020 Census place: the incorporated cities and towns (solid outline, their 2020 limits) and the census-designated places, the named unincorporated communities (dashed). With City limits also on, only the census-designated places are drawn, each cut to the part outside current city limits.">?</button></div>
+          <p class="help-note" id="help-pc-places" hidden>Every 2020 Census place: the incorporated cities and towns (solid outline, their 2020 limits) and the census-designated places, the named unincorporated communities (dashed). With City limits also on, only the census-designated places are drawn, each cut to the part outside current city limits.</p>
+          <div class="tip-row"><label><input type="checkbox" class="pc-on" id="pc-density" data-layer="density"> Population density (2020 Census tracts)</label><button type="button" class="tip" aria-expanded="false" data-help="pc-density" aria-controls="help-pc-density" aria-label="About Population density (2020 Census tracts)" title="People per square mile of land in each 2020 Census tract, in six fixed classes from under 10 to 5,000 and over, drawn under the data. Context only: no count or circle changes.">?</button></div>
+          <p class="help-note" id="help-pc-density" hidden>People per square mile of land in each 2020 Census tract, in six fixed classes from under 10 to 5,000 and over, drawn under the data. Context only: no count or circle changes.</p>
+          <p class="muted pc-names-note">Names: places of 10,000 people or more on WA State; every city and place in the picked counties on County Focus.</p>
+          <p class="gate-reason" id="pc-reason" hidden></p>
+          <p class="status err" id="pc-msg" role="alert" hidden></p>
+        </div>
+        <!-- Each view's Fit button closes the section, below the population group (as on the
+             Infrastructure dashboard). ui.js setView shows the current view's button. -->
+        <button type="button" class="btn full" id="fit-wa"><span class="btn-icon" data-icon="crosshair" aria-hidden="true"></span>Fit to Washington</button>
+        <button type="button" class="btn full" id="fit-focus" hidden title="Re-center and zoom the live map to the bounding box of the currently-selected focus counties."><span class="btn-icon" data-icon="crosshair" aria-hidden="true"></span>Fit to selected counties</button>
+        <button type="button" class="btn full" id="fit-conus" hidden><span class="btn-icon" data-icon="crosshair" aria-hidden="true"></span>Fit to Lower 48</button>
+      </div>
+    </details>
+
+    <!-- S7: CVI's Export & Preview section (closed when the page opens, as CVI's). S9 adds the branded map, its
+         title, PNG resolution and Preview Map, and on National Flow the time-series GIF (S10) with its frame
+         interval and progress; GeoPackage (the CVI pipeline) is not shown. -->
+    <details class="section" id="export-section">
+      <summary>Export &amp; Preview</summary>
+      <div class="section-body">
+        <p class="muted">Each export is one ZIP file, handed to your browser to save (usually your Downloads folder).</p>
+        <div class="export-subhead first">Export Details</div>
+        <div class="field">
+          <div class="tip-row"><label class="ctl" for="export-label">Optional Filename</label><button type="button" class="tip" aria-expanded="false" data-help="export-label" aria-controls="help-export-label" aria-label="About Optional Filename" title="A name for the ZIP file and the folder inside it. Leave blank for the automatic name, YYYY-MM-DD_MapType_Area_Species_Direction. If a file of that name exists, your browser adds a number.">?</button></div>
+          <p class="help-note" id="help-export-label" hidden>A name for the ZIP file and the folder inside it. Leave blank for the automatic name, YYYY-MM-DD_MapType_Area_Species_Direction. If a file of that name exists, your browser adds a number.</p>
+          <input type="text" class="export-input" id="export-label" placeholder="Auto-named if blank">
+        </div>
+        <div class="field">
+          <div class="tip-row"><label class="ctl" for="export-title">Optional Map Title</label><button type="button" class="tip" aria-expanded="false" data-help="export-title" aria-controls="help-export-title" aria-label="About Optional Map Title" title="Your own header text for the branded PNG, up to 80 characters. Leave blank for the automatic title from the filters (for example TOTAL ANIMAL IMPORTS – CATTLE).">?</button></div>
+          <p class="help-note" id="help-export-title" hidden>Your own header text for the branded PNG, up to 80 characters. Leave blank for the automatic title from the filters (for example TOTAL ANIMAL IMPORTS – CATTLE).</p>
+          <input type="text" class="export-input" id="export-title" placeholder="Auto-titled if blank">
+        </div>
+        <div class="export-subhead">PNG Rendering</div>
+        <div class="field">
+          <div class="tip-row"><label class="ctl" for="export-background">Export PNG background</label><button type="button" class="tip" aria-expanded="false" data-help="export-background" aria-controls="help-export-background" aria-label="About Export PNG background" title="The background of Preview Map and the branded PNG. Default is the report-style WSDA background and needs no network. Satellite, Shaded Relief and Hillshade (WA State and County Focus) come from Esri's servers; if one cannot be loaded, Default is used and a notice says so. Streets (vector), County Focus only, draws roads, water and place names from bundled Census data, with no network. The live map's basemap does not change the PNG.">?</button></div>
+          <p class="help-note" id="help-export-background" hidden>The background of Preview Map and the branded PNG. Default is the report-style WSDA background and needs no network. Satellite, Shaded Relief and Hillshade (WA State and County Focus) come from Esri's servers; if one cannot be loaded, Default is used and a notice says so. Streets (vector), County Focus only, draws roads, water and place names from bundled Census data, with no network. The live map's basemap does not change the PNG.</p>
+          <select id="export-background" class="export-input">
+            <option value="standard" selected>Default</option>
+            <option value="raster:esri_satellite">Satellite</option>
+            <option value="raster:esri_relief">Shaded Relief</option>
+            <option value="raster:esri_hillshade">Hillshade</option>
+            <option value="vector:streets">Streets (vector)</option>
+          </select>
+          <p class="muted" id="export-background-note" hidden>Alternate PNG backgrounds are available for WA State and County Focus only.</p>
+        </div>
+        <div class="field" id="export-quality-field">
+          <div class="tip-row"><label class="ctl" for="export-quality">Export quality</label><button type="button" class="tip" aria-expanded="false" data-help="export-quality" aria-controls="help-export-quality" aria-label="About Export quality" title="The detail of the Satellite, Shaded Relief and Hillshade backgrounds. Standard: fast; fine for screens and reports. High: sharper (tile zoom +2) but slower; for print.">?</button></div>
+          <p class="help-note" id="help-export-quality" hidden>The detail of the Satellite, Shaded Relief and Hillshade backgrounds. Standard: fast; fine for screens and reports. High: sharper (tile zoom +2) but slower; for print.</p>
+          <select id="export-quality" class="export-input">
+            <option value="standard" selected>Standard (fast)</option>
+            <option value="high">High (slower, larger file)</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="tip-row"><label class="ctl" for="export-resolution">PNG resolution</label><button type="button" class="tip" aria-expanded="false" data-help="export-resolution" aria-controls="help-export-resolution" aria-label="About PNG resolution" title="Standard: the branded map at 200 dpi and the charts at 150 dpi, as CVI writes them. High: 300 dpi for both (the branded map 3300 x 2550 pixels, a chart 2400 x 1500), sharper in print, larger files.">?</button></div>
+          <p class="help-note" id="help-export-resolution" hidden>Standard: the branded map at 200 dpi and the charts at 150 dpi, as CVI writes them. High: 300 dpi for both (the branded map 3300 x 2550 pixels, a chart 2400 x 1500), sharper in print, larger files.</p>
+          <select id="export-resolution" class="export-input">
+            <option value="standard" selected>Standard (map 200 dpi, charts 150 dpi)</option>
+            <option value="high">High (300 dpi)</option>
+          </select>
+        </div>
+        <div class="export-subhead">Tables</div>
+        <div class="field check" id="export-tables">
+          <div class="tip-row"><label><input type="checkbox" name="export-format" value="csv"> Source records (.csv)</label><button type="button" class="tip" aria-expanded="false" data-help="export-csv" aria-controls="help-export-csv" aria-label="About Source records" title="The rows the map draws, one per CVI record, after the filters. Written as filtered_rows.csv.">?</button></div>
+          <p class="help-note" id="help-export-csv" hidden>The rows the map draws, one per CVI record, after the filters. Written as filtered_rows.csv.</p>
+          <div class="tip-row"><label><input type="checkbox" name="export-format" value="summary_csv" checked> Aggregated totals (.csv)</label><button type="button" class="tip" aria-expanded="false" data-help="export-summary" aria-controls="help-export-summary" aria-label="About Aggregated totals" title="One row per circle or line on the map, as Preview Map Data shows. Written as summary_table.csv.">?</button></div>
+          <p class="help-note" id="help-export-summary" hidden>One row per circle or line on the map, as Preview Map Data shows. Written as summary_table.csv.</p>
+        </div>
+        <div class="export-subhead">Visualizations</div>
+        <div class="field check" id="export-viz">
+          <div class="tip-row"><label><input type="checkbox" name="export-format" value="charts" checked> Charts (.png)</label><button type="button" class="tip" aria-expanded="false" data-help="export-charts" aria-controls="help-export-charts" aria-label="About Charts" title="The view's charts as Map + charts or Charts shows them, counted by &quot;Show charts by:&quot;. The over-time chart and the heatmaps (animals by species and period; on WA State and National Flow also the top 10 places by period) only when the rows span two or more periods. Written to charts/.">?</button></div>
+          <p class="help-note" id="help-export-charts" hidden>The view's charts as Map + charts or Charts shows them, counted by "Show charts by:". The over-time chart and the heatmaps (animals by species and period; on WA State and National Flow also the top 10 places by period) only when the rows span two or more periods. Written to charts/.</p>
+          <div class="tip-row"><label><input type="checkbox" name="export-format" value="branded_png"> Branded map (.png)</label><button type="button" class="tip" aria-expanded="false" data-help="export-branded" aria-controls="help-export-branded" aria-label="About Branded map" title="The branded PNG, as Preview Map shows it, at full size for slides and reports.">?</button></div>
+          <p class="help-note" id="help-export-branded" hidden>The branded PNG, as Preview Map shows it, at full size for slides and reports.</p>
+          <div class="tip-row" id="export-gif-row" hidden><label><input type="checkbox" name="export-format" value="branded_gif" id="export-gif" disabled> Time-series GIF (.gif)</label><button type="button" class="tip" aria-expanded="false" data-help="export-gif" aria-controls="help-export-gif" aria-label="About Time-series GIF" title="An animated GIF of the map, one frame per quarter or year (set under &quot;GIF frame interval&quot;). Circle sizes, line widths and the legend use one scale for every frame (on a shaded map, one set of classes), so frames can be compared. In Compare, the GIF shows the left map. It is drawn on the Default background (or Streets on County Focus).">?</button></div>
+          <p class="gif-why" id="export-gif-why" hidden></p>
+          <p class="help-note" id="help-export-gif" hidden>An animated GIF of the map, one frame per quarter or year (set under "GIF frame interval"). Circle sizes, line widths and the legend use one scale for every frame (on a shaded map, one set of classes), so frames can be compared. In Compare, the GIF shows the left map. It is drawn on the Default background (or Streets on County Focus).</p>
+        </div>
+        <div class="field" id="export-gif-field" hidden>
+          <div class="tip-row"><label class="ctl" for="export-gif-by">GIF frame interval</label><button type="button" class="tip" aria-expanded="false" data-help="export-gif-by" aria-controls="help-export-gif-by" aria-label="About GIF frame interval" title="What each GIF frame covers. Quarter gives a smoother animation; Year a smaller file.">?</button></div>
+          <p class="help-note" id="help-export-gif-by" hidden>What each GIF frame covers. Quarter gives a smoother animation; Year a smaller file.</p>
+          <select id="export-gif-by" class="export-input">
+            <option value="quarter" selected>Quarter (Y-Q)</option>
+            <option value="year">Year</option>
+          </select>
+        </div>
+        <details class="field" id="export-names" hidden>
+          <summary class="export-subhead">Name markers in PNG <button type="button" class="tip" aria-expanded="false" data-help="export-names" aria-controls="help-export-names" aria-label="About Name markers in PNG" title="Pick the facility layers whose names print on the branded PNG; leave all unticked for a clean map. Names are kept apart, with a thin line back to the marker when one has to move. Many names in a busy area crowd the map: pick the one or two layers that matter. PNG only, not the live map.">?</button></summary>
+          <p class="help-note" id="help-export-names" hidden>Pick the facility layers whose names print on the branded PNG; leave all unticked for a clean map. Names are kept apart, with a thin line back to the marker when one has to move. Many names in a busy area crowd the map: pick the one or two layers that matter. PNG only, not the live map.</p>
+          <div class="ctl-row"><span class="ctl">Layers</span><span class="links"><button type="button" id="export-names-all">All</button> &middot; <button type="button" id="export-names-clear">Clear</button></span></div>
+          <div class="checklist" id="export-name-list" role="group" aria-label="Name markers in PNG"></div>
+          <p class="muted" id="export-names-empty">Load facility files to pick name markers.</p>
+        </details>
+        <div class="export-prompt">Preview before exporting:</div>
+        <div class="preview-grid">
+          <button type="button" class="btn" id="preview-map" title="Renders the branded PNG (same as Branded map (.png) export) in a dialog so you can check the framing before exporting."><span class="btn-icon" data-icon="eye" aria-hidden="true"></span>Preview Map</button>
+          <button type="button" class="btn" id="preview-table" title="Opens a paginated table of the aggregated data behind the map (one row per circle/line). Matches Aggregated totals (.csv)."><span class="btn-icon" data-icon="table" aria-hidden="true"></span>Preview Map Data</button>
+          <button type="button" class="btn" id="preview-stats" title="Quick in-app rollup of filters + totals + top counties/states/premises. For tabular export, use Aggregated totals (.csv)."><span class="btn-icon" data-icon="clipboard-data" aria-hidden="true"></span>Preview Stats</button>
+          <button type="button" class="btn" id="preview-charts" title="Shows the chart PNGs (up to six) that would land in charts/ on export."><span class="btn-icon" data-icon="bar-chart" aria-hidden="true"></span>Preview Charts</button>
+        </div>
+        <div class="status warn" id="preview-message" role="status" hidden></div>
+        <button type="button" class="btn full export-btn" id="run-export" title="Writes all checked formats (Tables / Visualizations) into one ZIP file, handed to your browser to save."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Export</button>
+        <div class="status info gif-progress" id="gif-progress" hidden><span id="gif-progress-text" role="status" aria-live="polite"></span> <button type="button" class="btn" id="gif-cancel"><span class="btn-icon" data-icon="x-lg" aria-hidden="true"></span>Cancel</button></div>
+        <div class="status" id="export-result" role="status" aria-live="polite" hidden></div>
+        <div class="export-history" id="export-history" hidden>
+          <p><strong>Exports this session</strong></p>
+          <ul id="export-history-list"></ul>
+        </div>
+        <p class="muted">The camera button on each map saves a picture of the map on its own, not in the export ZIP.</p>
+      </div>
+    </details>
+    </div>
+    <!-- S11: the Premise Lookup sidebar (lookup.js); CVI's mod_premise_lookup.R filters and "Locations to query". -->
+    <div id="lookup-side" hidden>
+      <details class="section" open>
+        <summary>Filters</summary>
+        <div class="section-body">
+          <div class="field">
+            <div class="ctl-row"><span class="ctl">Year(s)</span><span class="links"><button type="button" id="lk-years-all">All</button> &middot; <button type="button" id="lk-years-clear">Clear</button></span></div>
+            <div class="checklist" id="lk-years" role="group" aria-label="Premise Lookup Years"></div>
+            <p class="muted lk-none" id="lk-years-none" hidden>None ticked: every year is used.</p>
+          </div>
+          <div class="field">
+            <div class="ctl-row"><span class="ctl">Quarter(s)</span><span class="links"><button type="button" id="lk-quarters-all">All</button> &middot; <button type="button" id="lk-quarters-clear">Clear</button></span></div>
+            <div class="checklist" id="lk-quarters" role="group" aria-label="Premise Lookup Quarters"></div>
+            <p class="muted lk-none" id="lk-quarters-none" hidden>None ticked: every quarter is used.</p>
+          </div>
+          <div class="field">
+            <div class="ctl-row"><span class="ctl">Species Group</span><span class="links"><button type="button" id="lk-species-all">All</button> &middot; <button type="button" id="lk-species-clear">Clear</button></span></div>
+            <div class="checklist" id="lk-species" role="group" aria-label="Premise Lookup Species Group"></div>
+            <p class="muted lk-none" id="lk-species-none" hidden>None ticked: every species group is used.</p>
+          </div>
+          <div class="field radio" role="radiogroup" aria-labelledby="lk-endpoint-head"><span class="ctl" id="lk-endpoint-head">Match endpoint</span>
+            <label><input type="radio" name="lk-endpoint" value="either" checked> Either</label>
+            <label><input type="radio" name="lk-endpoint" value="origin"> Origin only</label>
+            <label><input type="radio" name="lk-endpoint" value="dest"> Destination only</label>
+          </div>
+        </div>
+      </details>
+      <details class="section" open>
+        <summary>Buffer</summary>
+        <div class="section-body">
+          <div class="field radio" role="radiogroup" aria-labelledby="lk-mode-head"><span class="ctl" id="lk-mode-head">Buffer style</span>
+            <label><input type="radio" name="lk-mode" value="single" checked> Single buffer</label>
+            <label><input type="radio" name="lk-mode" value="bands"> Concentric bands</label>
+          </div>
+          <div id="lk-single-block">
+            <div class="field"><label class="ctl" for="lk-default">Default buffer (km)</label>
+              <input type="number" class="lk-input" id="lk-default" value="3" min="0.1" step="0.5"></div>
+            <div class="field"><span class="ctl">Quick buffer presets</span>
+              <div class="lk-presets">
+                <button type="button" class="btn lk-preset" data-km="3">3 km</button>
+                <button type="button" class="btn lk-preset" data-km="10">10 km</button>
+                <button type="button" class="btn lk-preset" data-km="20">20 km</button>
+                <button type="button" class="btn lk-preset" data-km="40">40 km</button>
+              </div>
+              <p class="muted">Per-row buffer overrides this default when set.</p></div>
+          </div>
+          <div id="lk-bands-block" hidden>
+            <div class="field"><label class="ctl" for="lk-bands">Band radii (km, up to 3)</label>
+              <input type="text" class="lk-input" id="lk-bands" value="3, 10, 20" placeholder="e.g. 3, 10, 20"></div>
+            <div class="field"><span class="ctl">Quick band presets</span>
+              <div class="lk-presets">
+                <button type="button" class="btn lk-band-preset" data-bands="3, 10, 20">3 / 10 / 20</button>
+                <button type="button" class="btn lk-band-preset" data-bands="5, 10, 20">5 / 10 / 20</button>
+              </div>
+              <p class="muted">Ascending radii drawn as concentric zones. Use the table's per-site Bands column to override a site.</p></div>
+          </div>
+        </div>
+      </details>
+      <details class="section" open>
+        <summary>Locations to query</summary>
+        <div class="section-body">
+          <div class="lk-subhead">Add a site</div>
+          <p class="muted">Enter a name and coordinates, then click <b>Add site</b>. Added sites appear in the Sites to query table. Buffer is optional — leave it blank to use the default buffer / preset above.</p>
+          <p class="muted">Or click <b>Pick on map</b>, then click the match map to fill in the latitude and longitude.</p>
+          <!-- S11: the address lookup, offline: only in a geocode cache file the user loads. -->
+          <div class="field"><label class="ctl" for="lk-new-address">Street address (optional)</label>
+            <div class="lk-address">
+              <input type="text" class="lk-input" id="lk-new-address" spellcheck="false" autocomplete="off" placeholder="e.g. 123 Main St, Yakima, WA 98901">
+              <button type="button" class="btn" id="lk-geo-find"><span class="btn-icon" data-icon="search" aria-hidden="true"></span>Find coordinates</button>
+            </div></div>
+          <div id="lk-geo-msg" role="status" aria-live="polite" hidden></div>
+          <div class="field"><label class="ctl" for="lk-geo-file">Geocode cache file (optional)</label>
+            <input type="file" id="lk-geo-file" accept=".csv,text/csv">
+            <p class="muted">A CSV with the columns <code>address, lat, long</code>, such as CVI's <code>geocode_cache.csv</code>. <b>Find coordinates</b> looks the address up in it. The file is read in this browser and never sent anywhere; no address is looked up online.</p></div>
+          <div class="field"><label class="ctl" for="lk-new-name">Name</label>
+            <input type="text" class="lk-input" id="lk-new-name" spellcheck="false" autocomplete="off" placeholder="e.g. Affected Farm A"></div>
+          <div class="lk-pair">
+            <div class="field"><label class="ctl" for="lk-new-lat">Latitude</label>
+              <input type="number" class="lk-input" id="lk-new-lat" min="-90" max="90" step="0.0001"></div>
+            <div class="field"><label class="ctl" for="lk-new-long">Longitude</label>
+              <input type="number" class="lk-input" id="lk-new-long" min="-180" max="180" step="0.0001"></div>
+          </div>
+          <div class="field"><label class="ctl" for="lk-new-buffer">Buffer km (optional)</label>
+            <input type="number" class="lk-input" id="lk-new-buffer" min="0.1" step="0.5"></div>
+          <div class="lk-add-buttons">
+            <button type="button" class="btn lk-go" id="lk-add"><span class="btn-icon" data-icon="plus-lg" aria-hidden="true"></span>Add site</button>
+            <button type="button" class="btn" id="lk-pick" aria-pressed="false" title="Click the match map to fill in the latitude and longitude of a new site"><span class="btn-icon" data-icon="geo-alt" aria-hidden="true"></span>Pick on map</button>
+          </div>
+          <div id="lk-add-msg" role="status" aria-live="polite" hidden></div>
+          <details class="lk-bulk" id="lk-bulk">
+            <summary>Paste / upload bulk locations</summary>
+            <div class="field"><label class="ctl" for="lk-paste">Paste rows (one per line)</label>
+              <textarea id="lk-paste" class="lk-input" rows="5" spellcheck="false" autocomplete="off" placeholder="Affected Farm A, 46.5, -120.5&#10;Affected Farm B, 47.0, -120.0, 10&#10;Banded Farm C, 47.2, -120.2, 1, 3, 5"></textarea>
+              <p class="muted">Format: <code>name, lat, long</code>. Add <b>one</b> number for a single buffer (km), or <b>two or more</b> for concentric bands (e.g. <code>...,-120.2, 1, 3, 5</code> = 1/3/5 km rings).</p>
+              <button type="button" class="btn lk-go" id="lk-paste-add"><span class="btn-icon" data-icon="plus-lg" aria-hidden="true"></span>Add pasted rows to table</button></div>
+            <div class="field"><label class="ctl" for="lk-upload">Upload CSV</label>
+              <input type="file" id="lk-upload" accept=".csv,text/csv">
+              <button type="button" class="btn" id="lk-template"><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Download CSV template</button>
+              <p class="muted">Required columns: <code>name, lat, long</code>. Optional: <code>buffer_km</code> (uses default above when blank).</p></div>
+            <div id="lk-bulk-msg" role="status" aria-live="polite" hidden></div>
+          </details>
+          <!-- S11: zones from a file (shared/zones.js); each polygon becomes a site. -->
+          <details class="lk-bulk" id="lk-zones">
+            <summary>Zones from a file (polygons)</summary>
+            <div class="field"><label class="ctl" for="lk-zone-file">Zone file</label>
+              <input type="file" id="lk-zone-file" accept=".geojson,.json,.kml,.kmz,.zip,application/geo+json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/zip">
+              <p class="muted">GeoJSON, KML or a zipped shapefile, in longitude and latitude (WGS 84 or NAD 83). Each polygon becomes a site: a CVI or facility matches when it lies inside the polygon. The file is read in this browser and never sent anywhere.</p></div>
+            <div id="lk-zone-msg" role="status" aria-live="polite" hidden></div>
+          </details>
+        </div>
+      </details>
+      <!-- S11: the facility layers checked inside each buffer (shared/facility-ui.js, as on the Infrastructure dashboard). -->
+      <details class="section" id="lk-fac-section" open>
+        <summary>Facilities inside</summary>
+        <div class="section-body">
+          <p class="muted">For each site, the facilities of the ticked layers that lie inside its buffer or zone.</p>
+          <div class="field">
+            <div class="ctl-row"><span class="ctl">Facility layers</span><span class="links"><button type="button" id="lk-fac-all">All</button> &middot; <button type="button" id="lk-fac-clear">Clear</button></span></div>
+            <div id="lk-fac-list"></div>
+            <p class="muted" id="lk-fac-none" hidden>No facility files are loaded. Open the CVI map from the landing page with facility files to check which facilities lie inside each buffer.</p>
+          </div>
+        </div>
+      </details>
+      <!-- S11: Premise Lookup's own population switches (shared/population.js), apart from the Maps side's; they
+           draw on the match map and its branded PNG. The section is "Map Style": the live
+           map's basemap (the Maps side's list and request gate) first, and all three population layers on when the
+           page opens. -->
+      <details class="section" id="lk-pc-section" open>
+        <summary>Map Style</summary>
+        <div class="section-body">
+          <div class="field"><label class="ctl" for="lk-basemap">Basemap (live map)</label>
+            <select id="lk-basemap" class="lk-input"></select>
+            <p class="muted" id="lk-basemap-note" hidden></p></div>
+          <div class="lk-subhead">Population context</div>
+          <div class="field check lk-pc-block" id="lk-pc-block" role="group" aria-label="Premise Lookup population context">
+            <label title="The current legal limits of every incorporated city and town in Washington, from the WA Department of Revenue (updated quarterly), with each city's 2020 Census population."><input type="checkbox" class="lk-pc-on" id="lk-pc-cities" data-layer="cities"> City limits (WA Dept. of Revenue)</label>
+            <label title="Every 2020 Census place: the incorporated cities and towns (solid outline) and the census-designated places (dashed). With City limits also on, only the census-designated places are drawn."><input type="checkbox" class="lk-pc-on" id="lk-pc-places" data-layer="places"> Population centers (2020 Census)</label>
+            <label title="People per square mile of land in each 2020 Census tract, in six fixed classes, drawn under the data."><input type="checkbox" class="lk-pc-on" id="lk-pc-density" data-layer="density"> Population density (2020 Census tracts)</label>
+            <p class="muted">Context only: drawn on the match map and the branded PNG; no count changes. These switches are separate from the Maps side's.</p>
+            <p class="status err" id="lk-pc-msg" role="alert" hidden></p>
+          </div>
+        </div>
+      </details>
+      <button type="button" class="btn full lk-run" id="lk-run"><span class="btn-icon" data-icon="play-fill" aria-hidden="true"></span>Run query</button>
+      <p class="gate-reason" id="lk-run-reason" hidden></p>
+    </div>
+  </aside>
+  <main>
+  <div id="maps-main">
+    <!-- S7: where the charts appear, per Map View; replaces CVI's "Show charts" drawer. -->
+    <div class="layout-bar">
+      <div class="layout-switch" role="group" aria-label="Layout">
+        <button type="button" class="btn" data-layout="map" aria-pressed="true" title="The map at full size.">Map</button>
+        <button type="button" class="btn" data-layout="split" aria-pressed="false" title="The map with the view's charts beside it (under it in narrow windows and in Compare).">Map + charts</button>
+        <button type="button" class="btn" data-layout="charts" aria-pressed="false" title="The view's charts only, two to a row.">Charts</button>
+      </div>
+    </div>
+    <!-- MC: the chart filters set by clicking the charts (crossfilter.js), shown in every layout while any is on. -->
+    <div class="chart-filters" id="chart-filters" role="region" aria-label="Chart filters" hidden>
+      <span class="cf-label">Chart filters:</span>
+      <span class="cf-chips" id="chart-filter-chips"></span>
+      <button type="button" class="btn cf-clear" id="chart-filters-clear" title="Removes every chart filter of this view. The sidebar filters stay as they are."><span class="btn-icon" data-icon="x-circle" aria-hidden="true"></span>Clear chart filters</button>
+      <span class="cf-msg" id="chart-filters-msg" role="status" hidden></span>
+    </div>
+    <div id="value-boxes" aria-live="polite"></div>
+    <div class="view-area" id="view-area">
+    <div class="map-area" id="map-area">
+    <div class="maps" id="maps">
+      <div class="map-col">
+        <div class="map-head head-a" id="head-a" hidden><span data-icon="arrow-left-circle"></span> Left map &middot; <span id="label-a"></span></div>
+        <div class="map-frame">
+          <div id="map" role="region" aria-label="Interactive map"></div>
+          <div id="map-status" class="status info" role="status" aria-live="polite">Starting map…</div>
+          <div id="basemap-status" class="status warn" role="alert" hidden><span id="basemap-msg"></span><button type="button" class="btn" id="basemap-offline"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div>
+          <div id="toast" aria-live="polite"></div>
+          <button type="button" class="legend-toggle" id="legend-toggle" aria-expanded="false" aria-controls="legend-panel">Legend &#9660;</button>
+          <div class="legend-panel" id="legend-panel" hidden></div>
+        </div>
+      </div>
+      <div class="map-col" id="col-b" hidden>
+        <div class="map-head head-b"><span data-icon="arrow-right-circle"></span> Right map &middot; <span id="label-b"></span></div>
+        <div class="map-frame">
+          <div id="map-b" role="region" aria-label="Right map"></div>
+          <div id="map-b-status" class="status info" role="status" aria-live="polite" hidden>Starting map…</div>
+          <button type="button" class="legend-toggle" id="legend-toggle-b" aria-expanded="false" aria-controls="legend-panel-b">Legend &#9660;</button>
+          <div class="legend-panel" id="legend-panel-b" hidden></div>
+        </div>
+      </div>
+    </div>
+    <!-- S5: the County Focus map, made the first time the view is chosen (app/focusmap.js). -->
+    <div class="map-frame" id="focus-frame" hidden>
+      <div id="focus-map" role="region" aria-label="County Focus map"></div>
+      <div id="focus-status" class="status info" role="status" aria-live="polite" hidden>Starting map…</div>
+      <div id="focus-basemap-status" class="status warn" role="alert" hidden><span id="focus-basemap-msg"></span><button type="button" class="btn" id="focus-basemap-offline"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div>
+      <div id="focus-toast" aria-live="polite"></div>
+      <button type="button" class="legend-toggle" id="legend-toggle-focus" aria-expanded="false" aria-controls="legend-panel-focus">Legend &#9660;</button>
+      <div class="legend-panel" id="legend-panel-focus" hidden></div>
+    </div>
+    <!-- S4: the National Flow map, made the first time the view is chosen (app/flowmap.js). -->
+    <div class="map-frame" id="flow-frame" hidden>
+      <div id="flow-map" role="region" aria-label="National Flow map"></div>
+      <div id="flow-status" class="status info" role="status" aria-live="polite" hidden>Starting map…</div>
+      <div id="flow-toast" aria-live="polite"></div>
+      <button type="button" class="legend-toggle" id="legend-toggle-flow" aria-expanded="false" aria-controls="legend-panel-flow">Legend &#9660;</button>
+      <div class="legend-panel" id="legend-panel-flow" hidden></div>
+    </div>
+    <p class="muted compare-note" id="compare-note" hidden>Circle sizes are scaled on each map's own data: compare the numbers, not the circle sizes, across the two maps.</p>
+    <p class="muted compare-note" id="mv-note" role="note" hidden></p>
+    <p class="status warn compare-note" id="compare-refine-note" role="note" hidden>Refine by species applies to the left map only. The right map shows the whole Species Group; tick "Use different species on right map" to refine it.</p>
+    </div>
+    <!-- S7: the view's charts (charts.js, drawn by chartsvg.js), computed only while shown. -->
+    <section class="chart-panel" id="chart-panel" aria-label="Charts" hidden>
+      <div class="chart-head">
+        <label class="ctl" for="chart-measure">Show charts by:</label>
+        <select id="chart-measure" title="What every chart below counts. Animals moved: the number of animals, as CVI's charts count them. CVI records: rows of the table; a WA-to-WA movement counts once (Preview Stats' Total records counts it at both ends). Unique CVIs: distinct CVI numbers, as the Unique CVIs box counts them. Animal counts do not compare across species: one poultry shipment can carry thousands of birds."></select>
+        <span class="gate-reason" id="chart-measure-reason" hidden></span>
+      </div>
+      <div class="chart-grid" id="chart-grid"></div>
+      <div class="chart-tip" id="chart-tip" role="tooltip" hidden></div>
+    </section>
+    </div>
+    <div id="summary-strip" aria-live="polite"></div>
+  </div>
+  <!-- S11: the Premise Lookup results (lookup.js; CVI's results_panel), its map made at the first result (lookupmap.js). -->
+  <div id="lookup-main" hidden>
+    <div class="lk-intro">
+      <h2>Premise Lookup</h2>
+      <p class="muted">Find CVIs whose origin or destination falls within a radius of one or more locations. Useful for disease-event tracing, market exposure queries, or any "which animal movements touched these sites" question.</p>
+    </div>
+    <div class="lk-card lk-sites-card">
+      <div class="lk-card-head">Sites to query</div>
+      <div class="lk-card-body">
+        <p class="muted">Double-click any cell to edit a site. Select a row, then <b>Remove selected</b>, to delete just that one.</p>
+        <div id="lk-sites"></div>
+        <div class="lk-row-buttons">
+          <button type="button" class="btn" id="lk-remove"><span class="btn-icon" data-icon="dash-lg" aria-hidden="true"></span>Remove selected</button>
+          <button type="button" class="btn lk-danger" id="lk-clear"><span class="btn-icon" data-icon="x-lg" aria-hidden="true"></span>Clear all</button>
+        </div>
+      </div>
+    </div>
+    <div class="lk-run-lines" id="lk-run-lines" role="status" aria-live="polite" hidden></div>
+    <div class="vb-alert lk-empty" id="lk-empty" role="note"></div>
+    <div id="lk-results" hidden>
+      <div class="vb-row lk-tiles" id="lk-tiles"></div>
+      <p class="vb-alert lk-cvi-off" id="lk-cvi-off" role="note" hidden></p>
+    </div>
+    <!-- The match map shows with a result, and while Pick on map is on (S11). -->
+    <div class="lk-card" id="lk-map-card" hidden>
+      <div class="lk-card-head">Match preview</div>
+      <div class="map-frame" id="lookup-frame">
+        <div id="lookup-map" role="region" aria-label="Premise Lookup match map"></div>
+        <div id="lookup-legend" class="lk-legend" aria-label="Match map legend" hidden></div>
+        <div id="lookup-status" class="status info" role="status" aria-live="polite" hidden>Starting map…</div>
+        <div id="lookup-toast" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="lk-card" id="lk-fac-card" hidden>
+      <div class="lk-card-head">Facilities inside</div>
+      <div class="lk-card-body">
+        <div id="lk-fac-counts"></div>
+        <div id="lk-fac-table"></div>
+      </div>
+    </div>
+    <div class="lk-card" id="lk-cvi-card" hidden>
+      <div class="lk-card-head">Matched CVIs</div>
+      <div class="lk-card-body" id="lk-table"></div>
+    </div>
+    <div class="lk-card" id="lk-export-card" hidden>
+      <div class="lk-card-head">Export</div>
+      <div class="lk-card-body">
+        <p class="muted">One ZIP file per export, handed to your browser to save (usually your Downloads folder), with export_params.json.</p>
+        <div class="lk-export-formats" role="group" aria-label="Premise Lookup export formats">
+          <label><input type="checkbox" name="lk-format" value="matches_csv" checked> Matched CVIs (.csv)</label>
+          <label><input type="checkbox" name="lk-format" value="facilities_csv" checked> Facilities inside (.csv)</label>
+          <label><input type="checkbox" name="lk-format" value="branded_png" checked> Branded map (.png)</label>
+        </div>
+        <!-- S11: CVI's "Branded map options" (basemap, facility labels), with the page's resolution and quality. The
+             facility layers drawn are those ticked under "Facilities inside". -->
+        <details class="lk-png-options" id="lk-png-options">
+          <summary>Branded map options</summary>
+          <div class="lk-png-grid">
+            <div class="field"><label class="ctl" for="lk-png-background">Basemap</label>
+              <select id="lk-png-background" class="lk-input">
+                <option value="vector:streets" selected>Streets (vector)</option>
+                <option value="standard">Default (flat WSDA)</option>
+                <option value="raster:esri_satellite">Satellite</option>
+                <option value="raster:esri_relief">Shaded Relief</option>
+                <option value="raster:esri_hillshade">Hillshade</option>
+              </select></div>
+            <div class="field" id="lk-png-quality-field" hidden><label class="ctl" for="lk-png-quality">Export quality</label>
+              <select id="lk-png-quality" class="lk-input">
+                <option value="standard" selected>Standard (fast)</option>
+                <option value="high">High (slower, larger file)</option>
+              </select></div>
+            <div class="field"><label class="ctl" for="lk-png-resolution">PNG resolution</label>
+              <select id="lk-png-resolution" class="lk-input">
+                <option value="standard" selected>Standard (200 dpi)</option>
+                <option value="high">High (300 dpi)</option>
+              </select></div>
+          </div>
+          <div class="field check lk-png-labels-row"><label><input type="checkbox" id="lk-png-labels"> Show facility labels</label></div>
+          <div class="field check lk-png-labels-row"><label title="Besides the usual map, one PNG framed on each county that holds a site, with Streets, listing and counting only that county's sites."><input type="checkbox" id="lk-png-counties"> Also one PNG per county (sites' counties, with Streets)</label></div>
+          <p class="muted">Streets and Default need no network. Satellite, Shaded Relief and Hillshade are loaded from Esri's servers; if one cannot be loaded, the Default background is used with a notice.</p>
+        </details>
+        <p class="gate-reason" id="lk-export-reason" hidden></p>
+        <div class="lk-export-buttons">
+          <button type="button" class="btn" id="lk-preview"><span class="btn-icon" data-icon="eye" aria-hidden="true"></span>Preview branded map</button>
+          <button type="button" class="btn export-btn" id="lk-export"><span class="btn-icon" data-icon="file-earmark-zip" aria-hidden="true"></span>Export ZIP</button>
+        </div>
+        <div id="lk-export-msg" role="status" aria-live="polite" hidden></div>
+        <p class="muted lk-warning"><span aria-hidden="true">&#9888;</span> Exports and maps contain premises addresses and coordinates: handle as sensitive data and share only with authorized responders.</p>
+      </div>
+    </div>
+  </div>
+  </main>
+</div>
+<footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
+  Synthetic test data only. Not an official WSDA service. Runs entirely in this browser tab; the chosen file is never
+  uploaded.</p>
+  <details class="credits"><summary>Data sources and credits</summary>
+  <p><span id="attrib"></span></p>
+  <p>Shaded-map colors: ColorBrewer 2.0, by Cynthia A. Brewer, Penn State (Apache License 2.0).</p>
+  <div id="nr-statements"></div></details>
+  <div data-wsda-glossary></div></footer>
+
+<script src="../shared/release.js"></script>
+<script src="../vendor/maplibre-gl/maplibre-gl.js"></script>
+<script src="../geo/wa-counties.js"></script>
+<script src="../geo/regions/index.js"></script>
+<script src="../shared/regions.js"></script>
+<script src="../shared/population.js"></script>
+<script src="app/csv.js"></script>
+<script src="app/master.js"></script>
+<script src="app/scaling.js"></script>
+<script src="app/palettes.js"></script>
+<script src="app/choropleth.js"></script>
+<script src="app/aggregate.js"></script>
+<script src="app/summary.js"></script>
+<script src="app/periods.js"></script>
+<script src="app/icons.js"></script>
+<script src="app/basemaps.js"></script>
+<script src="app/map.js"></script>
+<script src="app/flow.js"></script>
+<script src="app/flowinsets.js"></script>
+<script src="app/focus.js"></script>
+<script src="app/charts.js"></script>
+<script src="app/chartsvg.js"></script>
+<script src="app/movement.js"></script>
+<script src="app/crossfilter.js"></script>
+<script src="app/exports.js"></script>
+<script src="app/previews.js"></script>
+<script src="../shared/brand.js"></script>
+<script src="../shared/branded.js"></script>
+<script src="../shared/tiles.js"></script>
+<script src="../shared/labels.js"></script>
+<script src="app/brandedmaps.js"></script>
+<script src="../shared/gif.js"></script>
+<script src="app/timeseries.js"></script>
+<script src="../shared/zip.js"></script>
+<script src="../shared/sample.js"></script>
+<script src="../shared/facilities.js"></script>
+<script src="../shared/facility-ui.js"></script>
+<script src="../shared/facility-details.js"></script>
+<script src="../shared/load.js"></script>
+<script src="../shared/checklist.js"></script>
+<script src="../shared/facility-datasets.js"></script>
+<script src="datasets.js"></script>
+<script src="../shared/proximity.js"></script>
+<script src="../shared/zones.js"></script>
+<script src="app/lookup.js"></script>
+<script src="app/ui.js"></script>
+</body>
+</html>

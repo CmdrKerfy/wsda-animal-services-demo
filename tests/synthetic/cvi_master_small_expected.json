@@ -1,0 +1,910 @@
+{
+ "meta": {
+  "fixture": "tests/synthetic/cvi_master_small.csv",
+  "method": "Hand-derived totals, memberships and anchors from CVI's mapping rules (the county merge, direction memberships and label anchors); log/linear/sqrt radii computed from CVI's radius formulas (min 4, max 48) with one-off Python arithmetic. Independent of the R and JS implementations.",
+  "physical_rows": 22,
+  "map_rows": 25,
+  "intrastate_rows": 3,
+  "excluded": {
+   "na_movement_rows": 1,
+   "na_year_rows": 1,
+   "non_numeric_or_blank_animals": 2
+  },
+  "year_choices": [
+   2024,
+   2025
+  ],
+  "species_choices": [
+   "Cattle",
+   "Equids",
+   "Other",
+   "Poultry",
+   "Small Ruminants",
+   "Swine"
+  ]
+ },
+ "views": [
+  {
+   "name": "default_side_by_side",
+   "filters": {
+    "species": [
+     "Cattle",
+     "Equids",
+     "Other",
+     "Poultry",
+     "Small Ruminants",
+     "Swine"
+    ],
+    "years": [
+     2024,
+     2025
+    ],
+    "quarters": [
+     "Q1",
+     "Q2",
+     "Q3",
+     "Q4"
+    ],
+    "direction": [
+     "Inbound",
+     "Outbound"
+    ]
+   },
+   "mode": "side_by_side",
+   "rows": [
+    {
+     "county": "Adams",
+     "direction": "Inbound",
+     "total_animals": 0,
+     "lat": 46.98,
+     "lon": -118.76,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Benton",
+     "direction": "Inbound",
+     "total_animals": 60,
+     "lat": 46.24,
+     "lon": -119.71000000000001,
+     "radius": {
+      "log": 35.425738560119484,
+      "linear": 12.38095238095238,
+      "sqrt": 23.203174340767326
+     }
+    },
+    {
+     "county": "Franklin",
+     "direction": "Inbound",
+     "total_animals": 120,
+     "lat": 46.53,
+     "lon": -119.10000000000001,
+     "radius": {
+      "log": 40.661611339739736,
+      "linear": 20.76190476190476,
+      "sqrt": 31.157389593328176
+     }
+    },
+    {
+     "county": "King",
+     "direction": "Inbound",
+     "total_animals": 315,
+     "lat": 47.49,
+     "lon": -122.01,
+     "radius": {
+      "log": 48.0,
+      "linear": 48.0,
+      "sqrt": 48.0
+     }
+    },
+    {
+     "county": "Spokane",
+     "direction": "Inbound",
+     "total_animals": 0,
+     "lat": 47.62,
+     "lon": -117.60000000000001,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Walla Walla",
+     "direction": "Inbound",
+     "total_animals": 120,
+     "lat": 46.23,
+     "lon": -118.68,
+     "radius": {
+      "log": 40.661611339739736,
+      "linear": 20.76190476190476,
+      "sqrt": 31.157389593328176
+     }
+    },
+    {
+     "county": "Whatcom",
+     "direction": "Inbound",
+     "total_animals": 15,
+     "lat": 48.83,
+     "lon": -121.92,
+     "radius": {
+      "log": 25.195164628911545,
+      "linear": 6.095238095238095,
+      "sqrt": 13.601587170383663
+     }
+    },
+    {
+     "county": "Yakima",
+     "direction": "Inbound",
+     "total_animals": 90,
+     "lat": 46.46,
+     "lon": -120.94,
+     "radius": {
+      "log": 38.48344469253989,
+      "linear": 16.57142857142857,
+      "sqrt": 27.518989288293348
+     }
+    },
+    {
+     "county": "Adams",
+     "direction": "Outbound",
+     "total_animals": 0,
+     "lat": 46.98,
+     "lon": -118.36,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Benton",
+     "direction": "Outbound",
+     "total_animals": 0,
+     "lat": 46.24,
+     "lon": -119.31,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Grant",
+     "direction": "Outbound",
+     "total_animals": 1500,
+     "lat": 47.2,
+     "lon": -119.25,
+     "radius": {
+      "log": 45.128921259703404,
+      "linear": 30.4,
+      "sqrt": 38.08225344662527
+     }
+    },
+    {
+     "county": "King",
+     "direction": "Outbound",
+     "total_animals": 2500,
+     "lat": 47.49,
+     "lon": -121.61,
+     "radius": {
+      "log": 48.0,
+      "linear": 48.0,
+      "sqrt": 48.0
+     }
+    },
+    {
+     "county": "Pierce",
+     "direction": "Outbound",
+     "total_animals": 400,
+     "lat": 47.02,
+     "lon": -121.89999999999999,
+     "radius": {
+      "log": 37.706450927178636,
+      "linear": 11.04,
+      "sqrt": 21.6
+     }
+    },
+    {
+     "county": "Spokane",
+     "direction": "Outbound",
+     "total_animals": 60,
+     "lat": 47.62,
+     "lon": -117.2,
+     "radius": {
+      "log": 27.11709373692837,
+      "linear": 5.056,
+      "sqrt": 10.816450689325054
+     }
+    },
+    {
+     "county": "Yakima",
+     "direction": "Outbound",
+     "total_animals": 565,
+     "lat": 46.46,
+     "lon": -120.53999999999999,
+     "radius": {
+      "log": 39.64445864982261,
+      "linear": 13.944,
+      "sqrt": 24.917361210248295
+     }
+    }
+   ]
+  },
+  {
+   "name": "default_total",
+   "filters": {
+    "species": [
+     "Cattle",
+     "Equids",
+     "Other",
+     "Poultry",
+     "Small Ruminants",
+     "Swine"
+    ],
+    "years": [
+     2024,
+     2025
+    ],
+    "quarters": [
+     "Q1",
+     "Q2",
+     "Q3",
+     "Q4"
+    ],
+    "direction": [
+     "Inbound",
+     "Outbound"
+    ]
+   },
+   "mode": "total",
+   "rows": [
+    {
+     "county": "Adams",
+     "direction": "Total",
+     "total_animals": 0,
+     "lat": 46.98,
+     "lon": -118.56,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Benton",
+     "direction": "Total",
+     "total_animals": 60,
+     "lat": 46.24,
+     "lon": -119.51,
+     "radius": {
+      "log": 26.771848686488195,
+      "linear": 4.9378330373001775,
+      "sqrt": 10.423756972458394
+     }
+    },
+    {
+     "county": "Franklin",
+     "direction": "Total",
+     "total_animals": 120,
+     "lat": 46.53,
+     "lon": -118.9,
+     "radius": {
+      "log": 30.565888481324485,
+      "linear": 5.875666074600355,
+      "sqrt": 13.084564231839392
+     }
+    },
+    {
+     "county": "Grant",
+     "direction": "Total",
+     "total_animals": 1500,
+     "lat": 47.2,
+     "lon": -119.45,
+     "radius": {
+      "log": 44.51467637855844,
+      "linear": 27.44582593250444,
+      "sqrt": 36.11878486229197
+     }
+    },
+    {
+     "county": "King",
+     "direction": "Total",
+     "total_animals": 2815,
+     "lat": 47.49,
+     "lon": -121.81,
+     "radius": {
+      "log": 48.0,
+      "linear": 48.0,
+      "sqrt": 48.0
+     }
+    },
+    {
+     "county": "Pierce",
+     "direction": "Total",
+     "total_animals": 400,
+     "lat": 47.02,
+     "lon": -122.1,
+     "radius": {
+      "log": 37.20305783274637,
+      "linear": 10.25222024866785,
+      "sqrt": 20.586069182943422
+     }
+    },
+    {
+     "county": "Spokane",
+     "direction": "Total",
+     "total_animals": 60,
+     "lat": 47.62,
+     "lon": -117.4,
+     "radius": {
+      "log": 26.771848686488195,
+      "linear": 4.9378330373001775,
+      "sqrt": 10.423756972458394
+     }
+    },
+    {
+     "county": "Walla Walla",
+     "direction": "Total",
+     "total_animals": 120,
+     "lat": 46.23,
+     "lon": -118.48,
+     "radius": {
+      "log": 30.565888481324485,
+      "linear": 5.875666074600355,
+      "sqrt": 13.084564231839392
+     }
+    },
+    {
+     "county": "Whatcom",
+     "direction": "Total",
+     "total_animals": 15,
+     "lat": 48.83,
+     "lon": -121.72,
+     "radius": {
+      "log": 19.358527879668877,
+      "linear": 4.234458259325044,
+      "sqrt": 7.211878486229197
+     }
+    },
+    {
+     "county": "Yakima",
+     "direction": "Total",
+     "total_animals": 655,
+     "lat": 46.46,
+     "lon": -120.74,
+     "radius": {
+      "log": 39.929555837094554,
+      "linear": 14.238010657193605,
+      "sqrt": 25.224336713228958
+     }
+    }
+   ]
+  },
+  {
+   "name": "inbound_only",
+   "filters": {
+    "species": [
+     "Cattle",
+     "Equids",
+     "Other",
+     "Poultry",
+     "Small Ruminants",
+     "Swine"
+    ],
+    "years": [
+     2024,
+     2025
+    ],
+    "quarters": [
+     "Q1",
+     "Q2",
+     "Q3",
+     "Q4"
+    ],
+    "direction": [
+     "Inbound"
+    ]
+   },
+   "mode": "side_by_side",
+   "rows": [
+    {
+     "county": "Adams",
+     "direction": "Inbound",
+     "total_animals": 0,
+     "lat": 46.98,
+     "lon": -118.56,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Benton",
+     "direction": "Inbound",
+     "total_animals": 60,
+     "lat": 46.24,
+     "lon": -119.51,
+     "radius": {
+      "log": 35.425738560119484,
+      "linear": 12.38095238095238,
+      "sqrt": 23.203174340767326
+     }
+    },
+    {
+     "county": "Franklin",
+     "direction": "Inbound",
+     "total_animals": 120,
+     "lat": 46.53,
+     "lon": -118.9,
+     "radius": {
+      "log": 40.661611339739736,
+      "linear": 20.76190476190476,
+      "sqrt": 31.157389593328176
+     }
+    },
+    {
+     "county": "King",
+     "direction": "Inbound",
+     "total_animals": 315,
+     "lat": 47.49,
+     "lon": -121.81,
+     "radius": {
+      "log": 48.0,
+      "linear": 48.0,
+      "sqrt": 48.0
+     }
+    },
+    {
+     "county": "Spokane",
+     "direction": "Inbound",
+     "total_animals": 0,
+     "lat": 47.62,
+     "lon": -117.4,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Walla Walla",
+     "direction": "Inbound",
+     "total_animals": 120,
+     "lat": 46.23,
+     "lon": -118.48,
+     "radius": {
+      "log": 40.661611339739736,
+      "linear": 20.76190476190476,
+      "sqrt": 31.157389593328176
+     }
+    },
+    {
+     "county": "Whatcom",
+     "direction": "Inbound",
+     "total_animals": 15,
+     "lat": 48.83,
+     "lon": -121.72,
+     "radius": {
+      "log": 25.195164628911545,
+      "linear": 6.095238095238095,
+      "sqrt": 13.601587170383663
+     }
+    },
+    {
+     "county": "Yakima",
+     "direction": "Inbound",
+     "total_animals": 90,
+     "lat": 46.46,
+     "lon": -120.74,
+     "radius": {
+      "log": 38.48344469253989,
+      "linear": 16.57142857142857,
+      "sqrt": 27.518989288293348
+     }
+    }
+   ]
+  },
+  {
+   "name": "outbound_only_total_mode_falls_back",
+   "filters": {
+    "species": [
+     "Cattle",
+     "Equids",
+     "Other",
+     "Poultry",
+     "Small Ruminants",
+     "Swine"
+    ],
+    "years": [
+     2024,
+     2025
+    ],
+    "quarters": [
+     "Q1",
+     "Q2",
+     "Q3",
+     "Q4"
+    ],
+    "direction": [
+     "Outbound"
+    ]
+   },
+   "mode": "total",
+   "rows": [
+    {
+     "county": "Adams",
+     "direction": "Outbound",
+     "total_animals": 0,
+     "lat": 46.98,
+     "lon": -118.56,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Benton",
+     "direction": "Outbound",
+     "total_animals": 0,
+     "lat": 46.24,
+     "lon": -119.51,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Grant",
+     "direction": "Outbound",
+     "total_animals": 1500,
+     "lat": 47.2,
+     "lon": -119.45,
+     "radius": {
+      "log": 45.128921259703404,
+      "linear": 30.4,
+      "sqrt": 38.08225344662527
+     }
+    },
+    {
+     "county": "King",
+     "direction": "Outbound",
+     "total_animals": 2500,
+     "lat": 47.49,
+     "lon": -121.81,
+     "radius": {
+      "log": 48.0,
+      "linear": 48.0,
+      "sqrt": 48.0
+     }
+    },
+    {
+     "county": "Pierce",
+     "direction": "Outbound",
+     "total_animals": 400,
+     "lat": 47.02,
+     "lon": -122.1,
+     "radius": {
+      "log": 37.706450927178636,
+      "linear": 11.04,
+      "sqrt": 21.6
+     }
+    },
+    {
+     "county": "Spokane",
+     "direction": "Outbound",
+     "total_animals": 60,
+     "lat": 47.62,
+     "lon": -117.4,
+     "radius": {
+      "log": 27.11709373692837,
+      "linear": 5.056,
+      "sqrt": 10.816450689325054
+     }
+    },
+    {
+     "county": "Yakima",
+     "direction": "Outbound",
+     "total_animals": 565,
+     "lat": 46.46,
+     "lon": -120.74,
+     "radius": {
+      "log": 39.64445864982261,
+      "linear": 13.944,
+      "sqrt": 24.917361210248295
+     }
+    }
+   ]
+  },
+  {
+   "name": "cattle_only",
+   "filters": {
+    "species": [
+     "Cattle"
+    ],
+    "years": [
+     2024,
+     2025
+    ],
+    "quarters": [
+     "Q1",
+     "Q2",
+     "Q3",
+     "Q4"
+    ],
+    "direction": [
+     "Inbound",
+     "Outbound"
+    ]
+   },
+   "mode": "side_by_side",
+   "rows": [
+    {
+     "county": "Adams",
+     "direction": "Inbound",
+     "total_animals": 0,
+     "lat": 46.98,
+     "lon": -118.76,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "Franklin",
+     "direction": "Inbound",
+     "total_animals": 120,
+     "lat": 46.53,
+     "lon": -119.10000000000001,
+     "radius": {
+      "log": 42.189590307037065,
+      "linear": 25.119999999999997,
+      "sqrt": 34.484094213212245
+     }
+    },
+    {
+     "county": "King",
+     "direction": "Inbound",
+     "total_animals": 250,
+     "lat": 47.49,
+     "lon": -122.01,
+     "radius": {
+      "log": 48.0,
+      "linear": 48.0,
+      "sqrt": 48.0
+     }
+    },
+    {
+     "county": "Walla Walla",
+     "direction": "Inbound",
+     "total_animals": 120,
+     "lat": 46.23,
+     "lon": -118.68,
+     "radius": {
+      "log": 42.189590307037065,
+      "linear": 25.119999999999997,
+      "sqrt": 34.484094213212245
+     }
+    },
+    {
+     "county": "Adams",
+     "direction": "Outbound",
+     "total_animals": 0,
+     "lat": 46.98,
+     "lon": -118.36,
+     "radius": {
+      "log": 4.0,
+      "linear": 4.0,
+      "sqrt": 4.0
+     }
+    },
+    {
+     "county": "King",
+     "direction": "Outbound",
+     "total_animals": 2500,
+     "lat": 47.49,
+     "lon": -121.61,
+     "radius": {
+      "log": 48.0,
+      "linear": 48.0,
+      "sqrt": 48.0
+     }
+    },
+    {
+     "county": "Pierce",
+     "direction": "Outbound",
+     "total_animals": 400,
+     "lat": 47.02,
+     "lon": -121.89999999999999,
+     "radius": {
+      "log": 37.706450927178636,
+      "linear": 11.04,
+      "sqrt": 21.6
+     }
+    }
+   ]
+  },
+  {
+   "name": "cattle_q1",
+   "filters": {
+    "species": [
+     "Cattle"
+    ],
+    "years": [
+     2024,
+     2025
+    ],
+    "quarters": [
+     "Q1"
+    ],
+    "direction": [
+     "Inbound",
+     "Outbound"
+    ]
+   },
+   "mode": "side_by_side",
+   "rows": [
+    {
+     "county": "King",
+     "direction": "Inbound",
+     "total_animals": 250,
+     "lat": 47.49,
+     "lon": -122.01,
+     "radius": {
+      "log": 26.0,
+      "linear": 26.0,
+      "sqrt": 26.0
+     }
+    },
+    {
+     "county": "King",
+     "direction": "Outbound",
+     "total_animals": 2500,
+     "lat": 47.49,
+     "lon": -121.61,
+     "radius": {
+      "log": 26.0,
+      "linear": 26.0,
+      "sqrt": 26.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "cattle_raw_dairy",
+   "filters": {
+    "species": [
+     "Cattle"
+    ],
+    "years": [
+     2024,
+     2025
+    ],
+    "quarters": [
+     "Q1",
+     "Q2",
+     "Q3",
+     "Q4"
+    ],
+    "direction": [
+     "Inbound",
+     "Outbound"
+    ],
+    "raw_species": [
+     "Dairy cattle"
+    ]
+   },
+   "mode": "side_by_side",
+   "rows": [
+    {
+     "county": "Franklin",
+     "direction": "Inbound",
+     "total_animals": 120,
+     "lat": 46.53,
+     "lon": -119.10000000000001,
+     "radius": {
+      "log": 48.0,
+      "linear": 48.0,
+      "sqrt": 48.0
+     }
+    },
+    {
+     "county": "King",
+     "direction": "Inbound",
+     "total_animals": 80,
+     "lat": 47.49,
+     "lon": -122.01,
+     "radius": {
+      "log": 44.31780807923671,
+      "linear": 33.33333333333333,
+      "sqrt": 39.92584956081995
+     }
+    },
+    {
+     "county": "Pierce",
+     "direction": "Outbound",
+     "total_animals": 400,
+     "lat": 47.02,
+     "lon": -121.89999999999999,
+     "radius": {
+      "log": 26.0,
+      "linear": 26.0,
+      "sqrt": 26.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "year_2024_only",
+   "filters": {
+    "species": [
+     "Cattle",
+     "Equids",
+     "Other",
+     "Poultry",
+     "Small Ruminants",
+     "Swine"
+    ],
+    "years": [
+     2024
+    ],
+    "quarters": [
+     "Q1",
+     "Q2",
+     "Q3",
+     "Q4"
+    ],
+    "direction": [
+     "Inbound",
+     "Outbound"
+    ]
+   },
+   "mode": "side_by_side",
+   "rows": [
+    {
+     "county": "King",
+     "direction": "Inbound",
+     "total_animals": 50,
+     "lat": 47.55,
+     "lon": -122.15,
+     "radius": {
+      "log": 42.351965426973806,
+      "linear": 28.444444444444446,
+      "sqrt": 36.79566366999691
+     }
+    },
+    {
+     "county": "Yakima",
+     "direction": "Inbound",
+     "total_animals": 90,
+     "lat": 46.46,
+     "lon": -120.94,
+     "radius": {
+      "log": 48.0,
+      "linear": 48.0,
+      "sqrt": 48.0
+     }
+    },
+    {
+     "county": "Pierce",
+     "direction": "Outbound",
+     "total_animals": 400,
+     "lat": 47.02,
+     "lon": -121.89999999999999,
+     "radius": {
+      "log": 26.0,
+      "linear": 26.0,
+      "sqrt": 26.0
+     }
+    }
+   ]
+  }
+ ]
+}

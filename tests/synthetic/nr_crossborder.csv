@@ -1,0 +1,31 @@
+case,shape,role,name,state,county,lat,lon,needs,expect_status,expect_key,note
+1,facility,site,Synthetic landfill A,OR,Gilliam County,45.40,-120.20,or,ok,OR:gilliam,landfill-type facility listed in Oregon; point and name agree
+2,master,origin,,ID,Adams County,44.75,-116.45,id,ok,ID:adams,Idaho's Adams by point and name
+3,master,dest,,WA,Adams,,,wa,ok,WA:adams,Washington's Adams by name only (the same county name exists in Idaho)
+4,master,origin,,Idaho,Adams,,,id,ok,ID:adams,Idaho's Adams by name only: the state decides
+5,facility,site,Synthetic transfer station B,OR,Multnomah,45.30,-122.55,or,mismatch,,point is in Clackamas County: flagged not chosen
+6,master,origin,,ID,Snohomish,,,id,unknown,,a Washington county name given as Idaho: reported not guessed
+7,facility,site,Synthetic rendering plant C,MT,Missoula,46.87,-114.00,,outside,,point in no loaded region (Montana)
+8,master,origin,,oregon,  multnomah  county ,,,or,ok,OR:multnomah,case spacing and the County suffix ignored
+9,master,dest,,OR,N/A,44.05,-121.30,or,ok,OR:deschutes,county N/A as in the existing fixtures: located by the point
+10,facility,site,Synthetic sale yard D,,,43.60,-116.20,id,ok,ID:ada,point only
+11,facility,site,Synthetic dairy E,WA,Whatcom,48.95,-122.45,wa,ok,WA:whatcom,just south of the BC border
+12,facility,site,Synthetic dairy F,BC,,49.05,-122.30,bc,ok,BC:fraser valley,just north of the WA border
+13,master,origin,,B.C.,Fraser Valley Regional District,,,bc,ok,BC:fraser valley,province with periods; Regional District suffix ignored
+14,master,dest,,WA,Clark,45.52,-122.68,wa or,mismatch,,named Clark WA but the point is in Portland (Multnomah OR)
+15,master,dest,,OR,Umatilla County,45.67,-118.79,or,ok,OR:umatilla,point and name agree
+16,master,dest,,,,,,,none,,nothing to locate
+17,facility,site,Synthetic landfill G,OR,Nowhere County,45.40,-120.20,or,mismatch,,a county name that is not there with a point: flagged not chosen
+18,facility,site,Synthetic dock H,BC,,50.953,-127.209,bc,outside,,point in a hole of Mount Waddington (water): in no district
+19,master,origin,,OR,Multnomah,46.87,-114.00,or,outside,,point in Montana: outside even though the name is valid
+20,master,origin,,OR,N/A,45.70,-122.68,wa or,mismatch,,stated Oregon but the point is in Clark County WA
+21,master,origin,,ID,N/A,44.03,-116.96,id or,mismatch,,stated Idaho but the point is in Malheur County OR
+22,facility,site,Synthetic dairy J,BC,,48.95,-122.45,wa bc,mismatch,,stated BC but the point is in Whatcom County WA
+23,master,dest,,N/A,Multnomah,45.40,-120.20,or,mismatch,,county alone disagrees with the point (Gilliam OR)
+24,master,dest,,N/A,Gilliam County,45.40,-120.20,or,ok,OR:gilliam,county alone agrees with the point
+25,master,dest,,Washington,N/A,48.95,-122.45,wa,ok,WA:whatcom,state alone agrees with the point
+26,master,origin,,BC,Metro Vancouver Regional District,49.25,-123.10,bc,ok,BC:greater vancouver,current name (alias) of the file's Greater Vancouver
+27,master,origin,,BC,qathet Regional District,,,bc,ok,BC:powell river,current name (alias) of the file's Powell River
+28,master,origin,,BC,North Coast Regional District,,,bc,ok,BC:skeena-queen charlotte,current name (alias) of the file's Skeena-Queen Charlotte
+29,master,origin,,BC,Stikine Region,,,bc,ok,BC:stikine,the Region suffix dropped
+30,master,origin,,BC,Northern Rockies Regional Municipality,,,bc,ok,BC:northern rockies,the Regional Municipality suffix dropped

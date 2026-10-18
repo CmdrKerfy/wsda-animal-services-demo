@@ -1,0 +1,30 @@
+CVI,Species.Group,Species,Reporting.Year,Reporting.Quarter,Movement,Total.Animals,Origin.State,Origin.County,Origin.County.Lat,Origin.County.Long,Dest.State,Dest.County,Dest.County.Lat,Dest.County.Long
+S001,Cattle,Beef cattle,2024,Q1,Intrastate,30,WA,Yakima,46.46,-120.74,WA,King,47.49,-121.81
+S001,Cattle,Beef cattle,2024,Q1,Intrastate,30,WA,Yakima,46.46,-120.74,WA,King,47.49,-121.81
+S002,Small Ruminants,Sheep,2024,Q2,Intrastate,40,WA,Spokane,47.62,-117.40,WA,Benton,46.24,-119.51
+S003,Swine,Swine,2024,Q3,Intrastate,70,WA,Grant,47.20,-119.45,OR,N/A,43.94,-120.55
+S004,Equids,Horses,2024,Q4,Import,12,WA,Pierce,47.02,-122.10,WA,King,47.49,-121.81
+S004,Equids,Horses,2024,Q4,Export,12,WA,Pierce,47.02,-122.10,WA,King,47.49,-121.81
+S005,Poultry,Chickens,2026,Q1,intrastate,500,WA,Grant,47.20,-119.45,wa,Spokane,47.62,-117.40
+,Cattle,Dairy cattle,2024,Q2,Import,15,ID,N/A,44.36,-114.61,WA,Yakima,46.46,-120.74
+NA,Cattle,Dairy cattle,2024,Q3,Import,25,OR,N/A,43.94,-120.55,WA,Yakima,46.46,-120.74
+" S007 ",Cattle,Dairy cattle,2024,Q4,Export,35,WA,Whatcom,48.83,-121.72,ID,N/A,44.36,-114.61
+S007,Cattle,Beef cattle,2024,Q4,Export,45,WA,Whatcom,48.83,-121.72,OR,N/A,43.94,-120.55
+S008,Other,Llama,2024,Q1,Import,6,OR,N/A,43.94,-120.55,WA,Lewis,46.58,-122.39
+S009,Other,Llama,2024,Q2,Import,4,OR,N/A,43.94,-120.55,WA,Lewis,46.58,-122.39
+S010,Other,Alpaca,2024,Q3,Import,9,ID,N/A,44.36,-114.61,WA,Clark,45.78,-122.48
+S011,Other,Alpaca,2024,Q4,Import,3,ID,N/A,44.36,-114.61,WA,Clark,45.78,-122.48
+S012,Cattle,Beef cattle,2023,Q2,Import,0,ID,N/A,44.36,-114.61,WA,Adams,46.98,-118.56
+S013,Cattle,Beef cattle,2023,Q2,Export,0,WA,Adams,46.98,-118.56,ID,N/A,44.36,-114.61
+S014,Swine,Feeder pigs,2023,Q2,Import,20,ID,N/A,44.36,-114.61,WA,Yakima,46.46,-120.74
+S015,Swine,Feeder pigs,2023,Q4,Import,30,ID,N/A,44.36,-114.61,WA,Yakima,46.46,-120.74
+S016,Small Ruminants,Goats,2023,Q4,Intrastate,10,WA,Benton,46.24,-119.51,WA,Spokane,47.62,-117.40
+S017,Swine,Swine,2026,Q1,Export,100000,WA,Grant,47.20,-119.45,CA,N/A,37.17,-119.45
+S018,Cattle,Beef cattle,2026,Q3,Import,80,MT,N/A,47.05,-109.63,WA,Okanogan,48.55,-119.74
+S019,Cattle,Dairy cattle,2024,Q2,Import,15,ID,N/A,44.36,-114.61,WA,,47.00,-120.50
+S020,Poultry,Turkeys,2024,Q1,Export,,WA,Grant,47.20,-119.45,OR,N/A,43.94,-120.55
+S021,Cattle,Beef cattle,,Q2,Import,44,ID,N/A,44.36,-114.61,WA,King,47.49,-121.81
+S022,Swine,Swine,2024,1,Imports,60,ID,N/A,44.36,-114.61,WA,King County,47.49,-121.81
+S023,Poultry,Turkeys,2026,Q3,Outbound,250,WA,Okanogan,48.55,-119.74,ID,N/A,44.36,-114.61
+S024,Small Ruminants,Goats,2026,Q3,Intrastate,15,WA,Okanogan,48.55,-119.74,WA,Grant,47.20,-119.45
+S025,Small Ruminants,Goats,2026,Q3,Intrastate,15,WA,Okanogan,48.55,-119.74,WA,Grant,47.20,-119.45

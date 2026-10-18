@@ -1,0 +1,605 @@
+CVI,Species.Group,Species,Reporting.Year,Reporting.Quarter,Movement,Total.Animals,Origin.State,Origin.County,Origin.County.Lat,Origin.County.Long,Dest.State,Dest.County,Dest.County.Lat,Dest.County.Long
+MC-WA-10001,Cattle,Dairy cattle,2024,Q1,Intrastate,158,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10002,Cattle,Dairy cattle,2024,Q1,Intrastate,225,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10003,Cattle,Dairy cattle,2024,Q1,Intrastate,190,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10004,Cattle,Dairy cattle,2024,Q1,Intrastate,99,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10005,Cattle,Dairy cattle,2024,Q1,Intrastate,77,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10006,Cattle,Beef cattle,2024,Q1,Intrastate,289,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10007,Cattle,Beef cattle,2024,Q1,Intrastate,223,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10008,Cattle,Beef cattle,2024,Q1,Intrastate,253,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10009,Cattle,Beef cattle,2024,Q1,Intrastate,71,WA,Benton,46.2392,-119.5109,WA,Yakima,46.4568,-120.7375
+MC-WA-10010,Cattle,Beef cattle,2024,Q1,Intrastate,133,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10011,Cattle,Beef cattle,2024,Q1,Intrastate,94,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10012,Cattle,Beef cattle,2024,Q1,Intrastate,105,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10013,Cattle,Beef cattle,2024,Q1,Intrastate,58,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10014,Cattle,Beef cattle,2024,Q1,Intrastate,221,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10015,Cattle,Beef cattle,2024,Q1,Intrastate,137,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10016,Cattle,Beef cattle,2024,Q1,Intrastate,81,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10017,Poultry,Chickens,2024,Q1,Intrastate,1046,WA,Lewis,46.579,-122.3927,WA,Thurston,46.9256,-122.833
+MC-WA-10018,Equids,Horses,2024,Q1,Intrastate,11,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10019,Equids,Horses,2024,Q1,Intrastate,12,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10020,Small Ruminants,Sheep,2024,Q1,Intrastate,57,WA,Walla Walla,46.2296,-118.4785,WA,Columbia,46.2972,-117.9073
+MC-WA-10021,Cattle,Beef cattle,2024,Q1,Intrastate,181,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10022,Cattle,Beef cattle,2024,Q1,Intrastate,162,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10023,Cattle,Dairy cattle,2024,Q1,Intrastate,139,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10024,Cattle,Dairy cattle,2024,Q1,Intrastate,139,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10025,Cattle,Beef cattle,2024,Q1,Intrastate,55,WA,Grant,47.2043,-119.4535,WA,Grant,47.2043,-119.4535
+MC-WA-10026,Poultry,Chickens,2024,Q1,Intrastate,373,WA,Lewis,46.579,-122.3927,WA,Lewis,46.579,-122.3927
+MC-WA-10027,Small Ruminants,Goats,2024,Q1,Intrastate,20,WA,Stevens,48.397,-117.8554,WA,Stevens,48.397,-117.8554
+MC-WA-10028,Cattle,Dairy cattle,2024,Q2,Intrastate,217,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10029,Cattle,Dairy cattle,2024,Q2,Intrastate,183,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10030,Cattle,Dairy cattle,2024,Q2,Intrastate,158,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10031,Cattle,Dairy cattle,2024,Q2,Intrastate,134,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10032,Cattle,Dairy cattle,2024,Q2,Intrastate,125,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10033,Cattle,Beef cattle,2024,Q2,Intrastate,141,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10034,Cattle,Beef cattle,2024,Q2,Intrastate,172,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10035,Cattle,Beef cattle,2024,Q2,Intrastate,181,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10036,Cattle,Beef cattle,2024,Q2,Intrastate,64,WA,Benton,46.2392,-119.5109,WA,Yakima,46.4568,-120.7375
+MC-WA-10037,Cattle,Beef cattle,2024,Q2,Intrastate,175,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10038,Cattle,Beef cattle,2024,Q2,Intrastate,126,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10039,Cattle,Beef cattle,2024,Q2,Intrastate,65,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10040,Cattle,Beef cattle,2024,Q2,Intrastate,124,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10041,Cattle,Beef cattle,2024,Q2,Intrastate,106,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10042,Cattle,Beef cattle,2024,Q2,Intrastate,132,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10043,Cattle,Beef cattle,2024,Q2,Intrastate,60,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10044,Poultry,Chickens,2024,Q2,Intrastate,1165,WA,Lewis,46.579,-122.3927,WA,Thurston,46.9256,-122.833
+MC-WA-10045,Equids,Horses,2024,Q2,Intrastate,16,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10046,Equids,Horses,2024,Q2,Intrastate,13,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10047,Small Ruminants,Sheep,2024,Q2,Intrastate,50,WA,Walla Walla,46.2296,-118.4785,WA,Columbia,46.2972,-117.9073
+MC-WA-10048,Cattle,Beef cattle,2024,Q2,Intrastate,94,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10049,Cattle,Beef cattle,2024,Q2,Intrastate,144,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10050,Cattle,Dairy cattle,2024,Q2,Intrastate,71,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10051,Cattle,Dairy cattle,2024,Q2,Intrastate,122,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10052,Cattle,Beef cattle,2024,Q2,Intrastate,53,WA,Grant,47.2043,-119.4535,WA,Grant,47.2043,-119.4535
+MC-WA-10053,Poultry,Chickens,2024,Q2,Intrastate,745,WA,Lewis,46.579,-122.3927,WA,Lewis,46.579,-122.3927
+MC-WA-10054,Small Ruminants,Goats,2024,Q2,Intrastate,15,WA,Stevens,48.397,-117.8554,WA,Stevens,48.397,-117.8554
+MC-WA-10055,Cattle,Dairy cattle,2024,Q3,Intrastate,116,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10056,Cattle,Dairy cattle,2024,Q3,Intrastate,124,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10057,Cattle,Dairy cattle,2024,Q3,Intrastate,137,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10058,Cattle,Dairy cattle,2024,Q3,Intrastate,129,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10059,Cattle,Dairy cattle,2024,Q3,Intrastate,160,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10060,Cattle,Beef cattle,2024,Q3,Intrastate,150,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10061,Cattle,Beef cattle,2024,Q3,Intrastate,187,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10062,Cattle,Beef cattle,2024,Q3,Intrastate,171,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10063,Cattle,Beef cattle,2024,Q3,Intrastate,76,WA,Benton,46.2392,-119.5109,WA,Yakima,46.4568,-120.7375
+MC-WA-10064,Cattle,Beef cattle,2024,Q3,Intrastate,122,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10065,Cattle,Beef cattle,2024,Q3,Intrastate,87,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10066,Cattle,Beef cattle,2024,Q3,Intrastate,56,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10067,Cattle,Beef cattle,2024,Q3,Intrastate,72,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10068,Cattle,Beef cattle,2024,Q3,Intrastate,134,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10069,Cattle,Beef cattle,2024,Q3,Intrastate,110,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10070,Cattle,Beef cattle,2024,Q3,Intrastate,90,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10071,Poultry,Chickens,2024,Q3,Intrastate,1253,WA,Lewis,46.579,-122.3927,WA,Thurston,46.9256,-122.833
+MC-WA-10072,Equids,Horses,2024,Q3,Intrastate,11,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10073,Equids,Horses,2024,Q3,Intrastate,12,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10074,Small Ruminants,Sheep,2024,Q3,Intrastate,48,WA,Walla Walla,46.2296,-118.4785,WA,Columbia,46.2972,-117.9073
+MC-WA-10075,Cattle,Beef cattle,2024,Q3,Intrastate,157,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10076,Cattle,Beef cattle,2024,Q3,Intrastate,116,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10077,Cattle,Dairy cattle,2024,Q3,Intrastate,99,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10078,Cattle,Dairy cattle,2024,Q3,Intrastate,143,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10079,Cattle,Beef cattle,2024,Q3,Intrastate,82,WA,Grant,47.2043,-119.4535,WA,Grant,47.2043,-119.4535
+MC-WA-10080,Poultry,Chickens,2024,Q3,Intrastate,627,WA,Lewis,46.579,-122.3927,WA,Lewis,46.579,-122.3927
+MC-WA-10081,Small Ruminants,Goats,2024,Q3,Intrastate,13,WA,Stevens,48.397,-117.8554,WA,Stevens,48.397,-117.8554
+MC-WA-10082,Cattle,Dairy cattle,2024,Q4,Intrastate,218,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10083,Cattle,Dairy cattle,2024,Q4,Intrastate,172,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10084,Cattle,Dairy cattle,2024,Q4,Intrastate,178,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10085,Cattle,Dairy cattle,2024,Q4,Intrastate,73,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10086,Cattle,Dairy cattle,2024,Q4,Intrastate,165,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10087,Cattle,Beef cattle,2024,Q4,Intrastate,267,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10088,Cattle,Beef cattle,2024,Q4,Intrastate,213,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10089,Cattle,Beef cattle,2024,Q4,Intrastate,147,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10090,Cattle,Beef cattle,2024,Q4,Intrastate,42,WA,Benton,46.2392,-119.5109,WA,Yakima,46.4568,-120.7375
+MC-WA-10091,Cattle,Beef cattle,2024,Q4,Intrastate,184,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10092,Cattle,Beef cattle,2024,Q4,Intrastate,142,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10093,Cattle,Beef cattle,2024,Q4,Intrastate,61,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10094,Cattle,Beef cattle,2024,Q4,Intrastate,72,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10095,Cattle,Beef cattle,2024,Q4,Intrastate,202,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10096,Cattle,Beef cattle,2024,Q4,Intrastate,209,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10097,Cattle,Beef cattle,2024,Q4,Intrastate,84,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10098,Poultry,Chickens,2024,Q4,Intrastate,907,WA,Lewis,46.579,-122.3927,WA,Thurston,46.9256,-122.833
+MC-WA-10099,Equids,Horses,2024,Q4,Intrastate,15,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10100,Equids,Horses,2024,Q4,Intrastate,9,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10101,Small Ruminants,Sheep,2024,Q4,Intrastate,61,WA,Walla Walla,46.2296,-118.4785,WA,Columbia,46.2972,-117.9073
+MC-WA-10102,Cattle,Beef cattle,2024,Q4,Intrastate,189,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10103,Cattle,Beef cattle,2024,Q4,Intrastate,198,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10104,Cattle,Dairy cattle,2024,Q4,Intrastate,73,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10105,Cattle,Dairy cattle,2024,Q4,Intrastate,92,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10106,Cattle,Beef cattle,2024,Q4,Intrastate,97,WA,Grant,47.2043,-119.4535,WA,Grant,47.2043,-119.4535
+MC-WA-10107,Poultry,Chickens,2024,Q4,Intrastate,460,WA,Lewis,46.579,-122.3927,WA,Lewis,46.579,-122.3927
+MC-WA-10108,Small Ruminants,Goats,2024,Q4,Intrastate,19,WA,Stevens,48.397,-117.8554,WA,Stevens,48.397,-117.8554
+MC-WA-10109,Cattle,Dairy cattle,2025,Q1,Intrastate,178,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10110,Cattle,Dairy cattle,2025,Q1,Intrastate,124,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10111,Cattle,Dairy cattle,2025,Q1,Intrastate,133,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10112,Cattle,Dairy cattle,2025,Q1,Intrastate,165,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10113,Cattle,Dairy cattle,2025,Q1,Intrastate,121,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10114,Cattle,Beef cattle,2025,Q1,Intrastate,182,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10115,Cattle,Beef cattle,2025,Q1,Intrastate,162,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10116,Cattle,Beef cattle,2025,Q1,Intrastate,195,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10117,Cattle,Beef cattle,2025,Q1,Intrastate,56,WA,Benton,46.2392,-119.5109,WA,Yakima,46.4568,-120.7375
+MC-WA-10118,Cattle,Beef cattle,2025,Q1,Intrastate,160,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10119,Cattle,Beef cattle,2025,Q1,Intrastate,134,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10120,Cattle,Beef cattle,2025,Q1,Intrastate,96,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10121,Cattle,Beef cattle,2025,Q1,Intrastate,85,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10122,Cattle,Beef cattle,2025,Q1,Intrastate,198,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10123,Cattle,Beef cattle,2025,Q1,Intrastate,198,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10124,Cattle,Beef cattle,2025,Q1,Intrastate,64,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10125,Poultry,Chickens,2025,Q1,Intrastate,554,WA,Lewis,46.579,-122.3927,WA,Thurston,46.9256,-122.833
+MC-WA-10126,Equids,Horses,2025,Q1,Intrastate,11,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10127,Equids,Horses,2025,Q1,Intrastate,14,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10128,Small Ruminants,Sheep,2025,Q1,Intrastate,36,WA,Walla Walla,46.2296,-118.4785,WA,Columbia,46.2972,-117.9073
+MC-WA-10129,Cattle,Beef cattle,2025,Q1,Intrastate,116,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10130,Cattle,Beef cattle,2025,Q1,Intrastate,152,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10131,Cattle,Dairy cattle,2025,Q1,Intrastate,71,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10132,Cattle,Dairy cattle,2025,Q1,Intrastate,71,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10133,Cattle,Beef cattle,2025,Q1,Intrastate,80,WA,Grant,47.2043,-119.4535,WA,Grant,47.2043,-119.4535
+MC-WA-10134,Poultry,Chickens,2025,Q1,Intrastate,376,WA,Lewis,46.579,-122.3927,WA,Lewis,46.579,-122.3927
+MC-WA-10135,Small Ruminants,Goats,2025,Q1,Intrastate,16,WA,Stevens,48.397,-117.8554,WA,Stevens,48.397,-117.8554
+MC-WA-10136,Cattle,Dairy cattle,2025,Q2,Intrastate,155,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10137,Cattle,Dairy cattle,2025,Q2,Intrastate,239,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10138,Cattle,Dairy cattle,2025,Q2,Intrastate,155,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10139,Cattle,Dairy cattle,2025,Q2,Intrastate,109,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10140,Cattle,Dairy cattle,2025,Q2,Intrastate,88,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10141,Cattle,Beef cattle,2025,Q2,Intrastate,154,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10142,Cattle,Beef cattle,2025,Q2,Intrastate,271,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10143,Cattle,Beef cattle,2025,Q2,Intrastate,174,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10144,Cattle,Beef cattle,2025,Q2,Intrastate,73,WA,Benton,46.2392,-119.5109,WA,Yakima,46.4568,-120.7375
+MC-WA-10145,Cattle,Beef cattle,2025,Q2,Intrastate,95,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10146,Cattle,Beef cattle,2025,Q2,Intrastate,92,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10147,Cattle,Beef cattle,2025,Q2,Intrastate,114,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10148,Cattle,Beef cattle,2025,Q2,Intrastate,91,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10149,Cattle,Beef cattle,2025,Q2,Intrastate,179,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10150,Cattle,Beef cattle,2025,Q2,Intrastate,129,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10151,Cattle,Beef cattle,2025,Q2,Intrastate,56,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10152,Poultry,Chickens,2025,Q2,Intrastate,1006,WA,Lewis,46.579,-122.3927,WA,Thurston,46.9256,-122.833
+MC-WA-10153,Equids,Horses,2025,Q2,Intrastate,12,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10154,Equids,Horses,2025,Q2,Intrastate,10,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10155,Small Ruminants,Sheep,2025,Q2,Intrastate,55,WA,Walla Walla,46.2296,-118.4785,WA,Columbia,46.2972,-117.9073
+MC-WA-10156,Cattle,Beef cattle,2025,Q2,Intrastate,188,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10157,Cattle,Beef cattle,2025,Q2,Intrastate,95,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10158,Cattle,Dairy cattle,2025,Q2,Intrastate,153,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10159,Cattle,Dairy cattle,2025,Q2,Intrastate,102,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10160,Cattle,Beef cattle,2025,Q2,Intrastate,52,WA,Grant,47.2043,-119.4535,WA,Grant,47.2043,-119.4535
+MC-WA-10161,Poultry,Chickens,2025,Q2,Intrastate,819,WA,Lewis,46.579,-122.3927,WA,Lewis,46.579,-122.3927
+MC-WA-10162,Small Ruminants,Goats,2025,Q2,Intrastate,13,WA,Stevens,48.397,-117.8554,WA,Stevens,48.397,-117.8554
+MC-WA-10163,Cattle,Dairy cattle,2025,Q3,Intrastate,174,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10164,Cattle,Dairy cattle,2025,Q3,Intrastate,158,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10165,Cattle,Dairy cattle,2025,Q3,Intrastate,223,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10166,Cattle,Dairy cattle,2025,Q3,Intrastate,167,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10167,Cattle,Dairy cattle,2025,Q3,Intrastate,101,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10168,Cattle,Beef cattle,2025,Q3,Intrastate,240,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10169,Cattle,Beef cattle,2025,Q3,Intrastate,266,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10170,Cattle,Beef cattle,2025,Q3,Intrastate,196,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10171,Cattle,Beef cattle,2025,Q3,Intrastate,40,WA,Benton,46.2392,-119.5109,WA,Yakima,46.4568,-120.7375
+MC-WA-10172,Cattle,Beef cattle,2025,Q3,Intrastate,128,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10173,Cattle,Beef cattle,2025,Q3,Intrastate,159,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10174,Cattle,Beef cattle,2025,Q3,Intrastate,62,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10175,Cattle,Beef cattle,2025,Q3,Intrastate,107,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10176,Cattle,Beef cattle,2025,Q3,Intrastate,106,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10177,Cattle,Beef cattle,2025,Q3,Intrastate,221,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10178,Cattle,Beef cattle,2025,Q3,Intrastate,47,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10179,Poultry,Chickens,2025,Q3,Intrastate,1125,WA,Lewis,46.579,-122.3927,WA,Thurston,46.9256,-122.833
+MC-WA-10180,Equids,Horses,2025,Q3,Intrastate,16,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10181,Equids,Horses,2025,Q3,Intrastate,12,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10182,Small Ruminants,Sheep,2025,Q3,Intrastate,41,WA,Walla Walla,46.2296,-118.4785,WA,Columbia,46.2972,-117.9073
+MC-WA-10183,Cattle,Beef cattle,2025,Q3,Intrastate,188,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10184,Cattle,Beef cattle,2025,Q3,Intrastate,105,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10185,Cattle,Dairy cattle,2025,Q3,Intrastate,99,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10186,Cattle,Dairy cattle,2025,Q3,Intrastate,113,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10187,Cattle,Beef cattle,2025,Q3,Intrastate,49,WA,Grant,47.2043,-119.4535,WA,Grant,47.2043,-119.4535
+MC-WA-10188,Poultry,Chickens,2025,Q3,Intrastate,635,WA,Lewis,46.579,-122.3927,WA,Lewis,46.579,-122.3927
+MC-WA-10189,Small Ruminants,Goats,2025,Q3,Intrastate,15,WA,Stevens,48.397,-117.8554,WA,Stevens,48.397,-117.8554
+MC-WA-10190,Cattle,Dairy cattle,2025,Q4,Intrastate,171,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10191,Cattle,Dairy cattle,2025,Q4,Intrastate,159,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10192,Cattle,Dairy cattle,2025,Q4,Intrastate,117,WA,Whatcom,48.8272,-121.7198,WA,Skagit,48.4804,-121.7291
+MC-WA-10193,Cattle,Dairy cattle,2025,Q4,Intrastate,72,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10194,Cattle,Dairy cattle,2025,Q4,Intrastate,106,WA,Skagit,48.4804,-121.7291,WA,Snohomish,48.0475,-121.6973
+MC-WA-10195,Cattle,Beef cattle,2025,Q4,Intrastate,254,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10196,Cattle,Beef cattle,2025,Q4,Intrastate,135,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10197,Cattle,Beef cattle,2025,Q4,Intrastate,253,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10198,Cattle,Beef cattle,2025,Q4,Intrastate,59,WA,Benton,46.2392,-119.5109,WA,Yakima,46.4568,-120.7375
+MC-WA-10199,Cattle,Beef cattle,2025,Q4,Intrastate,92,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10200,Cattle,Beef cattle,2025,Q4,Intrastate,166,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10201,Cattle,Beef cattle,2025,Q4,Intrastate,99,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10202,Cattle,Beef cattle,2025,Q4,Intrastate,94,WA,Kittitas,47.1244,-120.6781,WA,Yakima,46.4568,-120.7375
+MC-WA-10203,Cattle,Beef cattle,2025,Q4,Intrastate,121,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10204,Cattle,Beef cattle,2025,Q4,Intrastate,157,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10205,Cattle,Beef cattle,2025,Q4,Intrastate,93,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10206,Poultry,Chickens,2025,Q4,Intrastate,1174,WA,Lewis,46.579,-122.3927,WA,Thurston,46.9256,-122.833
+MC-WA-10207,Equids,Horses,2025,Q4,Intrastate,8,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10208,Equids,Horses,2025,Q4,Intrastate,12,WA,Snohomish,48.0475,-121.6973,WA,King,47.4901,-121.8053
+MC-WA-10209,Small Ruminants,Sheep,2025,Q4,Intrastate,32,WA,Walla Walla,46.2296,-118.4785,WA,Columbia,46.2972,-117.9073
+MC-WA-10210,Cattle,Beef cattle,2025,Q4,Intrastate,181,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10211,Cattle,Beef cattle,2025,Q4,Intrastate,124,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10212,Cattle,Dairy cattle,2025,Q4,Intrastate,130,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10213,Cattle,Dairy cattle,2025,Q4,Intrastate,128,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10214,Cattle,Beef cattle,2025,Q4,Intrastate,65,WA,Grant,47.2043,-119.4535,WA,Grant,47.2043,-119.4535
+MC-WA-10215,Poultry,Chickens,2025,Q4,Intrastate,405,WA,Lewis,46.579,-122.3927,WA,Lewis,46.579,-122.3927
+MC-WA-10216,Small Ruminants,Goats,2025,Q4,Intrastate,15,WA,Stevens,48.397,-117.8554,WA,Stevens,48.397,-117.8554
+MC-WA-10217,Small Ruminants,Goats,2025,Q1,Intrastate,16,WA,Pacific,46.5554,-123.7041,WA,Okanogan,48.5485,-119.7401
+MC-WA-10218,Cattle,Dairy cattle,2024,Q2,Intrastate,20,WA,Franklin,46.5347,-118.8994,WA,King,47.4901,-121.8053
+MC-WA-10219,Small Ruminants,Goats,2025,Q4,Intrastate,19,WA,Whitman,46.9008,-117.5231,WA,Walla Walla,46.2296,-118.4785
+MC-WA-10220,Poultry,Turkeys,2024,Q4,Intrastate,18,WA,Pacific,46.5554,-123.7041,WA,Okanogan,48.5485,-119.7401
+MC-WA-10221,Cattle,Beef cattle,2024,Q1,Intrastate,24,WA,Cowlitz,46.1932,-122.6808,WA,King,47.4901,-121.8053
+MC-WA-10222,Cattle,Beef cattle,2024,Q3,Intrastate,16,WA,Pierce,47.024,-122.1031,WA,Columbia,46.2972,-117.9073
+MC-WA-10223,Poultry,Chickens,2024,Q2,Intrastate,28,WA,Pend Oreille,48.531,-117.2739,WA,Adams,46.9835,-118.5611
+MC-WA-10224,Small Ruminants,Goats,2025,Q1,Intrastate,24,WA,Lewis,46.579,-122.3927,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10225,Small Ruminants,Sheep,2025,Q1,Intrastate,26,WA,Kittitas,47.1244,-120.6781,WA,Lincoln,47.5761,-118.4185
+MC-WA-10226,Small Ruminants,Sheep,2025,Q3,Intrastate,16,WA,Whatcom,48.8272,-121.7198,WA,Thurston,46.9256,-122.833
+MC-WA-10227,Cattle,Dairy cattle,2025,Q4,Intrastate,12,WA,Pend Oreille,48.531,-117.2739,WA,Stevens,48.397,-117.8554
+MC-WA-10228,Small Ruminants,Goats,2024,Q1,Intrastate,16,WA,Skamania,46.0224,-121.915,WA,Lincoln,47.5761,-118.4185
+MC-WA-10229,Small Ruminants,Goats,2024,Q4,Intrastate,27,WA,King,47.4901,-121.8053,WA,Skamania,46.0224,-121.915
+MC-WA-10230,Cattle,Dairy cattle,2024,Q2,Intrastate,15,WA,Snohomish,48.0475,-121.6973,WA,Grays Harbor,47.1497,-123.7725
+MC-WA-10231,Cattle,Beef cattle,2024,Q1,Intrastate,21,WA,Whatcom,48.8272,-121.7198,WA,Whitman,46.9008,-117.5231
+MC-WA-10232,Small Ruminants,Sheep,2025,Q2,Intrastate,15,WA,Kittitas,47.1244,-120.6781,WA,Spokane,47.6201,-117.4044
+MC-WA-10233,Cattle,Beef cattle,2025,Q1,Intrastate,21,WA,Lewis,46.579,-122.3927,WA,Kitsap,47.6125,-122.6764
+MC-WA-10234,Equids,Horses,2024,Q1,Intrastate,13,WA,Jefferson,47.7495,-123.5974,WA,King,47.4901,-121.8053
+MC-WA-10235,Cattle,Dairy cattle,2025,Q2,Intrastate,21,WA,Pend Oreille,48.531,-117.2739,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10236,Small Ruminants,Goats,2025,Q1,Intrastate,24,WA,Lincoln,47.5761,-118.4185,WA,Walla Walla,46.2296,-118.4785
+MC-WA-10237,Poultry,Chickens,2024,Q2,Intrastate,25,WA,Mason,47.3481,-123.193,WA,Columbia,46.2972,-117.9073
+MC-WA-10238,Cattle,Beef cattle,2025,Q1,Intrastate,19,WA,Yakima,46.4568,-120.7375,WA,Whatcom,48.8272,-121.7198
+MC-WA-10239,Poultry,Turkeys,2025,Q4,Intrastate,21,WA,Skagit,48.4804,-121.7291,WA,Whatcom,48.8272,-121.7198
+MC-WA-10240,Equids,Horses,2025,Q2,Intrastate,17,WA,Whatcom,48.8272,-121.7198,WA,Kitsap,47.6125,-122.6764
+MC-WA-10241,Cattle,Beef cattle,2025,Q4,Intrastate,24,WA,Klickitat,45.8746,-120.7893,WA,Snohomish,48.0475,-121.6973
+MC-WA-10242,Equids,Horses,2025,Q2,Intrastate,20,WA,Pend Oreille,48.531,-117.2739,WA,Benton,46.2392,-119.5109
+MC-WA-10243,Cattle,Dairy cattle,2025,Q2,Intrastate,13,WA,King,47.4901,-121.8053,WA,Skamania,46.0224,-121.915
+MC-WA-10244,Equids,Horses,2024,Q3,Intrastate,18,WA,Lewis,46.579,-122.3927,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10245,Cattle,Beef cattle,2025,Q2,Intrastate,16,WA,Grant,47.2043,-119.4535,WA,Snohomish,48.0475,-121.6973
+MC-WA-10246,Swine,Feeder pigs,2025,Q3,Intrastate,15,WA,Jefferson,47.7495,-123.5974,WA,Skamania,46.0224,-121.915
+MC-WA-10247,Swine,Feeder pigs,2025,Q3,Intrastate,20,WA,San Juan,48.5775,-122.9654,WA,Clark,45.7791,-122.4825
+MC-WA-10248,Swine,Feeder pigs,2024,Q2,Intrastate,27,WA,Clallam,48.0502,-123.9298,WA,Whitman,46.9008,-117.5231
+MC-WA-10249,Swine,Feeder pigs,2025,Q2,Intrastate,26,WA,Kitsap,47.6125,-122.6764,WA,Columbia,46.2972,-117.9073
+MC-WA-10250,Poultry,Chickens,2024,Q4,Intrastate,24,WA,San Juan,48.5775,-122.9654,WA,Walla Walla,46.2296,-118.4785
+MC-WA-10251,Small Ruminants,Goats,2024,Q3,Intrastate,28,WA,Lewis,46.579,-122.3927,WA,Grant,47.2043,-119.4535
+MC-WA-10252,Equids,Horses,2024,Q4,Intrastate,22,WA,Jefferson,47.7495,-123.5974,WA,Island,48.1627,-122.5477
+MC-WA-10253,Cattle,Beef cattle,2024,Q2,Intrastate,13,WA,King,47.4901,-121.8053,WA,Spokane,47.6201,-117.4044
+MC-WA-10254,Equids,Horses,2025,Q2,Intrastate,24,WA,Asotin,46.1916,-117.203,WA,King,47.4901,-121.8053
+MC-WA-10255,Equids,Horses,2024,Q1,Intrastate,22,WA,Benton,46.2392,-119.5109,WA,Chelan,47.8677,-120.6182
+MC-WA-10256,Small Ruminants,Goats,2025,Q4,Intrastate,26,WA,Stevens,48.397,-117.8554,WA,Pend Oreille,48.531,-117.2739
+MC-WA-10257,Small Ruminants,Sheep,2024,Q2,Intrastate,17,WA,Whatcom,48.8272,-121.7198,WA,Lewis,46.579,-122.3927
+MC-WA-10258,Swine,Feeder pigs,2024,Q2,Intrastate,24,WA,Okanogan,48.5485,-119.7401,WA,Stevens,48.397,-117.8554
+MC-WA-10259,Small Ruminants,Sheep,2024,Q2,Intrastate,23,WA,Grays Harbor,47.1497,-123.7725,WA,Thurston,46.9256,-122.833
+MC-WA-10260,Small Ruminants,Goats,2025,Q1,Intrastate,25,WA,Adams,46.9835,-118.5611,WA,Chelan,47.8677,-120.6182
+MC-WA-10261,Cattle,Beef cattle,2024,Q4,Intrastate,23,WA,Garfield,46.4312,-117.545,WA,Mason,47.3481,-123.193
+MC-WA-10262,Cattle,Beef cattle,2024,Q1,Intrastate,22,WA,Pend Oreille,48.531,-117.2739,WA,Spokane,47.6201,-117.4044
+MC-WA-10263,Cattle,Beef cattle,2024,Q2,Intrastate,12,WA,King,47.4901,-121.8053,WA,Grant,47.2043,-119.4535
+MC-WA-10264,Poultry,Turkeys,2025,Q4,Intrastate,17,WA,Lewis,46.579,-122.3927,WA,Chelan,47.8677,-120.6182
+MC-WA-10265,Cattle,Dairy cattle,2024,Q3,Intrastate,25,WA,Pacific,46.5554,-123.7041,WA,Mason,47.3481,-123.193
+MC-WA-10266,Poultry,Chickens,2025,Q1,Intrastate,18,WA,Wahkiakum,46.2918,-123.4243,WA,Spokane,47.6201,-117.4044
+MC-WA-10267,Cattle,Beef cattle,2025,Q1,Intrastate,13,WA,Skagit,48.4804,-121.7291,WA,Pierce,47.024,-122.1031
+MC-WA-10268,Small Ruminants,Goats,2025,Q3,Intrastate,12,WA,Okanogan,48.5485,-119.7401,WA,Pacific,46.5554,-123.7041
+MC-WA-10269,Poultry,Turkeys,2025,Q4,Intrastate,21,WA,Pacific,46.5554,-123.7041,WA,Kitsap,47.6125,-122.6764
+MC-WA-10270,Cattle,Beef cattle,2024,Q4,Intrastate,17,WA,Grays Harbor,47.1497,-123.7725,WA,Adams,46.9835,-118.5611
+MC-WA-10271,Small Ruminants,Sheep,2024,Q3,Intrastate,23,WA,Pacific,46.5554,-123.7041,WA,Ferry,48.4686,-118.5168
+MC-WA-10272,Small Ruminants,Goats,2024,Q1,Intrastate,13,WA,Yakima,46.4568,-120.7375,WA,Clallam,48.0502,-123.9298
+MC-WA-10273,Poultry,Turkeys,2024,Q4,Intrastate,19,WA,Cowlitz,46.1932,-122.6808,WA,Mason,47.3481,-123.193
+MC-WA-10274,Swine,Feeder pigs,2024,Q4,Intrastate,17,WA,Stevens,48.397,-117.8554,WA,Grays Harbor,47.1497,-123.7725
+MC-WA-10275,Small Ruminants,Goats,2025,Q2,Intrastate,15,WA,Chelan,47.8677,-120.6182,WA,Lewis,46.579,-122.3927
+MC-WA-10276,Swine,Feeder pigs,2024,Q4,Intrastate,18,WA,Jefferson,47.7495,-123.5974,WA,Lewis,46.579,-122.3927
+MC-WA-10277,Cattle,Beef cattle,2025,Q1,Intrastate,26,WA,Whitman,46.9008,-117.5231,WA,Grays Harbor,47.1497,-123.7725
+MC-WA-10278,Small Ruminants,Goats,2024,Q1,Intrastate,18,WA,King,47.4901,-121.8053,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10279,Poultry,Chickens,2024,Q3,Intrastate,22,WA,Snohomish,48.0475,-121.6973,WA,Columbia,46.2972,-117.9073
+MC-WA-10280,Small Ruminants,Sheep,2024,Q3,Intrastate,15,WA,Whatcom,48.8272,-121.7198,WA,Adams,46.9835,-118.5611
+MC-WA-10281,Swine,Feeder pigs,2025,Q3,Intrastate,23,WA,San Juan,48.5775,-122.9654,WA,Whitman,46.9008,-117.5231
+MC-WA-10282,Small Ruminants,Sheep,2025,Q1,Intrastate,17,WA,Kittitas,47.1244,-120.6781,WA,Okanogan,48.5485,-119.7401
+MC-WA-10283,Small Ruminants,Goats,2025,Q3,Intrastate,27,WA,Columbia,46.2972,-117.9073,WA,Stevens,48.397,-117.8554
+MC-WA-10284,Poultry,Chickens,2024,Q1,Intrastate,18,WA,Cowlitz,46.1932,-122.6808,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10285,Poultry,Chickens,2025,Q3,Intrastate,14,WA,Jefferson,47.7495,-123.5974,WA,Spokane,47.6201,-117.4044
+MC-WA-10286,Poultry,Chickens,2024,Q3,Intrastate,26,WA,Douglas,47.7357,-119.6935,WA,Grant,47.2043,-119.4535
+MC-WA-10287,Poultry,Chickens,2025,Q1,Intrastate,13,WA,Okanogan,48.5485,-119.7401,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10288,Poultry,Turkeys,2025,Q1,Intrastate,25,WA,Klickitat,45.8746,-120.7893,WA,Pacific,46.5554,-123.7041
+MC-WA-10289,Small Ruminants,Sheep,2024,Q3,Intrastate,26,WA,King,47.4901,-121.8053,WA,Lincoln,47.5761,-118.4185
+MC-WA-10290,Cattle,Beef cattle,2024,Q1,Intrastate,23,WA,Thurston,46.9256,-122.833,WA,San Juan,48.5775,-122.9654
+MC-WA-10291,Equids,Horses,2025,Q3,Intrastate,13,WA,Mason,47.3481,-123.193,WA,Jefferson,47.7495,-123.5974
+MC-WA-10292,Swine,Feeder pigs,2024,Q4,Intrastate,15,WA,Adams,46.9835,-118.5611,WA,Lewis,46.579,-122.3927
+MC-WA-10293,Swine,Feeder pigs,2024,Q4,Intrastate,13,WA,Thurston,46.9256,-122.833,WA,Stevens,48.397,-117.8554
+MC-WA-10294,Small Ruminants,Goats,2024,Q2,Intrastate,25,WA,Kitsap,47.6125,-122.6764,WA,Snohomish,48.0475,-121.6973
+MC-WA-10295,Poultry,Turkeys,2025,Q1,Intrastate,14,WA,Pend Oreille,48.531,-117.2739,WA,Island,48.1627,-122.5477
+MC-WA-10296,Poultry,Chickens,2024,Q3,Intrastate,19,WA,Columbia,46.2972,-117.9073,WA,Adams,46.9835,-118.5611
+MC-WA-10297,Small Ruminants,Sheep,2025,Q1,Intrastate,13,WA,King,47.4901,-121.8053,WA,Snohomish,48.0475,-121.6973
+MC-WA-10298,Small Ruminants,Sheep,2024,Q2,Intrastate,24,WA,Lincoln,47.5761,-118.4185,WA,Franklin,46.5347,-118.8994
+MC-WA-10299,Poultry,Turkeys,2025,Q4,Intrastate,14,WA,Klickitat,45.8746,-120.7893,WA,Yakima,46.4568,-120.7375
+MC-WA-10300,Poultry,Turkeys,2024,Q1,Intrastate,22,WA,King,47.4901,-121.8053,WA,Grays Harbor,47.1497,-123.7725
+MC-WA-10301,Cattle,Beef cattle,2024,Q1,Intrastate,20,WA,Island,48.1627,-122.5477,WA,Douglas,47.7357,-119.6935
+MC-WA-10302,Small Ruminants,Goats,2024,Q1,Intrastate,24,WA,King,47.4901,-121.8053,WA,Klickitat,45.8746,-120.7893
+MC-WA-10303,Cattle,Dairy cattle,2025,Q2,Intrastate,19,WA,Skagit,48.4804,-121.7291,WA,Pend Oreille,48.531,-117.2739
+MC-WA-10304,Small Ruminants,Sheep,2024,Q3,Intrastate,13,WA,Thurston,46.9256,-122.833,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10305,Poultry,Chickens,2025,Q4,Intrastate,15,WA,Skamania,46.0224,-121.915,WA,Pend Oreille,48.531,-117.2739
+MC-WA-10306,Small Ruminants,Goats,2025,Q1,Intrastate,16,WA,Walla Walla,46.2296,-118.4785,WA,Franklin,46.5347,-118.8994
+MC-WA-10307,Poultry,Chickens,2025,Q4,Intrastate,21,WA,Skamania,46.0224,-121.915,WA,Island,48.1627,-122.5477
+MC-WA-10308,Small Ruminants,Goats,2024,Q3,Intrastate,19,WA,Island,48.1627,-122.5477,WA,Ferry,48.4686,-118.5168
+MC-WA-10309,Small Ruminants,Sheep,2025,Q1,Intrastate,17,WA,Whitman,46.9008,-117.5231,WA,Franklin,46.5347,-118.8994
+MC-WA-10310,Cattle,Beef cattle,2024,Q2,Intrastate,23,WA,Pend Oreille,48.531,-117.2739,WA,Mason,47.3481,-123.193
+MC-WA-10311,Small Ruminants,Goats,2024,Q1,Intrastate,19,WA,Jefferson,47.7495,-123.5974,WA,Lewis,46.579,-122.3927
+MC-WA-10312,Small Ruminants,Goats,2025,Q3,Intrastate,13,WA,Franklin,46.5347,-118.8994,WA,Skagit,48.4804,-121.7291
+MC-WA-10313,Poultry,Turkeys,2024,Q1,Intrastate,24,WA,Jefferson,47.7495,-123.5974,WA,Snohomish,48.0475,-121.6973
+MC-WA-10314,Poultry,Turkeys,2025,Q2,Intrastate,21,WA,Thurston,46.9256,-122.833,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10315,Poultry,Chickens,2025,Q3,Intrastate,21,WA,Okanogan,48.5485,-119.7401,WA,Jefferson,47.7495,-123.5974
+MC-WA-10316,Cattle,Dairy cattle,2024,Q2,Intrastate,25,WA,Ferry,48.4686,-118.5168,WA,Skamania,46.0224,-121.915
+MC-WA-10317,Poultry,Chickens,2024,Q4,Intrastate,14,WA,San Juan,48.5775,-122.9654,WA,Kitsap,47.6125,-122.6764
+MC-WA-10318,Cattle,Dairy cattle,2024,Q1,Intrastate,25,WA,Franklin,46.5347,-118.8994,WA,Adams,46.9835,-118.5611
+MC-WA-10319,Equids,Horses,2024,Q3,Intrastate,24,WA,Grant,47.2043,-119.4535,WA,Pacific,46.5554,-123.7041
+MC-WA-10320,Cattle,Dairy cattle,2024,Q1,Intrastate,17,WA,Benton,46.2392,-119.5109,WA,Franklin,46.5347,-118.8994
+MC-WA-10321,Poultry,Chickens,2024,Q1,Intrastate,12,WA,Klickitat,45.8746,-120.7893,WA,Skamania,46.0224,-121.915
+MC-WA-10322,Poultry,Chickens,2025,Q2,Intrastate,21,WA,Yakima,46.4568,-120.7375,WA,Okanogan,48.5485,-119.7401
+MC-WA-10323,Cattle,Beef cattle,2025,Q2,Intrastate,15,WA,Grays Harbor,47.1497,-123.7725,WA,Whatcom,48.8272,-121.7198
+MC-WA-10324,Cattle,Dairy cattle,2025,Q1,Intrastate,16,WA,Island,48.1627,-122.5477,WA,Kitsap,47.6125,-122.6764
+MC-WA-10325,Cattle,Beef cattle,2025,Q2,Intrastate,14,WA,Wahkiakum,46.2918,-123.4243,WA,Whitman,46.9008,-117.5231
+MC-WA-10326,Poultry,Chickens,2025,Q4,Intrastate,25,WA,Kittitas,47.1244,-120.6781,WA,Pierce,47.024,-122.1031
+MC-WA-10327,Equids,Horses,2025,Q1,Intrastate,24,WA,Yakima,46.4568,-120.7375,WA,Skagit,48.4804,-121.7291
+MC-WA-10328,Cattle,Beef cattle,2025,Q1,Intrastate,23,WA,Franklin,46.5347,-118.8994,WA,Klickitat,45.8746,-120.7893
+MC-WA-10329,Poultry,Turkeys,2025,Q1,Intrastate,14,WA,Whitman,46.9008,-117.5231,WA,Island,48.1627,-122.5477
+MC-WA-10330,Swine,Feeder pigs,2024,Q3,Intrastate,22,WA,King,47.4901,-121.8053,WA,Franklin,46.5347,-118.8994
+MC-WA-10331,Small Ruminants,Sheep,2025,Q3,Intrastate,13,WA,Benton,46.2392,-119.5109,WA,Stevens,48.397,-117.8554
+MC-WA-10332,Small Ruminants,Goats,2024,Q2,Intrastate,14,WA,Mason,47.3481,-123.193,WA,Whitman,46.9008,-117.5231
+MC-WA-10333,Swine,Feeder pigs,2024,Q2,Intrastate,26,WA,Grays Harbor,47.1497,-123.7725,WA,Klickitat,45.8746,-120.7893
+MC-WA-10334,Cattle,Dairy cattle,2024,Q4,Intrastate,28,WA,Stevens,48.397,-117.8554,WA,Asotin,46.1916,-117.203
+MC-WA-10335,Small Ruminants,Goats,2024,Q3,Intrastate,13,WA,Kittitas,47.1244,-120.6781,WA,Adams,46.9835,-118.5611
+MC-WA-10336,Equids,Horses,2024,Q2,Intrastate,20,WA,Skamania,46.0224,-121.915,WA,Spokane,47.6201,-117.4044
+MC-WA-10337,Cattle,Beef cattle,2025,Q4,Intrastate,22,WA,San Juan,48.5775,-122.9654,WA,Clallam,48.0502,-123.9298
+MC-WA-10338,Small Ruminants,Goats,2024,Q2,Intrastate,22,WA,Island,48.1627,-122.5477,WA,Grays Harbor,47.1497,-123.7725
+MC-WA-10339,Swine,Feeder pigs,2024,Q4,Intrastate,17,WA,Whitman,46.9008,-117.5231,WA,Columbia,46.2972,-117.9073
+MC-WA-10340,Poultry,Turkeys,2024,Q4,Intrastate,20,WA,Chelan,47.8677,-120.6182,WA,Okanogan,48.5485,-119.7401
+MC-WA-10341,Small Ruminants,Sheep,2024,Q3,Intrastate,28,WA,Asotin,46.1916,-117.203,WA,Grant,47.2043,-119.4535
+MC-WA-10342,Small Ruminants,Goats,2025,Q3,Intrastate,13,WA,Clark,45.7791,-122.4825,WA,Lincoln,47.5761,-118.4185
+MC-WA-10343,Small Ruminants,Goats,2024,Q3,Intrastate,12,WA,San Juan,48.5775,-122.9654,WA,Ferry,48.4686,-118.5168
+MC-WA-10344,Small Ruminants,Sheep,2025,Q1,Intrastate,14,WA,Okanogan,48.5485,-119.7401,WA,Grant,47.2043,-119.4535
+MC-WA-10345,Poultry,Turkeys,2025,Q4,Intrastate,17,WA,Adams,46.9835,-118.5611,WA,Skagit,48.4804,-121.7291
+MC-WA-10346,Poultry,Turkeys,2024,Q1,Intrastate,13,WA,Spokane,47.6201,-117.4044,WA,Lewis,46.579,-122.3927
+MC-WA-10347,Poultry,Turkeys,2025,Q3,Intrastate,25,WA,Lincoln,47.5761,-118.4185,WA,Klickitat,45.8746,-120.7893
+MC-WA-10348,Small Ruminants,Sheep,2024,Q2,Intrastate,22,WA,Clallam,48.0502,-123.9298,WA,Lincoln,47.5761,-118.4185
+MC-WA-10349,Equids,Horses,2024,Q2,Intrastate,27,WA,Chelan,47.8677,-120.6182,WA,King,47.4901,-121.8053
+MC-WA-10350,Small Ruminants,Goats,2025,Q3,Intrastate,26,WA,Okanogan,48.5485,-119.7401,WA,Kittitas,47.1244,-120.6781
+MC-WA-10351,Cattle,Beef cattle,2025,Q3,Intrastate,28,WA,Pacific,46.5554,-123.7041,WA,Okanogan,48.5485,-119.7401
+MC-WA-10352,Cattle,Beef cattle,2024,Q3,Intrastate,15,WA,King,47.4901,-121.8053,WA,San Juan,48.5775,-122.9654
+MC-WA-10353,Equids,Horses,2024,Q1,Intrastate,15,WA,Clallam,48.0502,-123.9298,WA,Asotin,46.1916,-117.203
+MC-WA-10354,Swine,Feeder pigs,2024,Q3,Intrastate,18,WA,Grant,47.2043,-119.4535,WA,Stevens,48.397,-117.8554
+MC-WA-10355,Small Ruminants,Goats,2025,Q4,Intrastate,27,WA,Columbia,46.2972,-117.9073,WA,Clallam,48.0502,-123.9298
+MC-WA-10356,Cattle,Beef cattle,2024,Q4,Intrastate,18,WA,Douglas,47.7357,-119.6935,WA,Clallam,48.0502,-123.9298
+MC-WA-10357,Swine,Feeder pigs,2024,Q1,Intrastate,21,WA,Lincoln,47.5761,-118.4185,WA,Clallam,48.0502,-123.9298
+MC-WA-10358,Cattle,Beef cattle,2025,Q3,Intrastate,21,WA,Skamania,46.0224,-121.915,WA,Pend Oreille,48.531,-117.2739
+MC-WA-10359,Swine,Feeder pigs,2024,Q4,Intrastate,18,WA,Benton,46.2392,-119.5109,WA,Cowlitz,46.1932,-122.6808
+MC-WA-10360,Poultry,Chickens,2025,Q3,Intrastate,14,WA,Kittitas,47.1244,-120.6781,WA,Spokane,47.6201,-117.4044
+MC-WA-10361,Swine,Feeder pigs,2025,Q4,Intrastate,22,WA,Pierce,47.024,-122.1031,WA,Skagit,48.4804,-121.7291
+MC-WA-10362,Cattle,Dairy cattle,2025,Q2,Intrastate,19,WA,Wahkiakum,46.2918,-123.4243,WA,Kittitas,47.1244,-120.6781
+MC-WA-10363,Small Ruminants,Goats,2024,Q3,Intrastate,19,WA,Clark,45.7791,-122.4825,WA,Asotin,46.1916,-117.203
+MC-WA-10364,Cattle,Dairy cattle,2025,Q1,Intrastate,24,WA,Douglas,47.7357,-119.6935,WA,Spokane,47.6201,-117.4044
+MC-WA-10365,Small Ruminants,Sheep,2024,Q3,Intrastate,14,WA,Jefferson,47.7495,-123.5974,WA,Clark,45.7791,-122.4825
+MC-WA-10366,Cattle,Dairy cattle,2024,Q2,Intrastate,14,WA,Columbia,46.2972,-117.9073,WA,Island,48.1627,-122.5477
+MC-WA-10367,Small Ruminants,Sheep,2024,Q4,Intrastate,22,WA,King,47.4901,-121.8053,WA,Skagit,48.4804,-121.7291
+MC-WA-10368,Equids,Horses,2024,Q2,Intrastate,15,WA,Kitsap,47.6125,-122.6764,WA,Grays Harbor,47.1497,-123.7725
+MC-WA-10369,Small Ruminants,Goats,2024,Q1,Intrastate,24,WA,Kittitas,47.1244,-120.6781,WA,Whitman,46.9008,-117.5231
+MC-WA-10370,Small Ruminants,Goats,2024,Q3,Intrastate,12,WA,Clark,45.7791,-122.4825,WA,Lincoln,47.5761,-118.4185
+MC-WA-10371,Small Ruminants,Goats,2025,Q3,Intrastate,23,WA,Mason,47.3481,-123.193,WA,Thurston,46.9256,-122.833
+MC-WA-10372,Small Ruminants,Sheep,2024,Q2,Intrastate,12,WA,Garfield,46.4312,-117.545,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10373,Poultry,Chickens,2025,Q2,Intrastate,14,WA,Columbia,46.2972,-117.9073,WA,Jefferson,47.7495,-123.5974
+MC-WA-10374,Cattle,Dairy cattle,2025,Q1,Intrastate,28,WA,Wahkiakum,46.2918,-123.4243,WA,Ferry,48.4686,-118.5168
+MC-WA-10375,Poultry,Turkeys,2024,Q1,Intrastate,20,WA,Walla Walla,46.2296,-118.4785,WA,Franklin,46.5347,-118.8994
+MC-WA-10376,Small Ruminants,Sheep,2025,Q4,Intrastate,18,WA,King,47.4901,-121.8053,WA,Asotin,46.1916,-117.203
+MC-WA-10377,Poultry,Chickens,2025,Q4,Intrastate,16,WA,Klickitat,45.8746,-120.7893,WA,Lincoln,47.5761,-118.4185
+MC-WA-10378,Cattle,Beef cattle,2025,Q2,Intrastate,22,WA,Ferry,48.4686,-118.5168,WA,Mason,47.3481,-123.193
+MC-WA-10379,Equids,Horses,2025,Q4,Intrastate,21,WA,Lincoln,47.5761,-118.4185,WA,Thurston,46.9256,-122.833
+MC-WA-10380,Small Ruminants,Sheep,2025,Q1,Intrastate,14,WA,Spokane,47.6201,-117.4044,WA,Asotin,46.1916,-117.203
+MC-WA-10381,Small Ruminants,Sheep,2024,Q3,Intrastate,17,WA,Kittitas,47.1244,-120.6781,WA,Skagit,48.4804,-121.7291
+MC-WA-10382,Poultry,Chickens,2024,Q3,Intrastate,28,WA,Klickitat,45.8746,-120.7893,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10383,Poultry,Turkeys,2024,Q3,Intrastate,23,WA,Adams,46.9835,-118.5611,WA,Franklin,46.5347,-118.8994
+MC-WA-10384,Cattle,Beef cattle,2025,Q1,Intrastate,20,WA,Lewis,46.579,-122.3927,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10385,Cattle,Beef cattle,2025,Q1,Intrastate,20,WA,Pacific,46.5554,-123.7041,WA,Jefferson,47.7495,-123.5974
+MC-WA-10386,Cattle,Beef cattle,2024,Q3,Intrastate,27,WA,Kitsap,47.6125,-122.6764,WA,San Juan,48.5775,-122.9654
+MC-WA-10387,Swine,Feeder pigs,2024,Q1,Intrastate,16,WA,Clark,45.7791,-122.4825,WA,Ferry,48.4686,-118.5168
+MC-WA-10388,Small Ruminants,Sheep,2025,Q2,Intrastate,26,WA,Wahkiakum,46.2918,-123.4243,WA,Adams,46.9835,-118.5611
+MC-WA-10389,Swine,Feeder pigs,2025,Q1,Intrastate,14,WA,Pacific,46.5554,-123.7041,WA,Island,48.1627,-122.5477
+MC-WA-10390,Equids,Horses,2025,Q4,Intrastate,23,WA,King,47.4901,-121.8053,WA,Pend Oreille,48.531,-117.2739
+MC-WA-10391,Equids,Horses,2025,Q4,Intrastate,18,WA,Skamania,46.0224,-121.915,WA,Spokane,47.6201,-117.4044
+MC-WA-10392,Small Ruminants,Sheep,2025,Q4,Intrastate,14,WA,Grant,47.2043,-119.4535,WA,Thurston,46.9256,-122.833
+MC-WA-10393,Small Ruminants,Goats,2025,Q3,Intrastate,19,WA,Adams,46.9835,-118.5611,WA,King,47.4901,-121.8053
+MC-WA-10394,Poultry,Chickens,2025,Q1,Intrastate,25,WA,Columbia,46.2972,-117.9073,WA,King,47.4901,-121.8053
+MC-WA-10395,Swine,Feeder pigs,2024,Q2,Intrastate,26,WA,Benton,46.2392,-119.5109,WA,Island,48.1627,-122.5477
+MC-WA-10396,Poultry,Turkeys,2025,Q1,Intrastate,25,WA,Lewis,46.579,-122.3927,WA,Lincoln,47.5761,-118.4185
+MC-WA-10397,Small Ruminants,Goats,2024,Q2,Intrastate,23,WA,Whitman,46.9008,-117.5231,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10398,Small Ruminants,Goats,2025,Q1,Intrastate,16,WA,Clark,45.7791,-122.4825,WA,Mason,47.3481,-123.193
+MC-WA-10399,Small Ruminants,Sheep,2024,Q1,Intrastate,23,WA,Island,48.1627,-122.5477,WA,Skamania,46.0224,-121.915
+MC-WA-10400,Small Ruminants,Sheep,2025,Q2,Intrastate,18,WA,Grays Harbor,47.1497,-123.7725,WA,Klickitat,45.8746,-120.7893
+MC-WA-10401,Small Ruminants,Goats,2024,Q3,Intrastate,14,WA,Mason,47.3481,-123.193,WA,Garfield,46.4312,-117.545
+MC-WA-10402,Small Ruminants,Sheep,2024,Q4,Intrastate,28,WA,Snohomish,48.0475,-121.6973,WA,Yakima,46.4568,-120.7375
+MC-WA-10403,Poultry,Chickens,2024,Q3,Intrastate,16,WA,Chelan,47.8677,-120.6182,WA,Pend Oreille,48.531,-117.2739
+MC-WA-10404,Small Ruminants,Goats,2024,Q1,Intrastate,22,WA,King,47.4901,-121.8053,WA,Grays Harbor,47.1497,-123.7725
+MC-WA-10405,Swine,Feeder pigs,2024,Q1,Intrastate,13,WA,Walla Walla,46.2296,-118.4785,WA,Pend Oreille,48.531,-117.2739
+MC-WA-10406,Cattle,Dairy cattle,2024,Q3,Intrastate,23,WA,Ferry,48.4686,-118.5168,WA,Lincoln,47.5761,-118.4185
+MC-WA-10407,Small Ruminants,Sheep,2025,Q1,Intrastate,22,WA,Ferry,48.4686,-118.5168,WA,Kittitas,47.1244,-120.6781
+MC-WA-10408,Small Ruminants,Goats,2025,Q4,Intrastate,21,WA,Cowlitz,46.1932,-122.6808,WA,Jefferson,47.7495,-123.5974
+MC-WA-10409,Small Ruminants,Goats,2025,Q2,Intrastate,23,WA,Lincoln,47.5761,-118.4185,WA,Franklin,46.5347,-118.8994
+MC-WA-10410,Cattle,Beef cattle,2024,Q4,Intrastate,27,WA,Mason,47.3481,-123.193,WA,Spokane,47.6201,-117.4044
+MC-WA-10411,Small Ruminants,Goats,2025,Q1,Intrastate,15,WA,Jefferson,47.7495,-123.5974,WA,Skagit,48.4804,-121.7291
+MC-WA-10412,Small Ruminants,Sheep,2024,Q2,Intrastate,18,WA,Adams,46.9835,-118.5611,WA,Garfield,46.4312,-117.545
+MC-WA-10413,Equids,Horses,2025,Q2,Intrastate,21,WA,Yakima,46.4568,-120.7375,WA,Adams,46.9835,-118.5611
+MC-WA-10414,Poultry,Turkeys,2025,Q4,Intrastate,25,WA,Pacific,46.5554,-123.7041,WA,Lewis,46.579,-122.3927
+MC-WA-10415,Poultry,Chickens,2024,Q4,Intrastate,16,WA,Lincoln,47.5761,-118.4185,WA,Kittitas,47.1244,-120.6781
+MC-WA-10416,Cattle,Dairy cattle,2025,Q1,Intrastate,20,WA,Clallam,48.0502,-123.9298,WA,Kittitas,47.1244,-120.6781
+MC-WA-10417,Cattle,Beef cattle,2025,Q2,Intrastate,21,WA,Stevens,48.397,-117.8554,WA,Garfield,46.4312,-117.545
+MC-WA-10418,Swine,Feeder pigs,2024,Q3,Intrastate,27,WA,Pierce,47.024,-122.1031,WA,Island,48.1627,-122.5477
+MC-WA-10419,Poultry,Turkeys,2025,Q2,Intrastate,19,WA,Benton,46.2392,-119.5109,WA,Adams,46.9835,-118.5611
+MC-WA-10420,Swine,Feeder pigs,2025,Q3,Intrastate,21,WA,Kittitas,47.1244,-120.6781,WA,Grant,47.2043,-119.4535
+MC-WA-10421,Small Ruminants,Sheep,2024,Q1,Intrastate,23,WA,Adams,46.9835,-118.5611,WA,Douglas,47.7357,-119.6935
+MC-WA-10422,Poultry,Turkeys,2024,Q1,Intrastate,22,WA,Grant,47.2043,-119.4535,WA,Columbia,46.2972,-117.9073
+MC-WA-10423,Cattle,Beef cattle,2025,Q4,Intrastate,24,WA,San Juan,48.5775,-122.9654,WA,Whitman,46.9008,-117.5231
+MC-WA-10424,Cattle,Beef cattle,2025,Q1,Intrastate,14,WA,Mason,47.3481,-123.193,WA,San Juan,48.5775,-122.9654
+MC-WA-10425,Poultry,Turkeys,2025,Q1,Intrastate,14,WA,Snohomish,48.0475,-121.6973,WA,Garfield,46.4312,-117.545
+MC-WA-10426,Small Ruminants,Goats,2024,Q4,Intrastate,15,WA,Mason,47.3481,-123.193,WA,Yakima,46.4568,-120.7375
+MC-WA-10427,Poultry,Chickens,2025,Q1,Intrastate,17,WA,Clark,45.7791,-122.4825,WA,San Juan,48.5775,-122.9654
+MC-WA-10428,Cattle,Dairy cattle,2024,Q3,Intrastate,25,WA,Benton,46.2392,-119.5109,WA,Clallam,48.0502,-123.9298
+MC-WA-10429,Equids,Horses,2025,Q2,Intrastate,16,WA,Lincoln,47.5761,-118.4185,WA,Mason,47.3481,-123.193
+MC-WA-10430,Small Ruminants,Sheep,2024,Q1,Intrastate,21,WA,Walla Walla,46.2296,-118.4785,WA,Pacific,46.5554,-123.7041
+MC-WA-10431,Poultry,Chickens,2025,Q2,Intrastate,20,WA,Whitman,46.9008,-117.5231,WA,Skamania,46.0224,-121.915
+MC-WA-10432,Equids,Horses,2025,Q4,Intrastate,19,WA,Jefferson,47.7495,-123.5974,WA,Pierce,47.024,-122.1031
+MC-WA-10433,Cattle,Dairy cattle,2024,Q2,Intrastate,15,WA,Whatcom,48.8272,-121.7198,WA,Grays Harbor,47.1497,-123.7725
+MC-WA-10434,Cattle,Beef cattle,2025,Q2,Intrastate,26,WA,Grays Harbor,47.1497,-123.7725,WA,Okanogan,48.5485,-119.7401
+MC-WA-10435,Equids,Horses,2024,Q3,Intrastate,17,WA,Klickitat,45.8746,-120.7893,WA,Snohomish,48.0475,-121.6973
+MC-WA-10436,Small Ruminants,Goats,2025,Q2,Intrastate,21,WA,Island,48.1627,-122.5477,WA,Klickitat,45.8746,-120.7893
+MC-WA-10437,Swine,Feeder pigs,2025,Q3,Export,40,WA,Mason,47.3481,-123.193,MT,N/A,47.0527,-109.6333
+MC-WA-10438,Poultry,Turkeys,2025,Q3,Import,51,CA,N/A,37.1661,-119.4494,WA,Yakima,46.4568,-120.7375
+MC-WA-10439,Small Ruminants,Goats,2025,Q1,Export,58,WA,Douglas,47.7357,-119.6935,OR,N/A,43.9336,-120.5583
+MC-WA-10440,Poultry,Chickens,2025,Q2,Export,74,WA,Franklin,46.5347,-118.8994,OR,N/A,43.9336,-120.5583
+MC-WA-10441,Poultry,Turkeys,2025,Q3,Export,47,WA,King,47.4901,-121.8053,ID,N/A,44.3509,-114.613
+MC-WA-10442,Small Ruminants,Goats,2025,Q4,Export,71,WA,Lincoln,47.5761,-118.4185,MT,N/A,47.0527,-109.6333
+MC-WA-10443,Poultry,Chickens,2025,Q1,Import,79,OR,N/A,43.9336,-120.5583,WA,Skamania,46.0224,-121.915
+MC-WA-10444,Small Ruminants,Sheep,2024,Q2,Export,68,WA,Klickitat,45.8746,-120.7893,OR,N/A,43.9336,-120.5583
+MC-WA-10445,Small Ruminants,Goats,2025,Q3,Import,79,ID,N/A,44.3509,-114.613,WA,Douglas,47.7357,-119.6935
+MC-WA-10446,Cattle,Beef cattle,2024,Q1,Export,43,WA,Yakima,46.4568,-120.7375,ID,N/A,44.3509,-114.613
+MC-WA-10447,Poultry,Chickens,2024,Q1,Export,60,WA,Lincoln,47.5761,-118.4185,ID,N/A,44.3509,-114.613
+MC-WA-10448,Small Ruminants,Goats,2025,Q1,Export,45,WA,Snohomish,48.0475,-121.6973,OR,N/A,43.9336,-120.5583
+MC-WA-10449,Poultry,Chickens,2025,Q3,Export,54,WA,Pacific,46.5554,-123.7041,MT,N/A,47.0527,-109.6333
+MC-WA-10450,Equids,Horses,2024,Q3,Import,59,OR,N/A,43.9336,-120.5583,WA,Garfield,46.4312,-117.545
+MC-WA-10451,Poultry,Turkeys,2024,Q1,Import,71,ID,N/A,44.3509,-114.613,WA,Chelan,47.8677,-120.6182
+MC-WA-10452,Small Ruminants,Goats,2025,Q2,Import,70,MT,N/A,47.0527,-109.6333,WA,Grant,47.2043,-119.4535
+MC-WA-10453,Cattle,Dairy cattle,2024,Q3,Export,52,WA,Spokane,47.6201,-117.4044,MT,N/A,47.0527,-109.6333
+MC-WA-10454,Equids,Horses,2025,Q4,Import,41,MT,N/A,47.0527,-109.6333,WA,Island,48.1627,-122.5477
+MC-WA-10455,Small Ruminants,Goats,2024,Q3,Import,84,MT,N/A,47.0527,-109.6333,WA,Pierce,47.024,-122.1031
+MC-WA-10456,Small Ruminants,Sheep,2025,Q3,Import,77,CA,N/A,37.1661,-119.4494,WA,Columbia,46.2972,-117.9073
+MC-WA-10457,Cattle,Beef cattle,2025,Q4,Import,39,CA,N/A,37.1661,-119.4494,WA,Stevens,48.397,-117.8554
+MC-WA-10458,Equids,Horses,2024,Q3,Import,36,ID,N/A,44.3509,-114.613,WA,San Juan,48.5775,-122.9654
+MC-WA-10459,Poultry,Turkeys,2025,Q1,Import,57,ID,N/A,44.3509,-114.613,WA,Kitsap,47.6125,-122.6764
+MC-WA-10460,Equids,Horses,2024,Q3,Import,63,MT,N/A,47.0527,-109.6333,WA,Skamania,46.0224,-121.915
+MC-WA-10461,Small Ruminants,Sheep,2025,Q1,Import,72,CA,N/A,37.1661,-119.4494,WA,Walla Walla,46.2296,-118.4785
+MC-WA-10462,Poultry,Chickens,2024,Q4,Import,83,OR,N/A,43.9336,-120.5583,WA,Kitsap,47.6125,-122.6764
+MC-WA-10463,Small Ruminants,Sheep,2024,Q2,Import,40,ID,N/A,44.3509,-114.613,WA,Walla Walla,46.2296,-118.4785
+MC-WA-10464,Poultry,Chickens,2025,Q2,Export,63,WA,Grant,47.2043,-119.4535,CA,N/A,37.1661,-119.4494
+MC-WA-10465,Small Ruminants,Sheep,2025,Q1,Import,63,ID,N/A,44.3509,-114.613,WA,Lewis,46.579,-122.3927
+MC-WA-10466,Swine,Feeder pigs,2025,Q3,Export,79,WA,Island,48.1627,-122.5477,OR,N/A,43.9336,-120.5583
+MC-WA-10467,Small Ruminants,Goats,2024,Q3,Import,56,CA,N/A,37.1661,-119.4494,WA,Cowlitz,46.1932,-122.6808
+MC-WA-10468,Equids,Horses,2024,Q2,Export,63,WA,Kitsap,47.6125,-122.6764,MT,N/A,47.0527,-109.6333
+MC-WA-10469,Small Ruminants,Goats,2024,Q4,Export,45,WA,Island,48.1627,-122.5477,MT,N/A,47.0527,-109.6333
+MC-WA-10470,Cattle,Beef cattle,2024,Q1,Import,41,MT,N/A,47.0527,-109.6333,WA,Clark,45.7791,-122.4825
+MC-WA-10471,Poultry,Chickens,2024,Q1,Import,54,OR,N/A,43.9336,-120.5583,WA,Skamania,46.0224,-121.915
+MC-WA-10472,Cattle,Beef cattle,2024,Q4,Export,36,WA,Wahkiakum,46.2918,-123.4243,CA,N/A,37.1661,-119.4494
+MC-WA-10473,Poultry,Chickens,2024,Q2,Export,62,WA,Skagit,48.4804,-121.7291,ID,N/A,44.3509,-114.613
+MC-WA-10474,Small Ruminants,Goats,2025,Q1,Import,51,OR,N/A,43.9336,-120.5583,WA,Skamania,46.0224,-121.915
+MC-WA-10475,Poultry,Chickens,2024,Q3,Import,60,MT,N/A,47.0527,-109.6333,WA,Cowlitz,46.1932,-122.6808
+MC-WA-10476,Swine,Feeder pigs,2025,Q2,Export,43,WA,Walla Walla,46.2296,-118.4785,CA,N/A,37.1661,-119.4494
+MC-WA-10477,Small Ruminants,Sheep,2025,Q1,Import,65,CA,N/A,37.1661,-119.4494,WA,Stevens,48.397,-117.8554
+MC-WA-10478,Cattle,Dairy cattle,2024,Q4,Export,73,WA,Douglas,47.7357,-119.6935,MT,N/A,47.0527,-109.6333
+MC-WA-10479,Poultry,Chickens,2025,Q4,Export,55,WA,Klickitat,45.8746,-120.7893,MT,N/A,47.0527,-109.6333
+MC-WA-10480,Poultry,Chickens,2025,Q1,Export,44,WA,Columbia,46.2972,-117.9073,CA,N/A,37.1661,-119.4494
+MC-WA-10481,Equids,Horses,2025,Q1,Import,75,OR,N/A,43.9336,-120.5583,WA,Cowlitz,46.1932,-122.6808
+MC-WA-10482,Poultry,Chickens,2025,Q3,Import,72,OR,N/A,43.9336,-120.5583,WA,Clallam,48.0502,-123.9298
+MC-WA-10483,Cattle,Beef cattle,2025,Q4,Export,45,WA,Ferry,48.4686,-118.5168,CA,N/A,37.1661,-119.4494
+MC-WA-10484,Equids,Horses,2024,Q2,Import,54,OR,N/A,43.9336,-120.5583,WA,Asotin,46.1916,-117.203
+MC-WA-10485,Poultry,Chickens,2024,Q3,Import,45,ID,N/A,44.3509,-114.613,WA,Pierce,47.024,-122.1031
+MC-WA-10486,Poultry,Turkeys,2024,Q1,Import,55,OR,N/A,43.9336,-120.5583,WA,Columbia,46.2972,-117.9073
+MC-WA-10487,Poultry,Chickens,2025,Q2,Export,56,WA,Pend Oreille,48.531,-117.2739,ID,N/A,44.3509,-114.613
+MC-WA-10488,Swine,Feeder pigs,2025,Q2,Export,60,WA,Adams,46.9835,-118.5611,CA,N/A,37.1661,-119.4494
+MC-WA-10489,Cattle,Beef cattle,2024,Q2,Import,50,CA,N/A,37.1661,-119.4494,WA,Cowlitz,46.1932,-122.6808
+MC-WA-10490,Equids,Horses,2025,Q2,Export,59,WA,Stevens,48.397,-117.8554,MT,N/A,47.0527,-109.6333
+MC-WA-10491,Cattle,Beef cattle,2025,Q1,Export,44,WA,Stevens,48.397,-117.8554,CA,N/A,37.1661,-119.4494
+MC-WA-10492,Poultry,Turkeys,2025,Q4,Export,47,WA,Okanogan,48.5485,-119.7401,OR,N/A,43.9336,-120.5583
+MC-WA-10493,Poultry,Turkeys,2025,Q2,Import,81,MT,N/A,47.0527,-109.6333,WA,Clark,45.7791,-122.4825
+MC-WA-10494,Cattle,Beef cattle,2025,Q3,Import,41,CA,N/A,37.1661,-119.4494,WA,Franklin,46.5347,-118.8994
+MC-WA-10495,Poultry,Turkeys,2025,Q3,Export,51,WA,Garfield,46.4312,-117.545,CA,N/A,37.1661,-119.4494
+MC-WA-10496,Poultry,Chickens,2025,Q2,Export,67,WA,Garfield,46.4312,-117.545,CA,N/A,37.1661,-119.4494
+MC-WA-10497,Swine,Feeder pigs,2025,Q3,Import,61,ID,N/A,44.3509,-114.613,WA,Grays Harbor,47.1497,-123.7725
+MC-WA-10498,Small Ruminants,Sheep,2025,Q1,Export,55,WA,Wahkiakum,46.2918,-123.4243,ID,N/A,44.3509,-114.613
+MC-WA-10499,Poultry,Chickens,2024,Q4,Export,42,WA,Kitsap,47.6125,-122.6764,OR,N/A,43.9336,-120.5583
+MC-WA-10500,Small Ruminants,Sheep,2025,Q2,Import,55,CA,N/A,37.1661,-119.4494,WA,Island,48.1627,-122.5477
+MC-WA-10501,Poultry,Turkeys,2025,Q2,Export,38,WA,Spokane,47.6201,-117.4044,MT,N/A,47.0527,-109.6333
+MC-WA-10502,Cattle,Dairy cattle,2025,Q3,Export,39,WA,Cowlitz,46.1932,-122.6808,MT,N/A,47.0527,-109.6333
+MC-WA-10503,Cattle,Dairy cattle,2025,Q2,Export,45,WA,Walla Walla,46.2296,-118.4785,CA,N/A,37.1661,-119.4494
+MC-WA-10504,Cattle,Dairy cattle,2025,Q1,Import,38,CA,N/A,37.1661,-119.4494,WA,Mason,47.3481,-123.193
+MC-WA-10505,Cattle,Dairy cattle,2025,Q4,Import,56,CA,N/A,37.1661,-119.4494,WA,Chelan,47.8677,-120.6182
+MC-WA-10506,Cattle,Beef cattle,2025,Q3,Import,62,MT,N/A,47.0527,-109.6333,WA,Snohomish,48.0475,-121.6973
+MC-WA-10507,Cattle,Dairy cattle,2025,Q2,Import,65,OR,N/A,43.9336,-120.5583,WA,Thurston,46.9256,-122.833
+MC-WA-10508,Equids,Horses,2024,Q3,Import,42,ID,N/A,44.3509,-114.613,WA,Pacific,46.5554,-123.7041
+MC-WA-10509,Cattle,Dairy cattle,2025,Q3,Import,46,MT,N/A,47.0527,-109.6333,WA,Kitsap,47.6125,-122.6764
+MC-WA-10510,Small Ruminants,Goats,2024,Q4,Export,67,WA,Franklin,46.5347,-118.8994,MT,N/A,47.0527,-109.6333
+MC-WA-10511,Poultry,Turkeys,2024,Q2,Import,81,OR,N/A,43.9336,-120.5583,WA,Stevens,48.397,-117.8554
+MC-WA-10512,Swine,Feeder pigs,2024,Q1,Import,60,CA,N/A,37.1661,-119.4494,WA,Ferry,48.4686,-118.5168
+MC-WA-10513,Cattle,Beef cattle,2024,Q1,Export,66,WA,Ferry,48.4686,-118.5168,OR,N/A,43.9336,-120.5583
+MC-WA-10514,Small Ruminants,Goats,2024,Q4,Export,74,WA,Klickitat,45.8746,-120.7893,CA,N/A,37.1661,-119.4494
+MC-WA-10515,Small Ruminants,Goats,2025,Q4,Import,41,ID,N/A,44.3509,-114.613,WA,Adams,46.9835,-118.5611
+MC-WA-10516,Cattle,Dairy cattle,2025,Q3,Export,75,WA,Garfield,46.4312,-117.545,ID,N/A,44.3509,-114.613
+MC-WA-10517,Swine,Feeder pigs,2025,Q4,Export,84,WA,Thurston,46.9256,-122.833,MT,N/A,47.0527,-109.6333
+MC-WA-10518,Poultry,Chickens,2024,Q4,Import,83,ID,N/A,44.3509,-114.613,WA,Pend Oreille,48.531,-117.2739
+MC-WA-10519,Poultry,Turkeys,2025,Q2,Import,64,CA,N/A,37.1661,-119.4494,WA,Snohomish,48.0475,-121.6973
+MC-WA-10520,Poultry,Turkeys,2024,Q1,Import,65,OR,N/A,43.9336,-120.5583,WA,Kitsap,47.6125,-122.6764
+MC-WA-10521,Equids,Horses,2024,Q3,Import,64,MT,N/A,47.0527,-109.6333,WA,Kittitas,47.1244,-120.6781
+MC-WA-10522,Equids,Horses,2025,Q3,Import,67,OR,N/A,43.9336,-120.5583,WA,Franklin,46.5347,-118.8994
+MC-WA-10523,Cattle,Dairy cattle,2025,Q1,Export,39,WA,Jefferson,47.7495,-123.5974,OR,N/A,43.9336,-120.5583
+MC-WA-10524,Cattle,Beef cattle,2024,Q4,Import,63,OR,N/A,43.9336,-120.5583,WA,Benton,46.2392,-119.5109
+MC-WA-10525,Poultry,Turkeys,2025,Q1,Import,80,MT,N/A,47.0527,-109.6333,WA,Snohomish,48.0475,-121.6973
+MC-WA-10526,Swine,Feeder pigs,2024,Q4,Import,45,ID,N/A,44.3509,-114.613,WA,Thurston,46.9256,-122.833
+MC-WA-10527,Cattle,Dairy cattle,2024,Q4,Export,50,WA,Skagit,48.4804,-121.7291,MT,N/A,47.0527,-109.6333
+MC-WA-10528,Cattle,Dairy cattle,2024,Q2,Export,59,WA,Yakima,46.4568,-120.7375,OR,N/A,43.9336,-120.5583
+MC-WA-10529,Cattle,Beef cattle,2025,Q4,Import,71,CA,N/A,37.1661,-119.4494,WA,Jefferson,47.7495,-123.5974
+MC-WA-10530,Cattle,Beef cattle,2025,Q2,Import,76,CA,N/A,37.1661,-119.4494,WA,Clallam,48.0502,-123.9298
+MC-WA-10531,Poultry,Chickens,2025,Q3,Import,79,OR,N/A,43.9336,-120.5583,WA,Skagit,48.4804,-121.7291
+MC-WA-10532,Cattle,Beef cattle,2025,Q3,Export,76,WA,Skagit,48.4804,-121.7291,MT,N/A,47.0527,-109.6333
+MC-WA-10533,Cattle,Beef cattle,2025,Q1,Import,49,ID,N/A,44.3509,-114.613,WA,Skamania,46.0224,-121.915
+MC-WA-10534,Swine,Feeder pigs,2024,Q3,Import,55,OR,N/A,43.9336,-120.5583,WA,Lincoln,47.5761,-118.4185
+MC-WA-10535,Small Ruminants,Goats,2024,Q4,Export,61,WA,Adams,46.9835,-118.5611,ID,N/A,44.3509,-114.613
+MC-WA-10536,Cattle,Dairy cattle,2025,Q3,Export,37,WA,Stevens,48.397,-117.8554,CA,N/A,37.1661,-119.4494
+MC-WA-10537,Swine,Feeder pigs,2025,Q3,Import,59,MT,N/A,47.0527,-109.6333,WA,Thurston,46.9256,-122.833
+MC-WA-10538,Poultry,Chickens,2025,Q1,Import,51,OR,N/A,43.9336,-120.5583,WA,Skamania,46.0224,-121.915
+MC-WA-10539,Poultry,Turkeys,2025,Q4,Export,45,WA,Lewis,46.579,-122.3927,MT,N/A,47.0527,-109.6333
+MC-WA-10540,Cattle,Beef cattle,2025,Q4,Export,38,WA,Cowlitz,46.1932,-122.6808,CA,N/A,37.1661,-119.4494
+MC-WA-10541,Small Ruminants,Sheep,2024,Q1,Import,49,ID,N/A,44.3509,-114.613,WA,Island,48.1627,-122.5477
+MC-WA-10542,Cattle,Beef cattle,2024,Q1,Export,77,WA,Ferry,48.4686,-118.5168,OR,N/A,43.9336,-120.5583
+MC-WA-10543,Swine,Feeder pigs,2024,Q2,Import,79,OR,N/A,43.9336,-120.5583,WA,Skamania,46.0224,-121.915
+MC-WA-10544,Poultry,Chickens,2025,Q1,Import,43,ID,N/A,44.3509,-114.613,WA,Chelan,47.8677,-120.6182
+MC-WA-10545,Poultry,Turkeys,2025,Q2,Import,65,CA,N/A,37.1661,-119.4494,WA,Snohomish,48.0475,-121.6973
+MC-WA-10546,Swine,Feeder pigs,2025,Q3,Export,39,WA,Grays Harbor,47.1497,-123.7725,ID,N/A,44.3509,-114.613
+MC-WA-10547,Equids,Horses,2025,Q3,Import,45,CA,N/A,37.1661,-119.4494,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10548,Equids,Horses,2024,Q1,Export,47,WA,Lewis,46.579,-122.3927,OR,N/A,43.9336,-120.5583
+MC-WA-10549,Cattle,Dairy cattle,2025,Q1,Import,81,MT,N/A,47.0527,-109.6333,WA,Pierce,47.024,-122.1031
+MC-WA-10550,Small Ruminants,Goats,2025,Q2,Import,77,OR,N/A,43.9336,-120.5583,WA,Spokane,47.6201,-117.4044
+MC-WA-10551,Poultry,Chickens,2024,Q1,Export,47,WA,Adams,46.9835,-118.5611,CA,N/A,37.1661,-119.4494
+MC-WA-10552,Cattle,Dairy cattle,2024,Q3,Import,54,MT,N/A,47.0527,-109.6333,WA,Clark,45.7791,-122.4825
+MC-WA-10553,Cattle,Beef cattle,2025,Q3,Export,63,WA,Jefferson,47.7495,-123.5974,ID,N/A,44.3509,-114.613
+MC-WA-10554,Poultry,Turkeys,2025,Q3,Import,73,ID,N/A,44.3509,-114.613,WA,Walla Walla,46.2296,-118.4785
+MC-WA-10555,Small Ruminants,Sheep,2025,Q3,Import,54,MT,N/A,47.0527,-109.6333,WA,Mason,47.3481,-123.193
+MC-WA-10556,Cattle,Beef cattle,2025,Q3,Export,79,WA,Columbia,46.2972,-117.9073,CA,N/A,37.1661,-119.4494
+MC-WA-10557,Poultry,Turkeys,2025,Q4,Export,65,WA,Kittitas,47.1244,-120.6781,CA,N/A,37.1661,-119.4494
+MC-WA-10558,Cattle,Dairy cattle,2024,Q2,Import,71,CA,N/A,37.1661,-119.4494,WA,Franklin,46.5347,-118.8994
+MC-WA-10559,Swine,Feeder pigs,2024,Q4,Export,47,WA,Pierce,47.024,-122.1031,CA,N/A,37.1661,-119.4494
+MC-WA-10560,Cattle,Beef cattle,2025,Q4,Import,51,OR,N/A,43.9336,-120.5583,WA,Lincoln,47.5761,-118.4185
+MC-WA-10561,Poultry,Turkeys,2024,Q3,Import,42,CA,N/A,37.1661,-119.4494,WA,Franklin,46.5347,-118.8994
+MC-WA-10562,Small Ruminants,Goats,2024,Q3,Import,66,ID,N/A,44.3509,-114.613,WA,Asotin,46.1916,-117.203
+MC-WA-10563,Cattle,Dairy cattle,2024,Q3,Export,57,WA,Garfield,46.4312,-117.545,MT,N/A,47.0527,-109.6333
+MC-WA-10564,Small Ruminants,Goats,2024,Q1,Export,74,WA,Whitman,46.9008,-117.5231,ID,N/A,44.3509,-114.613
+MC-WA-10565,Small Ruminants,Goats,2025,Q1,Import,80,ID,N/A,44.3509,-114.613,WA,Jefferson,47.7495,-123.5974
+MC-WA-10566,Poultry,Turkeys,2024,Q1,Import,42,OR,N/A,43.9336,-120.5583,WA,Franklin,46.5347,-118.8994
+MC-WA-10567,Equids,Horses,2024,Q3,Import,39,OR,N/A,43.9336,-120.5583,WA,Whatcom,48.8272,-121.7198
+MC-WA-10568,Small Ruminants,Goats,2024,Q2,Import,38,ID,N/A,44.3509,-114.613,WA,Snohomish,48.0475,-121.6973
+MC-WA-10569,Small Ruminants,Sheep,2024,Q4,Export,48,WA,Skamania,46.0224,-121.915,ID,N/A,44.3509,-114.613
+MC-WA-10570,Cattle,Dairy cattle,2024,Q1,Import,40,CA,N/A,37.1661,-119.4494,WA,Island,48.1627,-122.5477
+MC-WA-10571,Swine,Feeder pigs,2025,Q2,Export,66,WA,Pacific,46.5554,-123.7041,MT,N/A,47.0527,-109.6333
+MC-WA-10572,Equids,Horses,2024,Q3,Export,73,WA,Chelan,47.8677,-120.6182,CA,N/A,37.1661,-119.4494
+MC-WA-10573,Equids,Horses,2024,Q1,Export,61,WA,Douglas,47.7357,-119.6935,ID,N/A,44.3509,-114.613
+MC-WA-10574,Poultry,Turkeys,2024,Q4,Import,38,ID,N/A,44.3509,-114.613,WA,Adams,46.9835,-118.5611
+MC-WA-10575,Small Ruminants,Goats,2025,Q4,Export,42,WA,Pacific,46.5554,-123.7041,OR,N/A,43.9336,-120.5583
+MC-WA-10576,Poultry,Turkeys,2025,Q1,Export,37,WA,Skagit,48.4804,-121.7291,CA,N/A,37.1661,-119.4494
+MC-WA-10577,Cattle,Dairy cattle,2025,Q1,Export,70,WA,Mason,47.3481,-123.193,MT,N/A,47.0527,-109.6333
+MC-WA-10578,Equids,Horses,2025,Q1,Export,51,WA,Yakima,46.4568,-120.7375,OR,N/A,43.9336,-120.5583
+MC-WA-10579,Small Ruminants,Goats,2024,Q3,Export,74,WA,Pierce,47.024,-122.1031,CA,N/A,37.1661,-119.4494
+MC-WA-10580,Equids,Horses,2024,Q1,Export,54,WA,Kittitas,47.1244,-120.6781,CA,N/A,37.1661,-119.4494
+MC-WA-10581,Swine,Feeder pigs,2025,Q2,Export,63,WA,Kittitas,47.1244,-120.6781,CA,N/A,37.1661,-119.4494
+MC-WA-10582,Cattle,Dairy cattle,2025,Q4,Export,52,WA,Grays Harbor,47.1497,-123.7725,CA,N/A,37.1661,-119.4494
+MC-WA-10583,Small Ruminants,Sheep,2025,Q1,Export,61,WA,Wahkiakum,46.2918,-123.4243,OR,N/A,43.9336,-120.5583
+MC-WA-10584,Poultry,Turkeys,2025,Q2,Import,63,CA,N/A,37.1661,-119.4494,WA,Adams,46.9835,-118.5611
+MC-WA-10585,Equids,Horses,2025,Q2,Export,42,WA,Columbia,46.2972,-117.9073,ID,N/A,44.3509,-114.613
+MC-WA-10586,Cattle,Dairy cattle,2024,Q1,Import,39,MT,N/A,47.0527,-109.6333,WA,Cowlitz,46.1932,-122.6808
+MC-WA-10587,Cattle,Beef cattle,2025,Q2,Import,75,WA,Yakima,46.4568,-120.7375,WA,Benton,46.2392,-119.5109
+MC-WA-10588,Cattle,Beef cattle,2025,Q2,Export,64,WA,Grant,47.2043,-119.4535,WA,Adams,46.9835,-118.5611
+MC-WA-10589,Cattle,Beef cattle,2025,Q3,Import,33,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10590,Cattle,Beef cattle,2025,Q3,Export,33,WA,Spokane,47.6201,-117.4044,WA,Lincoln,47.5761,-118.4185
+MC-WA-10591,Small Ruminants,Sheep,2024,Q2,Intrastate,40,WA,Klickitat,45.8746,-120.7893,WA,,46.2392,-119.5109
+MC-WA-10592,Equids,Horses,2024,Q4,Intrastate,6,WA,N/A,47.0,-120.5,WA,Kittitas,47.1244,-120.6781
+MC-WA-10593,Small Ruminants,Goats,2025,Q1,Intrastate,9,WA,Chelan,,,WA,Douglas,47.7357,-119.6935
+MC-WA-10594,Equids,Horses,2025,Q4,Intrastate,4,WA,King County,47.4901,-121.8053,WA,Pierce,47.024,-122.1031
+MC-WA-10595,Swine,Feeder pigs,2024,Q3,Intrastate,,WA,Franklin,46.5347,-118.8994,WA,Walla Walla,46.2296,-118.4785
+MC-WA-10596,Cattle,Beef cattle,2025,Q1,Intrastate,50,WA,Klickitat,45.8746,-120.7893,OR,N/A,43.9336,-120.5583
+MC-WA-10597,Cattle,Beef cattle,2025,Q1,Intrastate,28,WA,Asotin,46.1916,-117.203,wa,Garfield,46.4312,-117.545
+MC-WA-10598,Cattle,Beef cattle,2025,Q1,,19,WA,Whitman,46.9008,-117.5231,WA,Spokane,47.6201,-117.4044
+MC-WA-10599,Cattle,Beef cattle,,Q2,Intrastate,22,WA,Yakima,46.4568,-120.7375,WA,Yakima,46.4568,-120.7375
+MC-WA-10600,Small Ruminants,Goats,2024,3,Intrastate,7,WA,Pacific,46.5554,-123.7041,WA,Wahkiakum,46.2918,-123.4243
+MC-WA-10601,Cattle,Dairy cattle,2025,Q4,Import,26,WA,Whatcom,48.8272,-121.7198,WA,Whatcom,48.8272,-121.7198
+MC-WA-10602,Small Ruminants,Sheep,2024,Q1,Intrastate,0,WA,Asotin,46.1916,-117.203,WA,Garfield,46.4312,-117.545
+MC-WA-10603,Small Ruminants,Goats,2025,Q4,Intrastate,3,WA,Ferry,48.4686,-118.5168,WA,,,
+MC-WA-10604,Equids,Horses,2026,Q1,Intrastate,2,WA,Okanogan,48.5485,-119.7401,WA,Okanogan,48.5985,-119.7901

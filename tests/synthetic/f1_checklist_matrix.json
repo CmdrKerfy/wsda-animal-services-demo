@@ -1,0 +1,292 @@
+{
+  "about": [
+    "F1 checklist-matrix oracle, WRITTEN BY HAND from the loader's design rules (facility layers identified by file name; manifest layers shown as found; tier columns). Not generated from the code.",
+    "Inputs: the synthetic bundles written by tests/synthetic/make_bundles.js under local-test-artifacts/f1/ ('source' is relative to that folder; tiers are checked both as ZIP and as folder). Also: the landing page's downloadable sample (sample/CVI_sample_bundle_synthetic.zip, the Full tier's files in one folder) must give exactly the Full expectations.",
+    "datasets: dataset id -> the file name used, 'missing', or {\"conflict\": [file names]}. Datasets not listed must be 'missing'.",
+    "files: every file the loader passes on -> 'used:<dataset>', 'bundle', 'conflict:<dataset>' or 'not-used:<fragment of the reason>'. The list is complete.",
+    "via: how a used file was recognized ('columns', 'name', 'name column', 'bundle.json'), for the files listed.",
+    "missingUseful: dataset id -> first column of each optional column group that is absent (feature switches and later-version notes).",
+    "features: feature id -> 'on' or 'off:<fragment of the reason>' (feature gating, checklist.js).",
+    "options: 'choices' is the user's pick for a conflict (dataset -> file name); 'assign' is the user's pick in the 'which layer is this file?' picker (file name -> dataset). The test harness turns file names into the loader's file ids; names are unique within each case. (Every bundle.json case has a real bundle.json, read by bundle.js.)",
+    "bundle: the banner text shown from bundle.json (null = no banner) and fragments of the warnings expected (an empty list = no warnings). Cases without 'bundle' expect no banner and no warnings.",
+    "candidates: file name -> the dataset ids the picker offers for an unclear file, in dataset-list order.",
+    "fileWarnings: file name -> fragment of the warning shown on that file (e.g. a bundle.json entry that does not fit; since audit D3-04 such an entry no longer stops the file being recognized by its columns). Files not listed have no warning.",
+    "layers: file name -> the facility layer ids the file could be (columns fit; narrowed to layers whose own name column it has, when any), in dataset-list order. The page offers its 'change layer' dropdown when there is more than one.",
+    "Audit E-01 (F1-R9): master_extra_columns and master_named_like_facility: a file with every master column is the master even with a facility layer's extra columns (name, lat, long) or a facility layer's recommended name; it gets no change-layer dropdown.",
+    "S2a day 2 (2026-10-05): features 'summaries' and 'spotlight' need the master table only (as 'wa-map'); 'unique-cvis' also needs the CVI column, which only the Full tier's master has among these inputs.",
+    "S2b (2026-10-06): feature 'period-modes' (Browse over time and Compare two periods) needs the master table only, so it is on or off with 'spotlight' in every scenario (added by that rule).",
+    "S4 (2026-10-07): feature 'flow-map' (National Flow map) needs the master table only (its state files are bundled), so it is on or off with 'period-modes' in every scenario (added by that rule)."
+  ],
+  "cases": {
+    "full": {
+      "source": ["tiers/full.zip", "tiers/full", "sample/CVI_sample_bundle_synthetic.zip"],
+      "datasets": {
+        "master": "CVI_Consolidated_Master.csv",
+        "slaughterhouses": "usda_wa_slaughter_facilities.csv",
+        "fairgrounds": "wa_state_fairs.csv",
+        "markets": "wa_state_public_livestock_markets.csv",
+        "feedlots": "wa_state_feedlots.csv",
+        "restricted": "wa_state_restricted_holding_facilities.csv",
+        "manifest": "facility_overlays_manifest.csv",
+        "syn_custommeat": "synthetic_custom_meat_geocoded.csv",
+        "syn_disposal": "synthetic_animal_disposal.csv"
+      },
+      "files": {
+        "CVI_Consolidated_Master.csv": "used:master",
+        "usda_wa_slaughter_facilities.csv": "used:slaughterhouses",
+        "wa_state_fairs.csv": "used:fairgrounds",
+        "wa_state_public_livestock_markets.csv": "used:markets",
+        "wa_state_feedlots.csv": "used:feedlots",
+        "wa_state_restricted_holding_facilities.csv": "used:restricted",
+        "facility_overlays_manifest.csv": "used:manifest",
+        "synthetic_custom_meat_geocoded.csv": "used:syn_custommeat",
+        "synthetic_animal_disposal.csv": "used:syn_disposal",
+        "bundle.json": "bundle"
+      },
+      "via": { "CVI_Consolidated_Master.csv": "columns", "wa_state_feedlots.csv": "name", "synthetic_custom_meat_geocoded.csv": "name", "facility_overlays_manifest.csv": "columns" },
+      "layers": {
+        "CVI_Consolidated_Master.csv": [],
+        "usda_wa_slaughter_facilities.csv": ["slaughterhouses"],
+        "wa_state_fairs.csv": ["fairgrounds"],
+        "wa_state_feedlots.csv": ["markets", "feedlots", "restricted", "syn_custommeat"],
+        "synthetic_custom_meat_geocoded.csv": ["markets", "feedlots", "restricted", "syn_custommeat"],
+        "synthetic_animal_disposal.csv": ["syn_disposal"],
+        "facility_overlays_manifest.csv": []
+      },
+      "manifestAdded": ["syn_custommeat", "syn_disposal"],
+      "datasetNames": { "syn_custommeat": "Custom Meat (synthetic)", "syn_disposal": "Animal Disposal (synthetic)" },
+      "missingUseful": { "master": [] },
+      "bundle": { "banner": "Full – synthetic test bundle · prepared 2026-09-15 · covers 2024–2025", "warnings": [] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "on", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "partner": {
+      "source": ["tiers/partner.zip", "tiers/partner"],
+      "datasets": {
+        "master": "partner_county_totals.csv",
+        "markets": "wa_state_public_livestock_markets.csv",
+        "feedlots": "feedlots_2025.csv"
+      },
+      "files": {
+        "partner_county_totals.csv": "used:master",
+        "wa_state_public_livestock_markets.csv": "used:markets",
+        "feedlots_2025.csv": "used:feedlots",
+        "bundle.json": "bundle"
+      },
+      "via": { "partner_county_totals.csv": "columns", "wa_state_public_livestock_markets.csv": "name", "feedlots_2025.csv": "bundle.json" },
+      "layers": { "feedlots_2025.csv": ["markets", "feedlots", "restricted"], "wa_state_public_livestock_markets.csv": ["markets", "feedlots", "restricted"] },
+      "missingUseful": { "master": ["Species", "CVI", "Origin.Lat", "Origin.City", "farm_entity_id_origin"] },
+      "bundle": { "banner": "Partner – county totals only · prepared 2026-09-15 · covers 2024–2025", "warnings": [] },
+      "features": { "wa-map": "on", "species-refine": "off:Species", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "public": {
+      "source": ["tiers/public.zip", "tiers/public"],
+      "datasets": { "master": "CVI_Consolidated_Master.csv" },
+      "files": { "CVI_Consolidated_Master.csv": "used:master" },
+      "missingUseful": { "master": ["CVI", "Origin.Lat", "Origin.City", "farm_entity_id_origin"] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "wrong_file": {
+      "source": ["negative/wrong_file"],
+      "datasets": {},
+      "files": {
+        "CVI_Consolidated_Master.csv": "not-used:looks like the CVI master table but is missing the columns Dest.County.Lat and Dest.County.Long",
+        "species_lookup.csv": "not-used:its columns do not match any CVI Traceability dataset",
+        "notes.txt": "not-used:not a CSV file",
+        "summary.xlsx": "not-used:save the sheet as a CSV file",
+        "layer.geojson": "not-used:GeoJSON map layers are not used",
+        "empty.csv": "not-used:the file is empty",
+        "semicolon.csv": "not-used:its columns are separated by semicolons; save it as a comma-separated CSV file",
+        "utf16.csv": "not-used:saved as UTF-16",
+        "wide_header.csv": "not-used:its first row is longer than 1 MB"
+      },
+      "features": { "wa-map": "off:CVI master table", "species-refine": "off:CVI master table", "summaries": "off:CVI master table", "unique-cvis": "off:CVI master table", "spotlight": "off:CVI master table", "period-modes": "off:CVI master table", "flow-map": "off:CVI master table" }
+    },
+    "duplicate_master": {
+      "source": ["negative/duplicate_master"],
+      "datasets": { "master": { "conflict": ["CVI_Consolidated_Master.csv", "cvi_master_copy.csv"] } },
+      "files": {
+        "CVI_Consolidated_Master.csv": "conflict:master",
+        "cvi_master_copy.csv": "conflict:master"
+      },
+      "features": { "wa-map": "off:choose", "species-refine": "off:choose", "summaries": "off:choose", "unique-cvis": "off:choose", "spotlight": "off:choose", "period-modes": "off:choose", "flow-map": "off:choose" }
+    },
+    "duplicate_master_chosen": {
+      "source": ["negative/duplicate_master"],
+      "options": { "choices": { "master": "cvi_master_copy.csv" } },
+      "datasets": { "master": "cvi_master_copy.csv" },
+      "files": {
+        "CVI_Consolidated_Master.csv": "not-used:another file was chosen as the CVI master table",
+        "cvi_master_copy.csv": "used:master"
+      },
+      "missingUseful": { "master": ["CVI", "Origin.Lat", "Origin.City", "farm_entity_id_origin"] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "unclear_facility": {
+      "source": ["negative/unclear_facility"],
+      "datasets": { "master": "CVI_Consolidated_Master.csv", "slaughterhouses": "packing_plants_2025.csv" },
+      "files": {
+        "CVI_Consolidated_Master.csv": "used:master",
+        "packing_plants_2025.csv": "used:slaughterhouses",
+        "feedlots_2025.csv": "not-used:looks like a facility layer, but its name does not say which one. Choose the layer, rename it to wa_state_public_livestock_markets.csv (Livestock markets), wa_state_feedlots.csv (Feedlots) or wa_state_restricted_holding_facilities.csv (Restricted holding facilities), or name it in bundle.json",
+        "wa_state_fairs.csv": "not-used:named like the Fairgrounds file but has no latitude column (Lat, Latitude or y) and longitude column (Long, Lon, Lng, Longitude or x)"
+      },
+      "via": { "packing_plants_2025.csv": "name column" },
+      "candidates": { "feedlots_2025.csv": ["markets", "feedlots", "restricted"] },
+      "layers": { "feedlots_2025.csv": ["markets", "feedlots", "restricted"], "packing_plants_2025.csv": ["slaughterhouses"], "wa_state_fairs.csv": [] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "unclear_facility_named_in_bundle": {
+      "source": ["negative/unclear_facility_bundle"],
+      "datasets": { "master": "CVI_Consolidated_Master.csv", "slaughterhouses": "packing_plants_2025.csv", "feedlots": "feedlots_2025.csv" },
+      "files": {
+        "CVI_Consolidated_Master.csv": "used:master",
+        "packing_plants_2025.csv": "used:slaughterhouses",
+        "feedlots_2025.csv": "used:feedlots",
+        "wa_state_fairs.csv": "not-used:bundle.json names it as the Fairgrounds, but it has no latitude column",
+        "bundle.json": "bundle"
+      },
+      "via": { "feedlots_2025.csv": "bundle.json" },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "unclear_facility_picked": {
+      "source": ["negative/unclear_facility"],
+      "options": { "assign": { "feedlots_2025.csv": "feedlots", "wa_state_fairs.csv": "fairgrounds" } },
+      "datasets": { "master": "CVI_Consolidated_Master.csv", "slaughterhouses": "packing_plants_2025.csv", "feedlots": "feedlots_2025.csv" },
+      "files": {
+        "CVI_Consolidated_Master.csv": "used:master",
+        "packing_plants_2025.csv": "used:slaughterhouses",
+        "feedlots_2025.csv": "used:feedlots",
+        "wa_state_fairs.csv": "not-used:you chose the Fairgrounds, but it has no latitude column"
+      },
+      "via": { "feedlots_2025.csv": "your choice" },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "full_pick_overrides_name": {
+      "source": ["tiers/full"],
+      "options": { "assign": { "synthetic_custom_meat_geocoded.csv": "markets" } },
+      "datasets": {
+        "master": "CVI_Consolidated_Master.csv",
+        "slaughterhouses": "usda_wa_slaughter_facilities.csv",
+        "fairgrounds": "wa_state_fairs.csv",
+        "markets": "synthetic_custom_meat_geocoded.csv",
+        "feedlots": "wa_state_feedlots.csv",
+        "restricted": "wa_state_restricted_holding_facilities.csv",
+        "manifest": "facility_overlays_manifest.csv",
+        "syn_disposal": "synthetic_animal_disposal.csv"
+      },
+      "files": {
+        "CVI_Consolidated_Master.csv": "used:master",
+        "usda_wa_slaughter_facilities.csv": "used:slaughterhouses",
+        "wa_state_fairs.csv": "used:fairgrounds",
+        "wa_state_public_livestock_markets.csv": "not-used:you chose \"synthetic_custom_meat_geocoded.csv\" as the Livestock markets",
+        "wa_state_feedlots.csv": "used:feedlots",
+        "wa_state_restricted_holding_facilities.csv": "used:restricted",
+        "facility_overlays_manifest.csv": "used:manifest",
+        "synthetic_custom_meat_geocoded.csv": "used:markets",
+        "synthetic_animal_disposal.csv": "used:syn_disposal",
+        "bundle.json": "bundle"
+      },
+      "via": { "synthetic_custom_meat_geocoded.csv": "your choice" },
+      "bundle": { "banner": "Full – synthetic test bundle · prepared 2026-09-15 · covers 2024–2025", "warnings": [] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "on", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "bundle_edge": {
+      "source": ["negative/bundle_edge"],
+      "options": { "assign": { "a.csv": "feedlots" } },
+      "datasets": { "master": "good_master.csv", "markets": "wa_state_public_livestock_markets.csv", "feedlots": "a.csv" },
+      "files": {
+        "bad_master.csv": "not-used:it looks like a facility layer, but its name does not say which one",
+        "good_master.csv": "used:master",
+        "a.csv": "used:feedlots",
+        "wa_state_public_livestock_markets.csv": "used:markets",
+        "bundle.json": "bundle"
+      },
+      "via": { "good_master.csv": "columns", "a.csv": "your choice", "wa_state_public_livestock_markets.csv": "name" },
+      "fileWarnings": { "bad_master.csv": "bundle.json names it as the CVI master table, but it has no Species.Group" },
+      "candidates": { "bad_master.csv": ["slaughterhouses", "fairgrounds", "markets", "feedlots", "restricted"] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "bundle_edge_no_pick": {
+      "source": ["negative/bundle_edge"],
+      "datasets": { "master": "good_master.csv", "markets": "a.csv" },
+      "files": {
+        "bad_master.csv": "not-used:it looks like a facility layer, but its name does not say which one",
+        "good_master.csv": "used:master",
+        "a.csv": "used:markets",
+        "wa_state_public_livestock_markets.csv": "not-used:bundle.json names \"a.csv\" as the Livestock markets",
+        "bundle.json": "bundle"
+      },
+      "via": { "a.csv": "bundle.json" },
+      "fileWarnings": { "bad_master.csv": "bundle.json names it as the CVI master table, but it has no Species.Group" },
+      "candidates": { "bad_master.csv": ["slaughterhouses", "fairgrounds", "markets", "feedlots", "restricted"] },
+      "layers": { "a.csv": ["markets", "feedlots", "restricted"], "wa_state_public_livestock_markets.csv": ["markets", "feedlots", "restricted"], "good_master.csv": [], "bad_master.csv": ["slaughterhouses", "fairgrounds", "markets", "feedlots", "restricted"] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "bundle_wrong_map": {
+      "source": ["negative/bundle_wrong_map"],
+      "datasets": { "master": "good.csv" },
+      "files": {
+        "good.csv": "used:master",
+        "other.csv": "not-used:it looks like a facility layer, but its name does not say which one",
+        "bundle.json": "bundle"
+      },
+      "via": { "good.csv": "columns" },
+      "fileWarnings": {
+        "good.csv": "bundle.json names it as the Feedlots, but it has no latitude column (Lat, Latitude or y) and longitude column (Long, Lon, Lng, Longitude or x); it was recognized as the CVI master table instead",
+        "other.csv": "bundle.json names it as \"typo\", which is not a CVI Traceability dataset"
+      },
+      "candidates": { "other.csv": ["markets", "feedlots", "restricted"] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "bad_bundle": {
+      "source": ["negative/bad_bundle"],
+      "datasets": { "master": "CVI_Consolidated_Master.csv" },
+      "files": { "CVI_Consolidated_Master.csv": "used:master", "bundle.json": "bundle" },
+      "bundle": { "banner": null, "warnings": ["is not valid JSON, so it was not used"] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "master_extra_columns": {
+      "source": ["negative/master_extra_columns"],
+      "datasets": { "master": "movements_with_places.csv", "markets": "wa_state_public_livestock_markets.csv" },
+      "files": { "movements_with_places.csv": "used:master", "wa_state_public_livestock_markets.csv": "used:markets" },
+      "via": { "movements_with_places.csv": "columns", "wa_state_public_livestock_markets.csv": "name" },
+      "layers": { "movements_with_places.csv": [] },
+      "missingUseful": { "master": ["CVI", "Origin.Lat", "Origin.City", "farm_entity_id_origin"] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "master_named_like_facility": {
+      "source": ["negative/master_named_like_facility"],
+      "datasets": { "master": "wa_state_feedlots.csv" },
+      "files": { "wa_state_feedlots.csv": "used:master" },
+      "via": { "wa_state_feedlots.csv": "columns" },
+      "layers": { "wa_state_feedlots.csv": [] },
+      "missingUseful": { "master": ["CVI", "Origin.Lat", "Origin.City", "farm_entity_id_origin"] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "other_profile_bundle": {
+      "source": ["negative/other_profile_bundle"],
+      "datasets": { "master": "CVI_Consolidated_Master.csv" },
+      "files": {
+        "CVI_Consolidated_Master.csv": "used:master",
+        "feedlots_2025.csv": "not-used:looks like a facility layer, but its name does not say which one",
+        "bundle.json": "bundle"
+      },
+      "candidates": { "feedlots_2025.csv": ["markets", "feedlots", "restricted"] },
+      "bundle": { "banner": "Emergency – synthetic", "warnings": ["for the \"emergency\" dashboard, so its \"files\" entries were not used"] },
+      "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
+    },
+    "corrupt_zip": {
+      "source": ["negative/corrupt.zip"],
+      "loadError": "incomplete or damaged",
+      "datasets": {},
+      "files": {},
+      "features": { "wa-map": "off:CVI master table", "species-refine": "off:CVI master table", "summaries": "off:CVI master table", "unique-cvis": "off:CVI master table", "spotlight": "off:CVI master table", "period-modes": "off:CVI master table", "flow-map": "off:CVI master table" }
+    },
+    "empty_folder": {
+      "source": ["negative/empty_folder"],
+      "datasets": {},
+      "files": {},
+      "features": { "wa-map": "off:CVI master table", "species-refine": "off:CVI master table", "summaries": "off:CVI master table", "unique-cvis": "off:CVI master table", "spotlight": "off:CVI master table", "period-modes": "off:CVI master table", "flow-map": "off:CVI master table" }
+    }
+  }
+}

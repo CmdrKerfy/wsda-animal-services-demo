@@ -1,0 +1,35 @@
+.DS_Store
+*.log
+*.tmp
+
+# Operational or sensitive data must never enter this repository.
+data/
+datasets/
+outputs/
+registry/
+cache/
+secrets/
+*.csv
+*.xlsx
+*.xls
+*.gpkg
+*.geojson
+*.parquet
+*.zip
+*.key
+*.pem
+
+# Synthetic fixtures may be committed only under tests/synthetic.
+!tests/synthetic/*.csv
+!tests/synthetic/*.geojson
+!tests/synthetic/*.json
+
+# Future builds and local test evidence are not source or reviewed results.
+node_modules/
+dist/
+build-output/
+coverage/
+test-results/
+playwright-report/
+local-test-artifacts/
+test-tables/

@@ -1,0 +1,23 @@
+CVI,Species.Group,Species,Reporting.Year,Reporting.Quarter,Movement,Total.Animals,Origin.State,Origin.County,Origin.County.Lat,Origin.County.Long,Dest.State,Dest.County,Dest.County.Lat,Dest.County.Long
+C001,Cattle,Beef cattle,2025,Q1,Import,120,ID,N/A,44.36,-114.61,WA,King,47.49,-121.81
+C002,Cattle,Dairy cattle,2025,Q1,import,80,OR,N/A,43.94,-120.55,WA,King,47.49,-121.81
+C003,Cattle,Beef cattle,2024,1,Imports,50,ID,N/A,44.36,-114.61,WA,King County,47.55,-121.95
+C004,Swine,Swine,2025,Q2,Export,300,WA,Yakima,46.46,-120.74,OR,N/A,43.94,-120.55
+C005,Swine,Swine,2025,2,EXPORTS,200,WA,Yakima County,46.46,-120.74,CA,N/A,37.17,-119.45
+C006,Small Ruminants,Sheep,2025,Q2,Intrastate,40,WA,Yakima,46.46,-120.74,WA,King,47.49,-121.81
+C006,Small Ruminants,Goats,2025,Q2,Intrastate,25,WA,Yakima,46.46,-120.74,WA,King,47.49,-121.81
+C007,Small Ruminants,Goats,2025,Q3,intrastate,60,WA,Spokane,47.62,-117.40,WA,Benton,46.24,-119.51
+C008,Equids,Horses,2025,Q3,Inbound,,MT,N/A,47.05,-109.63,WA,Spokane,47.62,-117.40
+C009,Equids,Horses,2025,Q3,Outbound,abc,WA,Benton,46.24,-119.51,ID,N/A,44.36,-114.61
+C010,Poultry,Chickens,2025,Q4,Export,1000,WA,Grant,47.20,-119.45,ID,N/A,44.36,-114.61
+C011,Poultry,Turkeys,2025,Q4,Export,500,WA,Grant,47.20,-119.45,OR,N/A,43.94,-120.55
+C012,Cattle,Beef cattle,2025,Q4,,70,WA,Grant,47.20,-119.45,WA,King,47.49,-121.81
+C013,Cattle,"Beef cattle, cow-calf",2025,Q1,Export,2500,WA,King County,47.49,-121.81,ID,N/A,44.36,-114.61
+C014,Other,Llama,2025,Q2,Import,15,OR,N/A,43.94,-120.55,WA,Whatcom,48.83,-121.72
+C015,Cattle,Dairy cattle,2024,Q4,Export,400,WA,Pierce,47.02,-122.10,OR,N/A,43.94,-120.55
+C016,Swine,Swine,2024,Q3,Import,90,ID,N/A,44.36,-114.61,WA,Yakima,46.46,-120.74
+C017,Cattle,Beef cattle,2025,Q2,Import,0,ID,N/A,44.36,-114.61,WA,Adams,46.98,-118.56
+C018,Cattle,Beef cattle,2025,Q3,Export,0,WA,Adams,46.98,-118.56,ID,N/A,44.36,-114.61
+C019,Cattle,Beef cattle,2025,Q2,Import,120,ID,N/A,44.36,-114.61,WA,Walla Walla,46.23,-118.48
+C020,Cattle,Dairy cattle,2025,Q2,Import,120,OR,N/A,43.94,-120.55,WA,Franklin,46.53,-118.90
+C021,Cattle,Beef cattle,,Q1,Import,44,ID,N/A,44.36,-114.61,WA,King,47.49,-121.81
