@@ -139,6 +139,54 @@ function writeReleaseChecks(lines) {
   lines.push(BAD_COLOR + '/  Feedlots and one extra layer whose manifest color "1c5a83" (no "#") the browser cannot read');
 }
 
+// Files as Excel or R can leave them, for the load statuses: a master with counts the page cannot read ("1,200" as
+// Excel saves it, "12 head", "about 40"), one saved as Windows-1252 rather than UTF-8 (an "ñ" in a city name), one
+// with its Total.Animals column written twice, and a fairs file saved as Windows-1252 (in a folder, under its own
+// name so it is recognized).
+const UNREADABLE = 'cvi_master_unreadable_counts.csv';
+const NOT_UTF8 = 'cvi_master_not_utf8.csv';
+const REPEATED = 'cvi_master_repeated_column.csv';
+const FAIRS_NOT_UTF8 = 'fairs_not_utf8';
+function writeLoadChecks(lines) {
+  const rows = fs.readFileSync(path.join(OUT, 'tier_full_master.csv'), 'utf8').split(/\r?\n/);
+  const head = splitCsvLine(rows[0]);
+  const animals = head.indexOf('Total.Animals');
+  const city = head.indexOf('Dest.City');
+  if (animals < 0 || city < 0) throw new Error('tier_full_master.csv: Total.Animals or Dest.City not found');
+  const changed = (edit) => rows.map((line, i) => {
+    if (i === 0 || !line) return line;
+    const cells = splitCsvLine(line);
+    return edit(cells, i) ? cells.join(',') : line;
+  });
+  const BAD = { 1: '"1,200"', 2: '12 head', 3: 'about 40' };
+  fs.writeFileSync(path.join(OUT, UNREADABLE), changed((cells, i) => {
+    if (!BAD[i]) return false;
+    cells[animals] = BAD[i];
+    return true;
+  }).join('\n'));
+  lines.push(UNREADABLE + '  The Full tier master with three counts the page cannot read ("1,200", "12 head", "about 40")');
+  // Windows-1252 writes "ñ" as the one byte F1, which is not UTF-8 (latin1 is the same for this letter).
+  fs.writeFileSync(path.join(OUT, NOT_UTF8), Buffer.from(changed((cells, i) => {
+    if (i !== 1) return false;
+    cells[city] = 'Cañon Synthetic Town';
+    return true;
+  }).join('\n'), 'latin1'));
+  lines.push(NOT_UTF8 + '  The Full tier master saved as Windows-1252, not UTF-8 (one city name has an "ñ")');
+  fs.writeFileSync(path.join(OUT, REPEATED), rows.map(line => {
+    if (!line) return line;
+    const cells = splitCsvLine(line);
+    return cells.concat([cells[animals]]).join(',');
+  }).join('\n'));
+  lines.push(REPEATED + '  The Full tier master with its Total.Animals column written twice (refused)');
+  const folder = path.join(OUT, FAIRS_NOT_UTF8);
+  fs.mkdirSync(folder, { recursive: true });
+  // Without the UTF-8 BOM, which a Windows-1252 file does not have.
+  const fairs = fs.readFileSync(path.join(TIERS, 'full', 'wa_state_fairs.csv'), 'utf8').replace(/^\uFEFF/, '').split('\n');
+  fairs[1] = fairs[1].replace('Synthetic Fairground 1,', 'Synthetic Fairground Peña,');
+  fs.writeFileSync(path.join(folder, 'wa_state_fairs.csv'), Buffer.from(fairs.join('\n'), 'latin1'));
+  lines.push(FAIRS_NOT_UTF8 + '/  A fairs file saved as Windows-1252, not UTF-8 (one fair\'s name has an "ñ")');
+}
+
 function make() {
   for (const t of Object.keys(TIER_INFO)) {
     if (!fs.existsSync(path.join(TIERS, t + '.zip'))) {
@@ -170,6 +218,7 @@ function make() {
   writeAllInOneSample(lines);
   writeAlaskaHawaii(lines);
   writeReleaseChecks(lines);
+  writeLoadChecks(lines);
   fs.writeFileSync(path.join(OUT, 'README.txt'), lines.join('\n') + '\n');
   return OUT;
 }

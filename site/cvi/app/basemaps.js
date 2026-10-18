@@ -152,8 +152,15 @@
 
   // The note under the picker on where the tiles come from (empty for the offline map).
   function providerLine(b) {
-    return b ? 'Map tiles come from ' + b.provider + ' over the internet. Your data stays in this browser.'
-      + (b.note ? ' ' + b.note : '') : '';
+    return b ? providerSentence(b.provider) + (b.note ? ' ' + b.note : '') : '';
+  }
+  // Where tiles come from and what the provider learns: each tile's address names the map area it shows, never
+  // the data loaded. The provider's short name the second time (WSDOT, without its full name in parentheses).
+  // Also the note under the PNG background pickers (shared/tiles.js names their provider).
+  function providerSentence(provider) {
+    const short = provider.replace(/ \(.*\)$/, '');
+    return 'Map tiles come from ' + provider + ' over the internet; ' + short
+      + ' sees which map area you view, not your data. Your data stays in this browser.';
   }
 
   // CVI's .resolve_label_boundary_style for the live WA map: style "auto" | "dark" | "light"; dark: the basemap on the
@@ -172,5 +179,5 @@
 
   root.CVIWA = root.CVIWA || {};
   root.CVIWA.basemaps = { OFFLINE, OFFLINE_NAME, GROUPS, ALL, LIST, RENAMED, LABEL_STYLES, BOUNDARY_STYLES, get, groups,
-    hosts, allowed, rasterStyle, style, providerLine, contrast };
+    hosts, allowed, rasterStyle, style, providerLine, providerSentence, contrast };
 })(typeof window !== 'undefined' ? window : globalThis);

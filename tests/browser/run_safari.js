@@ -1176,7 +1176,8 @@ async function runS7() {
         check(charts.length > 0 && charts.every(e => s7PngDpi(e.data) === 150), name + ': each chart PNG records 150 dpi, as CVI\'s',
           charts.map(e => s7PngDpi(e.data)));
         const message = await d.run('return document.getElementById("export-result").firstChild.textContent;');
-        check(message === 'Exported ' + folder + '.zip: handed to your browser to save, usually your Downloads folder.', name + ': the message says where the file went', message);
+        check(message === 'Exported ' + folder + '.zip: handed to your browser to save, usually your Downloads folder.'
+          + ' If no file appears, your browser or IT policy blocked the download.', name + ': the message says where the file went', message);
       }
       const errors = await d.run('var e = window.__errors || []; window.__errors = []; return e;');
       check(!errors.length, 'S7: no page errors (window.onerror and unhandled rejections)', errors);

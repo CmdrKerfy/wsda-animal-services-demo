@@ -205,7 +205,8 @@
         const out = await p.sample.build();
         root.WSDA.sample.download(out.fileName, out.bytes);
         state.downloads++;
-        say('ok', `Your browser is saving ${out.fileName} (${size(out.bytes.length)} of made-up data). Load it under "Load your data" above.`);
+        say('ok', `Your browser is saving ${out.fileName} (${size(out.bytes.length)} of made-up data). Load it under "Load your data" above.`
+          + ' If no file appears, your browser or IT policy blocked the download.');
       } catch (err) {
         say('err', 'The sample bundle could not be made: ' + (err && err.message || err) + ' Reload the page and try again.');
       } finally { b.disabled = false; }

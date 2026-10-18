@@ -42,6 +42,48 @@ for (const col of W.master.REQUIRED) {
   check(!r.ok && r.error.indexOf(col) >= 0, 'missing required column refused: ' + col);
 }
 
+// ---- load checks for files as Excel and R write them -------------------------------------------------------------
+// A small master written by hand: one value per required column, and a Comments column.
+const HEAD = W.master.REQUIRED.concat(['Comments']);
+const VALUES = { 'Species.Group': 'Cattle', 'Reporting.Year': '2024', 'Reporting.Quarter': 'Q1', Movement: 'Import',
+  'Total.Animals': '10', 'Origin.State': 'OR', 'Dest.State': 'WA', 'Origin.County': 'N/A', 'Origin.County.Lat': '44',
+  'Origin.County.Long': '-120.5', 'Dest.County': 'Yakima', 'Dest.County.Lat': '46.5', 'Dest.County.Long': '-120.7',
+  Comments: 'none' };
+const line = (over, head) => (head || HEAD).map(h => (over && h in over ? over[h] : VALUES[h])).join(',');
+// A required column written twice is refused, naming it; a repeated other column is still accepted.
+for (const col of W.master.REQUIRED) {
+  const r = W.master.load(HEAD.concat([col]).join(',') + '\n' + line() + ',' + VALUES[col] + '\n');
+  check(!r.ok && r.error === 'Master CSV has the column ' + col + ' more than once. Keep one copy of it and load the file again.',
+    'repeated required column refused: ' + col, r.error);
+}
+const twoComments = W.master.load(HEAD.concat(['Comments']).join(',') + '\n' + line() + ',more\n');
+check(twoComments.ok && twoComments.physicalRows === 1, 'a repeated column that is not required is accepted');
+// Rows whose animal count cannot be read ("1,200" as Excel saves it, "12 head", empty) are counted once per file row
+// (a WA-to-WA row too) and named in the load status; a clean file adds nothing.
+const counts = W.master.load([HEAD.join(','), line({ 'Total.Animals': '"1,200"' }), line({ 'Total.Animals': '12 head' }),
+  line({ 'Total.Animals': '', Movement: 'Intrastate', 'Origin.State': 'WA' }), line({ 'Total.Animals': '1e+05' })].join('\n') + '\n');
+check(counts.ok && counts.physicalRows === 4 && counts.missingAnimalCells === 3
+  && JSON.stringify(W.master.loadNotes(counts)) === JSON.stringify(['3 rows have no readable animal count.']),
+  'rows without a readable animal count: counted per file row and named', [counts.missingAnimalCells, W.master.loadNotes(counts)]);
+const one = W.master.load([HEAD.join(','), line({ 'Total.Animals': '12 head' }), line()].join('\n') + '\n');
+check(JSON.stringify(W.master.loadNotes(one)) === JSON.stringify(['1 row has no readable animal count.'])
+  && W.master.loadNotes(W.master.load(HEAD.join(',') + '\n' + line() + '\n')).length === 0,
+  'one row without a readable count: the singular sentence; a clean file: no note', W.master.loadNotes(one));
+// A file that was not UTF-8 reads with the replacement character: the status says how to re-save it.
+const odd = W.master.load(HEAD.join(',') + '\n' + line({ Comments: 'Ca�on' }) + '\n');
+check(odd.ok && odd.notUtf8 && JSON.stringify(W.master.loadNotes(odd))
+  === JSON.stringify(['This file may not be UTF-8: in Excel, use Save As, then CSV UTF-8.'])
+  && W.csv.notUtf8Note('fairs.csv') === 'fairs.csv may not be UTF-8: in Excel, use Save As, then CSV UTF-8.'
+  && !W.csv.notUtf8('Cañon'), 'a file that may not be UTF-8: the note for the master and for a named file', W.master.loadNotes(odd));
+// A UTF-8 BOM, Windows line ends and a quoted line break in one file: the header has no BOM, the comment keeps its
+// line break, and every row is read whole.
+const crlf = W.master.load('﻿' + [HEAD.join(','), line({ Comments: '"first line\r\nsecond, line"' }),
+  line({ 'Total.Animals': '7' })].join('\r\n') + '\r\n');
+check(crlf.ok && crlf.header[0] === 'Species.Group' && crlf.physicalRows === 2
+  && crlf.rows[0].Comments === 'first line\r\nsecond, line' && crlf.rows[0]['Total.Animals'] === 10
+  && crlf.rows[1]['Total.Animals'] === 7 && crlf.rows[1]['Dest.County.Long'] === -120.7 && crlf.rows[1].Comments === 'none',
+  'a BOM, CRLF line ends and a quoted line break together', crlf.ok ? crlf.rows.map(r => [r.Comments, r['Total.Animals']]) : crlf.error);
+
 // ---- (1) hand oracle -------------------------------------------------------------------------------------------
 function optsFrom(f, mode, scaling, nBins, loaded) {
   return { species: arr(f.species), years: arr(f.years).map(Number), quarters: arr(f.quarters), direction: arr(f.direction),

@@ -52,6 +52,14 @@
         missing.join(', ') + '. Ask for a CVI master table with all ' + REQUIRED.length + ' required columns ' +
         '(listed under "What data does this need?" on the landing page).' };
     }
+    // A required column written twice is refused: the page would read its last copy, CVI's loader its first, so the
+    // two could show different numbers. Repeated other columns are kept as before.
+    const repeated = REQUIRED.filter(c => header.indexOf(c) !== header.lastIndexOf(c));
+    if (repeated.length) {
+      return { ok: false, error: 'Master CSV has ' + (repeated.length === 1 ? 'the column ' : 'the columns ') +
+        repeated.join(', ') + ' more than once. Keep one copy of ' + (repeated.length === 1 ? 'it' : 'each') +
+        ' and load the file again.' };
+    }
     const physical = parsed.rows.length;
     let nonNumericAnimals = 0;
     const base = parsed.rows.map((r, i) => {
@@ -83,9 +91,21 @@
     const years = [...new Set(rows.map(o => o['Reporting.Year']).filter(y => y !== null))].sort((a, b) => a - b);
     return { ok: true, rows, header, hasSpecies: header.indexOf('Species') >= 0,
       physicalRows: physical, mapRows: rows.length, intrastateRows: intra.length,
-      missingAnimalCells: nonNumericAnimals, speciesChoices: species, yearChoices: years };
+      missingAnimalCells: nonNumericAnimals, notUtf8: root.CVIWA.csv.notUtf8(text),
+      speciesChoices: species, yearChoices: years };
+  }
+  // The sentences the "Master loaded" status adds: file rows whose animal count cannot be read (empty, or text such
+  // as "1,200" saved by Excel or "12 head"; they add no animals to any total, as in CVI), and a file that may not be
+  // UTF-8. None for a clean file.
+  function loadNotes(m) {
+    const notes = [];
+    const n = m.missingAnimalCells;
+    if (n === 1) notes.push('1 row has no readable animal count.');
+    else if (n > 1) notes.push(n.toLocaleString('en-US') + ' rows have no readable animal count.');
+    if (m.notUtf8) notes.push('This file may not be UTF-8: ' + root.CVIWA.csv.NOT_UTF8_ADVICE);
+    return notes;
   }
   const collate = (a, b) => a.localeCompare(b, 'en');
   root.CVIWA = root.CVIWA || {};
-  root.CVIWA.master = { load, asNumeric, asInteger, normalizeMovement, REQUIRED, collate, SOURCE_ROW };
+  root.CVIWA.master = { load, loadNotes, asNumeric, asInteger, normalizeMovement, REQUIRED, collate, SOURCE_ROW };
 })(typeof window !== 'undefined' ? window : globalThis);

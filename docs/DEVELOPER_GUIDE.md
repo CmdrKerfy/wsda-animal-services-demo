@@ -517,6 +517,15 @@ Two more rules apply to every change that a person can see:
 Record a new deliberate difference from CVI at the top of the second section of `docs/DELIBERATE_DIFFERENCES.md`, and
 any new bundled source in `site/PROVENANCE.md`.
 
+### Raising the version
+
+Every published update is a version. `VERSION.txt` at the top of the repository holds it on one line, the number and
+the date of publishing (`1.0 2026-10-20`), and each page's footer line ends with the same, written into the HTML
+(`<span class="version">Version 1.0 (2026-10-20)</span>` in `site/index.html`, `site/cvi/index.html` and
+`site/infrastructure/index.html`), so it shows even when a script is blocked. A small update raises the second number
+(1.1, 1.2 ...); a new dashboard raises the first (2.0). Change the four places together: the UI unit suite
+(`tests/node/run_ui_unit_tests.js`) fails when a footer and `VERSION.txt` differ.
+
 ## 9. Decisions a maintainer needs
 
 These decisions shape the code and the release. Keep to them unless the agency decides otherwise.

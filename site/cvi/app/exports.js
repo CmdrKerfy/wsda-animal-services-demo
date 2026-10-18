@@ -148,19 +148,31 @@
     const ms = m[7] ? '.' + (m[7].slice(1) + '000').slice(0, 3) : '';
     return m[1] + '-' + m[2] + '-' + m[3] + 'T' + m[4] + ':' + m[5] + ':' + m[6] + ms + 'Z';
   }
-  // A table as CVI's writer writes it: a header line, one line per row, each line ending in a line feed.
-  function csv(columns, rows, types) {
+  // A table as CVI's writer writes it: a header line, one line per row, each line ending in a line feed. guarded:
+  // text columns get the formula guard (asText below); columns read as numbers never change.
+  function csv(columns, rows, types, guarded) {
     const lines = [columns.map(csvText).join(',')];
-    rows.forEach(r => lines.push(columns.map(c => fieldText(r[c], types[c])).join(',')));
+    const value = (r, c) => (guarded && types[c] === 'character' ? asText(r[c]) : r[c]);
+    rows.forEach(r => lines.push(columns.map(c => fieldText(value(r, c), types[c])).join(',')));
     return lines.join('\n') + '\n';
   }
+  // Text a spreadsheet would read as a formula (starting with =, +, -, @, a tab or a carriage return) gets an
+  // apostrophe in front, so Excel opens it as text instead of running it (a comment such as "=HYPERLINK(...)"). A
+  // plain number ("-120.51", "+3") is no formula and is left as it is, also in a column read as text. Used for every
+  // CSV the page writes from the master's or the facility files' text (filtered_rows.csv, summary_table.csv, Premise
+  // Lookup's matched rows and its facilities CSV); a deliberate difference from CVI's CSVs, which write such text as
+  // it is.
+  const PLAIN_NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+  const asText = v => (typeof v === 'string' && /^[=+\-@\t\r]/.test(v) && !PLAIN_NUMBER.test(v) ? "'" + v : v);
 
   // ── The files ──────────────────────────────────────────────────────────────────────────────────────────────
   // filtered_rows.csv: the rows the map draws, with the loader's two copies of a WA-to-WA row merged (CVI's export
-  // merges them), every master column in the file's order.
+  // merges them), every master column in the file's order except a column without a name (the row numbers R
+  // writes as a first, unnamed column); text columns with the formula guard.
   function filteredRowsCsv(loaded, mapRows, types) {
     const rows = SUM().dedupeVolume(mapRows);
-    return { text: csv(loaded.header, rows, types || columnTypes(loaded)), rows: rows.length };
+    const columns = loaded.header.filter(h => h.trim() !== '');
+    return { text: csv(columns, rows, types || columnTypes(loaded), true), rows: rows.length };
   }
 
   // The aggregated rows behind the map (one per circle, line or premises), with CVI's columns in CVI's order.
@@ -182,13 +194,14 @@
   function tableColumns(view, combine) {
     return TABLE_COLUMNS[view === 'flow' && combine ? 'flowCombined' : view];
   }
-  // summary_table.csv from the page's own rows (aggregate.build, flow.lines or focus.build().premises).
+  // summary_table.csv from the page's own rows (aggregate.build, flow.lines or focus.build().premises); its text
+  // columns (county, state, species group, city, premises id: the master's own text) with the formula guard.
   function summaryTableCsv(view, aggRows, combine) {
     if (!aggRows || !aggRows.length) return null;
     const cols = tableColumns(view, combine);
     const types = {};
     cols.forEach(([c, t]) => { types[c] = t; });
-    return csv(cols.map(c => c[0]), aggRows, types);
+    return csv(cols.map(c => c[0]), aggRows, types, true);
   }
 
   // x with d decimals as R prints it (sprintf): from the number's exact binary value, an exact half going to the
@@ -584,13 +597,15 @@
     return { entries, written };
   }
   // The result shown under the Export button: where the file went and what is in it (CVI names the
-  // folder it wrote), or the partial result with what failed (CVI's wording).
+  // folder it wrote), or the partial result with what failed (CVI's wording). A page cannot tell whether the
+  // browser saved the file (a browser setting or IT policy can block downloads), so the line says what to suspect.
   // notices (S9): what was drawn differently from the choices (a PNG background that could not be loaded), after
   // the other lines.
   function exportResult(zipName, written, errors, notices) {
     const extra = notices || [];
     if (!errors || !errors.length) {
-      return { ok: true, lines: ['Exported ' + zipName + ': handed to your browser to save, usually your Downloads folder.']
+      return { ok: true, lines: ['Exported ' + zipName + ': handed to your browser to save, usually your Downloads folder.'
+        + ' If no file appears, your browser or IT policy blocked the download.']
         .concat(written, extra) };
     }
     return { ok: false, lines: ['Partial export: ' + zipName, 'Written: ' + written.join(', '), 'Errors: ' + errors.join('; ')]
@@ -686,8 +701,9 @@
   const NOTE_CSV = note => writeCsv(['Note'], [[note]], ['character']);
 
   // The matched rows (CVI's file, premise_lookup_matches_<date>.csv): the master's columns in its order (with CVI's
-  // record numbers last when the file has no CVI column), then the five columns the engine adds. res: lookup.query's
-  // result; master: the loaded master. With no matched row, CVI's one-cell note.
+  // record numbers last when the file has no CVI column), then the five columns the engine adds; text columns with
+  // the formula guard (asText). res: lookup.query's result; master: the loaded master. With no matched row, CVI's
+  // one-cell note.
   const LOOKUP_ADDED = [['.hit_origin', 'hitOrigin', 'logical'], ['.hit_dest', 'hitDest', 'logical'],
     ['matched_sites', 'matchedSites', 'character'], ['nearest_site_km', 'nearestSiteKm', 'double'],
     ['nearest_band_km', 'nearestBandKm', 'double']];
@@ -698,7 +714,8 @@
     const own = master.header.concat(res.hasCvi === false ? ['CVI'] : []);
     const columns = own.concat(LOOKUP_ADDED.map(a => a[0]));
     const colTypes = own.map(c => types[c] || 'character').concat(LOOKUP_ADDED.map(a => a[2]));
-    const out = rows.map(r => own.map(c => r[c]).concat(LOOKUP_ADDED.map(a => r[a[1]])));
+    const out = rows.map(r => own.map(c => r[c]).concat(LOOKUP_ADDED.map(a => r[a[1]]))
+      .map((v, j) => (colTypes[j] === 'character' ? asText(v) : v)));
     return { text: writeCsv(columns, out, colTypes), rows: rows.length };
   }
 
@@ -707,10 +724,7 @@
   const FACILITY_COLUMNS = [['site', 'character'], ['site_lat', 'double'], ['site_long', 'double'],
     ['layer', 'character'], ['facility', 'character'], ['facility_lat', 'double'], ['facility_long', 'double'],
     ['distance_km', 'double'], ['band_km', 'double'], ['county', 'character'], ['town', 'character']];
-  // Text a spreadsheet would read as a formula (starting with =, +, -, @, a tab or a carriage return) gets an
-  // apostrophe in front, so it opens as text. This file is the page's own; the matched-rows CSV stays
-  // exactly as CVI's Export CSV writes it.
-  const asText = v => (typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? "'" + v : v);
+  // Its text gets the formula guard (asText, above).
   function lookupFacilitiesCsv(rows) {
     if (!rows || !rows.length) return { text: NOTE_CSV('No facilities inside the buffers.'), rows: 0 };
     const out = rows.map(r => [asText(r.siteName), r.siteLat, r.siteLon, asText(r.layerLabel), asText(r.name), r.lat,

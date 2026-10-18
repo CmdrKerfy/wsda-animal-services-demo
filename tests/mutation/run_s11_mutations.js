@@ -215,7 +215,7 @@ const GROUPS = {
     ['a name that fits is cut anyway', BM, '    if (fits(n)) return n;\n    let lo = 0, hi = n - 1;', '    if (false) return n;\n    let lo = 0, hi = n - 1;'],
     ['the box test never meets', ZN, 'const meets = o => o.box.x0 <= hb.x1 &&', 'const meets = o => o.box.x0 > hb.x1 &&'],
     ['a .prj unpacked whatever its size', ZN, "      tooBig(prj, LIMITS.maxPrjBytes, '.prj');\n", ''],
-    ['formula-like text written as it is', EX, "const asText = v => (typeof v === 'string' && /^[=+\\-@\\t\\r]/.test(v) ? \"'\" + v : v);", 'const asText = v => v;'],
+    ['formula-like text written as it is', EX, "const asText = v => (typeof v === 'string' && /^[=+\\-@\\t\\r]/.test(v) && !PLAIN_NUMBER.test(v) ? \"'\" + v : v);", 'const asText = v => v;'],
     ['blank lines counted', LK, 'const rows = parsed.rows.filter(r => !blank(r)).map(', 'const rows = parsed.rows.map('],
     ['a UTF-16 file not refused for its encoding', LK, "    if (raw.indexOf('\\u0000') >= 0) {", '    if (false) {'],
     ['a facility listed twice counted twice', LK, "const distinct = new Set(found.map(r => r.lat + '\\r' + r.lon + '\\r' + r.name)).size;",

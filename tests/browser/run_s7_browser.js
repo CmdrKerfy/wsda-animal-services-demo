@@ -1344,6 +1344,7 @@ async function partExports(b) {
     const cviLines = listOf(rec.export.result).slice(1).filter(l => !l.startsWith('charts/'));
     const pageLines = r.lines.slice(1).filter(l => !l.startsWith('charts/'));
     check(r.shown && r.cls === 'status ok' && r.lines[0] === 'Exported ' + folder + '.zip: handed to your browser to save, usually your Downloads folder.'
+      + ' If no file appears, your browser or IT policy blocked the download.'
       && Number(r.bold) >= 700, name + ' the message says where the file went', r.lines[0]);
     check(JSON.stringify(pageLines) === JSON.stringify(cviLines), name + ' the files listed as CVI lists them', { page: pageLines, cvi: cviLines });
     check(JSON.stringify(r.lines.slice(1).filter(l => l.startsWith('charts/'))) === JSON.stringify(charts.map(e => e.name.slice(folder.length + 1))),

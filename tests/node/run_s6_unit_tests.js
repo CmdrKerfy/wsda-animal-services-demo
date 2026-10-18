@@ -164,7 +164,7 @@ async function entryFlow() {
   // site/shared/sample.js is no longer pinned by its hash: its ZIP writer later gained an optional entry date
   // (default unchanged). Its output is checked instead: "sample ZIP matches dedicated generator" above, and the sample
   // bundle byte-identical in the F1 unit run.
-  for (const [name, hash] of Object.entries(baseline).filter(([n]) => n.includes('/tiers/') || n.includes('day4-owner') || n === 'site/cvi/sample.js'))
+  for (const [name, hash] of Object.entries(baseline).filter(([n]) => n.includes('/tiers/') || n === 'site/cvi/sample.js'))
     check(crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, name))).digest('hex') === hash, 'preserved bytes ' + name);
   fs.writeFileSync(path.join(OUT, 'unit_results.json'), JSON.stringify({ passed, failed, failures }, null, 2) + '\n');
   for (const failure of failures) console.error(failure);

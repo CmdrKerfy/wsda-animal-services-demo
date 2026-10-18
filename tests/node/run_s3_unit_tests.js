@@ -125,9 +125,9 @@ check(B.OFFLINE === 'offline' && B.OFFLINE_NAME === 'Offline county map (no inte
 const G = plain(B.groups());
 check(same(G.map(g => g.group), B.GROUPS.filter(g => OFFERED.some(b => b.group === g))) && same(G.flatMap(g => g.items.map(b => b.id)).sort(), OFFERED.map(b => b.id).sort()),
   'groups(): non-empty groups in CVI\'s order, every basemap once', G.map(g => [g.group, g.items.map(b => b.id)]));
-check(B.providerLine(null) === '' && B.providerLine(B.get('ofm-liberty')) === 'Map tiles come from OpenFreeMap over the internet. Your data stays in this browser.',
+check(B.providerLine(null) === '' && B.providerLine(B.get('ofm-liberty')) === 'Map tiles come from OpenFreeMap over the internet; OpenFreeMap sees which map area you view, not your data. Your data stays in this browser.',
   'provider line: none for the offline map, the provider sentence for a basemap');
-check(B.providerLine(B.get('wsdot')) === 'Map tiles come from WSDOT (Washington State Department of Transportation) over the internet. Your data stays in this browser. It covers Washington and the land just around it, at the zoom of the whole state and closer.'
+check(B.providerLine(B.get('wsdot')) === 'Map tiles come from WSDOT (Washington State Department of Transportation) over the internet; WSDOT sees which map area you view, not your data. Your data stays in this browser. It covers Washington and the land just around it, at the zoom of the whole state and closer.'
   && /retire this basemap in March 2028\.$/.test(B.providerLine(anyOf('esri-relief'))), 'provider line: the basemap\'s note after it (WSDOT coverage, Esri retirement)');
 
 // 5. The page's CSP lists exactly these hosts in connect-src, and nothing else changed for the network.
@@ -168,6 +168,15 @@ T.prunePickers([picker, null]);
 check(Object.keys(T.BACKGROUNDS).length === 0 && Object.keys(T.ALL_BACKGROUNDS).length === 3 &&
   same(picker.options.map(o => o.value), ['standard', 'vector:streets']),
   'public copy: no Esri PNG background offered; the pickers keep Default and Streets', picker.options.map(o => o.value));
+// The note under a PNG background picker: the provider sentence for a tile background, nothing for Default and
+// Streets (they need no network) nor for a background this copy does not offer.
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'site', 'shared', 'tiles.js'), 'utf8'), SB, { filename: 'tiles.js' });
+const ESRI_LINE = 'Map tiles come from Esri over the internet; Esri sees which map area you view, not your data. Your data stays in this browser.';
+check(B.providerSentence('Esri') === ESRI_LINE
+  && (SB.WSDA.release.publicCopy || SB.WSDA.tiles.providerLine('raster:esri_satellite') === ESRI_LINE)
+  && SB.WSDA.tiles.providerLine('standard') === '' && SB.WSDA.tiles.providerLine('vector:streets') === ''
+  && T.providerLine('raster:esri_satellite') === '',
+  'PNG background note: where a tile background comes from; none for Default, Streets or a background not offered');
 if (!SB.WSDA.release.publicCopy) {
   check(OFFERED.length === L.length, 'this private build offers every basemap', OFFERED.length);
 }

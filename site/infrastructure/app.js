@@ -124,7 +124,8 @@
     const previousRaw = a.rawSpecies.slice();
     syncActivity();
     if (previousRaw.length !== a.rawSpecies.length) cleared.push('raw species');
-    $('activity-reason').textContent = m ? 'Master loaded. Facility filters do not restrict CVI activity.' : reason;
+    $('activity-reason').textContent = m
+      ? ['Master loaded. Facility filters do not restrict CVI activity.'].concat(C.master.loadNotes(m)).join(' ') : reason;
     if (cleared.length) $('activity-reason').textContent += ' Cleared unavailable CVI selections: ' + cleared.join(', ') + '.';
     return true;
   }
@@ -290,13 +291,25 @@
     state.renderMs = performance.now() - t0;
   }
 
+  // The notice above the layers: the facility files that may not be UTF-8 (kept after Reset All), then the attribute
+  // selections a new file cleared.
+  function selectionNotice(cleared) {
+    const said = (state.notUtf8 || [])
+      .concat(cleared.length ? ['Cleared unavailable attribute selections: ' + cleared.join(', ')] : []);
+    $('selection-notice').hidden = !said.length;
+    if (said.length) say('selection-notice', 'warn', said.join(' '));
+  }
   // conflicts: IDs of the layers that two or more files claim in the checklist.
   async function prepareDatasets(datasets, op, conflicts) {
     const files = Object.create(null);
     let manifest = null;
+    const notUtf8 = [];   // the files that may not be UTF-8, named in the notice
     for (const [id, d] of Object.entries(datasets)) {
-      if (d.kind === 'facility') files[id] = C.csv.parse(await d.file.text());
-      else if (id === 'manifest') manifest = C.csv.parse(await d.file.text());
+      if (d.kind !== 'facility' && id !== 'manifest') continue;
+      const text = await d.file.text();
+      if (C.csv.notUtf8(text)) notUtf8.push(C.csv.notUtf8Note(d.file.name || id));
+      if (d.kind === 'facility') files[id] = C.csv.parse(text);
+      else manifest = C.csv.parse(text);
     }
     if (op !== state.op) return false;
     const prepared = F.prepare(files, manifest, root.CVIWA_GEO.counties, state.version + 1);
@@ -313,8 +326,8 @@
     state.selectedLayers = next.selectedLayers;
     state.attributes = next.attributes;
     state.facilityFiles = Object.keys(files).length;
-    $('selection-notice').hidden = !next.cleared.length;
-    if (next.cleared.length) say('selection-notice', 'warn', 'Cleared unavailable attribute selections: ' + next.cleared.join(', '));
+    state.notUtf8 = notUtf8;
+    selectionNotice(next.cleared);
     redraw();
     return true;
   }
@@ -367,8 +380,7 @@
     state.basemap = value;
     $('infra-basemap').value = value;
     const b = B.get(value);
-    $('basemap-note').textContent = b ? (b.note || 'Tiles load only from the selected provider.')
-      : 'Offline county map: no provider requests.';
+    $('basemap-note').textContent = b ? B.providerLine(b) : 'Offline county map: no provider requests.';
     M.setBasemap(state.map, b);
     redraw();
   }
@@ -546,7 +558,7 @@
     $('neighbor-status').hidden = true;
     state.population.on = { cities: false, places: false, density: false };   // PC: the three layers off
     $('pc-msg').hidden = Object.keys(state.population.missing).length === 0;
-    $('selection-notice').hidden = true;
+    selectionNotice([]);
     if (state.map.clickPopup) { state.map.clickPopup.remove(); state.map.clickPopup = null; }
     state.map.clearHover();
     setBasemap('');
@@ -572,7 +584,8 @@
     try {
       W.sample.download(fileName, W.sample.zip(W.samples.infrastructure.entries()));
       sample.downloads++;
-      say('sample-status', 'ok', 'Your browser is saving ' + fileName + '. Load it under "Load your data" above.');
+      say('sample-status', 'ok', 'Your browser is saving ' + fileName + '. Load it under "Load your data" above.'
+        + ' If no file appears, your browser or IT policy blocked the download.');
     } catch (err) {
       say('sample-status', 'err', 'The sample could not be made: ' + (err && err.message || err)
         + ' Reload the page and try again.');
@@ -769,6 +782,13 @@
   Object.entries(IB.RAMP_LABELS).forEach(([v, label]) => $('export-ramp').append(new Option(label, v)));
   // A public copy offers only the PNG backgrounds cleared for public use (shared/release.js).
   root.WSDA.tiles.prunePickers([$('export-background')]);
+  // Under the background picker, where a tile background comes from (nothing for Default).
+  function syncBackgroundProvider() {
+    $('export-background-provider').textContent = root.WSDA.tiles.providerLine($('export-background').value);
+    $('export-background-provider').hidden = !$('export-background-provider').textContent;
+  }
+  $('export-background').addEventListener('change', syncBackgroundProvider);
+  syncBackgroundProvider();
   const radio = name => document.querySelector('input[name="' + name + '"]:checked').value;
   document.querySelectorAll('input[name="coverage"]').forEach(r => r.addEventListener('change', () => {
     state.coverage = r.value;
@@ -966,7 +986,7 @@
       state.lastExport = { name: folder + '.zip', bytes, params, png: entries[1].data };   // test hook
       W.sample.download(folder + '.zip', bytes);
       const lines = ['Facilities PNG exported.', 'Saved as ' + folder + '.zip: ' + made.model.fileName +
-        ', export_params.json.'].concat(made.notices);
+        ', export_params.json.', 'If no file appears, your browser or IT policy blocked the download.'].concat(made.notices);
       result.className = 'status ' + (made.notices.length ? 'warn' : 'ok');
       result.replaceChildren(...lines.map(t => { const d = document.createElement('div'); d.textContent = t; return d; }));
       result.hidden = false;

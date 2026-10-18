@@ -110,5 +110,7 @@ Run them from the repository root; `tests/README.md`, section 2, gives the order
   (`local-test-artifacts/s9/facilities/`) and one statewide set (`local-test-artifacts/s9/facilities-wa/`).
 - `make_s9_tiles.js` is a module, not a command: the S9 Chrome suite uses it to answer the page's map-tile requests
   with checkerboard PNGs, so the tile backgrounds are tested with no network.
+- `make_scale_master.js` writes a master the size of a real one (50,000 rows, all 39 columns, a fixed seed, 17 MB) to
+  `local-test-artifacts/scale/cvi_master_50000.csv`, for the timing suite `tests/browser/run_scale_browser.js`.
 - `make_s11_fixtures.js` writes the Premise Lookup (S11) scenarios to `local-test-artifacts/s11/fixtures/` and the
   `s11_*` files to `test-tables/`.

@@ -1650,9 +1650,12 @@
         resolution: $('lk-png-resolution').value, labels: $('lk-png-labels').checked, counties: $('lk-png-counties').checked,
         population: pcAny(pcDrawn()) ? { on: pcDrawn(), ramp: PN.DEFAULT_RAMP } : null };
     }
-    // Shows the quality picker only for a tile background.
+    // Shows the quality picker, and where the tiles come from, only for a tile background.
     function syncPngControls() {
-      $('lk-png-quality-field').hidden = !root.WSDA.tiles.BACKGROUNDS[$('lk-png-background').value];
+      const T = root.WSDA.tiles;
+      $('lk-png-quality-field').hidden = !T.BACKGROUNDS[$('lk-png-background').value];
+      $('lk-png-background-provider').textContent = T.providerLine($('lk-png-background').value);
+      $('lk-png-background-provider').hidden = !$('lk-png-background-provider').textContent;
     }
     $('lk-png-background').addEventListener('change', syncPngControls);
     syncPngControls();
@@ -1888,7 +1891,8 @@
       }
       ps.lastExport = { zipName, files: files.map(f => ({ name: f.name, text: typeof f.data === 'string' ? f.data : null,
         bytes: typeof f.data === 'string' ? null : f.data.length })) };   // test hook
-      sayExport([{ level: 'ok', text: zipName + ' was handed to your browser to save (usually your Downloads folder).' }]
+      sayExport([{ level: 'ok', text: zipName + ' was handed to your browser to save (usually your Downloads folder).'
+        + ' If no file appears, your browser or IT policy blocked the download.' }]
         .concat(lines));
     });
 

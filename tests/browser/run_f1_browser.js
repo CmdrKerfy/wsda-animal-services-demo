@@ -766,7 +766,7 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     await p.waitFor(`${SAMPLE_STATUS}.className === 'status ok'`, 5000, 'sample status').catch(() => null);
     const st1 = await p.eval(`({text:${SAMPLE_STATUS}.textContent, cls:${SAMPLE_STATUS}.className, disabled:document.querySelector('button[data-sample="all"]').disabled,
       geoScripts:document.querySelectorAll('script[src$="wa-counties.js"]').length, downloads:WSDA.landing.guide.state.downloads})`);
-    check(/^Your browser is saving WSDA_sample_all_dashboards_synthetic\.zip \(\d+ KB of made-up data\)\. Load it under "Load your data" above\.$/.test(st1.text) && st1.cls === 'status ok' && !st1.disabled
+    check(/^Your browser is saving WSDA_sample_all_dashboards_synthetic\.zip \(\d+ KB of made-up data\)\. Load it under "Load your data" above\. If no file appears, your browser or IT policy blocked the download\.$/.test(st1.text) && st1.cls === 'status ok' && !st1.disabled
       && st1.geoScripts === 1 && st1.downloads === 1, 'sample: the page says what was saved and what to do next; the button is ready again', st1);
     // A second click makes the same file again, without reading the county file twice
     dl = download(); await p.click(`document.querySelector('button[data-sample="all"]').click()`);
@@ -1036,7 +1036,7 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     const want9 = fs.readFileSync(ALL_ZIP);
     check(d9.state === 'completed' && d9.name === ALL.fileName && Buffer.compare(got9, want9) === 0, 'AB guide: Chrome saves the all-in-one sample, byte-identical to the generator\'s', d9);
     await p.waitFor(`document.querySelector('[data-sample-status="all"]').className === 'status ok'`, 5000, 'all-in-one status').catch(() => null);
-    check(/^Your browser is saving WSDA_sample_all_dashboards_synthetic\.zip \(\d+ KB of made-up data\)\. Load it under "Load your data" above\.$/.test(await p.eval(`document.querySelector('[data-sample-status="all"]').textContent`)),
+    check(/^Your browser is saving WSDA_sample_all_dashboards_synthetic\.zip \(\d+ KB of made-up data\)\. Load it under "Load your data" above\. If no file appears, your browser or IT policy blocked the download\.$/.test(await p.eval(`document.querySelector('[data-sample-status="all"]').textContent`)),
       'AB guide: the page says what was saved');
     await b.send('Browser.setDownloadBehavior', { behavior: 'default' });
     const saved9 = path.join(DL, ALL.fileName); fs.writeFileSync(saved9, got9);

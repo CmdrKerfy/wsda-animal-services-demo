@@ -212,7 +212,8 @@ bytes, three images (16, 32 and 48 px, 32 bits per pixel), SHA-256
 `shared/brand.js` (`WSDA.brand.FAVICON`), which gives it to each page's `<link rel="icon">` (it holds `data:,` until
 then, so the browser never asks the network for an icon). `tests/node/run_ui_unit_tests.js` checks the bytes against
 that SHA-256. Its use follows the WSDA logo's (below): it is approved for WSDA's pages, a public demo copy
-included.
+included. The same file, byte for byte, is `shared/wsda.ico`: the icon of the Windows shortcut that opens the pages
+from a shared folder (a shortcut needs a real `.ico` file; the unit test checks the two are identical).
 
 ## WSDA logo (`shared/brand.js`, S9)
 

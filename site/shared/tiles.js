@@ -20,11 +20,11 @@
   // publish: false: cleared for WSDA's own pages with the Esri basemaps (site/PROVENANCE.md); a copy made with
   // shared/release.js publicCopy true offers none of them.
   const ALL_BACKGROUNDS = {
-    'raster:esri_satellite': { label: 'Satellite', service: 'World_Imagery/MapServer', maxZoom: 19,
+    'raster:esri_satellite': { label: 'Satellite', provider: 'Esri', service: 'World_Imagery/MapServer', maxZoom: 19,
       attribution: 'Source: Esri, Maxar, Earthstar Geographics', theme: 'satellite', publish: false },
-    'raster:esri_relief': { label: 'Shaded Relief', service: 'World_Shaded_Relief/MapServer', maxZoom: 13,
+    'raster:esri_relief': { label: 'Shaded Relief', provider: 'Esri', service: 'World_Shaded_Relief/MapServer', maxZoom: 13,
       attribution: 'Source: Esri', theme: 'standard', publish: false },
-    'raster:esri_hillshade': { label: 'Hillshade', service: 'Elevation/World_Hillshade/MapServer', maxZoom: 19,
+    'raster:esri_hillshade': { label: 'Hillshade', provider: 'Esri', service: 'Elevation/World_Hillshade/MapServer', maxZoom: 19,
       attribution: 'Source: Esri', theme: 'hillshade', publish: false }
   };
   const release = root.WSDA && root.WSDA.release;
@@ -39,6 +39,12 @@
         if (ALL_BACKGROUNDS[o.value] && !BACKGROUNDS[o.value]) o.remove();
       }
     }
+  }
+  // The note under a PNG background picker: where the chosen background comes from and what its provider sees (the
+  // live basemap note's sentence, cvi/app/basemaps.js); empty for Default and Streets, which need no network.
+  function providerLine(key) {
+    const b = BACKGROUNDS[key];
+    return b ? root.CVIWA.basemaps.providerSentence(b.provider) : '';
   }
   // The parts of CVI's themes the branded maps use (static_map_renderer.R 1528-1590).
   const THEMES = {
@@ -161,5 +167,5 @@
   }
 
   root.WSDA = root.WSDA || {};
-  root.WSDA.tiles = { ALL_BACKGROUNDS, BACKGROUNDS, prunePickers, THEMES, exportUrl, tileRange, tileUrl, tileZoom, load, mercator, TIMEOUT_MS };
+  root.WSDA.tiles = { ALL_BACKGROUNDS, BACKGROUNDS, prunePickers, providerLine, THEMES, exportUrl, tileRange, tileUrl, tileZoom, load, mercator, TIMEOUT_MS };
 })(typeof window !== 'undefined' ? window : globalThis);

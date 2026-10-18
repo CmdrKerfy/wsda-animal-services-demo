@@ -1048,7 +1048,8 @@
         b.addEventListener('click', () => {
           const say = msg => { if (st.notify) st.notify(msg); };
           try { saveScreenshot(st);
-            say('map-screenshot.png was handed to your browser to save (usually your Downloads folder).'); }
+            say('map-screenshot.png was handed to your browser to save (usually your Downloads folder).'
+              + ' If no file appears, your browser or IT policy blocked the download.'); }
           catch (e) { say('Screenshot not saved: ' + ((e && e.message) || String(e))); }
         });
         box.appendChild(b); return box;

@@ -605,9 +605,34 @@ function runHandCases() {
   // The charts each view shows.
   check(JSON.stringify(C.CHARTS) === JSON.stringify({ wa: ['species', 'top_places', 'over_time', 'emerging'],
     flow: ['species', 'top_places', 'over_time', 'corridors'], focus: ['species', 'top_premises', 'corridors', 'emerging'] }), 'four charts per view');
+  // filtered_rows.csv from a master as R and Excel can leave it: a first column without a name (R's row numbers) is
+  // left out; text a spreadsheet would run as a formula starts with an apostrophe; numbers, negative longitudes
+  // included, are written as before, and so is other text.
+  const REQ = W.master.REQUIRED;
+  const val = { 'Species.Group': 'Cattle', 'Reporting.Year': '2024', 'Reporting.Quarter': 'Q1', Movement: 'Import',
+    'Total.Animals': '10', 'Origin.State': 'OR', 'Dest.State': 'WA', 'Origin.County': 'N/A', 'Origin.County.Lat': '44',
+    'Origin.County.Long': '-120.5', 'Dest.County': 'Yakima', 'Dest.County.Lat': '46.5', 'Dest.County.Long': '-120.7' };
+  const masterLine = (n, comment) => [String(n)].concat(REQ.map(c => val[c]), [comment]).join(',');
+  const guarded = W.master.load(['"",' + REQ.join(',') + ',Comments', masterLine(1, '"=HYPERLINK(""x"")"'),
+    masterLine(2, '+1 head'), masterLine(3, '@noon'), masterLine(4, 'plain')].join('\n') + '\n');
+  const frText = E.filteredRowsCsv(guarded, guarded.rows).text, frLines = frText.split('\n');
+  check(guarded.ok && frLines[0] === REQ.join(',') + ',Comments'
+    && frLines[1] === REQ.map(c => val[c]).join(',').replace('Import', 'Inbound') + ',"\'=HYPERLINK(""x"")"'
+    && frLines[2].endsWith(",'+1 head") && frLines[3].endsWith(",'@noon") && frLines[4].endsWith(',plain')
+    && frLines.slice(1, 5).every(l => l.indexOf(',-120.5,') >= 0 && l.indexOf(',-120.7,') >= 0),
+    'filtered_rows.csv: no unnamed column; formula-like text guarded; numbers and other text unchanged', frLines.slice(0, 5));
+  // A plain number in a column read as text (one of its values is not a number) is no formula and stays as it is.
+  const mixed = E.csv(['x'], [{ x: '-120.51' }, { x: 'N/A' }, { x: '-1+1' }], { x: 'character' }, true).split('\n');
+  check(mixed[1] === '-120.51' && mixed[2] === 'N/A' && mixed[3] === "'-1+1",
+    'formula guard: a plain number in a text column unchanged; "-1+1" guarded', mixed);
+  // summary_table.csv carries the master's own names (a species group, a city): guarded the same way.
+  const st = E.summaryTableCsv('flow', [{ state: 'OR', species_group: '=HYPERLINK("x")', total_animals: 3,
+    species_breakdown: 'Beef cattle: 3', dest_lat: 44, dest_lon: -120.5 }]).split('\n');
+  check(st[1] === 'OR,"\'=HYPERLINK(""x"")",3,Beef cattle: 3,44,-120.5', 'summary_table.csv: formula-like text guarded', st);
   // Export result and history.
   const r = E.exportResult('x.zip', ['a.csv'], []);
-  check(r.ok && r.lines[0] === 'Exported x.zip: handed to your browser to save, usually your Downloads folder.' && r.lines[1] === 'a.csv', 'export result names the file and where it went');
+  check(r.ok && r.lines[0] === 'Exported x.zip: handed to your browser to save, usually your Downloads folder.'
+    + ' If no file appears, your browser or IT policy blocked the download.' && r.lines[1] === 'a.csv', 'export result names the file and where it went');
   const r2 = E.exportResult('x.zip', ['a.csv'], ['charts: failed']);
   check(!r2.ok && JSON.stringify(r2.lines) === JSON.stringify(['Partial export: x.zip', 'Written: a.csv', 'Errors: charts: failed']), 'partial export as CVI words it');
   let h = [];

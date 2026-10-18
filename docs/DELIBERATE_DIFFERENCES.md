@@ -11,7 +11,8 @@ backgrounds this document mentions.
 
 ## Known CVI behaviors reproduced on purpose
 
-- Missing or non-numeric animal counts are left out of totals without notice.
+- Missing or non-numeric animal counts are left out of totals (the page also says how many rows have one: see "Files
+  as Excel and R write them" below).
 - The live map's hover text is CVI's simple tooltip; the builder's species breakdown is computed but not shown
   (CVI replaces it in `.build_county_map`).
 - R `format()` pads the amounts in one view to a common width and can switch to scientific notation
@@ -37,15 +38,32 @@ backgrounds this document mentions.
   line results.
 - County Focus: a premises whose rows have no CVI number counts it as one certificate in its hover ("CVIs: 1"), as
   R's `n_distinct` counts a missing value, while the view's Unique CVIs box counts only CVI numbers that are there.
-- The Maps side's CSV files (`filtered_rows.csv`, `summary_table.csv`) and Premise Lookup's matched-rows CSV are
-  written as CVI's writer writes them: a cell starting with `=`, `+`, `-` or `@` is kept as it is, so a spreadsheet may
-  read it as a formula. Only the page's own facilities CSV guards such cells; the rule covers all three of CVI's files.
 - Fractional animal counts: R sums them in long double on x86-64 (e.g. CVI on a Windows PC), the browser in double, so
   a total with fractions could differ in its last bit there (not seen on an arm64 Mac, where R also sums in
   double; synthetic fixtures use exactly representable fractions only; not verified on Windows).
 
 ## Deliberate differences from CVI
 
+- **Files as Excel and R write them:** the page says more than CVI's app when a file may be read differently than
+  meant, and guards its CSV exports.
+  - "Master loaded" ends with "N rows have no readable animal count." when some counts are empty or text such as
+    "1,200" (as Excel saves a number with a thousands comma) or "12 head"; those rows add no animals, as in CVI, which
+    says nothing about them. Infrastructure's note for an optional master says the same.
+  - A file read with the replacement character "�" (not saved as UTF-8, for example Excel's plain "CSV") gets "This
+    file may not be UTF-8: in Excel, use Save As, then CSV UTF-8." in the master status (yellow), and a facility file
+    is named in the facilities notice the same way. CVI reads such files without a word.
+  - A master whose required column is written twice is refused, naming the column. CVI's reader uses the first copy,
+    while the page read the last one, so the two could show different numbers.
+  - Text a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, a tab or a carriage return) gets an
+    apostrophe in front in the text columns of every CSV the page writes: `filtered_rows.csv`, `summary_table.csv`
+    (its county, state, species group, city and premises id are the master's own text), Premise Lookup's matched-rows
+    CSV (with `matched_sites`) and its facilities CSV. Numbers never change: columns read as numbers, negative
+    longitudes included, and a plain number in a text column ("-120.51" beside an "N/A"). CVI's CSVs write such text
+    as it is.
+  - `filtered_rows.csv` leaves out a column without a name (the row numbers R writes as a first, unnamed column); CVI's
+    export keeps it.
+  - "Total animals"'s help says that a record repeated exactly in the file counts each time, while CVI's own app
+    counts a repeated WA-to-WA record once (the merge rule itself is described under "Premise Lookup" below).
 - **County Focus grouping and National Flow's Top 5:** County Focus Style has a "Group nearby premises" checkbox, on
   by default as CVI's clusters (off: every premises at its own size at any zoom, on the live map only; the PNG and the
   GIF keep their grouping); while grouped, the legend says the numbered bubbles keep one size. CVI has no such switch.
@@ -157,8 +175,9 @@ backgrounds this document mentions.
     facility layer with its count, each ring radius in its color, zones. It is in the screenshot too, and a county
     name under it is hidden. CVI's match map has none.
   - Export: one ZIP, `premise_lookup_<date>.zip`, with a folder of the same name holding the ticked files and
-    `export_params.json` (new); CVI has separate buttons. "Matched CVIs (.csv)" is CVI's Export CSV file exactly
-    (`premise_lookup_matches_<date>.csv`, R's write.csv: every column of the matched rows, the engine's five added);
+    `export_params.json` (new); CVI has separate buttons. "Matched CVIs (.csv)" is CVI's Export CSV file (`premise_lookup_matches_<date>.csv`,
+    R's write.csv: every column of the matched rows, the engine's five added), with the formula guard of "Files as
+    Excel and R write them" above;
     "Facilities inside (.csv)" is new (`premise_lookup_facilities_<date>.csv`). No GeoPackage. CVI's sensitive-data
     warning is beside the button. Known limits: a date-time column in the master is written as its text (CVI writes
     it in the computer's time zone); the text "NaN" in one of the loader's number columns is written NA (R reads it

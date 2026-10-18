@@ -1695,12 +1695,27 @@ async function auditFixes() {
     check(e6 && e6.name === 'ZoneError' && re.test(e6.message), 'Limits: an oversized ' + entry.path.slice(-4) + ' refused before unpacking',
       e6 && e6.message);
   }
-  // The facilities CSV writes formula-like text with an apostrophe in front; other text and numbers as before.
-  const csv8 = EXP.lookupFacilitiesCsv(['=SUM(1)', '+1', '-2', '@x', 'Plain'].map((nm, k) => ({ siteName: k ? 'Site' : '=Site',
+  // The facilities CSV writes formula-like text with an apostrophe in front; other text, plain numbers written as
+  // text ("-2") and numbers as before.
+  const csv8 = EXP.lookupFacilitiesCsv(['=SUM(1)', '+1 head', '-2+3', '@x', 'Plain', '-2'].map((nm, k) => ({ siteName: k ? 'Site' : '=Site',
     siteLat: 47, siteLon: -120, layerLabel: 'Feedlots', name: nm, lat: 47, lon: -120.5, km: 1, bandKm: 3, county: 'Yakima',
     town: null }))).text;
-  check(['"\'=SUM(1)"', '"\'+1"', '"\'-2"', '"\'@x"', '"Plain"', '"\'=Site"'].every(c => csv8.indexOf(c) >= 0) && csv8.indexOf('"=SUM') < 0 &&
+  check(['"\'=SUM(1)"', '"\'+1 head"', '"\'-2+3"', '"\'@x"', '"Plain"', '"-2"', '"\'=Site"'].every(c => csv8.indexOf(c) >= 0) && csv8.indexOf('"=SUM') < 0 &&
     csv8.indexOf(',-120,') >= 0, 'Limits: formula-like text in the facilities CSV starts with an apostrophe', csv8.split('\n').slice(0, 3));
+  // The matched-rows CSV too: formula-like text in the master's text columns and in matched_sites; numbers,
+  // negative longitudes included, as before.
+  const REQ = W.master.REQUIRED;
+  const val = { 'Species.Group': 'Cattle', 'Reporting.Year': '2024', 'Reporting.Quarter': 'Q1', Movement: 'Import',
+    'Total.Animals': '10', 'Origin.State': 'OR', 'Dest.State': 'WA', 'Origin.County': 'N/A', 'Origin.County.Lat': '44',
+    'Origin.County.Long': '-120.5', 'Dest.County': 'Yakima', 'Dest.County.Lat': '46.5', 'Dest.County.Long': '-120.7' };
+  const mm = W.master.load(['CVI,' + REQ.join(',') + ',Comments', 'C1,' + REQ.map(c => val[c]).join(',') + ',=1+1',
+    'C2,' + REQ.map(c => val[c]).join(',') + ',plain'].join('\n') + '\n');
+  const mres = { hasCvi: true, matched: mm.rows.map((r, k) => Object.assign({}, r, { hitOrigin: false, hitDest: true,
+    matchedSites: k ? 'Site one' : '-Site', nearestSiteKm: 1.5, nearestBandKm: null })) };
+  const csv9 = EXP.lookupMatchesCsv(mm, mres).text.split('\n');
+  check(csv9[1].indexOf('"\'=1+1"') >= 0 && csv9[1].indexOf('"\'-Site"') >= 0 && csv9[2].indexOf('"plain"') >= 0
+    && csv9[2].indexOf('"Site one"') >= 0 && csv9.slice(1, 3).every(l => l.indexOf(',-120.5,') >= 0 && l.indexOf(',-120.7,') >= 0),
+    'Limits: formula-like text in the matched-rows CSV starts with an apostrophe; numbers unchanged', csv9.slice(0, 3));
   // Blank lines are not rows; a NUL refuses the file; "�" and an open quote add notes.
   const L = W.lookup;
   const b10 = L.parseGeocodeCache('address,lat,long\n\n"A",47,-120\n\n\n"B",46,-119\n', 'b.csv');

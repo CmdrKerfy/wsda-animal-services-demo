@@ -89,7 +89,8 @@ tests/oracle/cvi_r_oracle.R first"), and those R scripts need the checkout.
     `Rscript tests/oracle/s4_states_check.R` (the state files against theirs). Exit status 2 means a source is missing.
 
 The CH (shaded maps) and UI suites need only `test-tables/`, written by step 2 or by
-`node tests/synthetic/make_test_tables.js`.
+`node tests/synthetic/make_test_tables.js`. The scale suite needs `node tests/synthetic/make_scale_master.js` first
+(a 50,000-row synthetic master, 17 MB, in `local-test-artifacts/scale/`).
 
 `test-tables/` holds synthetic tables collected in one folder, read by the suites and handy for trying the pages by
 hand (some steps pick two files at once). The F1 unit run and `make_test_tables.js` rewrite the files they make there
@@ -145,8 +146,9 @@ Hosted mode: set the suite's page variable to the case-strict server (section 4)
 | `run_s9_browser.js` | Branded PNGs, backgrounds, name markers, Facilities PNG, the GIFs | ~2-2.5 min | `png export additions backgrounds names facilities gif viewgif` (`S9_PAGE_URL`, `S9_INFRA_URL`) |
 | `run_pc_browser.js` | Population switches on the CVI page and Infrastructure; their PNGs | under 1 min | `cvi infra` (`PC_PAGE_URL`, `PC_INFRA_URL`) |
 | `run_s11_browser.js` | Premise Lookup: sites table, Run query against CVI's, zones, facilities, PNG, "Find coordinates" | ~35 s | `page day3 day4 day5` (`S11_PAGE_URL`) |
-| `run_ui_browser.js` | Six views: font, logo, banner, footer, every visible text's size and contrast; buttons, keyboard, Stats, glossary, chart labels | 1.5-7 min | `checks`; also `controls day3 chartlabels` (`UI_SITE_URL`) |
+| `run_ui_browser.js` | Six views: font, logo, banner, footer, every visible text's size and contrast; buttons, keyboard, Stats, glossary, chart labels; the notes for real files (PNG background notes, the sensitive-data notice, blocked downloads, the load statuses) | 1.5-7 min | `checks`; also `controls day3 chartlabels fixes` (`UI_SITE_URL`) |
 | `run_ch_browser.js` | Shaded counties and states on the live maps, the PNG and GIF, Alaska and Hawaii insets | ~25-60 s | `wa records flow insets png` (`CH_PAGE_URL`) |
+| `run_scale_browser.js` | A 50,000-row master (`make_scale_master.js`): times the hand-off, the load, Browse Play, the charts, County Focus with 39 counties, the GIF and Premise Lookup; a step fails only past 30 seconds | ~50 s | none (`SCALE_SITE_URL`, the site's address) |
 
 ### Safari suite (fg only; quit Safari first)
 
@@ -207,8 +209,8 @@ This part regenerates only the PC and S11 references; the S1 to S9 references fr
 | 2b | `node tests/synthetic/make_cvi_focus_fixtures.js --clusters`, then `run_s5_browser.js` |
 | 3 | `run_s6_browser.js` with `--entry-regression`, `--facilities`, `--focus`, `--activity` (four runs), `run_mc_browser.js`, `run_s7_browser.js` |
 | 4 | `run_s9_browser.js`, `run_pc_browser.js` (every part), `run_s11_browser.js` |
-| 5 | `run_ui_browser.js checks controls day3 chartlabels` |
-| 6 | `run_ch_browser.js` (about 40 seconds) |
+| 5 | `run_ui_browser.js checks controls day3 chartlabels fixes` |
+| 6 | `run_ch_browser.js` (about 40 seconds), then `node tests/synthetic/make_scale_master.js` and `run_scale_browser.js` (about 50 seconds) |
 
 **Part 3, Chrome over `http`.** Start the case-strict server as a background job:
 `node tests/browser/serve_case_strict.js` (port 8765, or the port given as its argument). Then run the same batches
@@ -216,7 +218,7 @@ with `bash tests/chain/chrome.sh http <batch>`, which sets:
 
 ```sh
 H=http://127.0.0.1:8765
-export F1_PAGE_URL=$H/index.html S6_PAGE_URL=$H/index.html UI_SITE_URL=$H/
+export F1_PAGE_URL=$H/index.html S6_PAGE_URL=$H/index.html UI_SITE_URL=$H/ SCALE_SITE_URL=$H/
 for v in S1 S2 S3 S4 S5 S7 S9 MC NR PC S11 CH; do export ${v}_PAGE_URL=$H/cvi/index.html; done
 export PC_INFRA_URL=$H/infrastructure/index.html S9_INFRA_URL=$H/infrastructure/index.html
 ```

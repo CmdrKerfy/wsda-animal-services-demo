@@ -359,6 +359,10 @@ check(nNumCvi > 0, 'numeric-CVI fixture shows the documented difference in some 
 check(cmp.more > 0 && cmp.less > 0 && /more than Total animals/.test(W.summary.HELP_STRIP) && /can also be less/.test(W.summary.HELP_STRIP),
   'help text: the strip can be more or less than Total animals, and both happen', cmp);
 check(cmp.countyGap === 1 && cmp.countyGapMin === 0 && /one higher/.test(W.summary.HELP_STRIP), 'help text: the WA counties box is at most one above the strip\'s Counties', cmp);
+// "Total animals"'s help says that a record repeated exactly counts each time: the views above where the merge rule
+// gives another total than CVI's exist (CVI counts an exact WA-to-WA repeat once).
+check(/A record repeated exactly in the file counts each time; CVI's own app counts a repeated WA-to-WA record once\.$/.test(W.summary.HELP_TOTAL)
+  && devViews.cvi_master_s2 > 0, 'help text: a repeated record counts each time, and views where CVI counts it once exist', devViews);
 
 // The merge rule by hand on the S2 fixture (all periods, both directions): CVI keeps one of the two identical S001 rows (30),
 // one of the Import/Export pair S004 (12) and, without the CVI column, one of S024/S025 (15). The page keeps them

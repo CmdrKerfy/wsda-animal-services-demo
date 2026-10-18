@@ -3,7 +3,8 @@
 // S1.1 mutation checks, with the S4 runner's method: each mutation is applied to a copy of the
 // repository's site and tests (local-test-artifacts/s1_1/mutation-copy/, deleted at the end), one at a time, and must
 // make the suite named with it fail:
-//   unit: mutations of palettes.js and scaling.js against node tests/node/run_s1_unit_tests.js (seconds each);
+//   unit: mutations of palettes.js, scaling.js and master.js against node tests/node/run_s1_unit_tests.js (seconds
+//         each);
 //   page: mutations of the page (ui.js, map.js) against the S1 browser suite, or the NR or S3 browser suite where the
 //         land under the circles changes (a minute to three each, Chrome in the foreground as the suites need).
 // The copy first runs each suite unmutated (it must pass); after each mutation the copied file is restored and checked by
@@ -21,6 +22,7 @@ const COPY = path.join(OUT, 'mutation-copy');
 const sha = p => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 
 const PAL = 'site/cvi/app/palettes.js', SCAL = 'site/cvi/app/scaling.js', UI = 'site/cvi/app/ui.js', MAP = 'site/cvi/app/map.js';
+const MASTER = 'site/cvi/app/master.js';
 const SUITES = {
   unit: { file: 'tests/node/run_s1_unit_tests.js', summary: /^\d+ passed, \d+ failed$/m },
   s1: { file: 'tests/browser/run_s1_browser.js', summary: /^\d+ passed, \d+ failed$/m },
@@ -35,7 +37,8 @@ const UNIT = [   // [name, file, text, replacement, suite]
   ['swatch blend over white whatever the land', PAL, "Math.round(x * t + b[i] * (1 - t))", "Math.round(x * t + 255 * (1 - t))", 'unit'],
   ['legend radii from the tier values alone (CVI)', SCAL, "return { values: t.values, radii, cviRadii: t.radii };", "return { values: t.values, radii: t.radii, cviRadii: t.radii };", 'unit'],
   ['the 20 px cap put back', SCAL, "return r[r.length - 1]; });", "return Math.min(r[r.length - 1], 20); });", 'unit'],
-  ['binned legend radii from the tier values alone (CVI)', SCAL, "radii = t.values.map(v => (g ? 4 + (g.binOf(v) - 1) / (g.maxBin - 1) * (48 - 4) : (4 + 48) / 2));", "radii = t.radii;", 'unit']
+  ['binned legend radii from the tier values alone (CVI)', SCAL, "radii = t.values.map(v => (g ? 4 + (g.binOf(v) - 1) / (g.maxBin - 1) * (48 - 4) : (4 + 48) / 2));", "radii = t.radii;", 'unit'],
+  ['a repeated required column accepted (its last copy read)', MASTER, "const repeated = REQUIRED.filter(c => header.indexOf(c) !== header.lastIndexOf(c));", "const repeated = [];", 'unit']
 ];
 const PAGE = [
   ['legend swatch at full strength (CVI)', UI, "dot.style.background = shown;", "dot.style.background = color;", 's1'],

@@ -17,9 +17,12 @@
 //   day3    Preview Stats's added lines, the footer's glossary opened with Enter, and Preview map's time with 200, 800
 //           and 2,000 named feedlots
 //   chartlabels  every chart text inside its picture, on the page and in the export pictures
+//   fixes   the notes for real files and real use: where a PNG background comes from, the sensitive-data notice
+//           beside the exports, a blocked download, the license link, and the load statuses for files as Excel or R
+//           can leave them (unreadable counts, not UTF-8, a required column twice)
 //
 // Usage (repository root, after node tests/synthetic/make_test_tables.js or an F1 unit run, which write test-tables/):
-//   node tests/browser/run_ui_browser.js [checks] [controls] [day3] [chartlabels]
+//   node tests/browser/run_ui_browser.js [checks] [controls] [day3] [chartlabels] [fixes]
 //   Hosted mode: node tests/browser/serve_case_strict.js, then UI_SITE_URL=http://127.0.0.1:8765/ node tests/browser/run_ui_browser.js
 // Writes local-test-artifacts/ui/browser/run.json (results).
 const { spawn } = require('child_process');
@@ -918,6 +921,136 @@ async function partChartLabels(b) {
 
 
 
+
+// ── Part: the notes for real files and real use ───────────────────────────────────────────────────────────────
+// What the pages now say on the live page: where a PNG background comes from, the sensitive-data notice beside the
+// exports, that a browser or IT policy can block a download, the license link in a new tab, and the load statuses
+// for a master with unreadable counts, one not saved as UTF-8, one with a required column twice, and a facility file
+// not saved as UTF-8 (the test-tables/ files made for them). Downloads are refused.
+const ESRI_LINE = 'Map tiles come from Esri over the internet; Esri sees which map area you view, not your data. '
+  + 'Your data stays in this browser.';
+const SENSITIVE_LINE = 'Exports and maps contain premises addresses and coordinates: handle as sensitive data and share '
+  + 'only with authorized responders.';
+const SENSITIVE_FACILITIES = 'Exports and maps contain facility names and locations: handle as sensitive data and share '
+  + 'only with authorized responders.';
+const BLOCKED_LINE = 'If no file appears, your browser or IT policy blocked the download.';
+const UTF8_ADVICE = 'in Excel, use Save As, then CSV UTF-8.';
+// The note under a PNG background picker for a pick, or null when the note is hidden. A copy that offers no Esri
+// background (a public copy) answers 'not offered'.
+const BACKGROUND_NOTE = (picker, note, value) => `(() => {
+  const sel = document.getElementById('${picker}');
+  if (![...sel.options].some(o => o.value === '${value}')) return 'not offered';
+  sel.value = '${value}';
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  const n = document.getElementById('${note}');
+  return n.hidden ? null : n.textContent;
+})()`;
+async function partFixes(b) {
+  const p = b.page;
+  await b.send('Browser.setDownloadBehavior', { behavior: 'deny' });
+  const esriOk = got => got === ESRI_LINE || got === 'not offered';
+  // The CVI page with the Full tier.
+  await openView(b, SITE_URL, VIEWS[1]);
+  const bg = [];
+  for (const [picker, note, tile, plain] of [['export-background', 'export-background-provider', 'raster:esri_satellite', 'standard'],
+    ['lk-png-background', 'lk-png-background-provider', 'raster:esri_relief', 'vector:streets']]) {
+    const shown = await p.eval(BACKGROUND_NOTE(picker, note, tile));
+    const hidden = await p.eval(BACKGROUND_NOTE(picker, note, plain));
+    bg.push({ picker, shown, hidden });
+    check(esriOk(shown) && hidden === null, 'fixes: CVI ' + picker + ': where a tile background comes from; nothing for '
+      + plain, { shown, hidden });
+  }
+  await p.eval('document.getElementById("export-background").value = "standard"; '
+    + 'document.getElementById("export-background").dispatchEvent(new Event("change", { bubbles: true })); true');
+  const warning = await p.eval(`(() => {
+    document.getElementById('export-section').open = true;
+    const n = document.querySelector('#export-section .export-warning');
+    return n && { text: n.textContent.trim(), shown: n.getClientRects().length > 0,
+      afterExport: !!(document.getElementById('run-export').compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING) };
+  })()`);
+  check(warning && warning.text === '⚠ ' + SENSITIVE_LINE && warning.shown && warning.afterExport,
+    'fixes: CVI: the sensitive-data notice shown under the Export button', warning);
+  // The load statuses for files as Excel or R can leave them.
+  const status = async file => {
+    await p.setFiles('#file-input', [T(file)]);
+    await p.waitFor(`!CVIWA.state.loading && /^(Master loaded|Master dataset failed)/.test(document.getElementById('master-status').textContent)`
+      + ` && document.getElementById('master-status').textContent.indexOf(${js(file)}) >= 0`, 30000, file + ' status');
+    return p.eval('({ cls: document.getElementById("master-status").className, text: document.getElementById("master-status").textContent })');
+  };
+  const counts = await status('cvi_master_unreadable_counts.csv');
+  check(counts.cls === 'status ok' && / 52 rows have no readable animal count\.$/.test(counts.text),
+    'fixes: CVI: "Master loaded" names the rows without a readable animal count', counts);
+  const odd = await status('cvi_master_not_utf8.csv');
+  check(odd.cls === 'status warn' && odd.text.endsWith(' This file may not be UTF-8: ' + UTF8_ADVICE),
+    'fixes: CVI: a master not saved as UTF-8: yellow, with how to save it again', odd);
+  const twice = await status('cvi_master_repeated_column.csv');
+  check(twice.cls === 'status err' && twice.text.indexOf('Master CSV has the column Total.Animals more than once. '
+    + 'Keep one copy of it and load the file again.') >= 0, 'fixes: CVI: a required column written twice is refused, named', twice);
+  // A facility file not saved as UTF-8, handed to the page as the landing page does.
+  const fairs = fs.readFileSync(T('fairs_not_utf8/wa_state_fairs.csv')).toString('base64');
+  const notice = await p.eval(`(async () => {
+    const bytes = Uint8Array.from(atob('${fairs}'), c => c.charCodeAt(0));
+    await CVIWA.setFacilityFiles({ fairgrounds: { file: new File([bytes], 'wa_state_fairs.csv') } });
+    const shown = id => (document.getElementById(id).hidden ? null : document.getElementById(id).textContent);
+    const focus = shown('fo-fac-notice'), lookup = shown('lk-fac-utf8');
+    document.getElementById('reset-all').click();
+    await new Promise(r => setTimeout(r, 300));
+    return { focus, lookup, afterReset: shown('fo-fac-notice') };
+  })()`);
+  const fairsLine = 'wa_state_fairs.csv may not be UTF-8: ' + UTF8_ADVICE;
+  check(notice.focus === fairsLine && notice.lookup === fairsLine && notice.afterReset === fairsLine,
+    'fixes: CVI: a facility file not saved as UTF-8 is named in County Focus and Premise Lookup, also after Reset All', notice);
+  // Premise Lookup's export line says a download can be blocked.
+  await openView(b, SITE_URL, VIEWS[4]);
+  await p.eval('document.getElementById("lk-png-background").value = "standard"; true');
+  await p.eval('document.getElementById("lk-export").click(); true');
+  await p.waitFor('!document.getElementById("lk-export-msg").hidden && /handed to your browser/.test(document.getElementById("lk-export-msg").textContent)',
+    60000, 'lookup export');
+  const lkMsg = await p.eval('document.getElementById("lk-export-msg").textContent');
+  check(lkMsg.indexOf('(usually your Downloads folder). ' + BLOCKED_LINE) >= 0,
+    'fixes: Premise Lookup: the export line says a browser or IT policy can block the download', lkMsg);
+  // Infrastructure with its sample, then the fairs file and a master as Excel can leave them.
+  await openView(b, SITE_URL, VIEWS[5]);
+  // The basemap picker set to the offline map (as a user would pick it back): its note, with no provider asked.
+  const infra = await p.eval(`(() => {
+    const pick = document.getElementById('infra-basemap');
+    pick.value = '';
+    pick.dispatchEvent(new Event('change', { bubbles: true }));
+    const link = document.querySelector('footer a[href^="https://open.canada.ca"]');
+    const n = document.querySelector('.export-warning');
+    return { basemap: document.getElementById('basemap-note').textContent, target: link && link.target, rel: link && link.rel,
+      warning: n && n.textContent.trim(), afterExport: !!n && !!(document.getElementById('run-export').compareDocumentPosition(n)
+        & Node.DOCUMENT_POSITION_FOLLOWING) };
+  })()`);
+  check(infra.basemap === 'Offline county map: no provider requests.', 'fixes: Infrastructure: the offline map\'s note', infra.basemap);
+  check(infra.target === '_blank' && infra.rel === 'noopener noreferrer', 'fixes: Infrastructure: the license link opens a new tab', infra);
+  check(infra.warning === '⚠ ' + SENSITIVE_FACILITIES && infra.afterExport,
+    'fixes: Infrastructure: the sensitive-data notice under the Export button', infra);
+  const shown = await p.eval(BACKGROUND_NOTE('export-background', 'export-background-provider', 'raster:esri_hillshade'));
+  const hidden = await p.eval(BACKGROUND_NOTE('export-background', 'export-background-provider', 'standard'));
+  check(esriOk(shown) && hidden === null, 'fixes: Infrastructure: where a tile background comes from; nothing for Default',
+    { shown, hidden });
+  await p.eval('document.getElementById("run-export").click(); true');
+  await p.waitFor('!document.getElementById("export-result").hidden && !document.getElementById("run-export").disabled', 60000, 'export');
+  const lines = await p.eval('[...document.getElementById("export-result").children].map(d => d.textContent)');
+  check(lines[0] === 'Facilities PNG exported.' && lines[2] === BLOCKED_LINE,
+    'fixes: Infrastructure: the export result says a browser or IT policy can block the download', lines);
+  await p.setFiles('#files-input', [T('fairs_not_utf8/wa_state_fairs.csv'), T('cvi_master_unreadable_counts.csv')]);
+  await p.waitFor('!WSDA.infrastructure.state.loading && !document.getElementById("selection-notice").hidden', 30000, 'files loaded');
+  await sleep(800);
+  const said = await p.eval('({ notice: document.getElementById("selection-notice").textContent, '
+    + 'activity: document.getElementById("activity-reason").textContent })');
+  check(said.notice === 'wa_state_fairs.csv may not be UTF-8: ' + UTF8_ADVICE,
+    'fixes: Infrastructure: a facility file not saved as UTF-8 is named', said.notice);
+  await p.eval('document.getElementById("reset-all").click(); true');
+  await sleep(500);
+  const kept = await p.eval('document.getElementById("selection-notice").hidden ? null : document.getElementById("selection-notice").textContent');
+  check(kept === said.notice, 'fixes: Infrastructure: the UTF-8 note stays after Reset All', kept);
+  check(said.activity === 'Master loaded. Facility filters do not restrict CVI activity. 52 rows have no readable animal count.',
+    'fixes: Infrastructure: the optional master\'s rows without a readable count are named', said.activity);
+  return { backgrounds: bg, master: { counts, odd, twice }, notice, lookup: lkMsg, infra, exportLines: lines, said };
+}
+
 // ── Run ────────────────────────────────────────────────────────────────────────────────────────────────────────
 (async () => {
   for (const f of ['tier_full_master.csv', 'WSDA_sample_all_dashboards_synthetic.zip', 'infrastructure_synthetic.zip']) {
@@ -931,6 +1064,7 @@ async function partChartLabels(b) {
       else if (part === 'controls') run.results.controls = await partControls(b);
       else if (part === 'day3') run.results.day3 = await partDay3(b);
       else if (part === 'chartlabels') run.results.chartlabels = await partChartLabels(b);
+      else if (part === 'fixes') run.results.fixes = await partFixes(b);
       else throw new Error('Unknown part ' + part);
     }
   } catch (e) {

@@ -32,8 +32,13 @@ online background map. The data comes from the files you load; the site itself h
 3. Click a ready card's button. The dashboard opens in its own tab with your files, passed in memory; nothing is
    written to disk or sent anywhere. Clicking again sends the files loaded now to the same tab.
 4. A file without an optional column, or a missing optional dataset, turns off only the features that need it, and
-   the page says why. A CVI master table missing one of its 13 required columns is not used at all; the checklist
-   names the missing column.
+   the page says why. A CVI master table missing one of its 13 required columns, or with one of them written twice,
+   is not used at all; the page names the column.
+5. When a master loads, its status says how many rows have no readable animal count (empty, or text such as "1,200"
+   or "12 head"; they add no animals). A file not saved as UTF-8 (Excel's plain "CSV") is named with how to save it
+   again: in Excel, Save As, then CSV UTF-8.
+
+Each page's footer shows its version and date; the same is in `VERSION.txt` beside `site/`.
 
 To try the site without data, use **Download a sample bundle (ZIP)** under "What data does this need?" and load the
 downloaded file.
@@ -70,6 +75,9 @@ Where a later change is planned, the entry number in `docs/FUTURE_ENHANCEMENTS.m
 - **Facility layers on the CVI map come through the landing page.** The CVI page's own file chooser takes the master
   table only; facility layers and the manifest reach County Focus and Premise Lookup when the CVI map is opened from
   the landing page with them. (The Infrastructure dashboard's own loader takes facility files directly.)
+- **A blocked download cannot be seen by the page.** After an export the page says the file was handed to the
+  browser; if a browser setting or an IT policy blocks downloads, no file appears and the page cannot tell. The
+  export line says so.
 - **A newly chosen file that does not load (Safari).** In Safari a file picked to replace the one on screen has
   sometimes needed a second try. If a file you chose does not appear, choose it again.
 

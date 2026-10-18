@@ -379,7 +379,7 @@ const MAPSTATE = handle => `(function(){var s=${handle},m=s.map,G=m.getStyle(),L
     check(near(px[0], WATER) && near(px[1], WATER), 'Liberty: the vector tiles are drawn (water color inside and outside Washington)', px);
     check(s.attribution && s.attribution.indexOf(ofm.attribution) >= 0, 'Liberty: OpenFreeMap credit in the map\'s attribution', s.attribution);
     check(s.creditOpen, 'Liberty: the credit is open on the map after the earlier drag', s.creditOpen);
-    check(await p.eval(`(function(){var n=document.getElementById('basemap-note');return !n.hidden&&n.textContent==='Map tiles come from OpenFreeMap over the internet. Your data stays in this browser.'})()`),
+    check(await p.eval(`(function(){var n=document.getElementById('basemap-note');return !n.hidden&&n.textContent==='Map tiles come from OpenFreeMap over the internet; OpenFreeMap sees which map area you view, not your data. Your data stays in this browser.'})()`),
       'Liberty: the provider line under the picker');
     {
       const cf = await p.eval(`(function(){var m=${A}.map,f=m.queryRenderedFeatures({layers:['circles','circles_dim','circles_spotlight']})[0];var q=m.project(f.geometry.coordinates);

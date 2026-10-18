@@ -608,7 +608,7 @@ function compareView(g, v, id, noCvi, numcvi) {
     for (let i = 0; i < 50 && !saved; i++) { await sleep(100); if (fs.existsSync(path.join(DL, 'map-screenshot.png'))) saved = fs.statSync(path.join(DL, 'map-screenshot.png')).size; }
     const sm = await p.eval(`({toast:document.getElementById('flow-toast').textContent,last:${FH}.lastScreenshot,labels:${FH}.lastLabels.slice(),attr:${FH}.lastAttribution})`);
     const shownNow = (await p.eval(LABELREAD)).filter(l => !l.off && !l.collided).map(l => l.t);
-    check(saved > 1000 && sm.last && sm.last.bytes === saved && sm.toast === 'map-screenshot.png was handed to your browser to save (usually your Downloads folder).',
+    check(saved > 1000 && sm.last && sm.last.bytes === saved && sm.toast === 'map-screenshot.png was handed to your browser to save (usually your Downloads folder). If no file appears, your browser or IT policy blocked the download.',
       'screenshot: map-screenshot.png saved from the click, with the message', [saved, sm]);
     check(sm.labels.length >= 40 && JSON.stringify(sm.labels.slice().sort()) === JSON.stringify(shownNow.slice().sort()) && /Boundaries: U\.S\. Census Bureau/.test(sm.attr),
       'screenshot: the state labels shown on the map (none hidden for lack of room) and the Census credit drawn', [sm.labels.length, shownNow.length, sm.attr]);

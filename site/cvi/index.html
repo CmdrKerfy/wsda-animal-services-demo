@@ -201,7 +201,8 @@
   .fac-dot { font-size: 0.85rem; line-height: 1; }
   .fac-row.unusable { color: var(--disabled); cursor: not-allowed; }
   .fac-why { display: block; font-size: 0.75rem; color: var(--notice-text); margin: 0 0 3px 1.6em; }
-  .fac-why[hidden] { display: none; }   /* the notice stays hidden after Reset All */
+  .fac-why[hidden] { display: none; }   /* hidden until there is something to say (also after Reset All) */
+  .lk-fac-utf8 { margin: 0 0 0.4rem; }   /* Premise Lookup's note on facility files not saved as UTF-8 */
   .gif-why { font-size: 0.75rem; color: var(--notice-text); margin: 0 0 3px 1.6em; }
   .lg-cl { display: inline-block; width: 20px; height: 20px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; line-height: 20px; text-align: center; border: 1.5px solid #fff; box-sizing: content-box; flex-shrink: 0; }
   .lg-note { font-size: 0.75rem; color: #666; line-height: 1.3; }
@@ -435,7 +436,7 @@
   .lk-legend .lg-pc-line.dashed { border-top-style: dashed; }
   .lk-legend .lg-pc-swatch { display: inline-block; width: 14px; height: 10px; flex: 0 0 auto; }
   .lk-legend .lg-note { font-style: italic; margin-top: 0.15rem; }
-  .lk-warning { margin: 0.5rem 0 0; }
+  .lk-warning, .export-warning { margin: 0.5rem 0 0; }
   #lookup-status { position: absolute; top: 12px; left: 52px; right: 52px; z-index: 7; margin: 0; }
   #lookup-toast { position: absolute; top: 10px; right: 50px; z-index: 6; max-width: 320px; }
   #lookup-toast div { background: var(--notice-bg); color: var(--notice-text); border: 1px solid var(--notice-border); border-radius: 4px; padding: 0.5rem 0.75rem; font-size: 0.85rem; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
@@ -889,6 +890,7 @@
             <option value="raster:esri_hillshade">Hillshade</option>
             <option value="vector:streets">Streets (vector)</option>
           </select>
+          <p class="muted" id="export-background-provider" hidden></p>
           <p class="muted" id="export-background-note" hidden>Alternate PNG backgrounds are available for WA State and County Focus only.</p>
         </div>
         <div class="field" id="export-quality-field">
@@ -950,6 +952,7 @@
         <button type="button" class="btn full export-btn" id="run-export" title="Writes all checked formats (Tables / Visualizations) into one ZIP file, handed to your browser to save."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Export</button>
         <div class="status info gif-progress" id="gif-progress" hidden><span id="gif-progress-text" role="status" aria-live="polite"></span> <button type="button" class="btn" id="gif-cancel"><span class="btn-icon" data-icon="x-lg" aria-hidden="true"></span>Cancel</button></div>
         <div class="status" id="export-result" role="status" aria-live="polite" hidden></div>
+        <p class="muted export-warning"><span aria-hidden="true">&#9888;</span> Exports and maps contain premises addresses and coordinates: handle as sensitive data and share only with authorized responders.</p>
         <div class="export-history" id="export-history" hidden>
           <p><strong>Exports this session</strong></p>
           <ul id="export-history-list"></ul>
@@ -1076,6 +1079,7 @@
           <p class="muted">For each site, the facilities of the ticked layers that lie inside its buffer or zone.</p>
           <div class="field">
             <div class="ctl-row"><span class="ctl">Facility layers</span><span class="links"><button type="button" id="lk-fac-all">All</button> &middot; <button type="button" id="lk-fac-clear">Clear</button></span></div>
+            <p class="fac-why lk-fac-utf8" id="lk-fac-utf8" role="status" hidden></p>
             <div id="lk-fac-list"></div>
             <p class="muted" id="lk-fac-none" hidden>No facility files are loaded. Open the CVI map from the landing page with facility files to check which facilities lie inside each buffer.</p>
           </div>
@@ -1246,7 +1250,8 @@
                 <option value="raster:esri_satellite">Satellite</option>
                 <option value="raster:esri_relief">Shaded Relief</option>
                 <option value="raster:esri_hillshade">Hillshade</option>
-              </select></div>
+              </select>
+              <p class="muted" id="lk-png-background-provider" hidden></p></div>
             <div class="field" id="lk-png-quality-field" hidden><label class="ctl" for="lk-png-quality">Export quality</label>
               <select id="lk-png-quality" class="lk-input">
                 <option value="standard" selected>Standard (fast)</option>
@@ -1275,7 +1280,7 @@
   </main>
 </div>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the chosen file is never uploaded.</p>
+  Runs entirely in this browser tab; the chosen file is never uploaded. &middot; <span class="version">Version 1.0 (2026-10-18)</span></p>
   <details class="credits"><summary>Data sources and credits</summary>
   <p><span id="attrib"></span></p>
   <p>Shaded-map colors: ColorBrewer 2.0, by Cynthia A. Brewer, Penn State (Apache License 2.0).</p>

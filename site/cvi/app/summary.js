@@ -91,8 +91,11 @@
   // Both of CVI's animal numbers stay, each with help text. The strip can also be lower (rows the map cannot place
   // count in the box only), and the WA counties box can be one higher than the strip's Counties (CVI counts a row
   // with a map position but no county name).
+  // A record the file repeats exactly counts each time: the page merges only the loader's two copies of one
+  // WA-to-WA row (a recorded deliberate difference; CVI's app drops exact WA-to-WA repeats first).
   const HELP_TOTAL = 'Animals moved in the current view. A movement within Washington (WA to WA) counts once. '
-    + 'Rows the map cannot place (no county or no map position) still count here.';
+    + 'Rows the map cannot place (no county or no map position) still count here. A record repeated exactly in the '
+    + 'file counts each time; CVI\'s own app counts a repeated WA-to-WA record once.';
   const HELP_STRIP = 'Arrivals plus departures at the WA counties on the map. A movement within Washington counts at both of '
     + 'its counties when both directions are shown, so this can be more than Total animals; rows the map cannot place '
     + 'are left out, so it can also be less. Counties are the counties drawn; the WA counties box also counts rows that '

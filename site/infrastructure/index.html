@@ -177,6 +177,7 @@
   .chart-preview { margin: 0; }
   .chart-preview img { display: block; width: 100%; height: auto; }
   .chart-preview figcaption { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+  .export-warning { margin: 0.5rem 0 0; }
   @media (max-width: 767px) { .explore { grid-template-columns: 1fr; } .facility-controls { max-height: 35vh; } }
 </style>
 </head><body>
@@ -312,6 +313,7 @@
 <option value="raster:esri_relief">Shaded Relief</option>
 <option value="raster:esri_hillshade">Hillshade</option>
 </select>
+<p class="muted" id="export-background-provider" hidden></p>
 </div>
 <div class="field">
 <div class="tip-row"><label class="ctl" for="export-quality">Export quality</label><button type="button" class="tip" aria-expanded="false" data-help="export-quality" aria-controls="help-export-quality" aria-label="About Export quality" title="The detail of the Satellite, Shaded Relief and Hillshade backgrounds. Standard: fast; fine for screens and reports. High: sharper (tile zoom +2) but slower; for print.">?</button></div>
@@ -341,6 +343,7 @@
 <div class="status warn" id="preview-message" role="status" hidden></div>
 <button type="button" class="btn full export-btn" id="run-export" title="Writes the Facilities PNG and export_params.json into one ZIP file, handed to your browser to save."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Export</button>
 <div class="status" id="export-result" role="status" aria-live="polite" hidden></div>
+<p class="muted export-warning"><span aria-hidden="true">&#9888;</span> Exports and maps contain facility names and locations: handle as sensitive data and share only with authorized responders.</p>
 </div></details>
 </aside>
 <div><div id="facility-cards" class="count-cards"></div><div id="facility-strip" role="status">Infrastructure · 0 facility layers shown · CVI activity off</div>
@@ -349,9 +352,9 @@
 
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded.</p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 1.0 (2026-10-18)</span></p>
   <details class="credits"><summary>Data sources and credits</summary>
-  <p>Adapted from Statistics Canada, 2021 Census Boundary Files (census divisions, cartographic), reference date 2021. This does not constitute an endorsement by Statistics Canada of this product. Contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada">Open Government Licence – Canada</a>.</p></details>
+  <p>Adapted from Statistics Canada, 2021 Census Boundary Files (census divisions, cartographic), reference date 2021. This does not constitute an endorsement by Statistics Canada of this product. Contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada" target="_blank" rel="noopener noreferrer">Open Government Licence – Canada</a>.</p></details>
   <div data-wsda-glossary></div></footer>
 <script src="../shared/release.js"></script>
 <script src="../shared/zip.js"></script>

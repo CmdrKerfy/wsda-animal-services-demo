@@ -209,8 +209,20 @@ const PAGES = [
   { file: 'infrastructure/index.html', css: '../shared/brand.css', js: '../shared/brand.js', dashboard: 'Infrastructure',
     title: 'Infrastructure — WSDA Animal Services' }
 ];
+// The sensitive-data notice: premises on the CVI page, facilities on Infrastructure.
+const SENSITIVE = 'Exports and maps contain premises addresses and coordinates: handle as sensitive data and share only with'
+  + ' authorized responders.';
+const SENSITIVE_FACILITIES = 'Exports and maps contain facility names and locations: handle as sensitive data and share'
+  + ' only with authorized responders.';
 const textOf = html => html.replace(/<[^>]+>/g, '').replace(/&middot;/g, '·').replace(/&mdash;/g, '—').replace(/\s+/g, ' ').trim();
 const footLines = [];
+// VERSION.txt at the repository root: the version number and its date, for example "1.0 2026-10-20".
+const VERSION = (() => {
+  const t = fs.readFileSync(path.join(ROOT, 'VERSION.txt'), 'utf8');
+  const m = /^(\d+\.\d+) (\d{4}-\d\d-\d\d)\n$/.exec(t);
+  check(!!m, 'VERSION.txt: one line, the version and its date ("1.0 2026-10-20")', t);
+  return m ? m[1] + ' ' + m[2] : null;
+})();
 PAGES.forEach(pg => {
   const html = read(pg.file);
   const tag = pg.file + ': ';
@@ -242,12 +254,26 @@ PAGES.forEach(pg => {
   const foot = (/<footer class="foot">([\s\S]*?)<\/footer>/.exec(html) || [])[1] || '';
   const line = (/<p class="foot-line">([\s\S]*?)<\/p>/.exec(foot) || [])[1] || '';
   footLines.push(textOf(line).replace(/ Runs entirely.*$/, ''));
-  check(/ Runs entirely in this browser tab; .* never uploaded\.$/.test(textOf(line)) && !/synthetic/i.test(textOf(line)),
-    tag + 'footer: the page runs in the browser tab and uploads nothing; no "synthetic" wording', textOf(line));
+  check(/ Runs entirely in this browser tab; .* never uploaded\. · Version \S+ \(\S+\)$/.test(textOf(line)) && !/synthetic/i.test(textOf(line)),
+    tag + 'footer: the page runs in the browser tab and uploads nothing, then its version; no "synthetic" wording', textOf(line));
+  // The version is written into the page (shown even with scripts blocked) and is the one in VERSION.txt.
+  const shown = (/<span class="version">Version ([^ <]+) \(([^)<]+)\)<\/span><\/p>$/.exec(line + '</p>') || []).slice(1);
+  check(shown.length === 2 && shown.join(' ') === VERSION, tag + 'footer: "Version ' + String(VERSION).replace(' ', ' (') + ')", as VERSION.txt', shown);
   check(foot.trim().startsWith('<p class="foot-line"><span class="agency">Washington State Department of Agriculture</span>'),
     tag + 'footer: opens with the agency\'s name');
   const js = html.indexOf('<script src="' + pg.js + '"></script>');
   check(js > html.indexOf('</header>'), tag + 'loads ' + pg.js + ' after the banner (it sets the logo)');
+  // A link that leaves the site opens in a new tab, so the dashboard keeps the files loaded in it.
+  const outward = html.match(/<a [^>]*href="https?:[^"]*"[^>]*>/g) || [];
+  check(outward.every(a => / target="_blank"/.test(a) && / rel="noopener noreferrer"/.test(a)),
+    tag + 'every link out of the site opens in a new tab', outward);
+  // The sensitive-data notice beside each export button (CVI: Export & Preview and Premise Lookup), one wording.
+  if (pg.dashboard) {
+    const notices = (html.match(/<p class="muted (?:lk|export)-warning">[\s\S]*?<\/p>/g) || []).map(textOf);
+    const cvi = pg.file.startsWith('cvi/');
+    check(notices.length === (cvi ? 2 : 1) && notices.every(n => n === '&#9888; ' + (cvi ? SENSITIVE : SENSITIVE_FACILITIES)),
+      tag + 'the sensitive-data notice beside every export button', notices);
+  }
 });
 check(new Set(footLines).size === 1 && footLines[0] === 'Washington State Department of Agriculture ·',
   'every page: the same footer line (the agency, then that the page runs in the browser tab)', footLines);
@@ -764,6 +790,9 @@ check(crypto.createHash('sha256').update(ico).digest('hex') === '431f7371f542d04
 const icoSizes = [];
 for (let i = 0; i < ico.readUInt16LE(4); i++) icoSizes.push(ico[6 + 16 * i]);
 check(same(icoSizes.sort((x, y) => x - y), [16, 32, 48]), 'favicon: 16, 32 and 48 px images', icoSizes);
+// The same icon as a file, for the Windows shortcut that opens the pages from a shared folder (a shortcut needs a
+// real .ico file).
+check(fs.readFileSync(path.join(SITE, 'shared', 'wsda.ico')).equals(ico), 'favicon: shared/wsda.ico is the same file, byte for byte');
 textCheck(/\n    setFavicon\(root\.document\);\n/.test(src('shared/brand.js')), 'favicon: brand.js gives it to every page');
 // Every "?" on the Infrastructure dashboard opens its note (the handler once listened inside the Export section only).
 textCheck(/document\.addEventListener\('click', e => \{\s*const b = e\.target\.closest && e\.target\.closest\('button\.tip\[data-help\]'\)/

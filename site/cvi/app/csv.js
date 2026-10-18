@@ -44,6 +44,12 @@
     const header = rows.length ? rows[0].map(h => h === null ? '' : h) : [];
     return { header, rows: rows.slice(1) };
   }
+  // A file read as UTF-8 holds the replacement character U+FFFD where its bytes were not UTF-8 (Excel's plain "CSV"
+  // is Windows-1252), so its accented letters show as "\uFFFD". The load statuses then add NOT_UTF8_ADVICE.
+  const notUtf8 = text => String(text).indexOf('\uFFFD') >= 0;
+  const NOT_UTF8_ADVICE = 'in Excel, use Save As, then CSV UTF-8.';
+  // The note for one named file (facility files, listed under their layers).
+  const notUtf8Note = name => name + ' may not be UTF-8: ' + NOT_UTF8_ADVICE;
   root.CVIWA = root.CVIWA || {};
-  root.CVIWA.csv = { parse };
+  root.CVIWA.csv = { parse, notUtf8, NOT_UTF8_ADVICE, notUtf8Note };
 })(typeof window !== 'undefined' ? window : globalThis);

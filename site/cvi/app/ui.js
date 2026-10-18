@@ -307,8 +307,10 @@
       fo.dom = P.domains(m);
       fo.timeIndex = P.middle(P.domainFor(fo.dom, fo.timeStep).length);
       if (fo.browse) applyFocusFrame();
-      setStatus('ok', 'Master loaded (' + f.name + '): ' + m.physicalRows.toLocaleString('en-US') + ' rows in the file; ' +
-        m.mapRows.toLocaleString('en-US') + ' map rows (each WA-to-WA record is drawn as one inbound and one outbound row).');
+      // Yellow when the file may not be UTF-8 (its names may show wrongly); rows without a readable count are a note.
+      setStatus(m.notUtf8 ? 'warn' : 'ok', ['Master loaded (' + f.name + '): ' + m.physicalRows.toLocaleString('en-US') +
+        ' rows in the file; ' + m.mapRows.toLocaleString('en-US') + ' map rows (each WA-to-WA record is drawn as one' +
+        ' inbound and one outbound row).'].concat(W.master.loadNotes(m)).join(' '));
       renderAll(); schedule(0); scheduleFlow(0); scheduleFocus(0);
       if (lookupPage) lookupPage.masterChanged();   // S11: the Premise Lookup filters for this master
       if (done) done({ ok: true, message: '' });
@@ -836,6 +838,7 @@
 
   function recompute() {
     timer = null;
+    const t0 = root.performance.now();
     let d = [];
     // MC: a sidebar change can leave a chart filter without rows (dropped, with a message); the map then draws the
     // sidebar's filters with the species and period chart filters folded in (crossfilter.mapFilters).
@@ -896,6 +899,9 @@
     renderSummaries(d);
     if (st.view === 'wa') { renderCharts(); renderChips(); }   // S7: the charts follow the left map
     st.version++;
+    // Test hooks: the master this drawing used, and the time spent drawing so far (the timing suite reads both).
+    st.drawnMaster = st.master;
+    st.drawTotalMs = (st.drawTotalMs || 0) + (root.performance.now() - t0);
   }
 
   // ---- value boxes and summary strip (summary.js; CVI's value_boxes and filter_summary_strip) --------------------
@@ -1600,7 +1606,7 @@
     $('fo-labels').checked = fo.labels; $('fo-outlines').checked = fo.outlines;
     foLs.value = fo.labelStyle; foBs.value = fo.boundaryStyle;
     if (fo.basemap !== B.OFFLINE) setFocusBasemap(B.OFFLINE);
-    fo.fac.on = []; fo.fac.attributes = Object.create(null); $('fo-fac-notice').hidden = true; applyFacilities();
+    fo.fac.on = []; fo.fac.attributes = Object.create(null); facNotice([]); applyFacilities();
     nrFocus.off();
     if (focusLive()) {
       W.focusmap.setHidden(focusMap, fo.hide); W.focusmap.setOpacity(focusMap, fo.opacity);
@@ -1684,12 +1690,29 @@
   $('fo-fac-clear').addEventListener('click', () => { fo.fac.on = []; applyFacilities(); });
   // datasets: { <dataset id>: { file: Blob } } as handed over (the manifest under "manifest", each layer under its key).
   // Replaces the facility files of the last call; switches of layers that are still usable stay on.
+  // County Focus's facilities notice: the facility files that may not be UTF-8, then the attribute selections a new
+  // file cleared. The UTF-8 lines are also shown in Premise Lookup's "Facilities inside", and stay after a Reset.
+  function facNotice(cleared) {
+    const odd = fo.fac.notUtf8 || [];
+    const said = odd
+      .concat(cleared.length ? ['Cleared unavailable attribute selections: ' + cleared.join(', ')] : []);
+    $('fo-fac-notice').textContent = said.join(' ');
+    $('fo-fac-notice').hidden = !said.length;
+    $('lk-fac-utf8').textContent = odd.join(' ');
+    $('lk-fac-utf8').hidden = !odd.length;
+  }
   W.setFacilityFiles = async function (datasets) {
     const op = ++facilityLoad, d = datasets || {}, files = Object.create(null);
     const text = x => x && x.file instanceof root.Blob ? x.file.text().catch(() => null) : Promise.resolve(undefined);
     const mt = await text(d.manifest), manifest = typeof mt === 'string' ? W.csv.parse(mt) : null, reg = FAC.registry(manifest);
-    const rs = await Promise.all(reg.layers.map(async l => {
+    // The files that may not be UTF-8, named in the notices: the manifest first, then the layers in the registry's
+    // order (whatever order their reads finish in).
+    const oddNote = (t, x, name) => (typeof t === 'string' && W.csv.notUtf8(t)
+      ? W.csv.notUtf8Note(x.file.name || name) : null);
+    const oddLayers = [];
+    const rs = await Promise.all(reg.layers.map(async (l, k) => {
       const t = await text(d[l.key]);
+      oddLayers[k] = oddNote(t, d[l.key], l.file);
       if (typeof t === 'string') files[l.key] = W.csv.parse(t);
       return [l.key, t === undefined ? null : t === null ? { ok: false, reason: 'unreadable' } : FAC.parseLayer(files[l.key], l.nameColumn)];
     }));
@@ -1697,10 +1720,9 @@
     const prepared = FAC.prepare(files, manifest, root.CVIWA_GEO.counties, op);
     const next = FAC.reconcile(prepared, fo.fac.on, fo.fac.attributes, false);
     fo.fac = { reg, layers: Object.fromEntries(rs), on: next.selectedLayers, attributes: next.attributes, prepared,
-      skipped: reg.skipped,
+      skipped: reg.skipped, notUtf8: [oddNote(mt, d.manifest, 'The manifest')].concat(oddLayers).filter(Boolean),
       manifest: d.manifest ? (typeof mt === 'string' ? (reg.malformed ? 'malformed' : 'ok') : 'unreadable') : 'none' };
-    const notice = $('fo-fac-notice'); notice.hidden = !next.cleared.length;
-    notice.textContent = next.cleared.length ? 'Cleared unavailable attribute selections: ' + next.cleared.join(', ') : '';
+    facNotice(next.cleared);
     if (focusLive()) {
       focusMap.clearHover(); if (focusMap.clickPopup) { focusMap.clickPopup.remove(); focusMap.clickPopup = null; }
     }
@@ -2783,10 +2805,10 @@
     return { pictures, errors, notices };
   }
 
-  // The PNG controls follow the view, as CVI's: National Flow offers the Default background only, with a note, and no
   // A public copy offers only the PNG backgrounds cleared for public use (shared/release.js).
   root.WSDA.tiles.prunePickers([$('export-background'), $('lk-png-background')]);
-  // Export quality.
+  // The PNG controls follow the view, as CVI's: National Flow offers the Default background only, with a note, and no
+  // Export quality. A tile background says under its picker where it comes from.
   function syncPngControls() {
     const flow = st.view === 'flow';
     $('export-names').hidden = st.view !== 'focus';
@@ -2796,6 +2818,7 @@
     const offered = o => (flow ? o.value === 'standard' : o.value !== 'vector:streets' || st.view === 'focus');
     [...sel.options].forEach(o => { o.hidden = !offered(o); o.disabled = !offered(o); });
     if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled) sel.value = 'standard';
+    syncBackgroundProvider();
     $('export-background-note').hidden = !flow;
     $('export-quality-field').hidden = flow;
     // "Time-series GIF (.gif)": on National Flow as CVI's, and on WA State and County Focus,
@@ -2809,6 +2832,11 @@
     $('export-gif-why').hidden = !why;
     $('export-gif-field').hidden = !(gif.checked && !why);
   }
+  // Under the background picker, where a tile background comes from (nothing for Default and Streets).
+  function syncBackgroundProvider() {
+    $('export-background-provider').textContent = root.WSDA.tiles.providerLine($('export-background').value);
+    $('export-background-provider').hidden = !$('export-background-provider').textContent;
+  }
   // Why the GIF cannot be made on this view now, or null.
   function gifUnavailable() {
     if (st.view === 'wa' && st.movementOn) return GIF_WHY.movement;
@@ -2820,6 +2848,7 @@
     hidden: 'Not while the CVI circles are hidden: turn off "Hide CVI circles" to make the GIF.'
   };
   $('export-gif').addEventListener('change', syncPngControls);
+  $('export-background').addEventListener('change', syncBackgroundProvider);
   st.syncPngControls = syncPngControls;
   syncPngControls();   // the page opens on WA State without a view change: the GIF box set up here
   // "Name markers in PNG" (County Focus): one box per facility layer that has a file, in the registry's order; the

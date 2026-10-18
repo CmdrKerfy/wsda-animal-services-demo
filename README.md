@@ -20,6 +20,7 @@ decides; third-party materials keep their own terms (`site/PROVENANCE.md`).
 | [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md) | How the pages are put together, a file map and where to change what. |
 | [`docs/DELIBERATE_DIFFERENCES.md`](docs/DELIBERATE_DIFFERENCES.md) | Where the CVI dashboard differs from CVI's own app on purpose, and why. |
 | [`docs/FUTURE_ENHANCEMENTS.md`](docs/FUTURE_ENHANCEMENTS.md) | Work recorded for later. |
+| `VERSION.txt` | The version and its date, as each page's footer shows them. |
 
 ## About this copy
 
