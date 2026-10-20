@@ -204,12 +204,18 @@
   // Both animal numbers stay, each explained, as on the WA map.
   const HELP_TOTAL = 'Animals moved to or from the selected counties, as the direction shows. A movement within Washington '
     + 'counts once. Rows without a usable premises location still count here.';
+  // The strip's animals label (CVI: "Animals: "), named for what it counts, as its help says.
+  const STRIP_ANIMALS = 'Animals at mapped premises: ';
   const HELP_STRIP = 'The total of the premises on the map. A movement within Washington between two premises in the selected '
     + 'counties counts at both of them when both directions are shown, so this can be more than Total animals; rows without '
     + 'a usable premises location are left out, so it can also be less.';
   // The boxes: the WA map's boxes with "Premises" (CVI: icon buildings, a whole number without separators) in place of
   // "WA counties", grayed with the missing columns when premises cannot be placed (as Unique CVIs without a CVI column).
-  function valueBoxes(s, missing) {
+  // o.noCounty: a master is loaded but no county is ticked, so the boxes say what to do (CVI's "Load a master…" read
+  // as if the data had not arrived).
+  function valueBoxes(s, missing, o) {
+    if (!s && o && o.noCounty) return { state: 'alert', icon: 'info-circle',
+      lines: ['Tick a county under Focus county / counties to see its numbers.'] };
     if (!s) return SUM().valueBoxes(null);
     const vb = SUM().valueBoxes(Object.assign({}, s, { n_counties: 0 }));
     vb.metrics[0] = Object.assign({}, vb.metrics[0], { help: HELP_TOTAL });
@@ -237,7 +243,7 @@
     const items = [
       { label: 'Focus: ', text: opts.counties.join(', ') },
       { label: 'Period: ', text: SUM().periodLabel(opts.years, opts.quarters) },
-      { label: 'Animals: ', text: S().formatR([sum])[0], help: HELP_STRIP },
+      { label: STRIP_ANIMALS, text: S().formatR([sum])[0], help: HELP_STRIP },
       { label: 'Premises: ', text: ps.length + ' (' + nIn + ' importer, ' + (ps.length - nIn) + ' exporter)' }];
     if (left) items.push({ label: 'Not on the map: ', text: leftText });
     return { state: 'summary', items };
@@ -271,5 +277,5 @@
   root.CVIWA = root.CVIWA || {};
   root.CVIWA.focus = { build, premisesKey, countyChoices, popup, popupData, popupHtml, tooltipHtml, speciesJson, COORDS,
     summaryRows, summary, valueBoxes, strip,
-    HELP_TOTAL, HELP_STRIP, resetDefaults, fitBox };
+    HELP_TOTAL, HELP_STRIP, STRIP_ANIMALS, resetDefaults, fitBox };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -31,6 +31,9 @@ below), each only after the user chooses one. Paths below are relative to `site/
   coordinates to 5 decimals and computes label points with `sf::st_centroid()` (s2 on), the call CVI uses for its
   county labels. Geometry differs slightly from CVI's own `reference/wa_counties_polygons.gpkg`, whose provenance is
   unrecorded; names match CVI's short county names.
+- Datum: the Census file is in NAD83 (EPSG:4269), and the transform to EPSG:4326 keeps its coordinates as they are, so
+  the outlines (and the regions and population layers built the same way) are NAD83 values treated as WGS 84. In
+  Washington the two datums differ by less than about 1.5 m, about the size of the 5-decimal rounding.
 - The archive used on 2026-09-30 was a copy kept outside this repository (its SHA-256 matches the one above); it is
   not committed here (`*.zip` is ignored).
 

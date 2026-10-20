@@ -307,6 +307,11 @@ async function throwsZip(fn, re, name) {
     const big = await B.read([{ path: 'bundle.json', name: 'bundle.json', size: 70000, text: async () => { throw new Error('should not be read'); } }]);
     check(!big.found && /larger than 64 KB/.test(big.warnings[0]), 'bundle: over 64 KB not read', big.warnings);
     check(!(await B.read([item('{}', 'notes.json')])).found, 'bundle: only files named bundle.json are read');
+    // "synthetic": true marks the sample bundles (their pictures and export_params.json say so); anything else is ignored.
+    const syn = await B.read([item('{"label":"S","synthetic":true}')]), plain = await B.read([item('{"label":"S"}')]);
+    const notTrue = await B.read([item('{"label":"S","synthetic":"yes"}')]);
+    check(syn.info.synthetic === true && !syn.warnings.length && !plain.info.synthetic && !notTrue.info.synthetic
+      && notTrue.warnings.some(w => /"synthetic" should be true or false/.test(w)), 'bundle: "synthetic" read only as true', [syn.info, notTrue.warnings]);
     const other = await B.read([item('{"profile":"emergency","files":{"master":"m.csv"}}')]);
     check(JSON.stringify(B.filesFor(other, CVI)) === '{}' && /emergency/.test(other.warnings[0]), 'bundle: another profile\'s files entries are not used', other.warnings);
     const none = await B.read([item('{"files":{"master":"m.csv"}}')]);
@@ -374,6 +379,16 @@ async function throwsZip(fn, re, name) {
     const b = opts.find(o => /\/b\//.test(o.path));
     const res2 = await R.recognize(r.items, CVI, { choices: { master: b.id } });
     check(res2.datasets[0].path === b.path && res2.datasets[0].missingUseful.length === 4, 'same name twice: the chosen copy is used', res2.datasets[0].path);
+  }
+  {   // A master whose required column is written twice is not used (the CVI page refuses it); its reason says why
+    const req = CVI.datasets[0].columns.filter(c => typeof c === 'string');
+    const head = req.concat([req[0]]).join(',');
+    const r = await L.fromFileList([new File([head + '\n' + req.map(() => '1').concat(['1']).join(',') + '\n'], 'CVI_Consolidated_Master.csv')], 'files');
+    const res = await R.recognize(r.items, CVI), f = res.files[0];
+    check(res.datasets[0].status === 'missing' && f.status === 'not-used' && f.reason === 'it is the CVI master table but has the column ' + req[0] + ' more than once; keep one copy of it',
+      'repeated required column: the master is not used, with the reason', f.reason);
+    const once = await L.fromFileList([new File([req.concat(['Extra', 'Extra']).join(',') + '\n'], 'CVI_Consolidated_Master.csv')], 'files');
+    check((await R.recognize(once.items, CVI)).datasets[0].status === 'found', 'repeated other column: the master is still used');
   }
   {   // Manifest limits and file names with folders; R's leading-character rule for name columns
     const big = 'key,file\n' + Array.from({ length: 600 }, (_, i) => `k${i},f${i}.csv`).join('\n');
@@ -518,13 +533,19 @@ async function throwsZip(fn, re, name) {
     n = nextStep(loadOf(2), cl('conflict', req));
     check(n.kind === 'warn' && n.open === null && n.text === 'Next: choose which file is the CVI master table in Datasets below. Then you can open the CVI map.', 'next step: conflict: choose first', n);
     n = nextStep(loadOf(1), cl('missing'));
-    check(n.kind === 'warn' && n.open === null && n.text === 'The CVI map needs the CVI master table (CVI_Consolidated_Master.csv), and none of your files is it. Add that file and load your files again.', 'next step: master missing: says what is missing', n);
+    check(n.kind === 'warn' && n.open === null && n.text === 'The CVI map needs the CVI master table (CVI_Consolidated_Master.csv), and none of your files is it. Add that file, then choose all your files again, together.', 'next step: master missing: says what is missing', n);
     // A file that looks like the master but lacks a column is named in the headline with its reason.
     const nearCl = cl('missing');
     nearCl.result.files = [{ name: 'CVI_Consolidated_Master.csv', status: 'not-used',
       reason: 'it looks like the CVI master table but is missing the column Dest.County.Long' }];
     n = nextStep(loadOf(1), nearCl);
-    check(n.kind === 'warn' && n.open === null && n.guide === true && n.text === 'The CVI map needs the CVI master table (CVI_Consolidated_Master.csv). CVI_Consolidated_Master.csv looks like the CVI master table but is missing the column Dest.County.Long. Ask for a copy with every column listed under "What data does this need?", then load your files again.', 'next step: a near-miss master is named with its reason', n);
+    check(n.kind === 'warn' && n.open === null && n.guide === true && n.text === 'The CVI map needs the CVI master table (CVI_Consolidated_Master.csv). CVI_Consolidated_Master.csv looks like the CVI master table but is missing the column Dest.County.Long. Ask for a copy with every column listed under "What data does this need?", then choose all your files again, together.', 'next step: a near-miss master is named with its reason', n);
+    // A master with a required column written twice is named with what to fix (the CVI page refuses it).
+    const twiceCl = cl('missing');
+    twiceCl.result.files = [{ name: 'CVI_Consolidated_Master.csv', status: 'not-used',
+      reason: 'it is the CVI master table but has the column Total.Animals more than once; keep one copy of it' }];
+    n = nextStep(loadOf(1), twiceCl);
+    check(n.kind === 'warn' && n.open === null && n.guide === false && n.text === 'The CVI map needs the CVI master table (CVI_Consolidated_Master.csv). CVI_Consolidated_Master.csv is the CVI master table but has the column Total.Animals more than once; keep one copy of it, then choose all your files again, together.', 'next step: a master with a repeated required column says to keep one copy', n);
     n = nextStep(loadOf(1), cl('found', req.concat(['Species']), bj('emergency')));
     check(n.open === 'cvi' && /in preparation/.test(n.notes[0]), 'next step: an Emergency bundle with a CVI master: note, and CVI can still be opened', n);
     // "What data does this need?" is linked whenever something is missing, not for a choice to make
@@ -621,6 +642,10 @@ async function throwsZip(fn, re, name) {
       H.open('cvi', 'cvi/index.html', () => null);
       a = ask({ type: 'wsda-ready', profile: 'cvi', key: key() }); await flush();
       check(a.got.length === 0 && a.port.peer.closed, P + 'hand-off: nothing to send (card button without data): no answer, channel closed');
+      H.open('cvi', 'cvi/index.html', () => ({ empty: true }));
+      a = ask({ type: 'wsda-ready', profile: 'cvi', key: key() }); await flush();
+      check(a.got.length === 1 && a.got[0].type === 'wsda-files' && a.got[0].empty === true && !a.got[0].datasets,
+        P + 'hand-off: nothing loaded on the landing page: the dashboard is told at once', a.got);
 
       // Dashboard side: receive()
       const opener = { posted: [], postMessage(d, t, ports) { this.posted.push({ d, t, ports }); } };
@@ -804,6 +829,7 @@ async function throwsZip(fn, re, name) {
     const all = gen.allInOne(), z1 = gen.allInOneZip(), z2 = gen.allInOneZip();
     const zf = fs.readFileSync(path.join(gen.OUT, 'sample', all.fileName));
     check(all.fileName === 'WSDA_sample_all_dashboards_synthetic.zip' && same(z1, z2) && same(z1, zf), 'AB sample: deterministic, and equal to the file written for the browser test');
+    check(JSON.parse(all.bundleJson).synthetic === true, 'AB sample: its bundle.json marks it synthetic (said on its pictures)');
     const opened = await Z.open(blobOf(z1, all.fileName));
     const fullDir = path.join(gen.OUT, 'tiers', 'full');
     const csvs = opened.entries.filter(e => e.name !== 'bundle.json');

@@ -30,7 +30,7 @@ case $2 in
      if [ "$M" = http ]; then step chrome_${M}_pc node tests/browser/run_pc_browser.js cvi infra
      else step chrome_${M}_pc node tests/browser/run_pc_browser.js; fi
      step chrome_${M}_s11 node tests/browser/run_s11_browser.js ;;
-  5) step chrome_${M}_ui node tests/browser/run_ui_browser.js checks controls day3 chartlabels fixes ;;
+  5) step chrome_${M}_ui node tests/browser/run_ui_browser.js checks controls day3 chartlabels fixes v11 ;;
   6) step chrome_${M}_ch node tests/browser/run_ch_browser.js
      node tests/synthetic/make_scale_master.js > "$L/scale_master_${M}.log" 2>&1
      step chrome_${M}_scale node tests/browser/run_scale_browser.js ;;

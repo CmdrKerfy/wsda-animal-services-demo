@@ -51,6 +51,24 @@ picked, and only from that provider. The page's security policy allows no other 
 [PROVENANCE.md](PROVENANCE.md). Every provider's terms are confirmed for WSDA's pages;
 a copy for another host leaves out CARTO and Esri, whose terms cover WSDA's own pages only (see PROVENANCE.md).
 
+## Using the exports in GIS
+
+- **Coordinates** in every export (the CSV files and `export_params.json`) are WGS 84 longitude and latitude
+  (EPSG:4326); each `export_params.json` says so under `"coordinates"`.
+- **Distances** in Premise Lookup are great-circle (haversine) kilometers on a sphere of radius 6,378,137 m, as in
+  CVI's app; its `export_params.json` says so under `"distances"`.
+- **Load the CSV files into a file geodatabase table, not a shapefile.** A shapefile cuts field names to 10
+  characters, so `Origin.County.Lat` and `Origin.County.Long` both become `Origin_Cou`; a file geodatabase keeps names
+  up to 64 characters.
+- **`NA` in Premise Lookup's Matched CVIs file.** That file is written as CVI's Export CSV writes it, with a missing
+  value as `NA`, and ArcGIS reads a number column holding any `NA` as text. Before using its latitude and longitude as
+  XY data, replace `NA` with an empty cell (in Excel: Find and Replace, "Match entire cell contents"). The Facilities
+  inside file, `filtered_rows.csv` and `summary_table.csv` already write a missing value as an empty cell.
+- **National Flow's state points are drawing positions.** In `summary_table.csv` the other end of each National Flow
+  line (`dest_lat`, `dest_lon`) is the state's approximate center, where the line is drawn to, not where any record is.
+- **Exports from the synthetic sample** say so: `"data_note": "Synthetic sample data"` in `export_params.json`, and a
+  line on each picture.
+
 ## Known limits of the CVI and Infrastructure release
 
 Where a later change is planned, the entry number in `docs/FUTURE_ENHANCEMENTS.md` is given.

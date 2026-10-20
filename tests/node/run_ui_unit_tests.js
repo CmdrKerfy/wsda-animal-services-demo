@@ -765,7 +765,7 @@ for (const page of ['cvi/index.html', 'infrastructure/index.html']) {
 }
 // CH: five more on the CVI page (Show counties as, Measure, Shading classes; Show states as, Shading classes).
 // Also WA State's Display Mode (its warning had been hover text only) and County Focus's "Group nearby premises".
-check(helpCount === 56, 'help: 42 notes on the CVI page and 14 on the Infrastructure dashboard', helpCount);
+check(helpCount === 57, 'help: 43 notes on the CVI page (Color palette\'s added in version 1.1) and 14 on the Infrastructure dashboard', helpCount);
 const gbox = { document: null };
 gbox.window = gbox;
 vm.createContext(gbox);

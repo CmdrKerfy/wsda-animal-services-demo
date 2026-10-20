@@ -98,6 +98,12 @@
   }
   const specLabel = s => typeof s === 'string' ? s : s.label;
   const missingColumns = (header, ds) => ds.columns.filter(c => findColumn(header, c) === null).map(specLabel);
+  // A table's required columns written more than once: the dashboard refuses such a file (it cannot tell which copy
+  // to read), so it is not used here either. Facility layers are not checked: their loader keeps the first copy.
+  const repeatedColumns = (header, ds) => ds.kind !== 'table' ? [] : ds.columns.filter(c => typeof c === 'string'
+    && header.indexOf(c) !== header.lastIndexOf(c));
+  const repeatedReason = (ds, rep) => `it is the ${ds.name} but has ${rep.length === 1 ? 'the column' : 'the columns'} ` +
+    `${listOf(rep)} more than once; keep one copy of ${rep.length === 1 ? 'it' : 'each'}`;
   const hasNameColumn = (header, col) => header.some(h => rName(h) === rName(col));
   // True when a file's name, its path or the end of its path is the given file name (case ignored).
   function fileMatches(rec, value) {
@@ -209,9 +215,12 @@
       const pickedId = own(picks, rec.id);
       if (pickedId) {
         const ds = dsList.find(d => d.id === pickedId);
-        const miss = ds ? missingColumns(rec.header, ds) : [];
-        if (ds && !miss.length) { rec.via = 'your choice'; claim(rec, ds); continue; }
-        if (ds) { rec.reason = `you chose the ${ds.name}, but it has no ${listOf(miss)}`; continue; }
+        const miss = ds ? missingColumns(rec.header, ds) : [], rep = ds ? repeatedColumns(rec.header, ds) : [];
+        if (ds && !miss.length && !rep.length) { rec.via = 'your choice'; claim(rec, ds); continue; }
+        if (ds) {
+          rec.reason = miss.length ? `you chose the ${ds.name}, but it has no ${listOf(miss)}` : repeatedReason(ds, rep);
+          continue;
+        }
       }
       // bundle.json entry: used when it fits; otherwise reported and the file is still recognized below.
       const mappedId = Object.keys(mapping).find(id => fileMatches(rec, mapping[id]));
@@ -219,13 +228,16 @@
       if (mappedId) {
         const ds = dsList.find(d => d.id === mappedId);
         const miss = ds ? missingColumns(rec.header, ds) : null;
-        if (ds && !miss.length) { rec.via = 'bundle.json'; claim(rec, ds); continue; }
+        if (ds && !miss.length && !repeatedColumns(rec.header, ds).length) { rec.via = 'bundle.json'; claim(rec, ds); continue; }
         mapIssue = ds ? `bundle.json names it as the ${ds.name}, but it has no ${listOf(miss)}`
           : `bundle.json names it as "${mappedId}", which is not a ${profile.name} dataset`;
       }
       let pick = dsList.filter(d => !missingColumns(rec.header, d).length);
+      const doubled = pick.find(d => repeatedColumns(rec.header, d).length);
+      pick = pick.filter(d => !repeatedColumns(rec.header, d).length);
       if (!pick.length) {
-        rec.reason = mapIssue || nearMiss(rec, dsList) || `its columns do not match any ${profile.name} dataset`;
+        rec.reason = doubled ? repeatedReason(doubled, repeatedColumns(rec.header, doubled))
+          : mapIssue || nearMiss(rec, dsList) || `its columns do not match any ${profile.name} dataset`;
         continue;
       }
       rec.warning = mapIssue;

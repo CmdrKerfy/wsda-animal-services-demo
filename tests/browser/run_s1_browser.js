@@ -151,7 +151,7 @@ function compareToOracle(name, st, ov) {
     check(rendered.every(f => f.col === (f.d === 'Inbound' ? '#1C9CD9' : '#F0A06E')), 'WSDA Default colors on the map');
     check(rendered.every(f => { const g = st.data.find(x => x.county === f.c && x.direction === f.d); return g && Math.abs(g.radius_px - f.r) < 1e-9; }), 'rendered radii equal engine radii');
     check(JSON.stringify(st.legend.swatches.map(s => s.direction)) === '["Inbound","Outbound"]', 'legend direction order');
-    check(await p.eval('/Sizes scaled per direction/.test(document.getElementById("legend-panel").textContent)'), 'legend notes per-direction scaling');
+    check(await p.eval('/Inbound and outbound circles use separate scales/.test(document.getElementById("legend-panel").textContent)'), 'legend notes per-direction scaling');
     const opac = await p.eval('JSON.stringify(CVIWA.state.mapHandle.map.getPaintProperty("circles","circle-opacity"))');
     check(opac === JSON.stringify(['case', ['boolean', ['feature-state', 'hover'], false], 0.85, 0.6]), 'opacity 0.6, hover +0.25', opac);
 
@@ -168,7 +168,7 @@ function compareToOracle(name, st, ov) {
         if (bins.length > 1) st = await setSelect('s-bins', 5);
       }
     }
-    check(await p.eval('!/Sizes scaled per direction/.test(document.getElementById("legend-panel").textContent)'), 'no per-direction note in Total mode');
+    check(await p.eval('!/Inbound and outbound circles use separate scales/.test(document.getElementById("legend-panel").textContent)'), 'no per-direction note in Total mode');
     // S1.1: the Combined circle in the palette's first color (CVI: #245566 whatever the palette), on the map and the legend.
     check(st.legend.swatches.length === 1 && st.legend.swatches[0].direction === 'Total' && st.legend.swatches[0].color === '#1C9CD9', 'Total swatch: WSDA Default\'s first color (S1.1)');
     check((await p.eval(`CVIWA.state.mapHandle.map.queryRenderedFeatures({layers:['circles']}).map(function(f){return f.properties.color})`)).every(c => c === '#1C9CD9'), 'Total circles: WSDA Default\'s first color (S1.1)');

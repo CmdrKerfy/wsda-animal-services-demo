@@ -109,7 +109,7 @@
       `<pre>${esc(JSON.stringify(m.bundleExample, null, 2))}</pre></details>`;
     if (opts && opts.sample) {
       h += `<div class="guide-sample"><button type="button" class="btn" data-sample="${id}">${icon('download')}Download a sample bundle (ZIP)</button>` +
-        ' <span class="muted">' + esc(profile.sampleNote || 'Made-up data in the shapes above: every dataset listed, and a bundle.json. Load it under "Load your data" to see every feature switched on. Not real records.') + '</span>' +
+        '<p class="muted sample-note">' + esc(profile.sampleNote || 'Made-up data in the shapes above: every dataset listed, and a bundle.json. Load it under "Load your data" to see every feature switched on. Not real records.') + '</p>' +
         `<div class="status" role="status" data-sample-status="${id}" hidden></div></div>`;
     }
     return h + '</details>';
@@ -166,8 +166,8 @@
   // The one sample button: the all-in-one sample, at the top of the section.
   function sampleHtml() {
     return '<div class="guide-sample"><button type="button" class="btn" data-sample="all">' + icon('download') +
-      'Download a sample bundle (ZIP)</button> <span class="muted">Made-up data for every dashboard, with a ' +
-      'bundle.json. Load it under "Load your data" to try every feature. Not real records.</span>' +
+      'Download a sample bundle (ZIP)</button><p class="muted sample-note">Made-up data for every dashboard, with a ' +
+      'bundle.json. Load it under "Load your data" to try every feature. Not real records.</p>' +
       '<div class="status" role="status" data-sample-status="all" hidden></div></div>';
   }
 
@@ -205,7 +205,8 @@
         const out = await p.sample.build();
         root.WSDA.sample.download(out.fileName, out.bytes);
         state.downloads++;
-        say('ok', `Your browser is saving ${out.fileName} (${size(out.bytes.length)} of made-up data). Load it under "Load your data" above.`
+        say('ok', `Saved to your Downloads folder, unless your browser asks where: ${out.fileName} ` +
+          `(${size(out.bytes.length)} of made-up data). Load it under "Load your data" above.`
           + ' If no file appears, your browser or IT policy blocked the download.');
       } catch (err) {
         say('err', 'The sample bundle could not be made: ' + (err && err.message || err) + ' Reload the page and try again.');

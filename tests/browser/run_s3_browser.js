@@ -247,7 +247,9 @@ let pass = 0, fail = 0; const failures = [];
 const check = (ok, name, detail) => { if (ok) pass++; else { fail++; failures.push(name + (detail !== undefined ? ' :: ' + JSON.stringify(detail).slice(0, 600) : '')); } };
 const near = (a, b, tol) => a && b && a.length >= 3 && [0, 1, 2].every(i => Math.abs(a[i] - b[i]) <= (tol || 3));
 const hostOf = u => { try { return new URL(u).hostname; } catch (e) { return u; } };
-const OWN_LAYERS = ['wa-land', 'county-lines', 'circles', 'circles_dim', 'circles_spotlight'];
+// The page's own layers, each circle layer with its dark edge just below it (version 1.1).
+const OWN_LAYERS = ['wa-land', 'county-lines', 'circles-edge', 'circles', 'circles_dim-edge', 'circles_dim',
+  'circles_spotlight-edge', 'circles_spotlight'];
 const LAND = [236, 236, 236], BG = [248, 249, 250];
 
 // Pixels of a map's own canvas (no labels, no controls) at fractions of its size, drawn on the spot.
@@ -370,7 +372,7 @@ const MAPSTATE = handle => `(function(){var s=${handle},m=s.map,G=m.getStyle(),L
     check(run.liberty.styleRequests === 1, 'Liberty: the style is read once', run.liberty);
     const kinds = ['/styles/liberty', '/planet', '.pbf', '/sprites/ofm_f384/ofm.json', '/sprites/ofm_f384/ofm.png', '/fonts/', '/natural_earth/ne2sr/'];
     check(kinds.every(x => got.some(u => u.indexOf(x) >= 0)), 'Liberty: style, TileJSON, vector tiles, sprite, fonts and raster relief were requested', got.slice(0, 20));
-    check(s.basemap === 'ofm-liberty' && !s.failed && !s.basemapFailed && s.land === 'none' && JSON.stringify(s.layers.slice(-5)) === JSON.stringify(OWN_LAYERS) && s.layers[0] === 'background',
+    check(s.basemap === 'ofm-liberty' && !s.failed && !s.basemapFailed && s.land === 'none' && JSON.stringify(s.layers.slice(-OWN_LAYERS.length)) === JSON.stringify(OWN_LAYERS) && s.layers[0] === 'background',
       'Liberty: the provider\'s layers under the page\'s own; land fill hidden', s);
     check(s.circles === circles0 && Math.abs(s.center[0] - cam0[0]) < 1e-9 && Math.abs(s.center[1] - cam0[1]) < 1e-9 && Math.abs(s.zoom - cam0[2]) < 1e-9,
       'Liberty: switching keeps the camera and the circles', { s, cam0, circles0 });
@@ -504,7 +506,7 @@ const MAPSTATE = handle => `(function(){var s=${handle},m=s.map,G=m.getStyle(),L
         if (!sent.length || !sent.every(u => bm.hosts.indexOf(hostOf(u)) >= 0)) problems.push('hosts');
         if (!near(px[0], colorFor(bm))) problems.push('pixels ' + px[0]);
         if (st.land !== 'none' || st.basemapFailed || look.msg) problems.push('land or failure');
-        if (JSON.stringify(st.layers.slice(-5)) !== JSON.stringify(OWN_LAYERS)) problems.push('layers');
+        if (JSON.stringify(st.layers.slice(-OWN_LAYERS.length)) !== JSON.stringify(OWN_LAYERS)) problems.push('layers');
         if (!st.attribution || st.attribution.indexOf(bm.attribution) < 0 || !st.creditOpen) problems.push('credit ' + st.attribution);
         if (!shot || shot.indexOf(bm.attribution) < 0) problems.push('screenshot credit');
         if (look.note !== BM.providerLine(bm)) problems.push('provider line');

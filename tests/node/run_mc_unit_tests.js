@@ -934,9 +934,11 @@ function exportHandCases() {
   const params = EX.exportParams('wa', withChips, opts, now).split('\n');
   const one = EX.exportParams('wa', Object.assign({}, base, { chartFilters: ['Period: 2025 Q2'] }), opts, now).split('\n');
   const none = EX.exportParams('wa', base, opts, now);
-  const stamp = params.findIndex(l => l.indexOf('"exported_at"') >= 0);
+  // The chart filters come last among the choices, just before the coordinates line and "exported_at".
+  const stamp = params.findIndex(l => l.indexOf('"coordinates"') >= 0);
   check(params[stamp - 1] === '  "chart_filters": ["Species group: Cattle", "Spotlight: King, Pierce"],'
-    && one[one.findIndex(l => l.indexOf('"exported_at"') >= 0) - 1] === '  "chart_filters": "Period: 2025 Q2",',
+    && one[one.findIndex(l => l.indexOf('"coordinates"') >= 0) - 1] === '  "chart_filters": "Period: 2025 Q2",'
+    && params[stamp + 1].indexOf('"exported_at"') >= 0,
   'exports: export_params.json lists the chart filters before exported_at (one value written plain)', [params[stamp - 1], one]);
   check(none.indexOf('chart_filters') < 0 && EX.exportParams('wa', Object.assign({}, base, { chartFilters: [] }), opts, now) === none,
     'exports: no chart filters, export_params.json as before');

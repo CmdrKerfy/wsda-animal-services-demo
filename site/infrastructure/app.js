@@ -281,7 +281,7 @@
     }
     const note = document.createElement('p');
     note.className = 'legend-note';
-    note.textContent = 'Cluster numbers count facility points, including coincident locations. Hover for up to 15 names. Cluster clicks have no action.';
+    note.textContent = 'Cluster numbers count facility points, including coincident locations. Hover for up to 15 names. Zoom in to split a numbered group.';
     legend.append(note);
     activityLegend(legend);
     pcLegend(legend);
@@ -334,6 +334,7 @@
 
   // ---- Map Style ---------------------------------------------------------------------------------------------
   state.map.notify = msg => say('screenshot-status', 'info', msg);
+  state.map.shotName = 'Infrastructure';   // the camera picture's name
   // After a basemap change: redraw, and say so when the basemap failed and the offline map is shown.
   function basemapChanged() {
     redraw();
@@ -722,6 +723,8 @@
     // Choosing Infrastructure directly is explicit; reuse only recognized shared mappings from a CVI hint (a
     // bundle.json that lists CVI and not Infrastructure; one that lists both maps its files here as they are).
     const bundle = checklist.state.bundle, listed = bundle && bundle.found ? W.bundle.listed(bundle.info) : null;
+    // Made-up data (a bundle.json marked "synthetic", here or on the landing page): said on the pictures it makes.
+    state.synthetic = payload ? payload.synthetic === true : !!(bundle && bundle.found && bundle.info.synthetic);
     if (listed && listed.includes('cvi') && !listed.includes('infrastructure')) {
       await checklist.setProfile(profile, { reuseShared: true });
       if (op !== state.op) return false;
@@ -867,10 +870,11 @@
       view: radio('coverage'), ramp: $('export-ramp').value, background: $('export-background').value,
       quality: $('export-quality').value, resolution: $('export-resolution').value, nameLayers: state.nameLayers.slice(),
       layers: state.result.layers, picked: state.counties.slice(),
-      activity: on ? { rows: state.activityData, universe: m.speciesChoices, palette: a.palette, opacity: a.opacity,
+      activity: on ? { rows: state.activityData, universe: m.speciesChoices, yearChoices: m.yearChoices.slice(),
+        palette: a.palette, opacity: a.opacity,
         f: { species: a.species.slice(), years: a.years.slice(), quarters: a.quarters.slice(), scaling: a.scaling,
           nBins: a.nBins } } : null,
-      period: m ? { years: a.years.slice(), quarters: a.quarters.slice() } : null,
+      period: m ? { years: a.years.slice(), quarters: a.quarters.slice(), yearChoices: m.yearChoices.slice() } : null,
       // Copied, as every choice here, so a change during the export does not reach it.
       attributes: JSON.parse(JSON.stringify(state.attributes || {})), labelStyle: state.labelStyle,
       boundaryStyle: state.boundaryStyle, population: pcInput()
@@ -881,7 +885,7 @@
     return IB.facilities({ layers: ch.layers, counties: root.CVIWA_GEO.counties.features, picked: ch.picked,
       view: ch.view, ramp: ch.ramp, chrome: ch.chrome, nameLayers: ch.nameLayers, activity: ch.activity,
       period: ch.period, title: ch.title, date: now, background, labelStyle: ch.labelStyle,
-      boundaryStyle: ch.boundaryStyle, population: ch.population });
+      boundaryStyle: ch.boundaryStyle, population: ch.population, synthetic: !!state.synthetic });
   }
   // The picture: a tile background loaded first when one is picked; when it cannot be, the Default background and a
   // notice (a deliberate difference).
@@ -953,10 +957,11 @@
     return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + ':' +
       two(d.getMinutes()) + ':' + two(d.getSeconds());
   };
-  // The export's export_params.json: the choices and counts behind the PNG.
+  // The export's export_params.json: the choices and counts behind the PNG, and "data_note" for an export made from
+  // the synthetic sample.
   function exportParams(ch, model, now) {
     const a = ch.activity;
-    return {
+    const p = {
       map: 'facilities', facility_layers: ch.layers.map(l => l.key), facility_counts: model.layers.map(l => ({
         layer: l.key, mapped: l.count, unplaced: l.unplaced })), counties: ch.picked,
       attribute_filters: ch.attributes, output_style: ch.chrome, png_coverage_view: ch.view,
@@ -965,8 +970,11 @@
       cvi_activity: a ? { species: a.f.species, years: a.f.years, quarters: a.f.quarters, scaling: a.f.scaling,
         n_bins: a.f.nBins, opacity: a.opacity, palette: a.palette } : null,
       population_context: PN.exportParams(ch.population ? ch.population.on : null),
-      map_title: model.title, export_label: ch.label.trim(), exported_at: localTime(now)
+      map_title: model.title, export_label: ch.label.trim()
     };
+    if (state.synthetic) p.data_note = 'Synthetic sample data';
+    p.exported_at = localTime(now);
+    return p;
   }
   $('run-export').addEventListener('click', async () => {
     if (drawing || blocked('to export')) return;
@@ -1002,7 +1010,15 @@
   root.WSDA.infrastructure = { state, checklist, sample, run, redraw, reset };
 
   // Files from the hub arrive in memory through the per-click handoff; a direct local choice made first wins.
+  let sentNothing = false;   // opened from the landing page with nothing loaded there
   const waiting = W.load.handoff.receive(profile.id, (payload, reply) => {
+    if (payload.empty) {
+      if (state.op > 0) return;
+      sentNothing = true;
+      say('load-status', 'warn', 'Nothing has been loaded on the landing page yet. Load your files there and click ' +
+        'Open Infrastructure, or load files here.');
+      return;
+    }
     if (state.op > 0) {
       reply({ ok: false, message: 'Files were chosen in Infrastructure while files from the landing page were on their way; the local files are kept. Click Open Infrastructure again to resend.' });
       return;
@@ -1026,7 +1042,9 @@
   const hubMessage = 'Files are kept in memory only. If the landing page is closed or unavailable, load files here or open Infrastructure from the landing page again.';
   if (waiting) {
     say('load-status', 'info', 'Waiting for files from the landing page…');
-    root.setTimeout(() => { if (!state.version && !state.loading) say('load-status', 'warn', hubMessage); }, 10000);
+    root.setTimeout(() => {
+      if (!state.version && !state.loading && !sentNothing) say('load-status', 'warn', hubMessage);
+    }, 10000);
   } else if (/[?&]handoff=/.test(root.location.search)) {
     say('load-status', 'warn', hubMessage);
   }

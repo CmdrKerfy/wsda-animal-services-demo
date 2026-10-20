@@ -465,7 +465,9 @@ function runModuleMatrix() {
         check(strip.state === cviStrip.state, tag + ': strip state');
         if (strip.state === 'summary') {
           check(strip.items.length === cviStrip.items.length + (built.omittedRows ? 1 : 0), tag + ': strip rows plus the undrawn notice (by design)');
-          cviStrip.items.forEach((e,i) => check(strip.items[i] && strip.items[i].label === e.label && strip.items[i].text === flat(e.text), tag + ': module strip ' + i));
+          // The page names CVI's "Animals: " for what it counts (STRIP_ANIMALS, a deliberate difference); the rest is CVI's.
+          const label = l => (l === 'Animals: ' ? F.STRIP_ANIMALS : l);
+          cviStrip.items.forEach((e,i) => check(strip.items[i] && strip.items[i].label === label(e.label) && strip.items[i].text === flat(e.text), tag + ': module strip ' + i));
         } else check(equal(strip.lines,cviStrip.lines), tag + ': strip message');
       }
       if (v.step) {
@@ -546,7 +548,8 @@ function runSummaries() {
       check(st.state === 'message' && equal(st.lines, cvi.strip.lines), tag + ': strip message');
     } else {
       check(st.state === 'summary' && st.items.length === (built.omittedRows ? 5 : 4), tag + ': strip items (plus rows not on the map)');
-      cvi.strip.items.forEach((e, i) => check(st.items[i] && st.items[i].label === e.label && st.items[i].text === flat(e.text), tag + ': strip ' + flat(e.label)));
+      const label = l => (l === 'Animals: ' ? F.STRIP_ANIMALS : l);   // the page's name for CVI's "Animals: "
+      cvi.strip.items.forEach((e, i) => check(st.items[i] && st.items[i].label === label(e.label) && st.items[i].text === flat(e.text), tag + ': strip ' + flat(e.label)));
       check(st.items[2].help === F.HELP_STRIP, tag + ': strip Animals help text');
     }
     views.push({ view: tag, summary: s, strip: st.state === 'summary' ? st.items.map(x => x.label + x.text) : st.lines });

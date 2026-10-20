@@ -98,10 +98,13 @@
         layout: { visibility }, paint: {
         'circle-color': BUBBLE[dir], 'circle-radius': CLUSTER_RADIUS, 'circle-opacity': clusterPaint(op, !!st.focusLit),
         'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' } });
+      // The premises' thin dark edge, as on the WA State map (map.js edgeLayer).
+      const edge = dir => M().edgeLayer(POINTS[dir], SRC[dir], { filter: ['!', ['has', 'point_count']],
+        layout: { visibility, 'circle-sort-key': ['id'] } });
       return [{ id: 'wa_focus_outline_fill', type: 'fill', source: SEL, paint: { 'fill-color': TEAL, 'fill-opacity': 0.08 } },
         { id: 'wa_focus_outline_line', type: 'line', source: SEL,
           paint: { 'line-color': (st.contrast && st.contrast.border) || TEAL, 'line-width': 2.2, 'line-opacity': 0.95 } },
-        points('Inbound'), clusters('Inbound'), points('Outbound'), clusters('Outbound')]
+        edge('Inbound'), points('Inbound'), clusters('Inbound'), edge('Outbound'), points('Outbound'), clusters('Outbound')]
         .concat((st.fac ? st.fac.layers : []).map(FAC_LAYER));
     },
     draw: (st, d, opts) => draw(st, d, opts),
@@ -213,7 +216,9 @@
     st.focusHidden = !!on;
     if (!st.ready || st.switching || st.failed) return;
     if (on) { st.clearHover(); if (st.clickPopup) { st.clickPopup.remove(); st.clickPopup = null; } }
-    HOVER_LAYERS.forEach(id => { if (st.map.getLayer(id)) st.map.setLayoutProperty(id, 'visibility', on ? 'none' : 'visible'); });
+    HOVER_LAYERS.concat(EDGE_LAYERS).forEach(id => {
+      if (st.map.getLayer(id)) st.map.setLayoutProperty(id, 'visibility', on ? 'none' : 'visible');
+    });
   }
 
   // "Group nearby premises": on, CVI's clusters (numbered bubbles of one size
@@ -332,6 +337,7 @@
 
   // ---- Hover, click and the count labels ---------------------------------------------------------------------------
   const HOVER_LAYERS = [POINTS.Inbound, CLUSTERS.Inbound, POINTS.Outbound, CLUSTERS.Outbound];
+  const EDGE_LAYERS = [POINTS.Inbound + '-edge', POINTS.Outbound + '-edge'];
   // Whether the premises layers are on the map (not in the middle of a basemap change); the facility layers on it.
   const ready = st => !st.switching && !!st.map.getLayer(POINTS.Inbound);
   const facIds = st => (st.fac ? st.fac.layers : []).map((l, i) => FAC(i)).filter(id => st.map.getLayer(id));

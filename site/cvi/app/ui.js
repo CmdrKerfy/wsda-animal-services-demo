@@ -122,7 +122,29 @@
       foCounties: fo.counties, foSpecies: fo.species, foYears: fo.years, foQuarters: fo.quarters }[key];
     renderChecklist(L.el(), L.choices(), sel, v => { L.set(v); foldSummary(key); changed(key); });
     foldSummary(key);
+    if (key === 'foCounties') findCounty();
   }
+  // County Focus's type-to-find field: only the counties whose name holds the typed text are shown; ticks are kept,
+  // and an empty field shows them all again.
+  function findCounty() {
+    const q = $('fo-county-find').value.trim().toLowerCase();
+    let shown = 0;
+    $('fo-counties').querySelectorAll('label').forEach(lab => {
+      lab.hidden = !!q && lab.textContent.trim().toLowerCase().indexOf(q) < 0;
+      if (!lab.hidden) shown++;
+    });
+    const none = $('fo-county-none'), text = q && !shown ? 'No county matches "' + q + '".' : '';
+    if (none.textContent !== text) none.textContent = text;
+  }
+  $('fo-county-find').addEventListener('input', findCounty);
+  // A note shown only while its export box is ticked (data-shown-with: the box), so the sidebar stays short.
+  doc.querySelectorAll('[data-shown-with]').forEach(n => {
+    const box = doc.querySelector(n.getAttribute('data-shown-with'));
+    if (!box) return;
+    const sync = () => { n.hidden = !box.checked; };
+    box.addEventListener('change', sync);
+    sync();
+  });
   // Species Group and Spotlight Counties fold, closed when the page opens (CVI uses compact
   // dropdown pickers). The header says what is ticked, so the list need not be opened to see it.
   doc.querySelectorAll('.fold-toggle').forEach(b => b.addEventListener('click', () => {
@@ -243,7 +265,9 @@
   });
   // A load superseded by a newer one (a file chosen here) still answers the landing page, once.
   const SUPERSEDED = 'a file was chosen on the map page while yours were on their way, and that file is kept. Click "Open the CVI map" to send yours again.';
-  function loadFile(f, reply) {          // reply({ ok, message }): only for files handed over by the landing page
+  // reply({ ok, message }): only for files handed over by the landing page; synthetic: they came from a bundle.json
+  // marked "synthetic" (the sample), so the pictures and export_params.json say "Synthetic sample data".
+  function loadFile(f, reply, synthetic) {
     let replied = false;
     const done = reply && (r => { if (!replied) { replied = true; reply(r); } });
     const request = ++loadVersion, previousSpecies = st.species.slice(), previousSub = st.speciesSub.slice();
@@ -282,6 +306,7 @@
       st.speciesSub = previousSub;
       st.master = m;
       st.masterName = f.name;   // S11: for Premise Lookup's export_params.json
+      st.synthetic = !!synthetic;
       st.years = m.yearChoices.slice();
       st.spotlightChoices = W.summary.spotlightChoices(m); st.spotlight = [];   // CVI: choices from the data, none picked
       st.cf = W.crossfilter.create(); st.cfMessage = null;   // MC: no chart filters on a new file
@@ -344,7 +369,13 @@
     st.received = { datasets: Object.keys(d.datasets || {}), banner: d.banner || null };   // test hook
     if (loadVersion !== askedAt) {    // a read failure there was already reported there; otherwise say why nothing loaded
       st.received.superseded = true;
-      if (!d.error) reply({ ok: false, message: SUPERSEDED });
+      if (!d.error && !d.empty) reply({ ok: false, message: SUPERSEDED });
+      return;
+    }
+    if (d.empty) {                    // opened from the landing page with nothing loaded there
+      st.received.empty = true;
+      setStatus('warn', 'No master dataset loaded. Nothing has been loaded on the landing page yet: load your ' +
+        'files there and click "Open the CVI map", or choose a CSV here.');
       return;
     }
     if (d.error) {                    // the landing page could not read the files
@@ -361,7 +392,7 @@
     W.setFacilityFiles(d.datasets || {}).then(f => {
       rec.facilities = Object.keys(f.layers).filter(k => f.layers[k]).sort();
     });
-    if (m && m.file instanceof root.Blob) loadFile(m.file, reply);
+    if (m && m.file instanceof root.Blob) loadFile(m.file, reply, d.synthetic === true);
     else reply({ ok: false, message: 'No CVI master table was sent.' });
   });
   // A tab opened from the landing page says it is waiting for its files, and after 10 seconds without any (the
@@ -598,7 +629,7 @@
     (t === 'legend-toggle-b' ? [[t, panel]] : LEGENDS).forEach(([bt, pn]) => {
       const b = $(bt);
       if (b.disabled && bt !== t) return;
-      $(pn).hidden = !open; b.innerHTML = open ? 'Legend &#9650;' : 'Legend &#9660;';
+      $(pn).hidden = !open; b.innerHTML = 'Legend <span aria-hidden="true">' + (open ? '&#9650;' : '&#9660;') + '</span>';   // the arrow is not read out
       b.setAttribute('aria-expanded', String(open));
     });
   }));
@@ -715,6 +746,7 @@
         W.map.setPopulation(mapStB, pcFor('wa'));   // PC: the population layers as on the left map
         W.map.setContrast(mapStB, st.labelStyle, st.boundaryStyle);
         mapStB.notify = msg => toast(msg, 6000);
+        mapStB.shotName = 'Compare';
         mapStB.onBasemapError = b => basemapError(b, mapStB);
         mapStB.onBasemapRecovered = basemapRecovered;
         mapStB.onFit = () => { if (mapStB.ready && !mapFailedB) W.map.fitView(mapStB); };
@@ -945,10 +977,13 @@
         const ic = el('div', 'metric-icon'); ic.style.background = m.accent; ic.innerHTML = W.icons[m.icon];
         const tx = el('div', 'metric-text'), lab = el('div', 'metric-label', m.label);
         if (m.help) { lab.appendChild(tipButton('total', m.label, m.help)); help = helpNote('total', m.help); }
-        // A grayed box shows its reason in place of the value, so it keeps the other boxes' size (full text on hover).
-        const val = m.disabled ? el('div', 'metric-value metric-reason', m.short) : el('div', 'metric-value', m.text);
+        // A grayed box shows its reason in place of the value, so it keeps the other boxes' size (full text on hover);
+        // a zero box says why it is zero, so the state is not shown by its gray alone.
+        const why = m.disabled ? 'Not available: ' + m.short.charAt(0).toLowerCase() + m.short.slice(1) : m.short;
+        const val = m.disabled ? el('div', 'metric-value metric-reason', why) : el('div', 'metric-value', m.text);
         val.title = m.disabled ? m.reason : m.text;
         tx.appendChild(lab); tx.appendChild(val);
+        if (m.zero && !m.disabled) tx.appendChild(el('div', 'metric-value metric-why', 'none for these filters'));
         card.appendChild(ic); card.appendChild(tx);
         const cell = el('div'); cell.appendChild(card); row.appendChild(cell);
       });
@@ -1085,6 +1120,12 @@
       const t = doc.createElement('span'); t.textContent = x; row.appendChild(dot); row.appendChild(t); p.appendChild(row);
       return { direction: x, color, shown, land };
     });
+    // Separate mode places a county's Inbound circle a little west of its Outbound one: said, so color is not the
+    // only way to tell them apart.
+    if (present.has('Inbound') && present.has('Outbound')) {
+      const n = doc.createElement('div'); n.className = 'lg-note'; n.textContent = 'Inbound left, Outbound right';
+      p.appendChild(n);
+    }
     const tiers = W.scaling.legendRadii(d.map(r => r.total_animals), st.scaling, st.nBins);
     const sizes = [];
     if (tiers) {
@@ -1095,7 +1136,7 @@
       p.appendChild(n.svg);
       if (st.direction.length > 1 && st.mode !== 'total') {
         const n = doc.createElement('div'); n.style.cssText = 'font-size:0.75rem;color:#777;margin-top:4px;font-style:italic;';
-        n.textContent = 'Sizes scaled per direction'; p.appendChild(n);
+        n.textContent = 'Inbound and outbound circles use separate scales'; p.appendChild(n);
       }
     }
     return { swatches, sizes, tiers };
@@ -1181,6 +1222,7 @@
       } catch (e) { flowError(); recomputeFlow(); return; }
       st.flowHandle = flowMap;   // test hook
       flowMap.notify = msg => toast(msg, 6000);
+      flowMap.shotName = 'NationalFlow';
       W.flowmap.setLabels(flowMap, fl.labels); W.flowmap.setLines(flowMap, fl.lines);
       recomputeFlow();
     }).catch(e => flowError((e && e.message) || String(e)));
@@ -1476,6 +1518,7 @@
       } catch (e) { focusError(); return; }
       st.focusHandle = focusMap;   // test hook
       focusMap.notify = msg => toast(msg, 6000);
+      focusMap.shotName = 'CountyFocus';
       focusMap.onFit = fitFocus;
       // The Focus style as set before the map was made (applied once it is ready).
       W.focusmap.setHidden(focusMap, fo.hide); W.focusmap.setOpacity(focusMap, fo.opacity);
@@ -1915,7 +1958,8 @@
     if (focusLive()) W.map.setPopulation(focusMap, pcFor('focus'));   // PC: the names follow the picked counties
     applyFacilities();
     fo.valueBoxes = st.master
-      ? FO.valueBoxes(req ? FO.summary(st.master, o, fo.built) : null, fo.built.missingCoordinates)
+      ? FO.valueBoxes(req ? FO.summary(st.master, o, fo.built) : null, fo.built.missingCoordinates,
+        { noCounty: !o.counties.length })
       : FO.valueBoxes(null);
     fo.strip = st.master ? FO.strip(o, fo.built) : { state: 'none', lines: ['Load a master dataset.'] };
     renderFocusLegend();
@@ -2610,7 +2654,7 @@
   // pictures takes seconds, and the Map View and "Show charts by:" stay usable meanwhile.
   function clickChoices() {
     const per = st.view === 'wa' ? st : st.view === 'flow' ? fl : fo;
-    return { view: st.view, speciesChoices: st.master.speciesChoices,
+    return { view: st.view, speciesChoices: st.master.speciesChoices, yearChoices: st.master.yearChoices.slice(),
       opts: { measure: st.chartMeasure, compare: st.chartCompare, years: per.years.map(String), quarters: per.quarters.slice() },
       // S9: the branded map's choices and the PNG settings, also taken at the click.
       branded: brandedChoices(),
@@ -2697,7 +2741,7 @@
       const kind = W.crossfilter.ownKind(chart.id, ch.view);
       return !!kind && cf[ch.view][kind].length > 0;
     };
-    const caption = EX.chartCaption(ch.view, inp.f, ch.speciesChoices);
+    const caption = EX.chartCaption(ch.view, inp.f, ch.speciesChoices, ch.yearChoices);
     const footer = EX.chartFooter(now);
     // test hook
     st.lastExportCharts = { view: ch.view, charts: shown, faded: shown.filter(fade).map(c => c.id), caption, footer };
@@ -2724,13 +2768,14 @@
   st.lastBranded = null;   // test hook: the models of the last branded pages drawn
   // The branded pages of the click: one, or in Compare the left and the right map ("…_left.png", "…_right.png").
   function brandedBuild(inp, ch, now, background) {
-    const b = ch.branded, universe = ch.speciesChoices, counties = root.CVIWA_GEO.counties.features;
+    const b = ch.branded, universe = ch.speciesChoices, yearChoices = ch.yearChoices;
+    const counties = root.CVIWA_GEO.counties.features;
     if (!inp.agg || !inp.agg.length) return [];
     if (ch.view === 'wa') {
       const shade = b.shade ? Object.assign({}, b.shade, { cls: shadeClassesAt(inp, ch) }) : null;
-      const page = (rows, f, movement) => BM.wa({ rows, f, universe, palette: b.palette, opacity: b.opacity,
+      const page = (rows, f, movement) => BM.wa({ rows, f, universe, yearChoices, palette: b.palette, opacity: b.opacity,
         title: b.title, date: now, counties, spotlight: b.spotlight, highlights: b.highlights, movement,
-        regions: b.regions, background, population: b.population, shade });
+        regions: b.regions, background, population: b.population, shade, synthetic: st.synthetic });
       if (!b.right) return [page(inp.agg, inp.f, b.movement)];
       const out = [page(inp.agg, inp.f, b.movement)];
       if (b.right.rows.length) out.push(page(b.right.rows, b.right.f, b.right.movement));
@@ -2741,14 +2786,16 @@
     if (ch.view === 'flow') {
       if (!flowGeo) return [];
       const shade = b.shade ? Object.assign({}, b.shade, { cls: shadeClassesAt(inp, ch) }) : null;
-      return [BM.flow({ lines: inp.agg, f: Object.assign({}, inp.f, { lines: b.stateLines }), universe, title: b.title,
-        date: now, states: flowGeo.states.states.features, highlights: b.highlights, highlight: b.cf.flow.place, shade })];
+      return [BM.flow({ lines: inp.agg, f: Object.assign({}, inp.f, { lines: b.stateLines }), universe, yearChoices,
+        title: b.title, date: now, states: flowGeo.states.states.features, highlights: b.highlights, highlight: b.cf.flow.place, shade,
+        synthetic: st.synthetic })];
     }
     const highlight = W.crossfilter.focusHighlight(inp.agg, st.master.rows, b.cf);
     const built = BM.focus({ premises: inp.agg, f: Object.assign({}, inp.f, { opacity: b.focusOpacity,
-      hideCircles: b.hideCircles }), universe, title: b.title, date: now, counties, highlights: b.highlights, highlight,
+      hideCircles: b.hideCircles }), universe, yearChoices, title: b.title, date: now, counties, highlights: b.highlights,
+      highlight,
       background, facilities: b.facilities, nameLayers: b.nameLayers, streets: b.streets || null,
-      population: b.population });
+      population: b.population, synthetic: st.synthetic });
     return built ? [built] : [];
   }
   // A tile background (tiles.js) is loaded for each page's map box; when it cannot be, every page is drawn on the
@@ -2904,7 +2951,7 @@
       if (!fr.frames.length) return { error: TS.NO_FRAMES };
       const prepared = TS.prepare(fr, { universe: ch.speciesChoices, title: b.title, date: now,
         states: flowGeo.states.states.features, highlights: b.highlights, highlight: b.cf.flow.place,
-        stateLines: b.stateLines, shade: b.shade });
+        stateLines: b.stateLines, shade: b.shade, synthetic: st.synthetic });
       st.lastGif.parts = {};
       return { name: TS.fileName(inp.f), prepared };
     }
@@ -2919,8 +2966,9 @@
     const input = ch.view === 'wa'
       ? { universe: ch.speciesChoices, palette: b.palette, opacity: b.opacity, title: b.title, date: now, counties,
         spotlight: b.spotlight, highlights: b.highlights, regions: b.regions, background, population: b.population,
-        shade: b.shade }
+        shade: b.shade, synthetic: st.synthetic }
       : { universe: ch.speciesChoices, title: b.title, date: now, counties, highlights: b.highlights, background,
+        synthetic: st.synthetic,
         facilities: b.facilities, nameLayers: b.nameLayers, population: b.population,
         frameF: { opacity: b.focusOpacity, hideCircles: b.hideCircles },
         highlightOf: premises => W.crossfilter.focusHighlight(premises, master.rows, b.cf) };
@@ -3009,7 +3057,8 @@
     const inp = exportInputs();
     if (!inp.rows.length) { previewMessage(EX.MESSAGES.noRowsStats); return; }
     // The change from the previous quarter follows the charts' "Compare with".
-    const f = Object.assign({}, inp.f, { compare: st.view === 'flow' ? 'previous' : st.chartCompare });
+    const f = Object.assign({}, inp.f, { compare: st.view === 'flow' ? 'previous' : st.chartCompare,
+      yearChoices: st.master.yearChoices });
     PV.showStats(EX.statsPreview(st.view, f, inp.rows, inp.agg, new Date()));
   });
   // Preview Map (S9): the branded PNG the export would write, in a dialog; grayed and "Drawing…" meanwhile.
@@ -3135,6 +3184,7 @@
     }
     parts.params = EX.exportParams(view, inp.f, { label, formats, layersOn, png: ch.png, nameLayers: ch.branded.nameLayers,
       gifBy: ch.gifBy, population: ch.branded.population && PN.exportParams(ch.branded.population.on),
+      synthetic: st.synthetic,
       shade: ch.branded.shade && Object.assign({ cls: shadeClassesAt(inp, ch),
         gifCls: gifMade && gifMade.prepared && !gifMade.error ? gifMade.prepared.shadeCls : null }, ch.branded.shade) }, now);
     const z = EX.zipEntries(folder, parts);
@@ -3182,6 +3232,7 @@
     }, mapError);
     st.mapHandle = mapSt;   // test hook: MapLibre instance for rendered-feature checks
     mapSt.notify = msg => toast(msg, 6000);   // the screenshot button's message
+    mapSt.shotName = () => (st.periodMode === 'compare' ? 'Compare' : 'WAState');   // the camera picture's name
     mapSt.onBasemapError = b => basemapError(b, mapSt);
     mapSt.onBasemapRecovered = basemapRecovered;
     mapSt.onFit = fitMaps;
@@ -3216,5 +3267,5 @@
   // S11: the facility files the page holds (County Focus's, from the hand-off) and the master's file name.
   lookupPage = W.lookup.init({ master: () => st.master, loading: () => st.loading, loadScript, watchFile, geo: root.CVIWA_GEO,
     facilities: () => ({ prepared: fo.fac.prepared, reason: k => facReason(fo.fac.layers[k]) }),
-    masterName: () => (st.master ? st.masterName || '' : '') });
+    masterName: () => (st.master ? st.masterName || '' : ''), synthetic: () => !!(st.master && st.synthetic) });
 })(window);

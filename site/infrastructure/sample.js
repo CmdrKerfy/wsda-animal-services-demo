@@ -13,7 +13,7 @@
       'facility_overlays_manifest.csv': 'key,file,name_col,label,group,filter_cols\nsynthetic_support,synthetic_support.csv,name,Synthetic support,Other,Service\n',
       'synthetic_support.csv': 'name,lat,long,Service,geo_source\nSynthetic Support A,47.6,-122.33,Transport,existing\nSynthetic Support B,47.61,-122.34,Storage,NA\n',
       'bundle.json': JSON.stringify({ profile: 'infrastructure', label: 'Infrastructure – synthetic facilities only',
-        prepared: '2026-09-15' }, null, 2) + '\n'
+        prepared: '2026-09-15', synthetic: true }, null, 2) + '\n'
     };
     return Object.entries(files).map(([name, text]) => ({ name, data: new TextEncoder().encode(text) }));
   }

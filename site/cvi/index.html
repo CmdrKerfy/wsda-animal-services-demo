@@ -45,6 +45,9 @@
   .fold-sum { font-weight: 400; color: var(--muted); font-size: 0.85rem; }   /* inside the fold's button: a control's text */
   .fold-sum:not(:empty)::before { content: '\00A0\00B7\00A0'; }
   .gated .fold-toggle { color: var(--disabled); cursor: not-allowed; }
+  .checklist label[hidden] { display: none; }
+  input.find { width: 100%; box-sizing: border-box; margin: 0 0 0.3rem; padding: 0.25rem 0.4rem; font-size: 0.85rem;
+    border: 1px solid var(--border-input); border-radius: 4px; }
   .checklist { border: 1px solid var(--border-input); border-radius: 4px; padding: 0.3rem 0.5rem; max-height: 150px; overflow-y: auto; font-size: 0.85rem; }
   .checklist label, .radio label, .check label { display: flex; align-items: flex-start; gap: 0.4rem; font-weight: 400; margin: 0.15rem 0; cursor: pointer; font-size: 0.85rem; line-height: 1.3; }
   .radio label input, .check label input, .checklist label input { margin-top: 0.15rem; }
@@ -100,10 +103,12 @@
   .metric-text { min-width: 0; line-height: 1.1; }
   .metric-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
   .metric-value { font-size: 1rem; font-weight: 600; color: var(--text); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* A zero or unavailable box is faded, with a word saying why. */
   .metric-zero { opacity: 0.55; }
   .metric-zero .metric-value { color: var(--muted); font-weight: 500; }
   .metric.gated { opacity: 0.55; }
   .metric.gated .metric-value { color: var(--disabled); }
+  .metric-value.metric-why { font-size: 0.75rem; font-weight: 400; color: var(--muted); margin-top: 0.15rem; }
   .metric.gated .metric-value.metric-reason { font-size: 0.75rem; font-weight: 400; color: var(--muted); margin-top: 0.25rem; }
   .vb-alert { margin: 0 0 0.5rem 0; padding: 0.4rem 0.75rem; font-size: 0.85rem; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 4px; }
   #summary-strip { padding: 0.5rem 1rem; border-top: 1px solid var(--border); background: var(--panel); }
@@ -437,10 +442,17 @@
   .lk-legend .lg-pc-swatch { display: inline-block; width: 14px; height: 10px; flex: 0 0 auto; }
   .lk-legend .lg-note { font-style: italic; margin-top: 0.15rem; }
   .lk-warning, .export-warning { margin: 0.5rem 0 0; }
+  .map-alt { margin: 0.3rem 0.75rem 0; }
   #lookup-status { position: absolute; top: 12px; left: 52px; right: 52px; z-index: 7; margin: 0; }
   #lookup-toast { position: absolute; top: 10px; right: 50px; z-index: 6; max-width: 320px; }
   #lookup-toast div { background: var(--notice-bg); color: var(--notice-text); border: 1px solid var(--notice-border); border-radius: 4px; padding: 0.5rem 0.75rem; font-size: 0.85rem; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
   @media (max-width: 1100px) { .lk-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  /* Narrow windows, and 400% zoom (320 px wide): the sidebar stacks above the maps, as on the Infrastructure page. */
+  @media (max-width: 767px) {
+    .layout { flex-direction: column; }
+    aside.sidebar { width: auto; flex: 0 0 auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--border); }
+    .lk-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
 </style>
 </head>
 <body>
@@ -521,11 +533,11 @@
                 <p class="muted"><span data-icon="arrow-up-short"></span> Species Group above sets the left map.</p>
               </div>
               <div class="field">
-                <div class="ctl-row"><label class="ctl">Year(s)</label><span class="links"><button type="button" data-all="years">All</button> &middot; <button type="button" data-clear="years">Clear</button></span></div>
+                <div class="ctl-row"><span class="ctl">Year(s)</span><span class="links"><button type="button" data-all="years">All</button> &middot; <button type="button" data-clear="years">Clear</button></span></div>
                 <div class="checklist" id="f-years" role="group" aria-label="Years"></div>
               </div>
               <div class="field">
-                <div class="ctl-row"><label class="ctl">Quarter(s)</label><span class="links"><button type="button" data-all="quarters">All</button> &middot; <button type="button" data-clear="quarters">Clear</button></span></div>
+                <div class="ctl-row"><span class="ctl">Quarter(s)</span><span class="links"><button type="button" data-all="quarters">All</button> &middot; <button type="button" data-clear="quarters">Clear</button></span></div>
                 <div class="checklist" id="f-quarters" role="group" aria-label="Quarters"></div>
               </div>
             </div>
@@ -546,11 +558,11 @@
                 </div>
               </div>
               <div class="field">
-                <div class="ctl-row"><label class="ctl">Year(s)</label><span class="links"><button type="button" data-all="yearsB">All</button> &middot; <button type="button" data-clear="yearsB">Clear</button></span></div>
+                <div class="ctl-row"><span class="ctl">Year(s)</span><span class="links"><button type="button" data-all="yearsB">All</button> &middot; <button type="button" data-clear="yearsB">Clear</button></span></div>
                 <div class="checklist" id="f-years-b" role="group" aria-label="Right map Years"></div>
               </div>
               <div class="field">
-                <div class="ctl-row"><label class="ctl">Quarter(s)</label><span class="links"><button type="button" data-all="quartersB">All</button> &middot; <button type="button" data-clear="quartersB">Clear</button></span></div>
+                <div class="ctl-row"><span class="ctl">Quarter(s)</span><span class="links"><button type="button" data-all="quartersB">All</button> &middot; <button type="button" data-clear="quartersB">Clear</button></span></div>
                 <div class="checklist" id="f-quarters-b" role="group" aria-label="Right map Quarters"></div>
               </div>
               <p class="muted">Species Group (unless toggled above), Direction, and Display Mode are shared across both maps. Refine by species is not: tick the box above to refine the right map.</p>
@@ -563,10 +575,10 @@
           <label><input type="checkbox" name="direction" value="Outbound" checked> Outbound</label>
         </div>
         <div class="field radio" role="radiogroup" aria-labelledby="s-mode-head">
-          <span class="ctl" id="s-mode-head">Display Mode<button type="button" class="tip" aria-expanded="false" data-help="s-mode" aria-controls="help-s-mode" aria-label="About Display Mode" title="Separate: each county shows an inbound and an outbound circle side by side. Combined: one circle for both directions. When both directions are ticked, each direction's circles are sized on their own scale, so compare sizes within a direction, not between Inbound and Outbound.">?</button></span>
+          <span class="ctl" id="s-mode-head">Display Mode<button type="button" class="tip" aria-expanded="false" data-help="s-mode" aria-controls="help-s-mode" aria-label="About Display Mode" title="Separate: each county shows an inbound and an outbound circle side by side (Inbound left, Outbound right). Combined: one circle for both directions. When both directions are ticked, each direction's circles are sized on their own scale, so compare sizes within a direction, not between Inbound and Outbound.">?</button></span>
           <label><input type="radio" name="mode" value="side_by_side" checked><span>Separate inbound/outbound circles <span class="muted">(offset)</span></span></label>
           <label><input type="radio" name="mode" value="total"> Combined total circle</label>
-          <p class="help-note" id="help-s-mode" hidden>Separate: each county shows an inbound and an outbound circle side by side. Combined: one circle for both directions. When both directions are ticked, each direction's circles are sized on their own scale, so compare sizes within a direction, not between Inbound and Outbound.</p>
+          <p class="help-note" id="help-s-mode" hidden>Separate: each county shows an inbound and an outbound circle side by side (Inbound left, Outbound right). Combined: one circle for both directions. When both directions are ticked, each direction's circles are sized on their own scale, so compare sizes within a direction, not between Inbound and Outbound.</p>
           <p class="gate-reason" id="mode-reason" hidden>Shaded counties show one value per county: the combined total of the directions ticked.</p>
         </div>
         <!-- MC: movement between WA counties, lines in place of the circles. -->
@@ -586,7 +598,10 @@
         <div class="field">
           <div class="ctl-row"><span class="ctl">Focus county / counties<button type="button" class="tip" aria-expanded="false" data-help="fo-counties" aria-controls="help-fo-counties" aria-label="About Focus county / counties" title="Pick the Washington counties to focus on. Each premises inside them gets a circle: blue for importers (animals received), orange for exporters (animals sent), as on the WA State map.">?</button></span><span class="links"><button type="button" data-clear="foCounties">Clear</button></span></div>
           <p class="help-note" id="help-fo-counties" hidden>Pick the Washington counties to focus on. Each premises inside them gets a circle: blue for importers (animals received), orange for exporters (animals sent), as on the WA State map.</p>
+          <input type="search" id="fo-county-find" class="find" placeholder="Type to find a county" aria-label="Find a focus county" aria-controls="fo-counties" autocomplete="off">
           <div class="checklist" id="fo-counties" role="group" aria-label="Focus counties"></div>
+          <div class="muted" id="fo-county-none" role="status"></div>
+          <div class="muted" id="fo-county-source">County names come from the record's mailing city; a premises can lie in a neighboring county.</div>
         </div>
         <div class="field radio inline" role="radiogroup" aria-labelledby="fo-direction-head">
           <span class="ctl" id="fo-direction-head">Direction<button type="button" class="tip" aria-expanded="false" data-help="fo-direction" aria-controls="help-fo-direction" aria-label="About Direction" title="Combined: importers (blue) and exporters (orange) in the focus counties. Inbound: importers only (animals received). Outbound: exporters only (animals sent).">?</button></span>
@@ -630,11 +645,11 @@
         </div>
         <div id="fo-pickers">
           <div class="field">
-            <div class="ctl-row"><label class="ctl">Year(s)</label><span class="links"><button type="button" data-all="foYears">All</button> &middot; <button type="button" data-clear="foYears">Clear</button></span></div>
+            <div class="ctl-row"><span class="ctl">Year(s)</span><span class="links"><button type="button" data-all="foYears">All</button> &middot; <button type="button" data-clear="foYears">Clear</button></span></div>
             <div class="checklist" id="fo-years" role="group" aria-label="County Focus Years"></div>
           </div>
           <div class="field">
-            <div class="ctl-row"><label class="ctl">Quarter(s)</label><span class="links"><button type="button" data-all="foQuarters">All</button> &middot; <button type="button" data-clear="foQuarters">Clear</button></span></div>
+            <div class="ctl-row"><span class="ctl">Quarter(s)</span><span class="links"><button type="button" data-all="foQuarters">All</button> &middot; <button type="button" data-clear="foQuarters">Clear</button></span></div>
             <div class="checklist" id="fo-quarters" role="group" aria-label="County Focus Quarters"></div>
           </div>
         </div>
@@ -643,7 +658,7 @@
           <summary><span class="fac-head">Facility Locations</span><span class="fold-sum" id="fo-fac-sum"></span></summary>
           <p class="muted fac-note">Show infrastructure layers. Markers stay independent of Species / Year / Quarter filters.</p>
           <div class="ctl-row"><span class="ctl">Show:</span><span class="links"><button type="button" id="fo-fac-all">All</button> &middot; <button type="button" id="fo-fac-clear">Clear</button></span></div>
-          <p id="fo-fac-notice" class="fac-why" role="status" hidden></p>
+          <div class="live" role="status" aria-live="polite"><p id="fo-fac-notice" class="fac-why" hidden></p></div>
           <div class="fac-list" id="fo-fac-list" role="group" aria-label="Facility layers"></div>
           <p class="muted fac-note">Hover for a name; click for supplied details. Counts use the selected focus counties and facility attributes.</p>
         </details>
@@ -691,11 +706,11 @@
         </div>
         <div id="fl-pickers">
           <div class="field">
-            <div class="ctl-row"><label class="ctl">Year(s)</label><span class="links"><button type="button" data-all="flYears">All</button> &middot; <button type="button" data-clear="flYears">Clear</button></span></div>
+            <div class="ctl-row"><span class="ctl">Year(s)</span><span class="links"><button type="button" data-all="flYears">All</button> &middot; <button type="button" data-clear="flYears">Clear</button></span></div>
             <div class="checklist" id="fl-years" role="group" aria-label="National Flow Years"></div>
           </div>
           <div class="field">
-            <div class="ctl-row"><label class="ctl">Quarter(s)</label><span class="links"><button type="button" data-all="flQuarters">All</button> &middot; <button type="button" data-clear="flQuarters">Clear</button></span></div>
+            <div class="ctl-row"><span class="ctl">Quarter(s)</span><span class="links"><button type="button" data-all="flQuarters">All</button> &middot; <button type="button" data-clear="flQuarters">Clear</button></span></div>
             <div class="checklist" id="fl-quarters" role="group" aria-label="National Flow Quarters"></div>
           </div>
         </div>
@@ -740,7 +755,8 @@
           <p class="gate-reason" id="bins-reason" hidden>Shaded maps show at most 5 classes, so neighboring colors stay apart.</p></div>
         <div class="field"><label class="ctl" for="s-opacity" id="s-opacity-label">Circle opacity</label>
           <select id="s-opacity"><option value="0.2">Very light (20%)</option><option value="0.4">Light (40%)</option><option value="0.6" selected>Medium (60%)</option><option value="0.8">Heavy (80%)</option><option value="1.0">Solid (100%)</option></select></div>
-        <div class="field"><label class="ctl" for="s-palette">Color palette</label><select id="s-palette"></select>
+        <div class="field"><span class="ctl"><label for="s-palette">Color palette</label><button type="button" class="tip" aria-expanded="false" data-help="s-palette" aria-controls="help-s-palette" aria-label="About Color palette" title="Colors for the circles. On a light map, High Contrast makes the circles stand out most.">?</button></span>
+          <p class="help-note" id="help-s-palette" hidden>Colors for the circles. On a light map, High Contrast makes the circles stand out most.</p><select id="s-palette"></select>
           <p class="gate-reason" id="palette-reason" hidden>Shaded counties use the ColorBrewer ramp of the direction shown.</p></div>
         <div class="field"><label class="ctl" for="s-basemap">Basemap</label><select id="s-basemap"></select>
           <p class="muted" id="basemap-note" hidden></p></div>
@@ -873,6 +889,7 @@
           <div class="tip-row"><label class="ctl" for="export-label">Optional Filename</label><button type="button" class="tip" aria-expanded="false" data-help="export-label" aria-controls="help-export-label" aria-label="About Optional Filename" title="A name for the ZIP file and the folder inside it. Leave blank for the automatic name, YYYY-MM-DD_MapType_Area_Species_Direction. If a file of that name exists, your browser adds a number.">?</button></div>
           <p class="help-note" id="help-export-label" hidden>A name for the ZIP file and the folder inside it. Leave blank for the automatic name, YYYY-MM-DD_MapType_Area_Species_Direction. If a file of that name exists, your browser adds a number.</p>
           <input type="text" class="export-input" id="export-label" placeholder="Auto-named if blank">
+          <p class="muted name-note">Do not type a person's name or a case number here: it is saved in the PNG and export_params.json.</p>
         </div>
         <div class="field">
           <div class="tip-row"><label class="ctl" for="export-title">Optional Map Title</label><button type="button" class="tip" aria-expanded="false" data-help="export-title" aria-controls="help-export-title" aria-label="About Optional Map Title" title="Your own header text for the branded PNG, up to 80 characters. Leave blank for the automatic title from the filters (for example TOTAL ANIMAL IMPORTS – CATTLE).">?</button></div>
@@ -913,6 +930,7 @@
         <div class="field check" id="export-tables">
           <div class="tip-row"><label><input type="checkbox" name="export-format" value="csv"> Source records (.csv)</label><button type="button" class="tip" aria-expanded="false" data-help="export-csv" aria-controls="help-export-csv" aria-label="About Source records" title="The rows the map draws, one per CVI record, after the filters. Written as filtered_rows.csv.">?</button></div>
           <p class="help-note" id="help-export-csv" hidden>The rows the map draws, one per CVI record, after the filters. Written as filtered_rows.csv.</p>
+          <p class="muted export-columns" data-shown-with="input[name=export-format][value=csv]" hidden>This file holds every column of your master table.</p>
           <div class="tip-row"><label><input type="checkbox" name="export-format" value="summary_csv" checked> Aggregated totals (.csv)</label><button type="button" class="tip" aria-expanded="false" data-help="export-summary" aria-controls="help-export-summary" aria-label="About Aggregated totals" title="One row per circle or line on the map, as Preview Map Data shows. Written as summary_table.csv.">?</button></div>
           <p class="help-note" id="help-export-summary" hidden>One row per circle or line on the map, as Preview Map Data shows. Written as summary_table.csv.</p>
         </div>
@@ -920,11 +938,11 @@
         <div class="field check" id="export-viz">
           <div class="tip-row"><label><input type="checkbox" name="export-format" value="charts" checked> Charts (.png)</label><button type="button" class="tip" aria-expanded="false" data-help="export-charts" aria-controls="help-export-charts" aria-label="About Charts" title="The view's charts as Map + charts or Charts shows them, counted by &quot;Show charts by:&quot;. The over-time chart and the heatmaps (animals by species and period; on WA State and National Flow also the top 10 places by period) only when the rows span two or more periods. Written to charts/.">?</button></div>
           <p class="help-note" id="help-export-charts" hidden>The view's charts as Map + charts or Charts shows them, counted by "Show charts by:". The over-time chart and the heatmaps (animals by species and period; on WA State and National Flow also the top 10 places by period) only when the rows span two or more periods. Written to charts/.</p>
-          <div class="tip-row"><label><input type="checkbox" name="export-format" value="branded_png"> Branded map (.png)</label><button type="button" class="tip" aria-expanded="false" data-help="export-branded" aria-controls="help-export-branded" aria-label="About Branded map" title="The branded PNG, as Preview Map shows it, at full size for slides and reports.">?</button></div>
+          <div class="tip-row"><label><input type="checkbox" name="export-format" value="branded_png" checked> Branded map (.png)</label><button type="button" class="tip" aria-expanded="false" data-help="export-branded" aria-controls="help-export-branded" aria-label="About Branded map" title="The branded PNG, as Preview Map shows it, at full size for slides and reports.">?</button></div>
           <p class="help-note" id="help-export-branded" hidden>The branded PNG, as Preview Map shows it, at full size for slides and reports.</p>
-          <div class="tip-row" id="export-gif-row" hidden><label><input type="checkbox" name="export-format" value="branded_gif" id="export-gif" disabled> Time-series GIF (.gif)</label><button type="button" class="tip" aria-expanded="false" data-help="export-gif" aria-controls="help-export-gif" aria-label="About Time-series GIF" title="An animated GIF of the map, one frame per quarter or year (set under &quot;GIF frame interval&quot;). Circle sizes, line widths and the legend use one scale for every frame (on a shaded map, one set of classes), so frames can be compared. In Compare, the GIF shows the left map. It is drawn on the Default background (or Streets on County Focus).">?</button></div>
+          <div class="tip-row" id="export-gif-row" hidden><label><input type="checkbox" name="export-format" value="branded_gif" id="export-gif" disabled> Time-series GIF (.gif)</label><button type="button" class="tip" aria-expanded="false" data-help="export-gif" aria-controls="help-export-gif" aria-label="About Time-series GIF" title="An animated GIF of the map, one frame per quarter or year (set under &quot;GIF frame interval&quot;). Circle sizes, line widths and the legend use one scale for every frame (on a shaded map, one set of classes), so frames can be compared. In Compare, the GIF shows the left map. It is drawn on the Default background (or Streets on County Focus). A GIF loops without end: on a web page, put a still picture (the branded PNG) beside it.">?</button></div>
           <p class="gif-why" id="export-gif-why" hidden></p>
-          <p class="help-note" id="help-export-gif" hidden>An animated GIF of the map, one frame per quarter or year (set under "GIF frame interval"). Circle sizes, line widths and the legend use one scale for every frame (on a shaded map, one set of classes), so frames can be compared. In Compare, the GIF shows the left map. It is drawn on the Default background (or Streets on County Focus).</p>
+          <p class="help-note" id="help-export-gif" hidden>An animated GIF of the map, one frame per quarter or year (set under "GIF frame interval"). Circle sizes, line widths and the legend use one scale for every frame (on a shaded map, one set of classes), so frames can be compared. In Compare, the GIF shows the left map. It is drawn on the Default background (or Streets on County Focus). A GIF loops without end: on a web page, put a still picture (the branded PNG) beside it.</p>
         </div>
         <div class="field" id="export-gif-field" hidden>
           <div class="tip-row"><label class="ctl" for="export-gif-by">GIF frame interval</label><button type="button" class="tip" aria-expanded="false" data-help="export-gif-by" aria-controls="help-export-gif-by" aria-label="About GIF frame interval" title="What each GIF frame covers. Quarter gives a smoother animation; Year a smaller file.">?</button></div>
@@ -948,11 +966,12 @@
           <button type="button" class="btn" id="preview-stats" title="Quick in-app rollup of filters + totals + top counties/states/premises. For tabular export, use Aggregated totals (.csv)."><span class="btn-icon" data-icon="clipboard-data" aria-hidden="true"></span>Preview Stats</button>
           <button type="button" class="btn" id="preview-charts" title="Shows the chart PNGs (up to six) that would land in charts/ on export."><span class="btn-icon" data-icon="bar-chart" aria-hidden="true"></span>Preview Charts</button>
         </div>
-        <div class="status warn" id="preview-message" role="status" hidden></div>
+        <div class="live" role="status" aria-live="polite"><div class="status warn" id="preview-message" hidden></div></div>
         <button type="button" class="btn full export-btn" id="run-export" title="Writes all checked formats (Tables / Visualizations) into one ZIP file, handed to your browser to save."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Export</button>
-        <div class="status info gif-progress" id="gif-progress" hidden><span id="gif-progress-text" role="status" aria-live="polite"></span> <button type="button" class="btn" id="gif-cancel"><span class="btn-icon" data-icon="x-lg" aria-hidden="true"></span>Cancel</button></div>
-        <div class="status" id="export-result" role="status" aria-live="polite" hidden></div>
+        <div class="live" role="status" aria-live="polite"><div class="status info gif-progress" id="gif-progress" hidden><span id="gif-progress-text"></span> <button type="button" class="btn" id="gif-cancel"><span class="btn-icon" data-icon="x-lg" aria-hidden="true"></span>Cancel</button></div></div>
+        <div class="live" role="status" aria-live="polite"><div class="status" id="export-result" hidden></div></div>
         <p class="muted export-warning"><span aria-hidden="true">&#9888;</span> Exports and maps contain premises addresses and coordinates: handle as sensitive data and share only with authorized responders.</p>
+        <p class="muted export-county">County names come from the record's mailing city; a premises can lie in a neighboring county.</p>
         <div class="export-history" id="export-history" hidden>
           <p><strong>Exports this session</strong></p>
           <ul id="export-history-list"></ul>
@@ -1031,12 +1050,13 @@
               <input type="text" class="lk-input" id="lk-new-address" spellcheck="false" autocomplete="off" placeholder="e.g. 123 Main St, Yakima, WA 98901">
               <button type="button" class="btn" id="lk-geo-find"><span class="btn-icon" data-icon="search" aria-hidden="true"></span>Find coordinates</button>
             </div></div>
-          <div id="lk-geo-msg" role="status" aria-live="polite" hidden></div>
+          <div class="live" role="status" aria-live="polite"><div id="lk-geo-msg" hidden></div></div>
           <div class="field"><label class="ctl" for="lk-geo-file">Geocode cache file (optional)</label>
             <input type="file" id="lk-geo-file" accept=".csv,text/csv">
             <p class="muted">A CSV with the columns <code>address, lat, long</code>, such as CVI's <code>geocode_cache.csv</code>. <b>Find coordinates</b> looks the address up in it. The file is read in this browser and never sent anywhere; no address is looked up online.</p></div>
           <div class="field"><label class="ctl" for="lk-new-name">Name</label>
-            <input type="text" class="lk-input" id="lk-new-name" spellcheck="false" autocomplete="off" placeholder="e.g. Affected Farm A"></div>
+            <input type="text" class="lk-input" id="lk-new-name" spellcheck="false" autocomplete="off" placeholder="e.g. Affected Farm A">
+            <p class="muted name-note">Do not type a person's name or a case number here: it is saved in the PNG and export_params.json.</p></div>
           <div class="lk-pair">
             <div class="field"><label class="ctl" for="lk-new-lat">Latitude</label>
               <input type="number" class="lk-input" id="lk-new-lat" min="-90" max="90" step="0.0001"></div>
@@ -1049,7 +1069,7 @@
             <button type="button" class="btn lk-go" id="lk-add"><span class="btn-icon" data-icon="plus-lg" aria-hidden="true"></span>Add site</button>
             <button type="button" class="btn" id="lk-pick" aria-pressed="false" title="Click the match map to fill in the latitude and longitude of a new site"><span class="btn-icon" data-icon="geo-alt" aria-hidden="true"></span>Pick on map</button>
           </div>
-          <div id="lk-add-msg" role="status" aria-live="polite" hidden></div>
+          <div class="live" role="status" aria-live="polite"><div id="lk-add-msg" hidden></div></div>
           <details class="lk-bulk" id="lk-bulk">
             <summary>Paste / upload bulk locations</summary>
             <div class="field"><label class="ctl" for="lk-paste">Paste rows (one per line)</label>
@@ -1060,7 +1080,7 @@
               <input type="file" id="lk-upload" accept=".csv,text/csv">
               <button type="button" class="btn" id="lk-template"><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Download CSV template</button>
               <p class="muted">Required columns: <code>name, lat, long</code>. Optional: <code>buffer_km</code> (uses default above when blank).</p></div>
-            <div id="lk-bulk-msg" role="status" aria-live="polite" hidden></div>
+            <div class="live" role="status" aria-live="polite"><div id="lk-bulk-msg" hidden></div></div>
           </details>
           <!-- S11: zones from a file (shared/zones.js); each polygon becomes a site. -->
           <details class="lk-bulk" id="lk-zones">
@@ -1068,7 +1088,7 @@
             <div class="field"><label class="ctl" for="lk-zone-file">Zone file</label>
               <input type="file" id="lk-zone-file" accept=".geojson,.json,.kml,.kmz,.zip,application/geo+json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/zip">
               <p class="muted">GeoJSON, KML or a zipped shapefile, in longitude and latitude (WGS 84 or NAD 83). Each polygon becomes a site: a CVI or facility matches when it lies inside the polygon. The file is read in this browser and never sent anywhere.</p></div>
-            <div id="lk-zone-msg" role="status" aria-live="polite" hidden></div>
+            <div class="live" role="status" aria-live="polite"><div id="lk-zone-msg" hidden></div></div>
           </details>
         </div>
       </details>
@@ -1079,7 +1099,7 @@
           <p class="muted">For each site, the facilities of the ticked layers that lie inside its buffer or zone.</p>
           <div class="field">
             <div class="ctl-row"><span class="ctl">Facility layers</span><span class="links"><button type="button" id="lk-fac-all">All</button> &middot; <button type="button" id="lk-fac-clear">Clear</button></span></div>
-            <p class="fac-why lk-fac-utf8" id="lk-fac-utf8" role="status" hidden></p>
+            <div class="live" role="status" aria-live="polite"><p class="fac-why lk-fac-utf8" id="lk-fac-utf8" hidden></p></div>
             <div id="lk-fac-list"></div>
             <p class="muted" id="lk-fac-none" hidden>No facility files are loaded. Open the CVI map from the landing page with facility files to check which facilities lie inside each buffer.</p>
           </div>
@@ -1124,53 +1144,54 @@
       <span class="cf-label">Chart filters:</span>
       <span class="cf-chips" id="chart-filter-chips"></span>
       <button type="button" class="btn cf-clear" id="chart-filters-clear" title="Removes every chart filter of this view. The sidebar filters stay as they are."><span class="btn-icon" data-icon="x-circle" aria-hidden="true"></span>Clear chart filters</button>
-      <span class="cf-msg" id="chart-filters-msg" role="status" hidden></span>
+      <span class="live" role="status" aria-live="polite"><span class="cf-msg" id="chart-filters-msg" hidden></span></span>
     </div>
-    <div id="value-boxes" aria-live="polite"></div>
+    <div id="value-boxes"></div>
     <div class="view-area" id="view-area">
     <div class="map-area" id="map-area">
     <div class="maps" id="maps">
       <div class="map-col">
         <div class="map-head head-a" id="head-a" hidden><span data-icon="arrow-left-circle"></span> Left map &middot; <span id="label-a"></span></div>
         <div class="map-frame">
-          <div id="map" role="region" aria-label="Interactive map"></div>
+          <div id="map" role="region" aria-label="Interactive map" aria-describedby="map-alt"></div>
           <div id="map-status" class="status info" role="status" aria-live="polite">Starting map…</div>
           <div id="basemap-status" class="status warn" role="alert" hidden><span id="basemap-msg"></span><button type="button" class="btn" id="basemap-offline"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div>
           <div id="toast" aria-live="polite"></div>
-          <button type="button" class="legend-toggle" id="legend-toggle" aria-expanded="false" aria-controls="legend-panel">Legend &#9660;</button>
+          <button type="button" class="legend-toggle" id="legend-toggle" aria-expanded="false" aria-controls="legend-panel">Legend <span aria-hidden="true">&#9660;</span></button>
           <div class="legend-panel" id="legend-panel" hidden></div>
         </div>
       </div>
       <div class="map-col" id="col-b" hidden>
         <div class="map-head head-b"><span data-icon="arrow-right-circle"></span> Right map &middot; <span id="label-b"></span></div>
         <div class="map-frame">
-          <div id="map-b" role="region" aria-label="Right map"></div>
-          <div id="map-b-status" class="status info" role="status" aria-live="polite" hidden>Starting map…</div>
-          <button type="button" class="legend-toggle" id="legend-toggle-b" aria-expanded="false" aria-controls="legend-panel-b">Legend &#9660;</button>
+          <div id="map-b" role="region" aria-label="Right map" aria-describedby="map-alt"></div>
+          <div class="live" role="status" aria-live="polite"><div id="map-b-status" class="status info" hidden>Starting map…</div></div>
+          <button type="button" class="legend-toggle" id="legend-toggle-b" aria-expanded="false" aria-controls="legend-panel-b">Legend <span aria-hidden="true">&#9660;</span></button>
           <div class="legend-panel" id="legend-panel-b" hidden></div>
         </div>
       </div>
     </div>
     <!-- S5: the County Focus map, made the first time the view is chosen (app/focusmap.js). -->
     <div class="map-frame" id="focus-frame" hidden>
-      <div id="focus-map" role="region" aria-label="County Focus map"></div>
-      <div id="focus-status" class="status info" role="status" aria-live="polite" hidden>Starting map…</div>
+      <div id="focus-map" role="region" aria-label="County Focus map" aria-describedby="map-alt"></div>
+      <div class="live" role="status" aria-live="polite"><div id="focus-status" class="status info" hidden>Starting map…</div></div>
       <div id="focus-basemap-status" class="status warn" role="alert" hidden><span id="focus-basemap-msg"></span><button type="button" class="btn" id="focus-basemap-offline"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div>
       <div id="focus-toast" aria-live="polite"></div>
-      <button type="button" class="legend-toggle" id="legend-toggle-focus" aria-expanded="false" aria-controls="legend-panel-focus">Legend &#9660;</button>
+      <button type="button" class="legend-toggle" id="legend-toggle-focus" aria-expanded="false" aria-controls="legend-panel-focus">Legend <span aria-hidden="true">&#9660;</span></button>
       <div class="legend-panel" id="legend-panel-focus" hidden></div>
     </div>
     <!-- S4: the National Flow map, made the first time the view is chosen (app/flowmap.js). -->
     <div class="map-frame" id="flow-frame" hidden>
-      <div id="flow-map" role="region" aria-label="National Flow map"></div>
-      <div id="flow-status" class="status info" role="status" aria-live="polite" hidden>Starting map…</div>
+      <div id="flow-map" role="region" aria-label="National Flow map" aria-describedby="map-alt"></div>
+      <div class="live" role="status" aria-live="polite"><div id="flow-status" class="status info" hidden>Starting map…</div></div>
       <div id="flow-toast" aria-live="polite"></div>
-      <button type="button" class="legend-toggle" id="legend-toggle-flow" aria-expanded="false" aria-controls="legend-panel-flow">Legend &#9660;</button>
+      <button type="button" class="legend-toggle" id="legend-toggle-flow" aria-expanded="false" aria-controls="legend-panel-flow">Legend <span aria-hidden="true">&#9660;</span></button>
       <div class="legend-panel" id="legend-panel-flow" hidden></div>
     </div>
     <p class="muted compare-note" id="compare-note" hidden>Circle sizes are scaled on each map's own data: compare the numbers, not the circle sizes, across the two maps.</p>
     <p class="muted compare-note" id="mv-note" role="note" hidden></p>
     <p class="status warn compare-note" id="compare-refine-note" role="note" hidden>Refine by species applies to the left map only. The right map shows the whole Species Group; tick "Use different species on right map" to refine it.</p>
+    <p class="muted map-alt" id="map-alt">The numbers on this map are also in Preview Map Data, in each chart's "Show as table" and in the Aggregated totals CSV.</p>
     </div>
     <!-- S7: the view's charts (charts.js, drawn by chartsvg.js), computed only while shown. -->
     <section class="chart-panel" id="chart-panel" aria-label="Charts" hidden>
@@ -1183,7 +1204,7 @@
       <div class="chart-tip" id="chart-tip" role="tooltip" hidden></div>
     </section>
     </div>
-    <div id="summary-strip" aria-live="polite"></div>
+    <div id="summary-strip"></div>
   </div>
   <!-- S11: the Premise Lookup results (lookup.js; CVI's results_panel), its map made at the first result (lookupmap.js). -->
   <div id="lookup-main" hidden>
@@ -1202,7 +1223,7 @@
         </div>
       </div>
     </div>
-    <div class="lk-run-lines" id="lk-run-lines" role="status" aria-live="polite" hidden></div>
+    <div class="live" role="status" aria-live="polite"><div class="lk-run-lines" id="lk-run-lines" hidden></div></div>
     <div class="vb-alert lk-empty" id="lk-empty" role="note"></div>
     <div id="lk-results" hidden>
       <div class="vb-row lk-tiles" id="lk-tiles"></div>
@@ -1212,11 +1233,12 @@
     <div class="lk-card" id="lk-map-card" hidden>
       <div class="lk-card-head">Match preview</div>
       <div class="map-frame" id="lookup-frame">
-        <div id="lookup-map" role="region" aria-label="Premise Lookup match map"></div>
+        <div id="lookup-map" role="region" aria-label="Premise Lookup match map" aria-describedby="lookup-map-alt"></div>
         <div id="lookup-legend" class="lk-legend" aria-label="Match map legend" hidden></div>
-        <div id="lookup-status" class="status info" role="status" aria-live="polite" hidden>Starting map…</div>
+        <div class="live" role="status" aria-live="polite"><div id="lookup-status" class="status info" hidden>Starting map…</div></div>
         <div id="lookup-toast" aria-live="polite"></div>
       </div>
+      <p class="muted map-alt" id="lookup-map-alt">The sites and matches on this map are also listed under Sites to query, Facilities inside and Matched CVIs, and in the export's CSV files.</p>
     </div>
     <div class="lk-card" id="lk-fac-card" hidden>
       <div class="lk-card-head">Facilities inside</div>
@@ -1238,6 +1260,7 @@
           <label><input type="checkbox" name="lk-format" value="facilities_csv" checked> Facilities inside (.csv)</label>
           <label><input type="checkbox" name="lk-format" value="branded_png" checked> Branded map (.png)</label>
         </div>
+        <p class="muted export-columns" data-shown-with="input[name=lk-format][value=matches_csv]">Matched CVIs (.csv) holds every column of your master table.</p>
         <!-- S11: CVI's "Branded map options" (basemap, facility labels), with the page's resolution and quality. The
              facility layers drawn are those ticked under "Facilities inside". -->
         <details class="lk-png-options" id="lk-png-options">
@@ -1272,7 +1295,7 @@
           <button type="button" class="btn" id="lk-preview"><span class="btn-icon" data-icon="eye" aria-hidden="true"></span>Preview branded map</button>
           <button type="button" class="btn export-btn" id="lk-export"><span class="btn-icon" data-icon="file-earmark-zip" aria-hidden="true"></span>Export ZIP</button>
         </div>
-        <div id="lk-export-msg" role="status" aria-live="polite" hidden></div>
+        <div class="live" role="status" aria-live="polite"><div id="lk-export-msg" hidden></div></div>
         <p class="muted lk-warning"><span aria-hidden="true">&#9888;</span> Exports and maps contain premises addresses and coordinates: handle as sensitive data and share only with authorized responders.</p>
       </div>
     </div>
@@ -1280,7 +1303,7 @@
   </main>
 </div>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the chosen file is never uploaded. &middot; <span class="version">Version 1.0 (2026-10-18)</span></p>
+  Runs entirely in this browser tab; the chosen file is never uploaded. &middot; <span class="version">Version 1.1 (2026-10-19)</span></p>
   <details class="credits"><summary>Data sources and credits</summary>
   <p><span id="attrib"></span></p>
   <p>Shaded-map colors: ColorBrewer 2.0, by Cynthia A. Brewer, Penn State (Apache License 2.0).</p>

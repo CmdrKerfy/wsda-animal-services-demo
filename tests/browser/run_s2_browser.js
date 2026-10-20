@@ -275,13 +275,15 @@ function compareShown(tag, shown, v) {
       var s=CVIWA.state.mapHandle.layers,n=function(a){return a.map(function(f){return f.properties.county+'/'+f.properties.direction+'/'+f.properties.radius_px})};
       return {all:q('circles'),dim:q('circles_dim'),spot:q('circles_spotlight'),src:{dim:n(s.circles_dim),spot:n(s.circles_spotlight),all:s.circles.length},
         opDim:m.getPaintProperty('circles_dim','circle-opacity'),opSpot:JSON.stringify(m.getPaintProperty('circles_spotlight','circle-opacity')),
-        order:m.getStyle().layers.map(function(l){return l.id}).filter(function(i){return /^circles/.test(i)})}})()`);
+        order:m.getStyle().layers.map(function(l){return l.id}).filter(function(i){return /^circles/.test(i)&&!/-edge$/.test(i)}),
+        edges:m.getStyle().layers.map(function(l){return l.id}).filter(function(i){return /^circles/.test(i)}).join()}})()`);
     const wantL = id => arr((arr(spot.layers).find(l => l.id === id) || {}).circles).map(c => c.county + '/' + c.direction + '/' + c.radius_px);
     check(spot && L.src.all === 0 && JSON.stringify(L.src.dim) === JSON.stringify(wantL('circles_dim')) && JSON.stringify(L.src.spot) === JSON.stringify(wantL('circles_spotlight')),
       'spotlight King: dimmed and spotlit circles, in drawing order, as CVI\'s builder', { page: L.src, cvi: [wantL('circles_dim'), wantL('circles_spotlight')] });
     check(L.all.length === 0 && L.spot.length === wantL('circles_spotlight').length && L.spot.length > 0 && L.spot.every(x => /^King\//.test(x)) && L.dim.length > 0 && L.dim.every(x => !/^King\//.test(x)), 'spotlight King: rendered as two layers', L);
-    check(L.opDim === 0.1 && L.opSpot === JSON.stringify(['case', ['boolean', ['feature-state', 'hover'], false], 0.85, 0.6]) && L.order.join() === 'circles,circles_dim,circles_spotlight',
-      'spotlight opacities (others 10%, picked 60% with hover 85%) and layer order', L);
+    check(L.opDim === 0.1 && L.opSpot === JSON.stringify(['case', ['boolean', ['feature-state', 'hover'], false], 0.85, 0.6]) && L.order.join() === 'circles,circles_dim,circles_spotlight'
+      && L.edges === 'circles-edge,circles,circles_dim-edge,circles_dim,circles_spotlight-edge,circles_spotlight',
+      'spotlight opacities (others 10%, picked 60% with hover 85%) and layer order (each with its dark edge just below)', L);
     // Hover: a dimmed circle shows its pop-up and stays at 10%; a spotlit one is marked hovered.
     const hov = async (county, dir) => {
       const pt = await p.eval(`(function(){var m=CVIWA.state.mapHandle.map,d=CVIWA.state.data.find(function(x){return x.county===${JSON.stringify(county)}&&x.direction===${JSON.stringify(dir)}});var q=m.project([d.lon,d.lat]);var r=m.getContainer().getBoundingClientRect();return {x:q.x+r.left,y:q.y+r.top}})()`);
@@ -327,7 +329,8 @@ function compareShown(tag, shown, v) {
     compareShown('after Reset All', await shown(), viewOf(o, 'default', 'Inbound+Outbound', 'side_by_side'));
     await p.eval(`document.getElementById('s-lines').click()`);
 
-    // 7. Screenshot: a PNG of the map's size with the map's pixels; the button saves map-screenshot.png.
+    // 7. Screenshot: a PNG of the map's size with the map's pixels; the button saves it named by day and view
+    // (CVI: map-screenshot.png; a deliberate difference).
     const shot = async () => p.eval(`(async function(){var st=CVIWA.state.mapHandle,b=await CVIWA.map.screenshot(st),u8=new Uint8Array(await b.arrayBuffer());
       var dv=new DataView(u8.buffer),img=await createImageBitmap(b),c=document.createElement('canvas');c.width=img.width;c.height=img.height;var g=c.getContext('2d');g.drawImage(img,0,0);
       var px=g.getImageData(0,0,c.width,c.height).data,cols=new Set();for(var i=0;i<px.length;i+=4*97)cols.add(px[i]+','+px[i+1]+','+px[i+2]);
@@ -344,11 +347,13 @@ function compareShown(tag, shown, v) {
     check(nolab.sum !== a.sum && nolab.w === a.w, 'screenshot: county labels drawn on it when shown, left out when hidden', [a.sum, nolab.sum]);
     await p.downloadsTo(DL);
     await p.eval(`document.querySelector('button.map-screenshot').click()`);
-    const f = path.join(DL, 'map-screenshot.png');
+    const shotName = await p.eval('CVIWA.state.mapHandle.lastScreenshot.name');
+    const f = path.join(DL, shotName);
     for (let i = 0; i < 50 && !fs.existsSync(f); i++) await sleep(100);
     const saved = fs.existsSync(f) ? fs.readFileSync(f) : null;
-    check(saved && saved.slice(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) && saved.readUInt32BE(16) === a.w, 'screenshot button: the browser saves map-screenshot.png', saved && saved.length);
-    check(/^map-screenshot\.png was handed to your browser to save/.test(await p.eval('CVIWA.state.lastMessage')), 'screenshot button: the page says where the picture went');
+    check(saved && saved.slice(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) && saved.readUInt32BE(16) === a.w, 'screenshot button: the browser saves the picture, named by day and view', [shotName, saved && saved.length]);
+    check(/^\d{4}-\d\d-\d\d_WAState_map\.png$/.test(shotName) && (await p.eval('CVIWA.state.lastMessage')).indexOf(shotName + ' was handed to your browser to save') === 0,
+      'screenshot button: the page says where the picture went', shotName);
     // A failure is reported, not swallowed.
     const failMsg = await p.eval(`(function(){var st=CVIWA.state.mapHandle;st.ready=false;document.querySelector('button.map-screenshot').click();st.ready=true;return CVIWA.state.lastMessage})()`);
     check(failMsg === 'Screenshot not saved: The map is not ready.', 'screenshot button: a failure is reported with the reason', failMsg);
@@ -362,7 +367,7 @@ function compareShown(tag, shown, v) {
     pageModel = PW.master.load(fs.readFileSync(partnerCsv, 'utf8'));
     s = await shown();
     const gated = s.cards[1] || {};
-    check(gated.gated && gated.value === 'Needs the CVI column' && gated.reason === 'Needs the CVI column' && await p.eval('document.querySelectorAll("#value-boxes .metric")[1].getAttribute("aria-disabled")') === 'true'
+    check(gated.gated && gated.value === 'Not available: needs the CVI column' && gated.reason === 'Not available: needs the CVI column' && await p.eval('document.querySelectorAll("#value-boxes .metric")[1].getAttribute("aria-disabled")') === 'true'
       && await p.eval('document.querySelector("#value-boxes .metric.gated .metric-value").title') === 'Needs the column CVI in the CVI master table.',
       'Partner tier: "Unique CVIs" grayed with a short reason, the checklist\'s full reason on hover', gated);
     // The grayed box keeps the other boxes' height, and the four stay on one row (1400 px window).
@@ -561,7 +566,7 @@ function compareShown(tag, shown, v) {
         check(fb[0] && fb[1], 'Compare: the ' + (id === 'map' ? 'left' : 'right') + ' map\'s fit button shows the whole state on both maps', fb);
       }
       // Screenshot and legend on the right map.
-      check(await p.eval(`(function(){var b=document.querySelector('#map-b .maplibregl-ctrl-top-right button.map-screenshot');if(!b)return false;b.click();return /^map-screenshot\\.png was handed/.test(CVIWA.state.lastMessage)})()`),
+      check(await p.eval(`(function(){var b=document.querySelector('#map-b .maplibregl-ctrl-top-right button.map-screenshot');if(!b)return false;b.click();return /^\\d{4}-\\d\\d-\\d\\d_Compare_map\\.png was handed/.test(CVIWA.state.lastMessage)})()`),
         'Compare: the right map has its own screenshot button');
       check(await p.eval(`(function(){var t=document.getElementById('legend-toggle-b'),p=document.getElementById('legend-panel-b');t.click();var o=!p.hidden&&t.getAttribute('aria-expanded')==='true';t.click();return o&&p.hidden})()`),
         'Compare: the right map\'s legend opens and closes');

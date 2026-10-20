@@ -209,7 +209,7 @@ This part regenerates only the PC and S11 references; the S1 to S9 references fr
 | 2b | `node tests/synthetic/make_cvi_focus_fixtures.js --clusters`, then `run_s5_browser.js` |
 | 3 | `run_s6_browser.js` with `--entry-regression`, `--facilities`, `--focus`, `--activity` (four runs), `run_mc_browser.js`, `run_s7_browser.js` |
 | 4 | `run_s9_browser.js`, `run_pc_browser.js` (every part), `run_s11_browser.js` |
-| 5 | `run_ui_browser.js checks controls day3 chartlabels fixes` |
+| 5 | `run_ui_browser.js checks controls day3 chartlabels fixes v11` |
 | 6 | `run_ch_browser.js` (about 40 seconds), then `node tests/synthetic/make_scale_master.js` and `run_scale_browser.js` (about 50 seconds) |
 
 **Part 3, Chrome over `http`.** Start the case-strict server as a background job:

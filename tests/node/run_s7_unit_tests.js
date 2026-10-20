@@ -457,7 +457,10 @@ function compareExport(loaded, view, f, rec, pv, name, sameRows) {
   check(cviFocusName(folder, f, label) === ex.folder, name + ': folder name', [folder, ex.folder]);
   if (view === 'focus' && f.counties.length > 3 && !label.trim()) tally('folder names with "<n>Counties" as the area');
   const params = E.exportParams(view, f, { label, formats: ['csv', 'summary_csv', 'charts'], layersOn: [] }, now);
-  check(maskTime(params) === maskTime(ex.export_params_json), name + ': export_params.json byte for byte (time masked)', firstDifference(maskTime(params), maskTime(ex.export_params_json)));
+  // The page adds one line, the coordinate system, before "exported_at" (a deliberate addition); the rest is CVI's file.
+  const coords = '  "coordinates": "' + E.COORDINATES + '",\n';
+  check(params.split(coords).length === 2, name + ': export_params.json names the coordinate system once', params);
+  check(maskTime(params.replace(coords, '')) === maskTime(ex.export_params_json), name + ': export_params.json byte for byte (time masked, the coordinates line left out)', firstDifference(maskTime(params.replace(coords, '')), maskTime(ex.export_params_json)));
   check(/"exported_at": "\d{4}-\d\d-\d\d \d\d:\d\d:\d\d"/.test(params), name + ': export time as CVI writes it');
   check(notes.length === 1 && notes[0] === 'Exported to data/map_exports/' + ex.folder, name + ': CVI\'s notification read');
   // CVI's result lists the files it wrote; the page lists its files the same way (its charts are the page's chart set).
@@ -807,6 +810,37 @@ function runAuditCases(row) {
     'a column named __proto__ is left out; filtered_rows.csv is written whole', protoError || protoCsv);
 }
 
+// ── Skipped years and quarters ──────────────────────────────────────────────────────────────────────────────────
+// Ticks that skip a year the master holds are written as runs (a deliberate difference); a year with no records is no
+// gap, and without the master's years the label is CVI's "first-last".
+function runPeriodGaps() {
+  const SUM = W.summary, EX = W.exports;
+  const years = [2021, 2022, 2023, 2024, 2025];
+  const cases = [
+    [[2021, 2022, 2025], years, '2021–2022, 2025'], [[2023, 2025], years, '2023, 2025'],
+    [[2021, 2022, 2023], years, null], [[2023, 2024, 2026], [2023, 2024, 2026], null],
+    [[2023, 2026], [2023, 2024, 2026], '2023, 2026'], [[2024, 2026], [2023, 2024, 2026], null],
+    [[2025], years, null], [[2023, 2027], years, null], [[2021, 2025], undefined, '2021, 2025']];
+  for (const [ticked, choices, want] of cases) {
+    const got = SUM.gapRuns(ticked, String, '–', choices);
+    check(got === want, 'period gaps: ' + ticked.join(',') + ' of ' + (choices || 'whole numbers') + ' is ' + want, got);
+  }
+  check(SUM.gapRuns([1, 3], n => 'Q' + n, ' – ') === 'Q1, Q3' && SUM.gapRuns([1, 2, 4], n => 'Q' + n, ' – ') === 'Q1 – Q2, Q4',
+    'period gaps: quarters as runs, "Q1, Q3" and "Q1 – Q2, Q4"');
+  const now = new Date(2026, 9, 19, 9, 0, 0);
+  const f = { species: ['Cattle'], years: [2023, 2025], quarters: ['Q1', 'Q2', 'Q3', 'Q4'], direction: ['Inbound', 'Outbound'] };
+  const rows = [{ 'Species.Group': 'Cattle', 'Total.Animals': 12, Movement: 'Inbound', 'Origin.State': 'OR',
+    'Dest.State': 'WA', 'Origin.County': 'N/A', 'Dest.County': 'King' }];
+  const line = ff => EX.statsLines('wa', ff, rows, [], now).find(l => l.indexOf('  Years:') === 0);
+  check(line(Object.assign({}, f, { yearChoices: [2023, 2024, 2025] })) === '  Years:     2023, 2025' &&
+    line(Object.assign({}, f, { yearChoices: [2023, 2025] })) === '  Years:     2023-2025' && line(f) === '  Years:     2023-2025',
+  'period gaps: the Stats text lists skipped years as runs; with none skipped, or no master years, CVI\'s "2023-2025"',
+  [line(Object.assign({}, f, { yearChoices: [2023, 2024, 2025] })), line(f)]);
+  const caption = EX.chartCaption('wa', f, ['Cattle'], [2023, 2024, 2025]);
+  check(caption.indexOf(' | 2023, 2025, Q1 Q2 Q3 Q4 | ') > 0 && EX.chartCaption('wa', f, ['Cattle']).indexOf(' | 2023-2025, ') > 0,
+    'period gaps: a chart\'s caption lists skipped years the same way', caption);
+}
+
 // ── Run ────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Optional arguments name fixtures to check alone (for example: s7 tier_full).
 const only = process.argv.slice(2);
@@ -827,6 +861,7 @@ for (const f of oracleFiles) guarded('fixture ' + f, () => runFixture(f));
 guarded('formats', runFormats);
 guarded('hand cases', runHandCases);
 guarded('reconciliation', runReconciliation);
+guarded('period gaps', runPeriodGaps);
 
 console.log('S7 unit: fixtures ' + oracleFiles.map(f => f.replace(/^oracle_s7_|\.json$/g, '')).join(', '));
 console.log('S7 unit: ' + Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', '));

@@ -732,7 +732,9 @@ function cviStatsForm(lines) {
   return out;
 }
 const cviStatsText = text => cviStatsForm(text.split('\n')).join('\n');
-const maskExported = text => text.replace(/"exported_at": "[^"]*"/, '"exported_at": "TIME"');
+// The coordinates line (version 1.1, not in CVI) taken out, as in the Chrome S7 suite.
+const maskExported = text => text.replace(/\n  "coordinates": "WGS 84 longitude and latitude \(EPSG:4326\)",/, '')
+  .replace(/"exported_at": "[^"]*"/, '"exported_at": "TIME"');
 // JSON with every object's keys sorted: Safari's WebDriver returns objects with their keys in another order.
 // Page errors and rejected promises, kept in window.__errors for the end of the run (set once per page).
 const S7_ERROR_TRAP = `

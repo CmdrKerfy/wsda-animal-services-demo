@@ -77,7 +77,7 @@
     const bundleJson = cvi.bundleJson({
       label: 'All dashboards – synthetic sample bundle', prepared: '2026-09-15', coverage: cvi.COVERAGE,
       profiles: ['cvi', 'infrastructure'],
-      release: { name: 'Synthetic sample', version: '1', date: '2026-09-15' }
+      release: { name: 'Synthetic sample', version: '1', date: '2026-09-15' }, synthetic: true
     });
     const entries = [{ name: ALL_FOLDER, dir: true }, { name: ALL_FOLDER + '/bundle.json', data: bundleJson },
       { name: ALL_FOLDER + '/cvi', dir: true }, { name: ALL_FOLDER + '/facilities', dir: true }];

@@ -1516,6 +1516,7 @@
             if (ps.basemap !== W.basemaps.OFFLINE) basemapApply();   // a basemap chosen before the map was made
           }, failed, { legend: $('lookup-legend') });
         } catch (e) { failed(); return; }
+        ps.map.shotName = 'PremiseLookup';
         ps.map.notify = msg => {
           const t = $('lookup-toast'), d = el('div', null, msg);
           t.replaceChildren(d);
@@ -1674,8 +1675,10 @@
         summary: only ? null : res.summary, siteCvis: res.siteCvis, siteOrigins: res.siteOrigins, siteDests: res.siteDests,
         matched: res.matched, filters: o.filters || { year: [], quarter: [], species: [] },
         universe: host.master() ? host.master().speciesChoices : [], facilitiesOnly: only, fac,
+        yearChoices: host.master() ? host.master().yearChoices : null,
         labels: choices.labels, counties: host.geo.counties.features, date: now, background, streets,
-        population: choices.population, area: area || ps.testArea || null });   // testArea: a test mock-up
+        population: choices.population, area: area || ps.testArea || null,   // testArea: a test mock-up
+        synthetic: !!(host.synthetic && host.synthetic()) });
     }
     // One page as a picture: { picture: { name, blob, alt }, notices } or { error, notices }. background: the page's
     // (a county page always Streets).
@@ -1879,7 +1882,8 @@
         }),
         layers: ps.facResult ? ps.facResult.layers.map(l => l.label) : [],
         formats, counts: { cvis, facilities: ps.facResult && formats.indexOf('facilities_csv') >= 0 ? ps.facResult.total : null },
-        png: choices, population: choices.population ? PN.exportParams(choices.population.on) : null, countyPages
+        png: choices, population: choices.population ? PN.exportParams(choices.population.on) : null, countyPages,
+        synthetic: !!(host.synthetic && host.synthetic())
       }, now) });
       const entries = [{ name: folder, dir: true }].concat(files.map(f => ({ name: folder + '/' + f.name, data: f.data })));
       const zipName = folder + '.zip';

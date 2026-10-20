@@ -466,8 +466,8 @@ async function timing() {
       'County Focus view: its sidebar and map only, the button pressed', ui);
     check(focusFileRequests().length === 1, 'County Focus: focusmap.js loaded once, on the first visit', focusFileRequests());
     check(ui.head === 'County Focus Filters', 'County Focus: CVI\'s section heading', ui.head);
-    check(JSON.stringify(ui.layers) === JSON.stringify(['background', 'wa-land', 'county-lines', 'wa_focus_outline_fill', 'wa_focus_outline_line', 'focus_points_in', 'focus_clusters_in', 'focus_points_out', 'focus_clusters_out']),
-      'County Focus: layers in CVI\'s order (grid, focus wash, focus border, importers and their clusters, exporters and theirs)', ui.layers);
+    check(JSON.stringify(ui.layers) === JSON.stringify(['background', 'wa-land', 'county-lines', 'wa_focus_outline_fill', 'wa_focus_outline_line', 'focus_points_in-edge', 'focus_points_in', 'focus_clusters_in', 'focus_points_out-edge', 'focus_points_out', 'focus_clusters_out']),
+      'County Focus: layers in CVI\'s order (grid, focus wash, focus border, importers and their clusters, exporters and theirs; each premises layer with its dark edge just below)', ui.layers);
     check(JSON.stringify(ui.grid) === JSON.stringify(['#888888', 0.8, 0.6, 'visible']), 'County Focus: CVI\'s county grid (#888888, 0.8 px, 0.6), shown', ui.grid);
     check(JSON.stringify(ui.fill) === JSON.stringify(['#245566', 0.08]) && JSON.stringify(ui.line) === JSON.stringify(['#245566', 2.2, 0.95]),
       'County Focus: CVI\'s selected-county wash and border', [ui.fill, ui.line]);

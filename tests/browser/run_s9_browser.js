@@ -510,7 +510,8 @@ async function partExport(b) {
       focus: /^CVI_CountyFocus_InboundOutbound_[A-Za-z]+_\d{4}(-\d{4})?_Q1Q2Q3Q4\.png$/ }[view];
     check(pat.test(model), tag + ' CVI\'s file name pattern', model);
     const params = entries.find(e => e.name.endsWith('/export_params.json')).data.toString('utf8');
-    check(/"png_background": "standard",\n  "export_quality": "standard",\n  "png_resolution": "standard",\n  "exported_at"/.test(params),
+    // The PNG choices, then the coordinate system (version 1.1), before "exported_at".
+    check(/"png_background": "standard",\n  "export_quality": "standard",\n  "png_resolution": "standard",\n  "coordinates": "WGS 84 longitude and latitude \(EPSG:4326\)",\n  "exported_at"/.test(params),
       tag + ' export_params.json names the PNG choices', params);
     const standardCharts = entries.filter(e => /\/charts\/.+\.png$/.test(e.name)).map(e => ({ name: e.name, info: pngInfo(e.data) }));
 
@@ -1396,7 +1397,7 @@ async function partGif(b) {
     const params = (ex.entries.find(e => e.name.endsWith('/export_params.json')) || { data: Buffer.from('') }).data
       .toString('utf8');
     // One format is written as a plain string, as CVI's jsonlite (auto_unbox) writes it.
-    check(params.includes('"formats": "branded_gif",') && params.includes('"gif_frame_interval": "' + by + '",\n  "exported_at"'),
+    check(params.includes('"formats": "branded_gif",') && params.includes('"gif_frame_interval": "' + by + '",\n  "coordinates": "WGS 84 longitude and latitude (EPSG:4326)",\n  "exported_at"'),
       tag + ' export_params.json names the format and the frame interval', params);
     const drawn = refRec ? refRec.frames.map(f => by === 'year' ? String(f.render.year_filter)
       : f.render.year_filter + '-' + f.render.quarter_filter) : null;

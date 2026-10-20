@@ -23,6 +23,7 @@
     return lo;
   }
   const S = () => root.CVIWA.scaling;
+  const SUM = () => root.CVIWA.summary;
   const PAL = () => root.CVIWA.palettes;
 
   const MIN_PT = 3.0;   // the smallest circle (SMR 127)
@@ -50,15 +51,20 @@
   }
   const directionLabel = direction => (direction.length > 1 ? 'IMPORTS + EXPORTS'
     : direction[0] === 'Inbound' ? 'IMPORTS' : 'EXPORTS');
-  // "CY 2025:" and "Full Year", "Jul – Sep" or "Q1 – Q3" (.period_parts, SMR 1503-1513).
-  function periodParts(quarters, years) {
+  // "CY 2025:" and "Full Year", "Jul – Sep" or "Q1 – Q3" (.period_parts, SMR 1503-1513). Ticks that skip a year or
+  // quarter are listed as runs, "CY 2023, 2025:" and "Q1, Q3" (a deliberate difference: CVI writes "CY 2023–2025:"
+  // and "Q1 – Q3", as if the ones between were in). yearChoices: the master's years (a year with no records is no
+  // gap); without them, the years as CVI writes them.
+  const quarterNumber = q => (/^Q[1-4]$/.test(q) ? Number(q[1]) : NaN);
+  function periodParts(quarters, years, yearChoices) {
     const lo = Math.min(...years);
     const hi = Math.max(...years);
     const qs = quarters.slice().sort(cmpC);
     const value = qs.length === 4 ? 'Full Year'
       : qs.length === 1 ? (QUARTER_MONTHS[qs[0]] || qs[0])
-        : qs[0] + ' – ' + qs[qs.length - 1];
-    return { prefix: 'CY ' + (lo === hi ? lo : lo + '–' + hi) + ':', value };
+        : SUM().gapRuns(qs.map(quarterNumber), n => 'Q' + n, ' – ') || qs[0] + ' – ' + qs[qs.length - 1];
+    const yearText = (yearChoices && SUM().gapRuns(years, String, '–', yearChoices)) || (lo === hi ? lo : lo + '–' + hi);
+    return { prefix: 'CY ' + yearText + ':', value };
   }
   // A trimmed custom title wins, cut to 79 characters and "…" past 80; blank uses the auto title (SMR 1518-1524).
   function resolveTitle(custom, auto) {
@@ -632,7 +638,8 @@
 
   // ── WA State ────────────────────────────────────────────────────────────────────────────────────────────────
   // input: rows (aggregate.build's circles, as on screen), f (the map's filters: species, years, quarters,
-  // direction, scaling, nBins), universe (the master's species), palette and opacity (the screen's), title (the
+  // direction, scaling, nBins), universe (the master's species), yearChoices (its years, for periodParts), palette and
+  // opacity (the screen's), title (the
   // custom title, may be blank), date (Last Updated), counties (GeoJSON features). style: branded.js options.
   // ── The time-series GIF's map band ───────────────────────────────────────────────────────────────────────────────
   // A map fitted into its panel; with band (a fraction of the page from the bottom, given for the GIF's period strip)
@@ -794,7 +801,7 @@
     const auto = (perSqMi ? 'ANIMAL ' + dirLabel + ' PER SQ MI' : 'TOTAL ANIMAL ' + dirLabel) + ' – ' +
       speciesLabel(f.species, input.universe) + ' – COUNTY DETAIL';
     const title = resolveTitle(input.title, auto);
-    const period = periodParts(f.quarters, f.years);
+    const period = periodParts(f.quarters, f.years, input.yearChoices);
     const counties = new Set(rows.map(r => r.county).filter(c => c !== null && String(c).length));
     const total = rows.reduce((s, r) => s + (r.total_animals === null || Number.isNaN(r.total_animals) ? 0
       : r.total_animals), 0);
@@ -956,7 +963,8 @@
       legendBox.parts,
       popCorner ? popCorner.parts : '',
       BR.highlightLine(input.highlights),
-      BR.footnote(withPopulation(sourceWithRegions(input.regions), pop), bg ? bg.attribution : null, style),
+      BR.footnote(withPopulation(sourceWithRegions(input.regions), pop), bg ? bg.attribution : null, style,
+        input.synthetic),
       regionStatements(input.regions, style),
       BR.logo()
     ];
@@ -1140,7 +1148,7 @@
       legendBox.parts,
       BR.highlightLine(input.highlights),
       BR.footnote(withPopulation(sourceWithRegions(input.regions), ctx.pop), backgroundOf(input) ?
-        backgroundOf(input).attribution : null, style),
+        backgroundOf(input).attribution : null, style, input.synthetic),
       regionStatements(input.regions, style),
       BR.logo()
     ];
@@ -1239,7 +1247,7 @@
 
   // input: lines (flow.lines: CVI's rows, each with state, species_group, total_animals and coords), f (direction,
   // species, years, quarters, combine, scaling, nBins, palette, multiplier, opacity, lines = state lines on),
-  // universe, title, date, states (us-states.js features). Returns null when there is no line (CVI: "no data
+  // universe, yearChoices, title, date, states (us-states.js features). Returns null when there is no line (CVI: "no data
   // matches current filters").
   // CH: input.shade ({ method, nBins, opacity, cls: the classes shared by the GIF's frames, else this page's own }):
   // shaded states in place of the lines: each state with movements in its class's color at the fill opacity, the
@@ -1366,7 +1374,7 @@
       right: BR.updated(input.date)
     };
     const stats = {
-      left: [periodParts(f.quarters, f.years), { prefix: 'Total Animals:', value: S().comma(total) },
+      left: [periodParts(f.quarters, f.years, input.yearChoices), { prefix: 'Total Animals:', value: S().comma(total) },
         { prefix: 'States:', value: String(states.size) }],
       right: []
     };
@@ -1545,7 +1553,7 @@
       topParts,
       legendBox.parts,
       BR.highlightLine(input.highlights),
-      BR.footnote(SOURCE_STATES, null, style),
+      BR.footnote(SOURCE_STATES, null, style, input.synthetic),
       BR.logo()
     ];
     const model = {
@@ -1820,7 +1828,7 @@
   }
 
   // input: premises (focus.build's, as on screen), f (counties, species, years, quarters, direction, scaling, nBins,
-  // opacity, hideCircles), universe, title, date, counties (GeoJSON features). Returns null without premises (CVI:
+  // opacity, hideCircles), universe, yearChoices, title, date, counties (GeoJSON features). Returns null without premises (CVI:
   // "no data matches current filters").
   // ── County Focus's circles and map box (shared by the page and the GIF's frames) ──────────────────────────
   // The grouped circles, sized and placed on the page. The GIF's shared scale: input.grouped (each frame's groups,
@@ -1910,7 +1918,7 @@
       left: 'Data Range: Jan ' + Math.min(...f.years) + ' – Dec ' + Math.max(...f.years),
       right: BR.updated(input.date)
     };
-    const stats = { left: [periodParts(f.quarters, f.years)], right: [] };
+    const stats = { left: [periodParts(f.quarters, f.years, input.yearChoices)], right: [] };
     const cities = new Set(plain.map(p => p.city).filter(c => c !== null && c !== undefined && String(c).length));
     const places = new Set(plain.map(p => p.lat + ',' + p.lon));
     const total = plain.reduce((s, p) => s + (p.total_animals === null || Number.isNaN(p.total_animals) ? 0
@@ -2128,7 +2136,7 @@
       noteParts.join(''),
       BR.highlightLine(input.highlights),
       BR.footnote(withPopulation(streets ? SOURCE_COUNTIES + ' · ' + STREETS_CREDIT : SOURCE_COUNTIES, pop),
-        bg ? bg.attribution : null, style)
+        bg ? bg.attribution : null, style, input.synthetic)
     ];
     const model = {
       view: 'focus', title, titleSize: BR.titleSize(title), meta, stats, boxes, top, legend,
@@ -2761,7 +2769,7 @@
 
   // input: sites (proximity.prepareSites's, as the run used them), bandsMode, endpoint, summary, siteCvis, siteOrigins,
   // siteDests, matched (the matched rows, with hitOrigin and hitDest), filters { year, quarter, species }, universe
-  // (the master's species groups), facilitiesOnly (no CVI match: the page counts the facilities inside), fac
+  // (the master's species groups), yearChoices (its years), facilitiesOnly (no CVI match: the page counts the facilities inside), fac
   // (lookup.facilitiesInside's result, or null), labels (Show facility labels), counties (GeoJSON features), date,
   // background, streets, population. Returns { model, parts, style }.
   function proximity(input, styleOpts) {
@@ -2801,7 +2809,8 @@
     const title = (only ? 'FACILITY PROXIMITY ASSESSMENT - ' + sitesWord
       : 'PREMISE PROXIMITY ASSESSMENT - ' + spp + ' - ' + sitesWord) + areaWord;
     const period = only ? { prefix: 'Data:', value: 'Facility files as loaded' }
-      : f.year && f.year.length ? periodParts(f.quarter && f.quarter.length ? f.quarter : ['Q1', 'Q2', 'Q3', 'Q4'], f.year)
+      : f.year && f.year.length ? periodParts(f.quarter && f.quarter.length ? f.quarter : ['Q1', 'Q2', 'Q3', 'Q4'], f.year,
+        input.yearChoices)
         : { prefix: 'Data:', value: 'All available periods' };
     const endpointLabel = only ? 'Facilities: inside a buffer or zone'
       : input.endpoint === 'origin' ? 'Endpoint: origin within buffer'
@@ -3075,7 +3084,7 @@
       popCorner ? popCorner.parts : '',
       scale ? BR.scaleBar(scale, L.gutterX, 0.045, L.gutterW, SB_H) : '',
       BR.logo(),
-      BR.footnote(source, bg ? bg.attribution : null, style)
+      BR.footnote(source, bg ? bg.attribution : null, style, input.synthetic)
     ];
     const model = {
       view: 'proximity', title, titleSize: BR.titleSize(title), meta, stats: { left: [period], right: [] }, boxes,

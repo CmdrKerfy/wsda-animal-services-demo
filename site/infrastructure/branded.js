@@ -300,8 +300,8 @@
   // lon, lat, geoSource, county }] } after its county and attribute filters), counties (GeoJSON features), picked
   // (the county filter's names), view ('density' or 'locations'), ramp, chrome ('branded' or 'report'),
   // nameLayers, activity (null, or { rows (aggregate.build's circles), f: { species, years, quarters, scaling,
-  // nBins }, universe, palette, opacity }), period (the activity pickers' { years, quarters }, for the Report
-  // caption), title, date, background (tiles.js key or 'standard'), labelStyle, boundaryStyle.
+  // nBins }, universe, yearChoices, palette, opacity }), period (the activity pickers' { years, quarters,
+  // yearChoices }, for the Report caption), title, date, background (tiles.js key or 'standard'), labelStyle, boundaryStyle.
   function facilities(input, styleOpts) {
     const BR = B();
     const style = BR.styleOf(styleOpts);
@@ -435,7 +435,7 @@
       auto = density ? 'FACILITY DENSITY BY COUNTY' : glyphs ? 'FACILITIES BY COUNTY' : 'WASHINGTON FACILITIES & INFRASTRUCTURE';
     }
     const title = BM().resolveTitle(input.title, auto);
-    const period = act ? BM().periodParts(act.f.quarters, act.f.years) : null;
+    const period = act ? BM().periodParts(act.f.quarters, act.f.years, act.yearChoices) : null;
     const updated = BR.updated(input.date);
 
     // The tiles (SMR 3893-3920): Total Animals first with CVI activity; Density: Facilities, Counties covered and
@@ -464,7 +464,7 @@
         count: s.count,
         located: s.located.length, town: s.town.length, unplaced: s.unplaced, active: active.indexOf(s) >= 0 })),
       tiles, extent, zoomed: pickedFeatures.length > 0, background: bg ? input.background : 'standard',
-      basemap: bg ? bg.attribution : null, cvi, choro, glyphs, dataCounties,
+      basemap: bg ? bg.attribution : null, cvi, choro, glyphs, dataCounties, synthetic: !!input.synthetic,
       fileName: 'CVI_Facilities_' + dateStamp(input.date) + '.png',
       page: report ? BR.REPORT_PAGE : BR.PAGE
     };
@@ -878,7 +878,7 @@
         { swatch: e.swatch ? { fill: e.swatch.fill } : undefined })),
       overlap: legend.overlap, box: legend.box, squeezed: !!legend.squeezed, rows: legend.rows || legend.circles };
     const source = BM().withPopulation(model.cvi.length ? SOURCE_CVI : SOURCE, model.populationDrawn);
-    parts.push(BR.footnote(source, model.basemap, style));
+    parts.push(BR.footnote(source, model.basemap, style, model.synthetic));
     model.source = style.sourceLine ? source : null;
     parts.push(BR.logo());
     return parts;
@@ -920,13 +920,14 @@
     // they hold years).
     const per = style.activityPeriodOnly && !model.cvi.length ? null : input.period;
     if (per && per.years && per.years.length && per.quarters && per.quarters.length) {
-      const pp = BM().periodParts(per.quarters, per.years);
+      const pp = BM().periodParts(per.quarters, per.years, per.yearChoices);
       cap.push(pp.prefix + ' ' + pp.value);
     } else if (per && per.years && per.years.length) {
       const ys = per.years.map(Number);
       const lo = Math.min(...ys);
       const hi = Math.max(...ys);
-      cap.push('CY ' + (lo === hi ? lo : lo + '-' + hi));
+      const runs = per.yearChoices && root.CVIWA.summary.gapRuns(ys, String, '-', per.yearChoices);
+      cap.push('CY ' + (runs || (lo === hi ? lo : lo + '-' + hi)));
     }
     cap.push('Facilities: ' + S().comma(model.facilities), 'Source: WSDA CVI');
     // The population layers' credits, when drawn.

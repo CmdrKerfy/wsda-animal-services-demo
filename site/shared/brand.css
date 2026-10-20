@@ -152,3 +152,11 @@ footer.foot details.glossary dd { margin: 0; }
 /* All and Clear (and the like): links that are buttons, the same on every page. */
 .links button { font: inherit; font-size: 0.85rem; background: none; border: none; padding: 0; color: var(--primary);
   cursor: pointer; text-decoration: underline; }
+
+/* Windows Contrast themes (forced colors) remove background colors. The legends' color keys keep theirs, so they still
+   tell the directions, species and layers apart; the chosen button of a switch, shown by its fill, gets a thick
+   border instead. */
+@media (forced-colors: active) {
+  .lg-dot, .lg-shade, .lg-bar, .lg-pc-swatch, .legend-panel svg, #facility-legend svg, .lk-legend svg { forced-color-adjust: none; }
+  .btn[aria-pressed="true"] { border: 3px solid Highlight; }
+}

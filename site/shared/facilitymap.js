@@ -53,6 +53,7 @@
   // activity layers, which the population layers' hover leaves to this kind.
   const KIND = {
     isOwn,
+    scaleCorner: 'bottom-left',   // the scale bar: the legend panel covers the bottom right
     hoverLayers: st => (st.facilityLayers || []).flatMap((l, i) => [POINT(i), CLUSTER(i)])
       .concat(root.CVIWA.map.LAYERS.map(l => l[0])),
     sources: st => Object.assign({}, root.CVIWA.map.WA_KIND.sources(st), facilitySources(st)),

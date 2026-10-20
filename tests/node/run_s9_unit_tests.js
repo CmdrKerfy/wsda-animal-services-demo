@@ -1928,6 +1928,49 @@ function checkViewGifSpread() {
   models.map(m => [m.legendHeight, m.grouped.note]));
 }
 
+// "Synthetic sample data" on a picture made from the synthetic sample (input.synthetic), in any style, and nowhere else.
+function checkSyntheticLine() {
+  const f = { counties: ['Adams'], species: ['Cattle'], rawSpecies: [], years: [2025], quarters: ['Q1'],
+    direction: 'both', mode: 'overlap', scaling: 'log', nBins: 5, opacity: 0.8, hideCircles: false };
+  const input = { premises: [{ premises_id: 'A', group_key: 'A', direction: 'Inbound', lon: -118.6, lat: 47.0,
+    total_animals: 900, city: 'Synthetic', radius_px: 10 }], f, universe: ['Cattle'], title: '',
+    date: new Date(2026, 9, 19), counties: COUNTIES };
+  const marked = BR.svg(BM.focus(Object.assign({}, input, { synthetic: true })).parts);
+  const markedCvi = BR.svg(BM.focus(Object.assign({}, input, { synthetic: true }), BR.CVI_STYLE).parts);
+  check(marked.includes('>' + BR.SYNTHETIC + '<') && markedCvi.includes('>' + BR.SYNTHETIC + '<') &&
+    !BR.svg(BM.focus(input).parts).includes(BR.SYNTHETIC), 'synthetic line: "Synthetic sample data" only on a picture from the sample');
+}
+
+// Skipped years and quarters on the period line: runs (years measured against the master's years, input.yearChoices;
+// quarters against Q1 to Q4); with nothing skipped, CVI's .period_parts exactly, and without the master's years, CVI's
+// years.
+function checkPeriodGaps() {
+  const pp = (q, y, c) => JSON.stringify(BM.periodParts(q, y, c));
+  const all = ['Q1', 'Q2', 'Q3', 'Q4'];
+  const cases = [
+    [all, [2023, 2025], [2023, 2024, 2025], { prefix: 'CY 2023, 2025:', value: 'Full Year' }],
+    [['Q1', 'Q3'], [2025], [2025], { prefix: 'CY 2025:', value: 'Q1, Q3' }],
+    [['Q4', 'Q1', 'Q2'], [2025], [2025], { prefix: 'CY 2025:', value: 'Q1 – Q2, Q4' }],
+    [['Q2', 'Q3', 'Q4'], [2021, 2022, 2025], [2021, 2022, 2023, 2024, 2025], { prefix: 'CY 2021–2022, 2025:', value: 'Q2 – Q4' }],
+    [['Q1', 'Q2', 'Q3'], [2024, 2025], [2023, 2024, 2025], { prefix: 'CY 2024–2025:', value: 'Q1 – Q3' }],
+    [all, [2023, 2024, 2026], [2023, 2024, 2026], { prefix: 'CY 2023–2026:', value: 'Full Year' }],
+    [['Q1'], [2025], [2025], { prefix: 'CY 2025:', value: 'Jan – Mar' }],
+    [all, [2023, 2025], undefined, { prefix: 'CY 2023–2025:', value: 'Full Year' }]];
+  for (const [q, y, c, want] of cases) {
+    check(pp(q, y, c) === JSON.stringify(want), 'period gaps: ' + q.join(',') + ' of ' + y.join(',') + ' reads "' +
+      want.prefix + ' ' + want.value + '"', pp(q, y, c));
+  }
+  const f = { counties: ['Adams'], species: ['Cattle'], rawSpecies: [], years: [2023, 2025], quarters: ['Q1', 'Q3'],
+    direction: 'both', mode: 'overlap', scaling: 'log', nBins: 5, opacity: 0.8, hideCircles: false };
+  const input = { premises: [{ premises_id: 'A', group_key: 'A', direction: 'Inbound', lon: -118.6, lat: 47.0,
+    total_animals: 900, city: 'Synthetic', radius_px: 10 }], f, universe: ['Cattle'], title: '',
+    date: new Date(2026, 9, 19), counties: COUNTIES };
+  const gapped = BR.svg(BM.focus(Object.assign({}, input, { yearChoices: [2023, 2024, 2025] })).parts);
+  const plain = BR.svg(BM.focus(input).parts);
+  check(gapped.includes('>CY 2023, 2025:<') && gapped.includes('>Q1, Q3<') && plain.includes('>CY 2023–2025:<') &&
+    plain.includes('>Q1, Q3<'), 'period gaps: the PNG\'s period line lists what is skipped; without the master\'s years, CVI\'s years');
+}
+
 // A known case: Adams and Asotin, where the WA inset at CVI's bottom right partly covered
 // Asotin. Synthetic premises in both counties; the inset should leave the bottom right for the empty bottom left,
 // the strip start after it, and CVI's style keep the bottom right.
@@ -2048,6 +2091,8 @@ checkFrameRules();
 checkViewGifSpread();
 try {
   checkFocusInsetAsotin();
+  checkSyntheticLine();
+  checkPeriodGaps();
 } catch (e) {
   check(false, 'inset Adams-Asotin: drawn without an error', String(e && e.message));
 }

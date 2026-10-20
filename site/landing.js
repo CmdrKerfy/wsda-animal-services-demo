@@ -127,13 +127,16 @@
     const missingNames = cl.result.datasets.filter(d => d.status === 'missing').map(d => d.name);
     const near = (cl.result.files || []).find(f => f.status === 'not-used' && f.reason &&
       missingNames.some(name => f.reason.startsWith('it looks like the ' + name + ' ') ||
-        f.reason.startsWith('it is named like the ' + name + ' ')));
+        f.reason.startsWith('it is named like the ' + name + ' ') || f.reason.startsWith('it is the ' + name + ' ')));
+    if (near && / more than once; /.test(near.reason)) return { kind: 'warn',
+      text: `${cap(p.map)} ${reason}. ${near.name} ${near.reason.replace(/^it /, '')}, then choose all your files ` +
+        'again, together.', notes, open: null, guide: false };
     if (near) return { kind: 'warn',
       text: `${cap(p.map)} ${reason}. ${near.name} ${near.reason.replace(/^it /, '')}. Ask for a copy with every ` +
-        'column listed under "What data does this need?", then load your files again.',
+        'column listed under "What data does this need?", then choose all your files again, together.',
       notes, open: null, guide: true };
     return { kind: 'warn',
-      text: `${cap(p.map)} ${reason}, and none of your files is it. Add that file and load your files again.`,
+      text: `${cap(p.map)} ${reason}, and none of your files is it. Add that file, then choose all your files again, together.`,
       notes, open: null, guide: true };
   }
 
@@ -147,7 +150,7 @@
       card.className = 'card' + (p.available ? '' : ' soon');
       card.setAttribute('data-profile', p.id);
       const h = document.createElement('h3'); h.textContent = p.name; card.appendChild(h);
-      const t = document.createElement('p'); t.textContent = p.about; card.appendChild(t);
+      const t = document.createElement('p'); t.className = 'card-about'; t.textContent = p.about; card.appendChild(t);
       const note = document.createElement('p'); note.className = 'card-note'; note.hidden = true; card.appendChild(note);
       if (p.available) {
         const ready = document.createElement('p'); ready.className = 'card-ready'; ready.hidden = true;
@@ -202,6 +205,8 @@
       card.setAttribute('aria-label', card.querySelector('h3').textContent
         + (state.selected === id ? ' (selected checklist)' : ''));
       card.classList.toggle('routed', listed);
+      // Loose files (no bundle.json list): the card of the dashboard they are checked for is outlined instead.
+      card.classList.toggle('checked-for', loaded && !r.listed && state.selected === id);
       const unlisted = loaded && !!r.listed && !listed && !!profile.available;
       note.hidden = !listed && !unlisted;
       note.classList.toggle('unlisted', unlisted);
@@ -210,13 +215,15 @@
     }
   }
 
-  // The readiness line under a card's description: nothing before files are loaded, "Checking…" while they are
+  // The readiness line under a card's description: "Load your data below first." before files are loaded (the
+  // dashboard would open empty), "Checking…" while they are
   // (and while another card's answer for the current files is worked out: an older answer is never shown), nothing
   // when the files could not be checked (the status line says why). The text is rewritten only when it changes, so a
   // screen reader does not repeat it on every repaint.
   function paintReadiness(el, profile, cl, loaded, checking, ready) {
     let v = null;
-    if (loaded && checking) v = { kind: 'checking', text: 'Checking…' };
+    if (!loaded) v = checking ? null : { kind: 'empty', text: 'Load your data below first.' };
+    else if (checking) v = { kind: 'checking', text: 'Checking…' };
     else if (loaded && !cl.result) v = null;
     else if (loaded && state.selected === profile.id && cl.features) v = readiness(profile, cl.features, true, cl.result);
     else if (loaded && ready && ready.version === cl.version) v = ready.readiness;
@@ -290,6 +297,7 @@
   // The files a dashboard's features use, taken now (a later load or choice does not change what this click sends).
   function payloadFor(p, cl) {
     const res = cl.result, items = new Map(cl.load.items.map(i => [i.id, i])), banner = (cl.bundle && cl.bundle.banner) || null;
+    const synthetic = !!(cl.bundle && cl.bundle.info && cl.bundle.info.synthetic);   // the sample: marked on its pictures
     const used = new Set(p.list.features.flatMap(f => f.needs.map(n => n.dataset))), kinds = p.list.handoffKinds || [];
     // Also every found dataset of the kinds the profile names (CVI: facility layers and the manifest, S5).
     const found = res.datasets.filter(d => (used.has(d.id) || kinds.includes(d.kind)) && d.status === 'found'
@@ -300,7 +308,7 @@
         const it = items.get(d.fileId);
         datasets[d.id] = { name: it.name, path: it.path, file: new File([await it.read()], it.name, { type: 'text/csv' }) };
       }
-      return { banner, datasets };
+      return { banner, datasets, synthetic };
     };
   }
 
@@ -314,7 +322,7 @@
   function report(opened, p, s) {
     if (state.opened !== opened) return;               // a later click, load or choice
     if (s.state === 'loaded') say('ok', `${cap(p.map)} is open in its own tab with your files. If you load other files here, click "${p.open}" again to send them.`);
-    else if (s.state === 'failed') say('err', `Your files could not be sent to ${p.map}: ${s.message} Load your files again (a new copy if one is damaged), then click "${p.open}".`);
+    else if (s.state === 'failed') say('err', `Your files could not be sent to ${p.map}: ${s.message} Choose all your files again, together (a new copy if one is damaged), then click "${p.open}".`);
     else say('err', `${cap(p.map)} could not load your files: ${s.message}`);
   }
 
@@ -336,7 +344,11 @@
     }
     const ready = !!payload;
     const opened = { id: p.id, withFiles: ready };
-    const win = L.handoff.open(p.id, p.url, ready ? payload : () => null, s => report(opened, p, s));
+    // With nothing loaded here the dashboard is told so at once ({ empty: true }); with files that it cannot use, it
+    // gets none and says what it needs.
+    const none = !(cl.load && cl.load.items.length);
+    const win = L.handoff.open(p.id, p.url, ready ? payload : none ? () => ({ empty: true }) : () => null,
+      s => report(opened, p, s));
     if (!win) {
       const blockedText = 'The browser blocked the new tab. Allow pop-ups for this page, then click the button again.';
       if (!$('next-step').hidden) say('err', blockedText);
@@ -389,6 +401,7 @@
   const hashNow = () => (root.location ? root.location.hash : '');
   if (root.addEventListener) root.addEventListener('hashchange', () => openGuideFor(hashNow()));
   openGuideFor(hashNow());
+  paintNext();   // the cards' first lines ("Load your data below first.") before anything is loaded
 
   // Only the most recent selection may publish its result: an older, slower load finishing later is discarded.
   async function run(collect) {

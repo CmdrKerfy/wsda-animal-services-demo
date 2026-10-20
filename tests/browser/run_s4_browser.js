@@ -236,7 +236,7 @@ function compareView(g, v, id, noCvi, numcvi) {
   else {
     const wm = arr(vb.metrics);
     check(g.boxes.length === 4 && g.boxes.every((b, i) => b.label === wm[i].label && !b.tip && (i === 1 && (noCvi || numcvi)
-      ? (noCvi ? b.gated && b.value === 'Needs the CVI column' && wm[i].text === '0' : !b.gated) : !b.gated && b.value === wm[i].text)),
+      ? (noCvi ? b.gated && b.value === 'Not available: needs the CVI column' && wm[i].text === '0' : !b.gated) : !b.gated && b.value === wm[i].text)),
       id + ': value boxes', [g.boxes, wm.map(m => [m.label, m.text])]);
   }
   check(g.strip === stripText(v.strip), id + ': strip', [g.strip, stripText(v.strip)]);
@@ -605,11 +605,13 @@ function compareView(g, v, id, noCvi, numcvi) {
     await p.downloadsTo(DL);
     await p.eval(`document.getElementById('flow-toast').textContent=''; ${FH}.map.getContainer().querySelector('.map-screenshot').click()`);
     let saved = null;
-    for (let i = 0; i < 50 && !saved; i++) { await sleep(100); if (fs.existsSync(path.join(DL, 'map-screenshot.png'))) saved = fs.statSync(path.join(DL, 'map-screenshot.png')).size; }
+    // Named by day and view (CVI: map-screenshot.png; a deliberate difference).
+    const shotName = await p.eval(`${FH}.lastScreenshot && ${FH}.lastScreenshot.name`);
+    for (let i = 0; i < 50 && !saved; i++) { await sleep(100); if (shotName && fs.existsSync(path.join(DL, shotName))) saved = fs.statSync(path.join(DL, shotName)).size; }
     const sm = await p.eval(`({toast:document.getElementById('flow-toast').textContent,last:${FH}.lastScreenshot,labels:${FH}.lastLabels.slice(),attr:${FH}.lastAttribution})`);
     const shownNow = (await p.eval(LABELREAD)).filter(l => !l.off && !l.collided).map(l => l.t);
-    check(saved > 1000 && sm.last && sm.last.bytes === saved && sm.toast === 'map-screenshot.png was handed to your browser to save (usually your Downloads folder). If no file appears, your browser or IT policy blocked the download.',
-      'screenshot: map-screenshot.png saved from the click, with the message', [saved, sm]);
+    check(saved > 1000 && sm.last && sm.last.bytes === saved && /^\d{4}-\d\d-\d\d_NationalFlow_map\.png$/.test(shotName) && sm.toast === shotName + ' was handed to your browser to save (usually your Downloads folder). It shows locations: handle it as sensitive data. If no file appears, your browser or IT policy blocked the download.',
+      'screenshot: the picture saved from the click, named by day and view, with the message', [saved, sm]);
     check(sm.labels.length >= 40 && JSON.stringify(sm.labels.slice().sort()) === JSON.stringify(shownNow.slice().sort()) && /Boundaries: U\.S\. Census Bureau/.test(sm.attr),
       'screenshot: the state labels shown on the map (none hidden for lack of room) and the Census credit drawn', [sm.labels.length, shownNow.length, sm.attr]);
     const px = await p.eval(`CVIWA.flowmap.screenshot(${FH}).then(function(b){return createImageBitmap(b)}).then(function(i){var c=document.createElement('canvas');c.width=i.width;c.height=i.height;

@@ -244,7 +244,7 @@
     if (!st.ready || st.switching || st.failed) return;   // the style is built with st.mc when ready
     const map = st.map;
     st.clearHover();
-    LAYERS.forEach(([id]) => map.setLayoutProperty(id, 'visibility', st.mc ? 'none' : 'visible'));
+    LAYERS.forEach(([id]) => [id, id + EDGE].forEach(l => map.setLayoutProperty(l, 'visibility', st.mc ? 'none' : 'visible')));
     if (st.mc && was) {
       Object.keys(MC_SOURCES).forEach(k => map.getSource(MC_SOURCES[k]).setData(st.mc[k]));
     } else if (st.mc) {
@@ -309,6 +309,13 @@
     if (!map.hasImage(HATCH_IMAGE)) map.addImage(HATCH_IMAGE, hatchImage(), { pixelRatio: 2 });
   }
 
+  // A thin dark edge outside a circle's white one, drawn by a layer of its own just below the circle layer (its
+  // wider stroke shows 1 px past the white): light circles then stand out from a light map (3:1 contrast).
+  const EDGE = '-edge';
+  const edgeLayer = (id, source, extra) => Object.assign({ id: id + EDGE, type: 'circle', source, paint: {
+    'circle-color': '#000000', 'circle-opacity': 0, 'circle-radius': ['get', 'radius_px'],
+    'circle-stroke-width': 2.5, 'circle-stroke-color': '#333333', 'circle-stroke-opacity': 0.9 } }, extra || {});
+
   // The WA State map's own part: the circles (CVI's .build_county_map) and their pop-up; since MC the movement view.
   const WA_KIND = {
     isOwn: id => /^mc[-_]/.test(String(id)),
@@ -320,11 +327,12 @@
     // CH: the county lines white on the shaded map while the Boundary style is Auto (by design).
     contrast: (st, c) => (st.shade && (st.boundaryStyle || 'auto') === 'auto'
       ? Object.assign({}, c, { line: root.CVIWA.choropleth.LINE }) : c),
-    layers: st => LAYERS.map(([id, source]) => Object.assign({ id, type: 'circle', source, paint: {
-      'circle-color': ['get', 'color'], 'circle-radius': ['get', 'radius_px'],
-      'circle-opacity': (st.circleOpacity && st.circleOpacity[id]) || 0.6,
-      'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff', 'circle-stroke-opacity': 1.0 } },
-    st.mc ? { layout: { visibility: 'none' } } : {})).concat(st.shade ? [shadeSpotLayer()] : [], mcLayers(st)),
+    layers: st => LAYERS.flatMap(([id, source]) => [edgeLayer(id, source, st.mc ? { layout: { visibility: 'none' } } : {}),
+      Object.assign({ id, type: 'circle', source, paint: {
+        'circle-color': ['get', 'color'], 'circle-radius': ['get', 'radius_px'],
+        'circle-opacity': (st.circleOpacity && st.circleOpacity[id]) || 0.6,
+        'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff', 'circle-stroke-opacity': 1.0 } },
+      st.mc ? { layout: { visibility: 'none' } } : {})]).concat(st.shade ? [shadeSpotLayer()] : [], mcLayers(st)),
     draw: (st, d, opts) => draw(st, d, opts),
     // One pop-up for the circle on top under the pointer, in any circle layer (CVI gives every layer a tooltip;
     // only the full-opacity layers brighten on hover).
@@ -456,6 +464,9 @@
     const zoomOut = map.getContainer().querySelector('.maplibregl-ctrl-top-left .maplibregl-ctrl-zoom-out');
     if (zoomOut) zoomOut.after(fitButton(st));   // in the zoom group, above the compass
     map.addControl(screenshotControl(st), 'top-right');
+    // A scale bar in miles, so distances can be judged: bottom right, above the credits (the CVI maps' Legend button
+    // holds the bottom left), unless the map's kind names another corner (scaleCorner).
+    map.addControl(new root.maplibregl.ScaleControl({ unit: 'imperial', maxWidth: 110 }), st.kind.scaleCorner || 'bottom-right');
     map.on('load', () => {
       if (st.failed) return;
       try {
@@ -1020,23 +1031,35 @@
     });
   }
   function saveScreenshot(st) {   // synchronous, so the download starts within the click
-    const blob = savePng(capture(st));
-    st.lastScreenshot = { bytes: blob.size, at: Date.now() };   // test hook
+    const name = shotFileName(st), blob = savePng(capture(st), name);
+    st.lastScreenshot = { bytes: blob.size, at: Date.now(), name };   // test hook
     return blob;
   }
-  // A picture saved as map-screenshot.png through the browser's download (also used by the Flow map).
-  function savePng(canvas) {
+  // The camera picture's file name: the day, the view and "map" (2026-10-19_CountyFocus_map.png), so pictures from
+  // several views and days do not overwrite each other. st.shotName (a name, or a function giving one) is set by the
+  // page; without it, CVI's map-screenshot.png.
+  function shotFileName(st) {
+    const view = typeof st.shotName === 'function' ? st.shotName() : st.shotName;
+    if (!view) return 'map-screenshot.png';
+    const d = new Date(), two = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + '_' + view + '_map.png';
+  }
+  // What the camera button says once its picture is handed to the browser.
+  const shotSaved = name => name + ' was handed to your browser to save (usually your Downloads folder). It shows ' +
+    'locations: handle it as sensitive data. If no file appears, your browser or IT policy blocked the download.';
+  // A picture saved through the browser's download (also used by the Flow map), as map-screenshot.png unless named.
+  function savePng(canvas, name) {
     const png = canvas.toDataURL('image/png'), head = 'data:image/png;base64,';
     if (png.indexOf(head) !== 0) throw new Error('The picture could not be made.');
     const bin = root.atob(png.slice(head.length)), bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     const blob = new Blob([bytes], { type: 'image/png' });
     const url = root.URL.createObjectURL(blob), a = root.document.createElement('a');
-    a.href = url; a.download = 'map-screenshot.png'; a.hidden = true; root.document.body.appendChild(a); a.click(); a.remove();
+    a.href = url; a.download = name || 'map-screenshot.png'; a.hidden = true; root.document.body.appendChild(a); a.click(); a.remove();
     root.setTimeout(() => root.URL.revokeObjectURL(url), 10000);
     return blob;
   }
-  // The camera button (top right) as a MapLibre control: a click saves map-screenshot.png and says so.
+  // The camera button (top right) as a MapLibre control: a click saves the picture and says so.
   function screenshotControl(st) {
     let box = null;
     return {
@@ -1047,9 +1070,7 @@
         b.innerHTML = root.CVIWA.icons ? root.CVIWA.icons.camera : '';
         b.addEventListener('click', () => {
           const say = msg => { if (st.notify) st.notify(msg); };
-          try { saveScreenshot(st);
-            say('map-screenshot.png was handed to your browser to save (usually your Downloads folder).'
-              + ' If no file appears, your browser or IT policy blocked the download.'); }
+          try { saveScreenshot(st); say(shotSaved(st.lastScreenshot.name)); }
           catch (e) { say('Screenshot not saved: ' + ((e && e.message) || String(e))); }
         });
         box.appendChild(b); return box;
@@ -1069,7 +1090,7 @@
 
   root.CVIWA = root.CVIWA || {};
   root.CVIWA.map = { create, draw, link, camera, fitView, setLabels, setLines, setBasemap, attributionText, screenshot,
-    saveScreenshot, savePng, drawAttribution, drawOrder,
+    saveScreenshot, savePng, shotFileName, shotSaved, edgeLayer, EDGE, drawAttribution, drawOrder,
     setContrast, setNeighbor, setPopulation, isOwn, landColor, WA_KIND, setMovement, MC_LAYERS, SHADE_LAYERS, SHADE_DIM,
     SHADE_SPOT, MC_SOURCES, WA_VIEW_BOUNDS, LAYERS, OWN_SOURCES, PROTOCOL, NR_LABEL_MIN_ZOOM, LAND_PAINT, NR_LAND_PAINT,
     WA_LAND_WITH_NEIGHBORS, config,

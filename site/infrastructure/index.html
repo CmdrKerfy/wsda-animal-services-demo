@@ -195,11 +195,11 @@
 </div>
 <div id="drop" tabindex="0" role="button" aria-label="Drag files, a folder or a ZIP here, or press Enter to choose files">Or drag files, a folder or a ZIP here</div>
 <div id="load-status" class="status info" role="status">No data loaded. Load files here or open Infrastructure from the landing page.</div>
-<div id="entry-status" class="status" role="status" hidden></div>
+<div class="live" role="status" aria-live="polite"><div id="entry-status" class="status" hidden></div></div>
 
 <div id="load-results"></div>
 <p class="muted">No files yet? <button type="button" class="btn" data-sample="infrastructure"><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Download a synthetic sample (ZIP)</button> Made-up facility files; load the ZIP above. Not real records.</p>
-<div class="status" role="status" id="sample-status" hidden></div>
+<div class="live" role="status" aria-live="polite"><div class="status" id="sample-status" hidden></div></div>
 </details>
 <section class="explore" aria-label="Explore facilities">
 <aside class="facility-controls">
@@ -208,8 +208,9 @@
 <div id="facility-controls"></div>
 <div class="field">
 <div class="ctl-row"><span class="ctl" id="facility-counties-label">WA counties</span><span class="links"><button type="button" id="clear-counties">Clear</button></span></div>
-<div class="checklist" id="facility-counties" role="group" aria-labelledby="facility-counties-label"></div>
-<p class="muted">None ticked includes all supplied valid points, including outside Washington. In refine lists, any ticked value matches; every list with ticks must match. Simplified county borders are not parcel lines.</p>
+<p class="muted" id="facility-counties-hint">To see neighboring counties' facilities, leave this unticked.</p>
+<div class="checklist" id="facility-counties" role="group" aria-labelledby="facility-counties-label" aria-describedby="facility-counties-hint"></div>
+<p class="muted">Nothing ticked = every county. Borders are approximate.</p>
 </div>
 <div id="selection-notice" class="status warn" hidden></div>
 </div></details>
@@ -340,19 +341,20 @@
 </details>
 <div class="export-prompt">Preview before exporting:</div>
 <button type="button" class="btn full" id="preview-facilities" title="Preview the PNG in the selected Output style (Branded or Report)."><span class="btn-icon" data-icon="eye" aria-hidden="true"></span>Preview</button>
-<div class="status warn" id="preview-message" role="status" hidden></div>
+<div class="live" role="status" aria-live="polite"><div class="status warn" id="preview-message" hidden></div></div>
 <button type="button" class="btn full export-btn" id="run-export" title="Writes the Facilities PNG and export_params.json into one ZIP file, handed to your browser to save."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Export</button>
-<div class="status" id="export-result" role="status" aria-live="polite" hidden></div>
+<div class="live" role="status" aria-live="polite"><div class="status" id="export-result" hidden></div></div>
 <p class="muted export-warning"><span aria-hidden="true">&#9888;</span> Exports and maps contain facility names and locations: handle as sensitive data and share only with authorized responders.</p>
 </div></details>
 </aside>
 <div><div id="facility-cards" class="count-cards"></div><div id="facility-strip" role="status">Infrastructure · 0 facility layers shown · CVI activity off</div>
-<div class="map-frame"><div id="facility-map" aria-label="Infrastructure map"></div><div id="basemap-status" class="status warn" hidden><span></span> <button id="offline-back" type="button" class="btn"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div><details id="facility-legend" open><summary>Legend</summary><div id="facility-legend-content"></div></details></div>
-<div id="screenshot-status" class="status info" role="status" hidden></div><div id="activity-status" class="status info" role="status" hidden></div><div id="facility-zero" class="status warn" role="status">Load facility files to explore the map.</div></div></section>
+<div class="map-frame"><div id="facility-map" role="region" aria-label="Infrastructure map" aria-describedby="facility-map-alt"></div><div id="basemap-status" class="status warn" hidden><span></span> <button id="offline-back" type="button" class="btn"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div><details id="facility-legend" open><summary>Legend</summary><div id="facility-legend-content"></div></details></div>
+<div class="live" role="status" aria-live="polite"><div id="screenshot-status" class="status info" hidden></div></div><div class="live" role="status" aria-live="polite"><div id="activity-status" class="status info" hidden></div></div><div id="facility-zero" class="status warn" role="status">Load facility files to explore the map.</div>
+<p class="muted map-alt" id="facility-map-alt">The counts on this map are also in the cards above it. Facility names and details are in the facility files you loaded (they open in a spreadsheet).</p></div></section>
 
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 1.0 (2026-10-18)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 1.1 (2026-10-19)</span></p>
   <details class="credits"><summary>Data sources and credits</summary>
   <p>Adapted from Statistics Canada, 2021 Census Boundary Files (census divisions, cartographic), reference date 2021. This does not constitute an endorsement by Statistics Canada of this product. Contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada" target="_blank" rel="noopener noreferrer">Open Government Licence – Canada</a>.</p></details>
   <div data-wsda-glossary></div></footer>

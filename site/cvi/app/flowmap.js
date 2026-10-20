@@ -84,6 +84,9 @@
     const zoomOut = map.getContainer().querySelector('.maplibregl-ctrl-top-left .maplibregl-ctrl-zoom-out');
     if (zoomOut) zoomOut.after(fitButton(st));   // in the zoom group, above the compass (as the WA map)
     map.addControl(screenshotControl(st), 'top-right');
+    // A scale bar in miles, so distances can be judged (bottom right, above the credits: the legend button holds the
+    // bottom left).
+    map.addControl(new root.maplibregl.ScaleControl({ unit: 'imperial', maxWidth: 110 }), 'bottom-right');
     map.on('load', () => {
       if (st.failed) return;
       try {
@@ -427,7 +430,8 @@
       catch (e) { reject(e); }
     });
   }
-  // The camera button (top right) as a MapLibre control: a click saves map-screenshot.png and says so.
+  // The camera button (top right) as a MapLibre control: a click saves the picture (named as map.js names it) and
+  // says so.
   function screenshotControl(st) {
     let box = null;
     return {
@@ -439,10 +443,9 @@
         b.addEventListener('click', () => {
           const say = msg => { if (st.notify) st.notify(msg); };
           try {
-            const blob = root.CVIWA.map.savePng(capture(st));
-            st.lastScreenshot = { bytes: blob.size, at: Date.now() };   // test hook
-            say('map-screenshot.png was handed to your browser to save (usually your Downloads folder).'
-              + ' If no file appears, your browser or IT policy blocked the download.');
+            const M = root.CVIWA.map, name = M.shotFileName(st), blob = M.savePng(capture(st), name);
+            st.lastScreenshot = { bytes: blob.size, at: Date.now(), name };   // test hook
+            say(M.shotSaved(name));
           } catch (e) { say('Screenshot not saved: ' + ((e && e.message) || String(e))); }
         });
         box.appendChild(b); return box;

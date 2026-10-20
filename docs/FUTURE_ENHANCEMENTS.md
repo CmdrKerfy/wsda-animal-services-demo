@@ -14,6 +14,15 @@ scope and approval when its time comes.
    control to type the breaks on each map, checks on what is typed, Reset All, legends labeled from the typed values,
    and numbered browser test steps). Manual breaks look the most useful; start there if someone asks for it.
 
+   Also to revisit: what the circles count. "Show charts by:" (Animals moved, CVI records, Unique CVIs) changes the
+   charts and, with the movement lines on, how those lines are ranked; the map's circles stay sized by animals, as in
+   CVI, on purpose. Animal counts do not compare across species (one poultry shipment can carry thousands of birds),
+   so a separate "Size circles by" control under Map Style, set to animals unless changed, could size them by records
+   or certificates. Keep it separate from "Show charts by:" so a chart setting never reshapes the map. It reaches WA
+   State and Compare, County Focus, National Flow, Infrastructure's CVI activity, the live and PNG legends, the GIF's
+   shared scale, `summary_table.csv`, `export_params.json` and the R references, and has to settle how it pairs with
+   the shaded map's own Measure (estimated a few days). Revisit if staff ask for it.
+
 2. **Location precision (CVI's P1-3).** Today a facility whose `geo_source` is blank, missing or not recognized
    counts as a precise location, as in CVI. CVI plans three states (precise, town-level, unknown), with unknown left
    out of distance results; as of 2026-10-16 CVI has not built it or settled which values count as precise. Revisit
@@ -46,8 +55,10 @@ scope and approval when its time comes.
 6. **A shorter sidebar.** The sidebar has grown long. Today some controls are grayed with a reason (shaded maps, the
    movement lines, National Flow's population layers) and others stay shown. To explore: hiding or folding controls
    that cannot apply to the view and mode on screen (with a short note of where they went), folding the less used
-   style controls under a "More options" fold, and remembering which folds the user opened. Start with a short scope
-   and before-and-after screenshots of the sidebar.
+   style controls under a "More options" fold, and remembering which folds the user opened. With it: a "Skip to the
+   map" link at the top of each page for keyboard users, and the export controls moved higher (today they sit at the
+   end of a long sidebar, where a first-time user does not find them). Start with a short scope and before-and-after
+   screenshots of the sidebar.
 
 7. **The spotlight outline's look.** The spotlit county on WA State's shaded map, and a state picked in a chart on
    National Flow's, are outlined in white (3 px live, a little wider than the county lines on the PNG). On the
@@ -81,10 +92,12 @@ scope and approval when its time comes.
     in the checklist, with a plain message naming the limit, keeping the 512 MB cap for files that are only checked
     by their first lines.
 
-13. **A "?" note for every control with help.** 41 controls have a "?" note that opens on a click and is read by
+13. **A "?" note for every control with help.** 43 controls have a "?" note that opens on a click and is read by
     screen readers, WA State's Display Mode among them. A few controls still carry their help only as hover text,
     which keyboard and touch users cannot reach: WA State's Direction and Lines shown, the PNG's Label style and
-    Boundary style, the Map View, layout and Preview buttons, and Compare with. To do with the shorter sidebar
+    Boundary style, the Map View, layout and Preview buttons, and Compare with; also what Reset All resets, what each
+    "Show charts by:" measure counts, Pick on map, "Also one PNG per county" and Premise Lookup's three population
+    switches. Premise Lookup's labels could also be plainer, each with a "?" note. To do with the shorter sidebar
     (entry 6), so the notes do not lengthen it.
 
 14. **Datasets and columns the pages do not know yet.** How to handle new datasets and columns users might add that
@@ -115,6 +128,50 @@ scope and approval when its time comes.
       change, rather than as a file that is not used.
     Each would keep the current rules: nothing leaves the browser, personal columns stay out, the size limits hold,
     and each new behavior gets its own tests.
+
+15. **Accessibility: the next steps.** Version 1.1 makes the CVI page reflow on narrow screens, adds text that
+    points to each map's numbers, and fixes contrast, forced colors and screen-reader announcements. Still to do,
+    first item first:
+    - **A "Facilities shown" table under the Infrastructure map** (layer, name, county, details; sortable; saved as
+      CSV; a "Show on map" button per row), so facility names and details do not need a mouse. Planned for v1.2;
+      until then the facility files themselves, opened in a spreadsheet, list them (the page says so under the map).
+    - Hover pop-ups that close with Escape and stay open while the pointer moves onto them.
+    - Warnings and failures on the maps that stay until closed (today they fade after 2 to 6 seconds).
+    - Real second- and third-level headings with the same look (today some heading levels are skipped).
+    - Premise Lookup's sites table: a checkbox column for the selection and a line on using it with the keyboard.
+    - A CSV of each chart's numbers beside its PNG in the export.
+    - Marks that do not depend on color: a different mark for County Focus's exporters, and the Color-blind Safe
+      palette by default on National Flow when species are shown separately.
+    - The "?" button now inside one fold's title moved beside the fold.
+
+16. **Field use: the next steps.** From watching a first-time user work through an outbreak task:
+    - Click a county on County Focus's map to pick it (v1.1 adds a type-to-find field to the list).
+    - A county's hover that lists both directions and the total.
+    - A "nearest 5 of this layer to a point" list on the Infrastructure dashboard (v1.1 adds scale bars).
+    - A stamped footer (view, filters, date) on the camera button's picture.
+    - A second "Download the sample" button beside the file picker.
+    - The "Master loaded" line in plainer words, with the map-row detail behind a "?".
+    - Cluster counts drawn under the bubbles, so a county label does not hide them.
+
+17. **GIS: exports and labels.** For analysts who take the exports into ArcGIS:
+    - **A GeoJSON of Premise Lookup's sites and buffer rings in its ZIP, and a `county_fips` column beside `county`
+      in the CSVs.** Planned together for v1.2.
+    - Under the PNG's scale bar on tall maps, "at 47° N" (the bar is exact at the map's middle latitude).
+    - County Focus's scale bar on the WA State and Infrastructure PNGs too.
+    - Island County's label on Whidbey Island (today it can fall in the water; a label point in the county geometry).
+    - Points located in a county other than the one their record names: a count and a per-premises flag, and a
+      `county_by_point` column in the exports, once the program says how such points should be treated. The county
+      itself comes from CVI's data preparation, where the lasting fix belongs.
+
+18. **Exports and personal information.** Once the agency labels which master columns hold personal information:
+    a "leave out personal columns" choice for the CSV exports, and a choice for site names in the PNG and
+    `export_params.json` (full, code only, none). Version 1.1 adds a line beside the exports saying the CSV holds
+    every master column, and a help line against typing a person's name or a case number into a site name or label.
+
+19. **The shortcut's icon on the shared drive.** The "Open WSDA Dashboards" shortcut shows the WSDA icon inside the
+    ZIP but a plain sheet once unzipped onto the shared drive, likely because the managed PCs do not load icons
+    from a network drive. To try on a work PC: a normal Windows shortcut (.lnk) made there, pointing to the icon on
+    the shared drive.
 
 ## Noted for other work
 

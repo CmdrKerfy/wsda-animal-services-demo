@@ -157,6 +157,20 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     check(cards.length === 3 && cards[0].id === 'cvi' && cards[0].h === 'CVI Traceability' && cards[0].button === 'Open the CVI map' && !cards[0].soon
       && cards[1].id === 'emergency' && cards[1].h === 'Emergency Response' && cards[1].button === null && cards[1].soon === 'In preparation' && cards[2].id === 'infrastructure' && cards[2].button === 'Open Infrastructure' && !cards[2].soon, 'cards: CVI available, Emergency in preparation', cards);
     check(await p.eval('document.getElementById("next-step").hidden'), 'next step hidden before any files are loaded');
+    // Version 1.1: before any files are loaded each card says to load them first, and a dashboard opened then says
+    // at once that nothing was loaded (not after the 10-second wait). Each tab is closed again, so the later clicks
+    // open new ones.
+    const firstLines = await p.eval(`Array.from(document.querySelectorAll('#profiles .card-ready')).map(e => e.hidden ? null : e.textContent)`);
+    check(firstLines.length === 2 && firstLines.every(t => t === 'Load your data below first.'), 'cards before any files: "Load your data below first."', firstLines);
+    for (const [id, file, status] of [['cvi', /\/cvi\/index\.html/, 'master-status'], ['infrastructure', /\/infrastructure\/index\.html/, 'load-status']]) {
+      const n = b.opened.length, t0 = Date.now();
+      await p.click(`document.querySelector('#profiles button[data-open="${id}"]').click()`);
+      const t = await b.waitTab(n);
+      const said = await t.page.waitFor(`/Nothing has been loaded on the landing page yet/.test((document.getElementById('${status}') || {}).textContent || '')`, 5000, id + ' empty notice').then(() => true, () => false);
+      const text = await t.page.eval(`(document.getElementById('${status}') || {}).textContent`);
+      check(said && Date.now() - t0 < 8000 && file.test(await t.page.eval('location.pathname')), id + ' opened before any files: says at once that nothing was loaded', text);
+      await b.closeTab(t.targetId);
+    }
 
     // 2. Multi-file selection: ZIPs (deflate, stored, Finder style, real tools) and loose files
     let s = await pick('#files-input', [cp('deflate.zip')]);
@@ -350,7 +364,7 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
         check(!nx.hidden && nx.kind === 'ok' && nx.text === 'Next: open the CVI map. Your files have what it needs.' && nx.open === 'Open the CVI map'
           && nx.notes.includes(offNote) === !!offNote, tag + ': next step: Open the CVI map', nx);
       } else if (m && typeof m === 'object') check(!nx.hidden && nx.kind === 'warn' && nx.open === null && /^Next: choose which file is the CVI master table in Datasets below\./.test(nx.text), tag + ': next step: choose the master first', nx);
-      else check(!nx.hidden && nx.kind === 'warn' && nx.open === null && /^The CVI map needs the CVI master table \(CVI_Consolidated_Master\.csv\)(, and none of your files is it\.|\. \S+ (looks|is named) like the CVI master table but is missing the columns? .+\. Ask for a copy with every column listed under "What data does this need\?", then load your files again\.$)/.test(nx.text), tag + ': next step: says what is missing (a near miss named with its reason)', nx);
+      else check(!nx.hidden && nx.kind === 'warn' && nx.open === null && /^The CVI map needs the CVI master table \(CVI_Consolidated_Master\.csv\)(, and none of your files is it\.|\. \S+ (looks|is named) like the CVI master table but is missing the columns? .+\. Ask for a copy with every column listed under "What data does this need\?", then choose all your files again, together\.$)/.test(nx.text), tag + ': next step: says what is missing (a near miss named with its reason)', nx);
       const prof = await p.eval('(WSDA.landing.checklist.state.bundle||{info:null}).info && WSDA.landing.checklist.state.bundle.info.profile');
       check(JSON.stringify(nx.routed) === JSON.stringify(prof === 'cvi' || prof === 'emergency' ? [prof] : []), tag + ': card of the bundle.json profile marked', [prof, nx.routed]);
       if (name === 'other_profile_bundle') check(nx.routed[0] === 'emergency' && nx.notes.some(t => /Emergency Response, which is in preparation/.test(t)), tag + ': routed to Emergency (in preparation), checked against CVI', nx);
@@ -608,7 +622,7 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     await tab.page.waitFor(`/could not be sent from the landing page/.test(document.getElementById('master-status').textContent)`, 8000, 'CVI read-failure message').catch(() => null);
     mv = await tab.page.eval(MAP);
     const sent = await p.eval(`({text:${OPENED}, cls:document.getElementById('next-opened').className})`);
-    check(/^Your files could not be sent to the CVI map: "CVI_Consolidated_Master\.csv" failed its integrity check; the ZIP may be damaged\. Load your files again \(a new copy if one is damaged\), then click "Open the CVI map"\.$/.test(sent.text) && /err/.test(sent.cls),
+    check(/^Your files could not be sent to the CVI map: "CVI_Consolidated_Master\.csv" failed its integrity check; the ZIP may be damaged\. Choose all your files again, together \(a new copy if one is damaged\), then click "Open the CVI map"\.$/.test(sent.text) && /err/.test(sent.cls),
       'landing reports the failed read with what to do, not success', sent);
     check(!mv.master && mv.banner === null && /^Your files could not be sent from the landing page: .*integrity check.* No dataset is active\./.test(mv.status) && /integrity check/.test((mv.received || {}).error),
       'the CVI tab says the files could not be sent and has no data', [mv.status, mv.received]);
@@ -766,7 +780,7 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     await p.waitFor(`${SAMPLE_STATUS}.className === 'status ok'`, 5000, 'sample status').catch(() => null);
     const st1 = await p.eval(`({text:${SAMPLE_STATUS}.textContent, cls:${SAMPLE_STATUS}.className, disabled:document.querySelector('button[data-sample="all"]').disabled,
       geoScripts:document.querySelectorAll('script[src$="wa-counties.js"]').length, downloads:WSDA.landing.guide.state.downloads})`);
-    check(/^Your browser is saving WSDA_sample_all_dashboards_synthetic\.zip \(\d+ KB of made-up data\)\. Load it under "Load your data" above\. If no file appears, your browser or IT policy blocked the download\.$/.test(st1.text) && st1.cls === 'status ok' && !st1.disabled
+    check(/^Saved to your Downloads folder, unless your browser asks where: WSDA_sample_all_dashboards_synthetic\.zip \(\d+ KB of made-up data\)\. Load it under "Load your data" above\. If no file appears, your browser or IT policy blocked the download\.$/.test(st1.text) && st1.cls === 'status ok' && !st1.disabled
       && st1.geoScripts === 1 && st1.downloads === 1, 'sample: the page says what was saved and what to do next; the button is ready again', st1);
     // A second click makes the same file again, without reading the county file twice
     dl = download(); await p.click(`document.querySelector('button[data-sample="all"]').click()`);
@@ -967,7 +981,7 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     await p.click(`document.querySelector('#profiles button[data-open="cvi"]').click()`);
     await p.waitFor(`WSDA.landing.state.selected === 'cvi' && !WSDA.landing.state.loading && !WSDA.landing.checklist.state.busy`, 10000, 'switched to CVI');
     await sleep(300);
-    check(b.opened.length === n9 && await p.eval(`document.getElementById('next-text').textContent`) === 'The CVI map needs the CVI master table (CVI_Consolidated_Master.csv), and none of your files is it. Add that file and load your files again.',
+    check(b.opened.length === n9 && await p.eval(`document.getElementById('next-text').textContent`) === 'The CVI map needs the CVI master table (CVI_Consolidated_Master.csv), and none of your files is it. Add that file, then choose all your files again, together.',
       'AB: a card that is not ready rechecks the files for its dashboard, as before; no tab opens', await p.eval(`document.getElementById('next-text').textContent`));
 
     // 9g. Release fields with problems: plain notes, the banner without them, the files still load
@@ -1036,7 +1050,7 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     const want9 = fs.readFileSync(ALL_ZIP);
     check(d9.state === 'completed' && d9.name === ALL.fileName && Buffer.compare(got9, want9) === 0, 'AB guide: Chrome saves the all-in-one sample, byte-identical to the generator\'s', d9);
     await p.waitFor(`document.querySelector('[data-sample-status="all"]').className === 'status ok'`, 5000, 'all-in-one status').catch(() => null);
-    check(/^Your browser is saving WSDA_sample_all_dashboards_synthetic\.zip \(\d+ KB of made-up data\)\. Load it under "Load your data" above\. If no file appears, your browser or IT policy blocked the download\.$/.test(await p.eval(`document.querySelector('[data-sample-status="all"]').textContent`)),
+    check(/^Saved to your Downloads folder, unless your browser asks where: WSDA_sample_all_dashboards_synthetic\.zip \(\d+ KB of made-up data\)\. Load it under "Load your data" above\. If no file appears, your browser or IT policy blocked the download\.$/.test(await p.eval(`document.querySelector('[data-sample-status="all"]').textContent`)),
       'AB guide: the page says what was saved');
     await b.send('Browser.setDownloadBehavior', { behavior: 'default' });
     const saved9 = path.join(DL, ALL.fileName); fs.writeFileSync(saved9, got9);

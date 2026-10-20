@@ -190,23 +190,24 @@ guard('classes', () => {
           [cls.n, cls.colors.length]);
         check(pos.every(v => cls.classOf(v) === cutR(v, cls.breaks)), tag + ': each value in the class cut() gives',
           pos.filter(v => cls.classOf(v) !== cutR(v, cls.breaks)));
-        // Each class labeled by the lowest and highest value it holds, with the fewest extra digits (0 to 4) at which
-        // each class's ends, and each class's end and the next class's start, read differently, as numbers in order.
+        // Each class labeled by the lowest and highest value it holds. Extra digits (0 to 2) only where labels would
+        // read the same: a class's own two ends, or a class's end and the next class's start (both those labels).
         const ends = cls.breaks.slice(1).map((b, k) => {
           const held = pos.filter(v => cls.classOf(v) === k + 1);
           return held.length ? [Math.min(...held), Math.max(...held)] : [cls.breaks[k], cls.breaks[k + 1]];
         });
-        let x = 0;
         const reads = (v, d) => CP.format(v, measure, d);
         const num = (v, d) => Number(reads(v, d).replace(/,/g, ''));
-        while (x < 4 && ends.some(([a, b], k) => (a !== b && num(a, x) >= num(b, x)) ||
-          (k + 1 < ends.length && num(b, x) >= num(ends[k + 1][0], x)))) x++;
+        const fewest = same => { let x = 0; while (x < 2 && same(x)) x++; return x; };
+        const own = ends.map(([a, b]) => (a === b ? 0 : fewest(x => num(a, x) >= num(b, x))));
+        const edge = ends.map(([, b], k) => (k + 1 < ends.length ? fewest(x => num(b, x) >= num(ends[k + 1][0], x)) : 0));
+        const extra = ends.map((e, k) => Math.max(own[k], edge[k], k ? edge[k - 1] : 0));
         const labels = cls.breaks.slice(1).map((b, k) => {
           const held = pos.filter(v => cls.classOf(v) === k + 1);
           if (!held.length) return null;
           const lo = Math.min(...held);
           const hi = Math.max(...held);
-          return lo === hi ? reads(lo, x) : reads(lo, x) + ' – ' + reads(hi, x);
+          return lo === hi ? reads(lo, extra[k]) : reads(lo, extra[k]) + ' – ' + reads(hi, extra[k]);
         });
         check(labels.every((l, k) => l === null || l === cls.labels[k]), tag + ': labels from the values held',
           { labels: cls.labels, want: labels });
@@ -280,6 +281,11 @@ guard('labels', () => {
   const step1 = CP.classify([0.996, 1.04], 'quantile', 2, 'Inbound', 'per_sq_mi').labels;
   check(step100.join('|') === '99.96|100.4' && step1.join('|') === '0.996|1.04',
     'labels: ends on either side of a format step read in order', { step100, step1 });
+  // Extra digits only on the labels that would read the same, at most two: here the first class's end (2.41) and the
+  // second's start (2.44) both read "2.4", so those two labels get one more digit; the third keeps its normal form.
+  const local = CP.classify([1.2, 2.41, 2.44, 3.1, 7.8, 8.2], 'quantile', 3, 'Inbound', 'per_sq_mi').labels;
+  check(local.join('|') === '1.20 – 2.41|2.44 – 3.10|7.8 – 8.2', 'labels: extra digits only where two labels would read the same',
+    local);
 });
 
 guard('shared', () => {

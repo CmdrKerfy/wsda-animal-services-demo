@@ -1270,7 +1270,8 @@ async function partPage(b) {
       tiles = document.getElementById('lk-tiles');
       const after = [...run.parentElement.children].slice([...run.parentElement.children].indexOf(run) + 1);
       return { hidden: box.hidden, above: !!(box.compareDocumentPosition(tiles) & Node.DOCUMENT_POSITION_FOLLOWING),
-        live: box.getAttribute('role') === 'status' && box.getAttribute('aria-live') === 'polite',
+        // In a live region present from the start, so its lines are announced when they appear (version 1.1).
+        live: box.parentElement.getAttribute('role') === 'status' && box.parentElement.getAttribute('aria-live') === 'polite',
         inMain: !!box.closest('main'), sidebarLines: after.reduce((n, e) => n + e.querySelectorAll('.status').length + (e.matches('.status') ? 1 : 0), 0),
         oldBox: !!document.getElementById('lk-messages') }; })()`);
     check(main.hidden === (msgs.length === 0) && main.above && main.live && main.inMain && !main.oldBox &&

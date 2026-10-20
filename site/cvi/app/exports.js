@@ -262,11 +262,12 @@
       + twoDigits(d.getHours()) + ':' + twoDigits(d.getMinutes()) + ':' + twoDigits(d.getSeconds());
   }
   const localDate = d => localTime(d).slice(0, 10);
-  // The year label of the stats and export names: one year, or "first-last".
-  function yearLabel(years) {
+  // The year label of the stats and the chart captions: one year, "first-last", or runs when the ticks skip one of
+  // choices, the master's years ("2023, 2025", summary.js gapRuns).
+  function yearLabel(years, choices) {
     const y = years.map(Number);
     const lo = Math.min(...y), hi = Math.max(...y);
-    return lo === hi ? String(lo) : lo + '-' + hi;
+    return (choices && SUM().gapRuns(y, String, '-', choices)) || (lo === hi ? String(lo) : lo + '-' + hi);
   }
   // The quarters in the Stats text, "Q1, Q2, Q3, Q4" (CVI writes them run together, "Q1Q2Q3Q4").
   const quarterLabel = quarters => quarters.slice().sort(collate).join(', ');
@@ -345,7 +346,7 @@
       '',
       'FILTERS APPLIED',
       '  Species:   ' + f.species.join(', '),
-      '  Years:     ' + yearLabel(f.years),
+      '  Years:     ' + yearLabel(f.years, f.yearChoices),
       '  Quarters:  ' + quarterLabel(f.quarters)];
     if (focus) lines.push('  Focus counties: ' + f.counties.join(', '));
     lines.push('  Direction: ' + dir.join(', '));
@@ -483,7 +484,8 @@
   // formats at Standard keeps CVI's file exactly). S10: with the GIF, its frame interval ("gif_frame_interval").
   // PC: with a population layer drawn on the map (opts.population: population.js exportParams), the layers drawn
   // ("population_layers") and each one's source with its date ("population_sources"), before "exported_at"
-  // (deliberate additions; nothing is added while every layer is off).
+  // (deliberate additions; nothing is added while every layer is off). The coordinate system ("coordinates") and,
+  // from the synthetic sample, "data_note": see mapParams.
   function exportParams(view, f, opts, now) {
     const years = f.years.map(Number);
     const common = { species: f.species, years, year_min: Math.min(...years), year_max: Math.max(...years),
@@ -510,8 +512,21 @@
     shadeParams(p, opts.shade, formats);
     // PC: the population layers only when the export holds the branded map that draws them.
     populationParams(p, formats.includes('branded_png') ? opts.population : null);
+    mapParams(p, { synthetic: opts.synthetic });
     p.exported_at = localTime(now);
     return jsonObject(p);
+  }
+
+  // For analysts who take the files into GIS: the coordinate system of every coordinate written and, where the
+  // export measured distances (o.distances), how; and "data_note" for an export made from the synthetic sample.
+  // Deliberate additions before "exported_at" (CVI's file names neither).
+  const COORDINATES = 'WGS 84 longitude and latitude (EPSG:4326)';
+  const DISTANCES = 'great-circle (haversine) kilometers on a sphere of radius 6,378,137 m';
+  const SYNTHETIC_NOTE = 'Synthetic sample data';
+  function mapParams(p, o) {
+    p.coordinates = COORDINATES;
+    if (o.distances) p.distances = DISTANCES;
+    if (o.synthetic) p.data_note = SYNTHETIC_NOTE;
   }
 
   // CH: the shaded map ("map_style": "shaded", its measure, classes and breaks); nothing while the map draws circles
@@ -628,10 +643,10 @@
 
   // ── Lines on an exported chart ─────────────────────────────────────────────────────────────────────────────
   // The caption under the title names the view, the filters and the periods, so a PNG pasted on its own explains
-  // itself; the footer gives the export date. allSpecies: every species group in the file.
+  // itself; the footer gives the export date. allSpecies: every species group in the file; allYears: its years.
   const VIEW_NAMES = { wa: 'WA State', flow: 'National Flow', focus: 'County Focus' };
   const FLOW_DIRECTIONS = { inbound: 'Inbound', outbound: 'Outbound', combined: 'Combined' };
-  function chartCaption(view, f, allSpecies) {
+  function chartCaption(view, f, allSpecies, allYears) {
     const all = allSpecies.filter(x => x !== null && x !== '');
     const everyGroup = all.length > 0 && all.every(x => f.species.includes(x));
     let species = everyGroup ? 'All species' : f.species.slice().sort(collate).join(', ');
@@ -642,7 +657,7 @@
     if (view === 'focus') {
       parts.push(f.counties.length <= 3 ? f.counties.join(', ') : f.counties.length + ' counties');
     }
-    parts.push(species, yearLabel(f.years) + ', ' + f.quarters.slice().sort(collate).join(' '), direction);
+    parts.push(species, yearLabel(f.years, allYears) + ', ' + f.quarters.slice().sort(collate).join(' '), direction);
     if (f.chartFilters && f.chartFilters.length) parts.push('Chart filters: ' + f.chartFilters.join('; '));
     return parts.join(' | ');
   }
@@ -673,8 +688,10 @@
       String(Math.abs(kp)).padStart(2, '0');
   }
   // One value as write.csv writes a column of that type (the types of columnTypes; 'logical' also for true/false).
-  function writeField(v, type) {
-    if (v === null || v === undefined || (v === '' && type !== 'character')) return 'NA';
+  // na: what a missing value is written as (write.csv's NA unless given).
+  function writeField(v, type, na) {
+    const missing = na === undefined ? 'NA' : na;
+    if (v === null || v === undefined || (v === '' && type !== 'character')) return missing;
     if (type === 'character') return '"' + String(v).replace(/"/g, '""') + '"';
     if (type === 'double') {
       // R reads "Inf" and "-Inf" as numbers and writes them so; "NaN" it writes as NA (checked with
@@ -682,7 +699,8 @@
       const t = String(v).trim();
       const x = typeof v === 'number' ? v : /^\+?Inf$/.test(t) ? Infinity : t === '-Inf' ? -Infinity : t === 'NaN' ? NaN
         : Number(t.replace(/^\+/, ''));
-      return writeNumber(x);
+      const n = writeNumber(x);
+      return n === 'NA' ? missing : n;
     }
     if (type === 'integer' || type === 'integer64') return typeof v === 'number' ? String(v) : BigInt(v).toString();
     if (type === 'logical') return v === true || /^t/i.test(String(v)) ? 'TRUE' : 'FALSE';
@@ -692,10 +710,11 @@
     }
     return String(v);
   }
-  // A table as write.csv(row.names = FALSE) writes it; rows are lists of values in the columns' order.
-  function writeCsv(columns, rows, types) {
+  // A table as write.csv(row.names = FALSE) writes it; rows are lists of values in the columns' order. na: as for
+  // writeField.
+  function writeCsv(columns, rows, types, na) {
     const lines = [columns.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')];
-    rows.forEach(r => lines.push(r.map((v, j) => writeField(v, types[j])).join(',')));
+    rows.forEach(r => lines.push(r.map((v, j) => writeField(v, types[j], na)).join(',')));
     return lines.join('\n') + '\n';
   }
   const NOTE_CSV = note => writeCsv(['Note'], [[note]], ['character']);
@@ -724,12 +743,13 @@
   const FACILITY_COLUMNS = [['site', 'character'], ['site_lat', 'double'], ['site_long', 'double'],
     ['layer', 'character'], ['facility', 'character'], ['facility_lat', 'double'], ['facility_long', 'double'],
     ['distance_km', 'double'], ['band_km', 'double'], ['county', 'character'], ['town', 'character']];
-  // Its text gets the formula guard (asText, above).
+  // Its text gets the formula guard (asText, above). A missing value is an empty cell, not NA (the file is the page's
+  // own, not CVI's), so GIS software such as ArcGIS reads its number columns as numbers.
   function lookupFacilitiesCsv(rows) {
     if (!rows || !rows.length) return { text: NOTE_CSV('No facilities inside the buffers.'), rows: 0 };
     const out = rows.map(r => [asText(r.siteName), r.siteLat, r.siteLon, asText(r.layerLabel), asText(r.name), r.lat,
       r.lon, r.km, r.bandKm, asText(r.county), asText(r.town)]);
-    return { text: writeCsv(FACILITY_COLUMNS.map(c => c[0]), out, FACILITY_COLUMNS.map(c => c[1])), rows: rows.length };
+    return { text: writeCsv(FACILITY_COLUMNS.map(c => c[0]), out, FACILITY_COLUMNS.map(c => c[1]), ''), rows: rows.length };
   }
 
   // export_params.json for a Premise Lookup export (the page's addition; CVI writes none for this tab), in the
@@ -770,6 +790,7 @@
       if (p.countyPages && p.countyPages.length) o.county_pngs = p.countyPages;   // the counties given a page of their own
       populationParams(o, p.population || null);
     }
+    mapParams(o, { distances: true, synthetic: p.synthetic });
     o.exported_at = localTime(now);
     return jsonObject(o);
   }
@@ -777,6 +798,7 @@
   root.CVIWA = root.CVIWA || {};
   root.CVIWA.exports = { fwriteNumber, csvText, columnTypes, fieldText, csv, filteredRowsCsv, tableColumns,
     summaryTableCsv, fixedR, roundR, round3, fmt, mapDataPreview, localTime, localDate, yearLabel, quarterLabel,
+    mapParams, COORDINATES, DISTANCES, SYNTHETIC_NOTE,
     directionRaw, statsLines,
     statsPreview, folderName, jsonValue, jsonObject, exportParams, MESSAGES, focusCoordinatesMessage,
     chartsPreviewTitle, zipEntries, exportResult, addToHistory, historyLine, chartCaption, chartFooter,

@@ -20,9 +20,12 @@
 //   fixes   the notes for real files and real use: where a PNG background comes from, the sensitive-data notice
 //           beside the exports, a blocked download, the license link, and the load statuses for files as Excel or R
 //           can leave them (unreadable counts, not UTF-8, a required column twice)
+//   v11     version 1.1 on the live pages: the landing page's lines and loose-file outline, a master with a required
+//           column twice, the export lines, the camera picture's name, scale bars, the circles' edge, the live regions,
+//           the maps' text alternative, County Focus's prompt and type-to-find field, the 320 px layout, Infrastructure
 //
 // Usage (repository root, after node tests/synthetic/make_test_tables.js or an F1 unit run, which write test-tables/):
-//   node tests/browser/run_ui_browser.js [checks] [controls] [day3] [chartlabels] [fixes]
+//   node tests/browser/run_ui_browser.js [checks] [controls] [day3] [chartlabels] [fixes] [v11]
 //   Hosted mode: node tests/browser/serve_case_strict.js, then UI_SITE_URL=http://127.0.0.1:8765/ node tests/browser/run_ui_browser.js
 // Writes local-test-artifacts/ui/browser/run.json (results).
 const { spawn } = require('child_process');
@@ -1051,6 +1054,196 @@ async function partFixes(b) {
   return { backgrounds: bg, master: { counts, odd, twice }, notice, lookup: lkMsg, infra, exportLines: lines, said };
 }
 
+
+// ── Part: version 1.1 ──────────────────────────────────────────────────────────────────────────────────────────
+// What version 1.1 changed on the live pages, through the pages' own controls: the landing page's lines and the card
+// outline for loose files, a master with a required column twice, "Branded map" ticked, the export lines, the camera
+// picture's name and message, a scale bar on every live map, the circles' dark edge, the Direction legend's note, the
+// live regions (present from the start; none on the value boxes and the strip), the maps' text alternative, County
+// Focus's prompt, type-to-find field and strip label, a skipped year on the PNG's period line and in the Stats text,
+// the narrow layout at 320 px, and Infrastructure's map region, hint and notes. Downloads are refused.
+const SHOT_NAME = view => new RegExp('^\\d{4}-\\d\\d-\\d\\d_' + view + '_map\\.png$');
+async function partV11(b) {
+  const p = b.page;
+  await b.send('Browser.setDownloadBehavior', { behavior: 'deny' });
+  // Landing page, nothing loaded.
+  await p.viewport(WIDTH, HEIGHT);
+  await p.goto(SITE_URL + 'index.html');
+  await p.waitFor('window.WSDA && WSDA.landing && WSDA.landing.state', 15000, 'landing ready');
+  const empty = await p.eval(`({
+    ready: [...document.querySelectorAll('#profiles .card-ready')].map(e => [e.hidden, e.textContent]),
+    pick: document.getElementById('pick-note').textContent, forget: document.getElementById('forget-note').textContent,
+    live: (() => { const o = document.getElementById('next-opened'); return [o.getAttribute('role'), o.parentElement.getAttribute('role'), o.parentElement.getAttribute('aria-live')]; })() })`);
+  check(empty.ready.length === 2 && empty.ready.every(([h, t]) => !h && t === 'Load your data below first.'),
+    'v11: landing, nothing loaded: each card says "Load your data below first."', empty.ready);
+  check(empty.pick === 'Each pick replaces what was loaded: choose the ZIP, or all the files, together.' &&
+    empty.forget === 'This page forgets the files when reloaded or closed; open dashboards keep theirs.',
+    'v11: landing: the lines under the picker and under "Load your data"', [empty.pick, empty.forget]);
+  check(empty.live[0] === null && empty.live[1] === 'status' && empty.live[2] === 'polite',
+    'v11: landing: the "opened" line sits in a live region present from the start', empty.live);
+  // Loose files (no bundle.json): the card of the dashboard checked is outlined, and follows a switch.
+  let v = await p.eval('WSDA.landing.state.version');
+  await p.setFiles('#files-input', [T('tier_full_master.csv')]);
+  await p.waitFor('!WSDA.landing.state.loading && WSDA.landing.state.version > ' + v, 30000, 'master loaded');
+  const outline = () => p.eval(`[...document.querySelectorAll('#profiles .card')].filter(c => c.classList.contains('checked-for')).map(c => c.getAttribute('data-profile'))`);
+  const cviOutlined = await outline();
+  v = await p.eval('WSDA.landing.state.version');
+  await p.eval(PICK('dashboard-select', 'infrastructure'));
+  await p.waitFor('!WSDA.landing.state.loading && WSDA.landing.state.version > ' + v, 30000, 'recheck');
+  const infraOutlined = await outline();
+  check(same(cviOutlined, ['cvi']) && same(infraOutlined, ['infrastructure']),
+    'v11: landing, loose files: the card of the dashboard checked is outlined, and follows the switch', [cviOutlined, infraOutlined]);
+  v = await p.eval('WSDA.landing.state.version');
+  await p.setFiles('#files-input', [T('WSDA_sample_all_dashboards_synthetic.zip')]);
+  await p.waitFor('!WSDA.landing.state.loading && WSDA.landing.state.version > ' + v, 30000, 'sample loaded');
+  check(same(await outline(), []), 'v11: landing, a bundle that lists its dashboards: no loose-file outline (the bundle\'s own)');
+  // A master with a required column written twice: not used, and the next step says what to fix.
+  v = await p.eval('WSDA.landing.state.version');
+  await p.setFiles('#files-input', [T('cvi_master_repeated_column.csv')]);
+  await p.waitFor('!WSDA.landing.state.loading && WSDA.landing.state.version > ' + v, 30000, 'repeated column loaded');
+  const twice = await p.eval(`({ next: document.getElementById('next-text').textContent,
+    ready: document.querySelector('#profiles .card[data-profile="cvi"] .card-ready').textContent })`);
+  check(/Total\.Animals more than once; keep one copy of it, then choose all your files again, together\.$/.test(twice.next) &&
+    /^Needs: /.test(twice.ready), 'v11: landing: a master with a required column twice is not ready, and the next step says why', twice);
+
+  // The CVI page, WA State, the Full tier.
+  await openView(b, SITE_URL, VIEWS[1]);
+  const wa = await p.eval(`(() => {
+    const st = CVIWA.state, map = st.mapHandle.map, er = document.getElementById('export-result');
+    return { branded: document.querySelector('input[name=export-format][value=branded_png]').checked,
+      columns: document.querySelector('#export-tables .export-columns').textContent,
+      columnsShown: (() => { const n = document.querySelector('#export-tables .export-columns'), b = document.querySelector('input[name=export-format][value=csv]');
+        const before = !n.hidden; b.click(); const ticked = !n.hidden; b.click(); return [before, ticked, !n.hidden]; })(),
+      name: document.querySelector('#export-label').nextElementSibling.textContent,
+      boxesLive: document.getElementById('value-boxes').getAttribute('aria-live'),
+      stripLive: document.getElementById('summary-strip').getAttribute('aria-live'),
+      result: [er.getAttribute('role'), er.parentElement.getAttribute('role'), er.parentElement.getAttribute('aria-live')],
+      described: document.getElementById('map').getAttribute('aria-describedby'),
+      alt: (n => n && n.getClientRects().length ? n.textContent : null)(document.getElementById('map-alt')),
+      scale: (s => s && s.textContent)(document.querySelector('#map .maplibregl-ctrl-scale')),
+      edge: !!map.getLayer(CVIWA.map.LAYERS[0][0] + CVIWA.map.EDGE),
+      arrow: document.getElementById('legend-toggle').innerHTML,
+      yearLabels: [...document.querySelectorAll('label.ctl')].filter(l => /^(Year|Quarter)\(s\)$/.test(l.textContent.trim())).length,
+      county: document.querySelector('#export-section .export-county').textContent };
+  })()`);
+  check(wa.branded, 'v11: CVI: "Branded map (.png)" ticked when the page opens');
+  check(same(wa.columnsShown, [false, true, false]), 'v11: CVI: the every-column line shows only while Source records is ticked', wa.columnsShown);
+  check(wa.columns === 'This file holds every column of your master table.' &&
+    wa.name === 'Do not type a person\'s name or a case number here: it is saved in the PNG and export_params.json.' &&
+    wa.county === 'County names come from the record\'s mailing city; a premises can lie in a neighboring county.',
+    'v11: CVI: the lines beside the CSV, the file name and the export notice', [wa.columns, wa.name, wa.county]);
+  check(wa.boxesLive === null && wa.stripLive === null && wa.result[0] === null && wa.result[1] === 'status' && wa.result[2] === 'polite',
+    'v11: CVI: no live region on the value boxes and the strip; the export result in a live region present from the start', wa);
+  check(wa.described === 'map-alt' && /^The numbers on this map are also in Preview Map Data/.test(wa.alt || ''),
+    'v11: CVI: the map points to its text alternative', [wa.described, wa.alt]);
+  check(/\d+\s(mi|ft)$/.test(wa.scale || '') && wa.edge, 'v11: CVI WA State: a scale bar in miles and the circles\' dark edge', [wa.scale, wa.edge]);
+  check(wa.arrow === 'Legend <span aria-hidden="true">▼</span>' && wa.yearLabels === 0,
+    'v11: CVI: the Legend arrow hidden from screen readers; Year(s) and Quarter(s) are plain text', [wa.arrow, wa.yearLabels]);
+  const legend = await p.eval(`(() => { document.getElementById('legend-toggle').click();
+    const t = document.getElementById('legend-panel').textContent, a = document.getElementById('legend-toggle').innerHTML;
+    document.getElementById('legend-toggle').click(); return { t, a }; })()`);
+  check(legend.t.indexOf('Inbound left, Outbound right') >= 0 && legend.a === 'Legend <span aria-hidden="true">▲</span>',
+    'v11: CVI WA State: the Direction legend says which side each direction is on', legend);
+  const camera = async (sel, view) => {
+    const got = await p.eval(`(() => { const box = document.querySelector('${sel}'); box.querySelector('.map-screenshot').click();
+      return null; })()`).then(() => sleep(400)).then(() => p.eval(`(() => {
+        const st = { WAState: CVIWA.state.mapHandle, CountyFocus: CVIWA.state.focusHandle, NationalFlow: CVIWA.state.flowHandle }['${view}'];
+        return { name: st.lastScreenshot && st.lastScreenshot.name, message: CVIWA.state.lastMessage }; })()`));
+    check(SHOT_NAME(view).test(got.name || '') && got.message === got.name + ' was handed to your browser to save (usually your'
+      + ' Downloads folder). It shows locations: handle it as sensitive data. If no file appears, your browser or IT policy'
+      + ' blocked the download.', 'v11: the camera on ' + view + ': the picture named by day and view, and its message', got);
+  };
+  await camera('#map', 'WAState');
+  // A skipped year (a master with three years, 2024 to 2026): the middle year unticked, the PNG's period line and the
+  // Stats text list the years as runs; all ticked again, CVI's "first–last". The Full tier loaded back after.
+  const loadMaster = async name => {
+    const v = await p.eval('CVIWA.state.version');
+    await p.setFiles('#file-input', [T(name)]);
+    await p.waitFor('CVIWA.state.master && !CVIWA.state.loading && CVIWA.state.version > ' + v, 30000, 'master loaded');
+    await sleep(900);
+  };
+  await loadMaster('cvi_master_movement.csv');
+  const years = await p.eval(`CVIWA.state.master.yearChoices.map(Number).sort((a, b) => a - b)`);
+  const tickYear = (y, on) => p.eval(`(() => { const i = [...document.querySelectorAll('#f-years input')].find(x => x.value === '${y}');
+    if (i.checked !== ${on}) i.click(); return true; })()`).then(() => sleep(900));
+  const periodNow = async () => {
+    await previewPng(p, 'preview-map');
+    const pp = await p.eval(`CVIWA.state.lastBranded.models[0].stats.left[0]`);
+    await p.eval(`document.getElementById('preview-stats').click(); true`);
+    await p.waitFor(`document.getElementById('preview-dialog').open && document.querySelector('#preview-dialog .stats-text')`,
+      15000, 'stats dialog');
+    const line = await p.eval(`document.querySelector('#preview-dialog .stats-text').textContent.split('\\n').find(l => /^  Years:/.test(l))`);
+    await p.eval(`document.getElementById('preview-dialog').close(); true`);
+    return { prefix: pp.prefix, value: pp.value, line };
+  };
+  const mid = years[1], lo = years[0], hi = years[years.length - 1];
+  await tickYear(mid, false);
+  const gapped = await periodNow();
+  await tickYear(mid, true);
+  const whole = await periodNow();
+  const rest = years.slice(2);
+  const runText = dash => lo + ', ' + (rest.length > 1 ? rest[0] + dash + hi : String(hi));
+  check(years.length >= 3 && gapped.prefix === 'CY ' + runText('–') + ':' && gapped.line === '  Years:     ' + runText('-') &&
+    whole.prefix === 'CY ' + lo + '–' + hi + ':' && whole.line === '  Years:     ' + lo + '-' + hi,
+  'v11: CVI WA State: a skipped year listed on the PNG\'s period line and in the Stats text; none skipped, as CVI', { years, gapped, whole });
+  await loadMaster('tier_full_master.csv');
+  // 320 px wide (400% zoom of a 1280 px window): the sidebar stacks above the map, nothing scrolls sideways.
+  await p.viewport(320, 900); await sleep(600);
+  const narrow = await p.eval(`({ width: document.documentElement.scrollWidth,
+    stacked: document.querySelector('aside.sidebar').getBoundingClientRect().bottom <= document.getElementById('map').getBoundingClientRect().top + 1 })`);
+  await p.viewport(WIDTH, HEIGHT); await sleep(400);
+  check(narrow.width <= 320 && narrow.stacked, 'v11: CVI at 320 px: the sidebar above the map, no sideways scroll', narrow);
+
+  // National Flow and County Focus.
+  await openView(b, SITE_URL, VIEWS[2]);
+  check(/\d+\s(mi|ft)$/.test(await p.eval(`(s => s && s.textContent)(document.querySelector('#flow-map .maplibregl-ctrl-scale'))`) || ''),
+    'v11: National Flow: a scale bar');
+  await camera('#flow-map', 'NationalFlow');
+  await openView(b, SITE_URL, VIEWS[3]);
+  const strip = await p.eval(`[...document.querySelectorAll('#summary-strip strong')].map(e => e.textContent)`);
+  check(strip.indexOf('Animals at mapped premises: ') >= 0, 'v11: County Focus: the strip names its animals number', strip);
+  await camera('#focus-map', 'CountyFocus');
+  const find = await p.eval(`(() => {
+    const f = document.getElementById('fo-county-find'), list = document.getElementById('fo-counties');
+    const shown = () => [...list.querySelectorAll('label')].filter(l => !l.hidden && l.getClientRects().length).map(l => l.textContent.trim());
+    const ticked = () => [...list.querySelectorAll('input:checked')].map(x => x.value);
+    const all = shown().length;
+    f.value = 'yak'; f.dispatchEvent(new Event('input'));
+    const typed = shown(), keptWhileTyped = ticked();
+    f.value = 'zzz'; f.dispatchEvent(new Event('input'));
+    const none = document.getElementById('fo-county-none').textContent;
+    f.value = ''; f.dispatchEvent(new Event('input'));
+    return { all, typed, keptWhileTyped, none, after: shown().length, ticked: ticked() };
+  })()`);
+  check(find.all > 30 && same(find.typed, ['Yakima']) && same(find.keptWhileTyped.sort(), ['King', 'Yakima']) &&
+    find.none === 'No county matches "zzz".' && find.after === find.all, 'v11: County Focus: type to find a county; ticks kept', find);
+  await p.eval(`document.querySelector('[data-clear="foCounties"]').click(); true`);
+  await p.waitFor(`/Tick a county under Focus county/.test(document.getElementById('value-boxes').textContent)`, 8000, 'prompt').catch(() => null);
+  const prompt = await p.eval(`document.getElementById('value-boxes').textContent.trim()`);
+  check(prompt === 'Tick a county under Focus county / counties to see its numbers.', 'v11: County Focus, no county ticked: the boxes say what to do', prompt);
+
+  // Infrastructure with its sample.
+  await openView(b, SITE_URL, VIEWS[5]);
+  const infra = await p.eval(`({ role: document.getElementById('facility-map').getAttribute('role'),
+    described: document.getElementById('facility-map').getAttribute('aria-describedby'),
+    alt: document.getElementById('facility-map-alt').textContent,
+    hint: document.getElementById('facility-counties-hint').textContent,
+    scale: (s => s && s.textContent)(document.querySelector('#facility-map .maplibregl-ctrl-scale')),
+    note: [...document.querySelectorAll('.legend-note')].map(n => n.textContent).join(' '),
+    filter: document.getElementById('facility-counties').nextElementSibling.textContent })`);
+  check(infra.role === 'region' && infra.described === 'facility-map-alt' && /^The counts on this map are also in the cards/.test(infra.alt),
+    'v11: Infrastructure: the map is a named region with its text alternative', infra);
+  check(infra.hint === 'To see neighboring counties\' facilities, leave this unticked.' && infra.filter === 'Nothing ticked = every county. Borders are approximate.'
+    && /Zoom in to split a numbered group\.$/.test(infra.note) && /\d+\s(mi|ft)$/.test(infra.scale || ''),
+  'v11: Infrastructure: the counties hint and note, the cluster note, a scale bar', infra);
+  await p.eval(`document.querySelector('#facility-map .map-screenshot').click(); true`); await sleep(400);
+  const infraShot = await p.eval(`({ name: WSDA.infrastructure.state.map.lastScreenshot && WSDA.infrastructure.state.map.lastScreenshot.name,
+    text: document.getElementById('screenshot-status').textContent })`);
+  check(SHOT_NAME('Infrastructure').test(infraShot.name || '') && /handle it as sensitive data/.test(infraShot.text),
+    'v11: the camera on Infrastructure: named by day and view, with the sensitive-data sentence', infraShot);
+  return { empty, wa, narrow, find, infra };
+}
+
 // ── Run ────────────────────────────────────────────────────────────────────────────────────────────────────────
 (async () => {
   for (const f of ['tier_full_master.csv', 'WSDA_sample_all_dashboards_synthetic.zip', 'infrastructure_synthetic.zip']) {
@@ -1065,6 +1258,7 @@ async function partFixes(b) {
       else if (part === 'day3') run.results.day3 = await partDay3(b);
       else if (part === 'chartlabels') run.results.chartlabels = await partChartLabels(b);
       else if (part === 'fixes') run.results.fixes = await partFixes(b);
+      else if (part === 'v11') run.results.v11 = await partV11(b);
       else throw new Error('Unknown part ' + part);
     }
   } catch (e) {

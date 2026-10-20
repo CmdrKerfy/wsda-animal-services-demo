@@ -1067,6 +1067,20 @@ async function day3() {
       ' (47.5, -120; global bands)']) &&
     params.cvis_matched === 12 && params.facilities_inside === 4 && params.exported_at === '2026-10-14 09:05:07',
   'CSV: export_params.json for a Premise Lookup export', params);
+  // For GIS: the coordinate system and the distance method, before "exported_at"; "data_note" only from the sample.
+  const keys = Object.keys(params);
+  check(params.coordinates === W.exports.COORDINATES && params.distances === W.exports.DISTANCES &&
+    keys.indexOf('distances') === keys.length - 2 && keys[keys.length - 1] === 'exported_at' && !('data_note' in params),
+  'export_params.json names the coordinate system and the distance method', keys);
+  const sampleParams = JSON.parse(W.exports.lookupParams({ masterFile: 'm.csv', mode: 'single', defaultKm: 3, bands: null,
+    endpoint: 'either', years: [], quarters: [], species: [], layers: [], sites: [], formats: ['matches_csv'],
+    counts: { cvis: 0, facilities: null }, synthetic: true }, new Date(2026, 9, 14)));
+  check(sampleParams.data_note === 'Synthetic sample data', 'export_params.json from the synthetic sample says so', sampleParams);
+  // The facilities CSV (the page's own file) writes a missing value as an empty cell, so GIS reads numbers as numbers;
+  // the matched rows keep CVI's NA.
+  const blank = W.exports.lookupFacilitiesCsv([{ siteName: 'S', siteLat: 46, siteLon: -120, layerLabel: 'L', name: 'F',
+    lat: 46.1, lon: -120.1, km: 1.2, bandKm: null, county: null, town: null }]).text.split('\n')[1];
+  check(blank === '"S",46,-120,"L","F",46.1,-120.1,1.2,,,', 'CSV: a missing value in the facilities file is an empty cell', blank);
 
   // ── Run query without a master (facilities only) ──
   const fo = W.lookup.prepareRun({ master: null, loading: false, sites: [S1], mode: 'single', defaultKm: 3,

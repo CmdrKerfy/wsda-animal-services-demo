@@ -173,7 +173,8 @@
    *     per call (null: open without files); onStatus({ state: 'failed' | 'loaded' | 'load-failed', message }) is
    *     called for this click only while it is the latest one.
    *   receive(profileId, onFiles) -> false when the page was not opened by the landing page with a key;
-   *     onFiles(payload, reply): payload as below, or { error } when the landing page could not read the files;
+   *     onFiles(payload, reply): payload as below, { error } when the landing page could not read the files, or
+   *     { empty: true } when nothing was loaded there (build() returned it; the page can say so at once);
    *     reply({ ok, message }) once the files are loaded or have failed.
    *   payload: { banner, datasets: { <dataset id>: { name, path, file: File } } } */
   const tabs = Object.create(null);

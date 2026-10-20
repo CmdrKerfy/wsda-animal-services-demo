@@ -114,6 +114,25 @@
       m('Top species', s.top_species, 'tags', '#27ae60')] };
   }
 
+  // Ticked values that skip one that could be ticked, as runs: gapRuns([2021, 2022, 2025], String, '–', [2021, 2022,
+  // 2023, 2024, 2025]) is "2021–2022, 2025". choices: every value that can be ticked (a year with no records is not
+  // one, so it is no gap); without choices, consecutive whole numbers. null when nothing is skipped or a value is
+  // unknown, so the caller keeps CVI's "first–last" (a deliberate difference: CVI's "2021–2025" hides the skip).
+  function gapRuns(values, name, dash, choices) {
+    const v = [...new Set(values.map(Number))].sort((a, b) => a - b);
+    const order = choices ? [...new Set(choices.map(Number))].sort((a, b) => a - b) : null;
+    const at = x => (order ? order.indexOf(x) : x);
+    if (v.length < 2 || !v.every(x => Number.isInteger(x) && at(x) >= 0)) return null;
+    if (at(v[v.length - 1]) - at(v[0]) + 1 === v.length) return null;
+    const runs = [];
+    for (const x of v) {
+      const last = runs[runs.length - 1];
+      if (last && at(x) === at(last[1]) + 1) last[1] = x;
+      else runs.push([x, x]);
+    }
+    return runs.map(r => (r[0] === r[1] ? name(r[0]) : name(r[0]) + dash + name(r[1]))).join(', ');
+  }
+
   // CVI's .period_label: years and quarters sorted as text; up to two years joined with "/", more as "first-last";
   // all four quarters as "Q1-Q4", else listed; "—" for none.
   function periodLabel(years, quarters) {
@@ -180,7 +199,7 @@
   }
 
   root.CVIWA = root.CVIWA || {};
-  root.CVIWA.summary = { mapRows, dedupeVolume, uniqueCvis, summary, topSpecies, valueBoxes, periodLabel, strip,
+  root.CVIWA.summary = { mapRows, dedupeVolume, uniqueCvis, summary, topSpecies, valueBoxes, periodLabel, gapRuns, strip,
     NO_CVI_REASON, HELP_TOTAL, HELP_STRIP,
     spotlightChoices, spotlightSplit, DIM_OPACITY, resetDefaults };
 })(typeof window !== 'undefined' ? window : globalThis);

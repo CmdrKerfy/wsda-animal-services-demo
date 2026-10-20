@@ -10,9 +10,11 @@
  * dashboard); the older "profile" (one dashboard) is still read as a one-item list. The list and "release" are labels
  * for people, not protection: an unlisted dashboard can still be opened, and nothing is checked against the release. A
  * bundle.json that cannot be read, or a field that is not understood, gives a plain warning and is otherwise ignored:
- * the files themselves still load. Nothing leaves the browser.
+ * the files themselves still load. Nothing leaves the browser. "synthetic": true marks made-up data (the sample
+ * bundles): the dashboards then write "Synthetic sample data" on the pictures and export_params.json they make.
  *
- * read(items) -> Promise<{ found, path, paths, info: { profile, profiles, label, prepared, coverage, release, files },
+ * read(items) -> Promise<{ found, path, paths, info: { profile, profiles, label, prepared, coverage, release, files,
+ *   synthetic },
  *   banner, warnings }>
  *   info.profiles: the listed dashboards, or null when none is named; info.profile: the first of them, or null.
  *   paths: every bundle.json used (identical copies).
@@ -24,7 +26,7 @@
 (function (root) {
   'use strict';
   const MAX_BYTES = 64 * 1024, MAX_FILES = 1000, MAX_LABEL = 200, MAX_PROFILES = 20, MAX_VERSION = 40;
-  const KNOWN = ['profile', 'profiles', 'label', 'prepared', 'coverage', 'files', 'release'];
+  const KNOWN = ['profile', 'profiles', 'label', 'prepared', 'coverage', 'files', 'release', 'synthetic'];
   const RELEASE_KNOWN = ['name', 'version', 'date'];
   const isProfileName = p => typeof p === 'string' && /^[a-z0-9_-]{1,40}$/i.test(p.trim());
   const isBundleName = n => String(n).trim().toLowerCase() === 'bundle.json';
@@ -172,6 +174,8 @@
       } else warnings.push('bundle.json "files" should list dataset names and file names in { }; ignored');
     }
     if (obj.release !== undefined) info.release = parseRelease(obj.release, warnings);
+    if (obj.synthetic === true) info.synthetic = true;
+    else if (obj.synthetic !== undefined && obj.synthetic !== false) warnings.push('bundle.json "synthetic" should be true or false; ignored');
     return { info, warnings };
   }
 

@@ -224,16 +224,17 @@
     const held = Array.from({ length: n }, () => []);
     for (const v of pos) held[classOf(v) - 1].push(v);
     const ends = held.map((h, k) => [h.length ? Math.min(...h) : breaks[k], h.length ? Math.max(...h) : breaks[k + 1]]);
-    // More digits for every label until each class's two ends, and each class's end and the next
-    // class's start, read differently (at most four more). Read as numbers, so labels that differ only in their
-    // decimals at a format step ("100.0" then "100", "1" then "1.0") also count as reading the same.
+    // More digits only for the labels that would read the same: a class whose two ends read alike, and the two
+    // classes on either side of an end and next start that read alike. Each label takes the digits its own clashes
+    // need, at most two more; the other labels keep their normal form. Read as numbers, so labels that differ only in
+    // their decimals at a format step ("100.0" then "100", "1" then "1.0") also count as reading the same.
     const read = (v, x) => Number(format(v, base.measure, x).replace(/,/g, ''));
-    const clash = x => ends.some(([a, b], k) => (a !== b && read(a, x) >= read(b, x)) ||
-      (k + 1 < ends.length && read(b, x) >= read(ends[k + 1][0], x)));
-    let extra = 0;
-    while (extra < 4 && clash(extra)) extra++;
-    const labels = ends.map(([a, b]) => (a === b ? format(a, base.measure, extra)
-      : format(a, base.measure, extra) + ' – ' + format(b, base.measure, extra)));
+    const need = clash => { let x = 0; while (x < 2 && clash(x)) x++; return x; };
+    const own = ends.map(([a, b]) => (a === b ? 0 : need(x => read(a, x) >= read(b, x))));
+    const edge = ends.map(([, b], k) => (k + 1 < ends.length ? need(x => read(b, x) >= read(ends[k + 1][0], x)) : 0));
+    const extra = ends.map((e, k) => Math.max(own[k], edge[k], k ? edge[k - 1] : 0));
+    const labels = ends.map(([a, b], k) => (a === b ? format(a, base.measure, extra[k])
+      : format(a, base.measure, extra[k]) + ' – ' + format(b, base.measure, extra[k])));
     return Object.assign(base, { breaks, n, single, classOf, labels, counts: held.map(h => h.length),
       colors: rampColors(key, n) });
   }

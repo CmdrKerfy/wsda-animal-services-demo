@@ -947,7 +947,10 @@ function cviStatsForm(lines) {
   return out;
 }
 const cviStatsText = text => cviStatsForm(text.split('\n')).join('\n');
-const maskExported = text => text.replace(/"exported_at": "[^"]*"/, '"exported_at": "TIME"');
+// The export time masked, and the page's one added line (the coordinate system, a deliberate addition checked in the
+// S7 unit suite) left out, so the rest is compared with CVI's file byte for byte.
+const maskExported = text => text.replace(/\n  "coordinates": "WGS 84 longitude and latitude \(EPSG:4326\)",/, '')
+  .replace(/"exported_at": "[^"]*"/, '"exported_at": "TIME"');
 async function openExportSection(p) {
   await p.eval(`(() => { const d = document.getElementById('export-section'); d.open = true;
     d.scrollIntoView(); return true; })()`);
@@ -1499,10 +1502,11 @@ async function partExports(b) {
   const kept = await p.eval(`({ label: document.getElementById('export-label').value,
     formats: [...document.querySelectorAll('input[name=export-format]:checked')].map(i => i.value) })`);
   check(kept.label === 'My export: test/1' && JSON.stringify(kept.formats) === JSON.stringify(['summary_csv', 'charts']), 'exports: Reset All leaves the export choices, as CVI', kept);
-  // The defaults when the page opens: Aggregated totals and Charts ticked, Source records not (CVI's).
+  // The defaults when the page opens: Aggregated totals and Charts ticked, Source records not (CVI's), and the branded
+  // map ticked too, so an export holds a map (a deliberate difference).
   await openPage(b);
   const defaults = await p.eval(`[...document.querySelectorAll('input[name=export-format]:checked')].map(i => i.value)`);
-  check(JSON.stringify(defaults) === JSON.stringify(['summary_csv', 'charts']), 'exports: CVI\'s default formats', defaults);
+  check(JSON.stringify(defaults) === JSON.stringify(['summary_csv', 'charts', 'branded_png']), 'exports: CVI\'s default formats and the branded map', defaults);
   await b.send('Browser.setDownloadBehavior', { behavior: 'default' });
   return out;
 }

@@ -44,6 +44,36 @@ backgrounds this document mentions.
 
 ## Deliberate differences from CVI
 
+- **Plainer words, and easier to read with any eyesight (version 1.1):** first-time users and reviewers of
+  version 1.0 misread a few labels, and some states were shown by color or faint gray alone.
+  - County Focus's strip names its number "Animals at mapped premises" (CVI: "Animals"). The branded PNG keeps CVI's
+    words ("Last Updated:", "Data Range" by month and year, "Premises"), the agency's preferred names.
+  - When the ticks skip a year the file holds, or a quarter, the PNG's bold period line lists them as runs ("CY 2024,
+    2026:", "Q1, Q3 – Q4"; CVI: "CY 2024–2026:" and "Q1 – Q4", as if the ones between were in), as do the Preview
+    Stats "Years:" line and a chart's caption. A year with no records in the file is not a skip. With nothing skipped
+    the line reads as CVI's. Data Range, the export file names and the live strip keep CVI's form;
+    `export_params.json` already lists every year and quarter.
+  - Pictures made from the synthetic sample (a `bundle.json` with `"synthetic": true`) say "Synthetic sample data" at
+    the bottom right of the map area, and their `export_params.json` has `"data_note": "Synthetic sample data"`.
+  - Every `export_params.json` names its coordinate system (`"coordinates"`), and Premise Lookup's also its distance
+    method (`"distances"`). Premise Lookup's facilities CSV, the page's own file, writes a missing value as an empty
+    cell, so GIS software reads its number columns as numbers; the matched-rows CSV keeps CVI's `NA`.
+  - The camera button names its picture by day, view and kind (`2026-10-19_CountyFocus_map.png`; CVI:
+    `map-screenshot.png` every time), and its message says the picture shows locations, to be handled as sensitive.
+  - Every live map has a scale bar in miles (CVI's have none). Each map's circles have a thin dark edge outside the
+    white one, so light circles stand out from a light map; the PNG keeps CVI's look. The WA State legend says
+    "Inbound left, Outbound right" when both directions are drawn side by side.
+  - Export & Preview ticks "Branded map (.png)" when the page opens (CVI: unticked), so an export holds a map unless
+    it is unticked.
+  - County Focus with no county ticked says "Tick a county under Focus county / counties to see its numbers." (CVI:
+    "Load a master and apply filters to see summary metrics.", which read as if the data had not arrived), and a
+    type-to-find field narrows its county list.
+  - A value box that is zero or not available, faded as in CVI, also says why ("none for these filters", "Not
+    available: …").
+  - The legend's decimals: when two class labels would read the same, only those labels get extra digits, at most
+    two (the page gave every label up to four).
+  - Below 768 px wide (and at 400% zoom) the sidebar stacks above the maps (CVI's sidebar stays beside them).
+
 - **Files as Excel and R write them:** the page says more than CVI's app when a file may be read differently than
   meant, and guards its CSV exports.
   - "Master loaded" ends with "N rows have no readable animal count." when some counts are empty or text such as

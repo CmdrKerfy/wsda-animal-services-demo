@@ -568,14 +568,19 @@
   // ── Footnote and source line (sourceLine) ───────────────────────────────────────────────────────────────────
   // CVI writes "Basemap: …" at the bottom left only when tiles are drawn (SMR 3188-3196: 6.5 pt italic #888888).
   // sourceLine puts a source line there on every page, with the basemap credit joined; darkerGrays darkens its gray.
-  function footnote(source, basemap, style) {
+  // synthetic (a picture made from the synthetic sample bundle) adds "Synthetic sample data" at the bottom right of
+  // the map area, whatever the style, so the picture cannot be taken for real records.
+  function footnote(source, basemap, style, synthetic) {
     const parts = [];
     if (style.sourceLine && source) parts.push(source);
     if (basemap) parts.push('Basemap: ' + basemap);
-    if (!parts.length) return '';
+    const marker = synthetic ? text(SYNTHETIC, px(LAYOUT.mapW - 0.005), py(0.008),
+      { pt: 8, bold: true, color: '#555555', anchor: 'end' }) : '';
+    if (!parts.length) return marker;
     return text(parts.join(' · '), px(0.005), py(0.008), { pt: 6.5, italic: true,
-      color: style.darkerGrays ? '#666666' : '#888888' });
+      color: style.darkerGrays ? '#666666' : '#888888' }) + marker;
   }
+  const SYNTHETIC = 'Synthetic sample data';
   // The color of names on the maps (darkNames).
   const nameColor = style => (style.darkNames ? '#222222' : '#8a8a8a');
 
@@ -795,7 +800,7 @@
 
   root.WSDA = root.WSDA || {};
   root.WSDA.branded = {
-    PAGE, REPORT_PAGE, W, H, DPI, LAYOUT, DEFAULTS, CVI_STYLE, AGENCY, FONT, HEADER_SHIFT, TEAL,
+    PAGE, REPORT_PAGE, W, H, DPI, LAYOUT, DEFAULTS, CVI_STYLE, AGENCY, FONT, HEADER_SHIFT, TEAL, SYNTHETIC,
     textPt, linePt, pointRadius, pointBorder, textWidth, esc, num,
     px, py, panel, text, rect, line, circle, box,
     titleSize, header, logo, metaRow, updated, statRow, rankSection, legendColumn, footnote, nameColor,

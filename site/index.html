@@ -32,18 +32,21 @@
   select { font: inherit; font-size: 0.85rem; max-width: 100%; }
   #checklist-notes { font-size: 0.85rem; color: var(--notice-text); }
   .cards { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  .card { border: 1px solid var(--border); border-radius: 6px; padding: 0.7rem 0.85rem; flex: 1 1 260px; }
+  /* The description takes the room left, so the cards' open buttons line up across the row. */
+  .card { border: 1px solid var(--border); border-radius: 6px; padding: 0.7rem 0.85rem; flex: 1 1 260px;
+    display: flex; flex-direction: column; align-items: flex-start; }
+  .card > p.card-about { flex: 1 0 auto; }
   .card h3 { margin: 0 0 0.3rem; color: var(--primary); font-size: 1rem; }
   .card p { font-size: 0.85rem; margin: 0 0 0.6rem; }
   .card.soon { background: var(--panel); color: var(--muted); } .card.soon h3 { color: var(--muted); }
-  .card.routed { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .card.routed, .card.checked-for { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
   .card-note { color: var(--primary); font-weight: 600; }
   .card-note.unlisted { color: var(--muted); font-weight: normal; }
   /* Readiness from the loaded files (AB): Dark Teal when the dashboard can open, Dark Brown when something is needed. */
   .card .card-ready { font-weight: 600; margin: 0 0 0.5rem; }
   .card-ready[data-ready="ready"], .card-ready[data-ready="partial"] { color: var(--ok-text); }
   .card-ready[data-ready="needs"], .card-ready[data-ready="choose"] { color: var(--notice-text); }
-  .card-ready[data-ready="checking"] { color: var(--muted); font-weight: normal; }
+  .card-ready[data-ready="checking"], .card-ready[data-ready="empty"] { color: var(--muted); font-weight: normal; }
   .card-open-help { display: block; margin-top: 0.35rem; }   /* on its own line under the button */
   .soon-badge { font-size: 0.75rem; border: 1px solid var(--border); border-radius: 3px; padding: 0.1rem 0.4rem; background: #fff; }
   .next { border-radius: 6px; padding: 0.7rem 0.85rem; margin: 0.6rem 0 0.8rem; border: 1px solid; }
@@ -61,6 +64,7 @@
   .guide-bundle summary { cursor: pointer; color: var(--heading); font-weight: 600; }
   .guide-bundle pre { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 0.5rem; overflow-x: auto; }
   .guide-sample { margin: 0.4rem 0 1.2rem; }
+  .guide-sample .sample-note { margin: 0.35rem 0 0; }
   .guide-safety { border-left: 3px solid var(--wsda-gold); padding-left: 0.6rem; }
   .guide-bundle pre.guide-layout { font-size: 0.78rem; line-height: 1.35; }
   #guide-section { border-top: 1px solid var(--border); margin-top: 1.2rem; padding-top: 0.4rem; }
@@ -87,7 +91,9 @@
   <h2>Dashboards</h2>
   <div id="profiles" class="cards"></div>
   <h2>Load your data</h2>
-  <p class="muted">Files stay on this computer; nothing is uploaded. Not sure what to load? See
+  <p class="muted">Files stay on this computer; nothing is uploaded.
+    <span id="forget-note">This page forgets the files when reloaded or closed; open dashboards keep theirs.</span>
+    Not sure what to load? See
     <a href="#guide" id="intro-guide">what data each dashboard needs</a>, or try the sample bundle there.</p>
   <div class="pickers">
     <div class="picker">
@@ -101,6 +107,7 @@
       <span class="muted">Its subfolders are included.</span>
     </div>
   </div>
+  <p class="muted" id="pick-note">Each pick replaces what was loaded: choose the ZIP, or all the files, together.</p>
   <div id="drop" tabindex="0" role="button" aria-label="Drag files, a folder or a ZIP here, or press Enter to choose files">Or drag files, a folder or a ZIP here</div>
   <div id="load-status" class="status info" role="status">No data loaded.</div>
   <div id="next-step" class="next" role="region" aria-label="Next step" aria-live="polite" hidden>
@@ -109,7 +116,7 @@
     <p id="next-guide" hidden><a href="#guide-cvi">What data does this need?</a></p>
     <button type="button" class="btn primary" id="next-open" hidden><span class="btn-icon" data-icon="box-arrow-up-right" aria-hidden="true"></span></button>
     <span class="muted" id="next-open-help" hidden>Opens in a new tab with your files. Nothing is uploaded.</span>
-    <div id="next-opened" class="status ok" role="status" hidden></div>
+    <div class="live" role="status" aria-live="polite"><div id="next-opened" class="status ok" hidden></div></div>
   </div>
   <label for="dashboard-select">Check files for dashboard:</label>
   <select id="dashboard-select"><option value="cvi">CVI Traceability</option><option value="infrastructure">Infrastructure</option></select>
@@ -118,7 +125,7 @@
   <section id="guide-section" aria-labelledby="guide"></section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 1.0 (2026-10-18)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 1.1 (2026-10-19)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="cvi/app/icons.js"></script>
 <script src="shared/brand.js"></script>
