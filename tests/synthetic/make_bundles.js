@@ -245,7 +245,8 @@ function negativeContents() {
     other_profile_bundle: {
       'CVI_Consolidated_Master.csv': m.public,
       'feedlots_2025.csv': facilityCsv('feedlots', 7),
-      'bundle.json': bundleJson({ profile: 'emergency', label: 'Emergency – synthetic', files: { feedlots: 'feedlots_2025.csv' } })
+      // A dashboard this site does not have (it was "emergency" while that dashboard was in preparation).
+      'bundle.json': bundleJson({ profile: 'reports', label: 'Reports – synthetic', files: { feedlots: 'feedlots_2025.csv' } })
     }
   };
 }

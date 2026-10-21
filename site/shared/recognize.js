@@ -10,6 +10,11 @@
  *   3. Tie-break by recommended file name (case-insensitive), then by the dataset's own name column (facility
  *      layers). Facility layers share generic columns, so an unclear name leaves the file "not used" with a plain
  *      reason.
+ * Zone files (Phase C, the Emergency dashboard): a profile with a dataset of kind 'zone' takes the GeoJSON and KML
+ * files named in its "extensions" as that dataset, by their extension (bundle.json still ranks first); they have no
+ * header row and are read by shared/zones.js on the page. For such a profile a shapefile's parts (.shp, .dbf and the
+ * like, as a zipped shapefile arrives unpacked from a bundle) get a reason saying to load the zipped shapefile on the
+ * page, under Zones. Profiles without a zone dataset see these files as before.
  * A manifest dataset, once found, is expanded by the profile (extra facility layers) and
  * recognition runs again over the expanded list. Two files claiming one dataset are a conflict the user resolves
  * (opts.choices: dataset id -> file id). A user's pick outranks bundle.json, which outranks columns and names;
@@ -147,13 +152,22 @@
       if (!rec.header.length) rec.reason = 'the file has no header row';
       return rec;
     }
-    // Stub for later profiles: GeoJSON map layers are read by the Emergency profile, not yet available.
-    if (ext === 'geojson') rec.reason = `GeoJSON map layers are not used by the ${profile.name} dashboard`;
-    else if (ext === 'json') rec.reason =
-      `only bundle.json is read; other JSON files are not used by the ${profile.name} dashboard`;
-    else if (ext === 'xlsx' || ext === 'xls') rec.reason = 'Excel workbooks are not read; save the sheet as a CSV file';
-    else rec.reason = 'not a CSV file';
+    rec.other = ext;          // its reason depends on the profile: otherFile() below
     return rec;
+  }
+
+  const SHAPEFILE_PARTS = ['shp', 'shx', 'dbf', 'prj', 'cpg', 'sbn', 'sbx', 'qix', 'fix'];
+  /** A file that is neither a CSV nor bundle.json, for one profile: { zone: extension } when the profile has a zone
+   * dataset for it, else { reason }. Worked out for each profile, never cached across them. */
+  function otherFile(ext, profile) {
+    const zoneSets = profile.datasets.filter(d => d.kind === 'zone');
+    if (zoneSets.some(d => (d.extensions || []).includes(ext))) return { zone: ext };
+    if (zoneSets.length && SHAPEFILE_PARTS.includes(ext)) return { reason: 'it is part of a shapefile; load the zipped ' +
+      `shapefile on the ${profile.name} page, under Zones` };
+    if (ext === 'geojson') return { reason: `GeoJSON map layers are not used by the ${profile.name} dashboard` };
+    if (ext === 'json') return { reason: `only bundle.json is read; other JSON files are not used by the ${profile.name} dashboard` };
+    if (ext === 'xlsx' || ext === 'xls') return { reason: 'Excel workbooks are not read; save the sheet as a CSV file' };
+    return { reason: 'not a CSV file' };
   }
 
   // A reason for a file that nearly fits a dataset (named like it, or with most of its columns), or null.
@@ -200,9 +214,11 @@
   }
 
   // The matching pass described above RANK.
-  function assign(recs, dsList, picks, mapping, choices, profile) {
+  function assign(recs, allList, picks, mapping, choices, profile) {
     const csv = recs.filter(r => r.header && r.header.length);
-    const claims = new Map(dsList.map(d => [d.id, []]));
+    const claims = new Map(allList.map(d => [d.id, []]));
+    // A zone dataset has no columns, so every table would fit it: CSV files are matched against the others only.
+    const dsList = allList.filter(d => d.kind !== 'zone'), zoneList = allList.filter(d => d.kind === 'zone');
     const claim = (rec, ds) => {      // the layer a file is used as is always among its layers
       if (ds.kind === 'facility' && !rec.layers.includes(ds.id))
         rec.layers = dsList.filter(d => d.id === ds.id || rec.layers.includes(d.id)).map(d => d.id);
@@ -225,7 +241,11 @@
       // bundle.json entry: used when it fits; otherwise reported and the file is still recognized below.
       const mappedId = Object.keys(mapping).find(id => fileMatches(rec, mapping[id]));
       let mapIssue = null;
-      if (mappedId) {
+      const mappedZone = zoneList.find(d => d.id === mappedId);
+      if (mappedZone) {
+        mapIssue = `bundle.json names it as the ${mappedZone.name}, but it is not a ` +
+          `${listOf(mappedZone.extensions.map(e => '.' + e)).replace(/ and ([^ ]*)$/, ' or $1')} file`;
+      } else if (mappedId) {
         const ds = dsList.find(d => d.id === mappedId);
         const miss = ds ? missingColumns(rec.header, ds) : null;
         if (ds && !miss.length && !repeatedColumns(rec.header, ds).length) { rec.via = 'bundle.json'; claim(rec, ds); continue; }
@@ -262,7 +282,24 @@
       claim(rec, pick[0]);
     }
 
-    return dsList.map(ds => {
+    // Zone files: by bundle.json when it names a zone dataset for them, else by their extension. Two files for one
+    // zone dataset are a conflict the user resolves, as for any dataset.
+    for (const rec of recs.filter(r => r.zone)) {
+      Object.assign(rec, { status: 'not-used', dataset: null, reason: null, via: null, candidates: null, layers: [],
+        warning: null });
+      const fits = zoneList.filter(d => d.extensions.includes(rec.zone));
+      const mappedId = Object.keys(mapping).find(id => fileMatches(rec, mapping[id]));
+      let ds = fits.find(d => d.id === mappedId);
+      if (ds) rec.via = 'bundle.json';
+      else {
+        if (mappedId) rec.warning = `bundle.json names it as "${mappedId}", but it is a zone file (.${rec.zone})`;
+        ds = fits[0];
+        rec.via = 'file type';
+      }
+      claims.get(ds.id).push(rec);
+    }
+
+    return allList.map(ds => {
       const c = claims.get(ds.id);
       const out = { id: ds.id, name: ds.name, required: ds.required, kind: ds.kind, group: ds.group || null,
         fromManifest: !!ds.fromManifest, file: ds.file, status: 'missing', path: null, fileId: null, item: null, header: null,
@@ -312,11 +349,13 @@
       const key = 'inspect:' + (items[k].id || 'r' + k);
       let base = cache && cache.get(key);
       if (!base) {
-        const r = await inspect(items[k], profile, k); base = { status: r.status, reason: r.reason, header: r.header };
+        const r = await inspect(items[k], profile, k);
+        base = { status: r.status, reason: r.reason, header: r.header, other: r.other || null };
         if (cache) cache.set(key, base);
       }
+      const other = base.other !== null ? otherFile(base.other, profile) : {};
       recs.push({ item: items[k], id: items[k].id || 'r' + k, path: items[k].path, name: items[k].name, dataset: null,
-        status: base.status, reason: base.reason, header: base.header });
+        status: base.status, reason: other.reason || base.reason, header: base.header, zone: other.zone || null });
     }
 
     let datasets = assign(recs, effectiveList(profile, null), picks, mapping, choices, profile);

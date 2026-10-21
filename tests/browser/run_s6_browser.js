@@ -144,7 +144,7 @@ if (!process.argv.includes('--activity') && !process.argv.includes('--facilities
   await page.waitFor(`!WSDA.infrastructure.state.loading&&!WSDA.infrastructure.checklist.state.busy&&WSDA.infrastructure.state.version>${v}`); return page.eval(SNAP); };
  async function suite() {
   await p.goto(PAGE);await p.waitFor('window.WSDA&&WSDA.landing');
-  check(await p.eval("document.querySelectorAll('#profiles .card').length===3&&document.querySelector('#profiles [data-open=infrastructure]')!==null"),'three dashboard cards');
+  check(await p.eval("document.querySelectorAll('#profiles .card').length===3&&document.querySelector('#profiles [data-open=infrastructure]')!==null&&document.querySelector('#profiles [data-open=emergency]')!==null"),'three dashboard cards, each with its button');
   check(await selected()==='cvi','initial checklist CVI');
   await loadHub(['infrastructure_synthetic.zip']);
   check(await selected()==='infrastructure','labeled Infrastructure route');
@@ -221,7 +221,8 @@ if (!process.argv.includes('--activity') && !process.argv.includes('--facilities
   const conflictText=await p.eval("document.getElementById('next-text').textContent");
   check(conflictText==='Next: choose a facility file in Datasets below. Then you can open Infrastructure.',
     'conflict next step names the place once',conflictText);
-  for(const hint of ['emergency','unknown']){await loadHub(['unknown.csv',hint+'/bundle.json']);check(await p.eval("document.getElementById('next-notes').textContent").then(t=>hint==='emergency'?/in preparation/.test(t):/does not have/.test(t)),hint+' routing message');}
+  // An Emergency bundle goes to Emergency Response, which then needs its positives file; an unknown one is noted.
+  for(const hint of ['emergency','unknown']){await loadHub(['unknown.csv',hint+'/bundle.json']);check(hint==='emergency'?await selected()==='emergency'&&/needs the Positives/.test(await p.eval("document.getElementById('next-text').textContent")):/does not have/.test(await p.eval("document.getElementById('next-notes').textContent")),hint+' routing message');}
   // Direct page's ZIP/files/folder/drop all exercise the existing intake controls.
   const direct=await b.newTab(new URL('infrastructure/index.html',PAGE).href);await direct.page.waitFor('window.WSDA&&WSDA.infrastructure');
   for(const mode of ['zip','files','folder','drop']){

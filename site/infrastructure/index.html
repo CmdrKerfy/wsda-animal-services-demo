@@ -73,7 +73,9 @@
   .region-label, .region-name { color:var(--county-label,#333); text-shadow:-1px -1px 0 var(--county-halo,white),1px 1px 0 var(--county-halo,white); pointer-events:none; }
   .lg-dot { display:inline-block; border-radius:50%; border:1.5px solid white; width:14px; height:14px; margin-right:6px; }
   .explore { display: grid; grid-template-columns: 285px minmax(0,1fr); gap: 1rem; margin-bottom: 1rem; }
-  .facility-controls { max-height: 77vh; overflow: auto; padding-right: 0.5rem; }   /* room for a "?"'s 24 px hit area */
+  /* The sidebar stays in view while the page scrolls down to the results and the footer; as on the Emergency page.
+     The right padding leaves room for a "?"'s 24 px hit area. */
+  .facility-controls { position: sticky; top: 0.5rem; align-self: start; max-height: calc(100vh - 2rem); overflow: auto; padding-right: 0.5rem; }
   /* Ticked lists, as on the CVI page */
   .ctl-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: .6rem; }
   .ctl-row .ctl { font-weight: 600; font-size: 0.85rem; color: var(--heading); }
@@ -178,7 +180,7 @@
   .chart-preview img { display: block; width: 100%; height: auto; }
   .chart-preview figcaption { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
   .export-warning { margin: 0.5rem 0 0; }
-  @media (max-width: 767px) { .explore { grid-template-columns: 1fr; } .facility-controls { max-height: 35vh; } }
+  @media (max-width: 767px) { .explore { grid-template-columns: 1fr; } .facility-controls { position: static; max-height: 35vh; } }
 </style>
 </head><body>
 <header class="top">
@@ -354,7 +356,7 @@
 
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 1.1 (2026-10-19)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.0 (2026-10-20)</span></p>
   <details class="credits"><summary>Data sources and credits</summary>
   <p>Adapted from Statistics Canada, 2021 Census Boundary Files (census divisions, cartographic), reference date 2021. This does not constitute an endorsement by Statistics Canada of this product. Contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada" target="_blank" rel="noopener noreferrer">Open Government Licence – Canada</a>.</p></details>
   <div data-wsda-glossary></div></footer>

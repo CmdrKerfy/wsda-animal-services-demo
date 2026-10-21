@@ -207,7 +207,12 @@ const PAGES = [
   { file: 'cvi/index.html', css: '../shared/brand.css', js: '../shared/brand.js', dashboard: 'CVI Traceability',
     title: 'CVI Traceability — WSDA Animal Services' },
   { file: 'infrastructure/index.html', css: '../shared/brand.css', js: '../shared/brand.js', dashboard: 'Infrastructure',
-    title: 'Infrastructure — WSDA Animal Services' }
+    title: 'Infrastructure — WSDA Animal Services' },
+  // The Emergency page: one Export button, its notice naming what its exports hold.
+  { file: 'emergency/index.html', css: '../shared/brand.css', js: '../shared/brand.js', dashboard: 'Emergency Response',
+    title: 'Emergency Response — WSDA Animal Services', notices: 1,
+    notice: 'Exports and maps contain positive premises\' coordinates and facility names and locations: handle as' +
+      ' sensitive data and share only with authorized responders.' }
 ];
 // The sensitive-data notice: premises on the CVI page, facilities on Infrastructure.
 const SENSITIVE = 'Exports and maps contain premises addresses and coordinates: handle as sensitive data and share only with'
@@ -271,7 +276,8 @@ PAGES.forEach(pg => {
   if (pg.dashboard) {
     const notices = (html.match(/<p class="muted (?:lk|export)-warning">[\s\S]*?<\/p>/g) || []).map(textOf);
     const cvi = pg.file.startsWith('cvi/');
-    check(notices.length === (cvi ? 2 : 1) && notices.every(n => n === '&#9888; ' + (cvi ? SENSITIVE : SENSITIVE_FACILITIES)),
+    const want = pg.notices === undefined ? (cvi ? 2 : 1) : pg.notices;
+    check(notices.length === want && notices.every(n => n === '&#9888; ' + (pg.notice || (cvi ? SENSITIVE : SENSITIVE_FACILITIES))),
       tag + 'the sensitive-data notice beside every export button', notices);
   }
 });
@@ -776,7 +782,7 @@ check(same(GL.map(g => g[0]), ['CVI', 'Premises', 'WA-to-WA', 'Bundle', 'Shaded 
   GL.every(g => g[1].length > 40), 'glossary: the five terms, each explained', GL.map(g => g[0]));
 check(/Certificate of Veterinary Inspection/.test(GL[0][1]) && /twice/.test(GL[2][1]) && /once/.test(GL[2][1]) &&
   /bundle\.json/.test(GL[3][1]), 'glossary: CVI spelled out, WA-to-WA counted twice and once, bundle.json named');
-for (const page of ['index.html', 'cvi/index.html', 'infrastructure/index.html']) {
+for (const page of ['index.html', 'cvi/index.html', 'infrastructure/index.html', 'emergency/index.html']) {
   const foot = (/<footer class="foot">([\s\S]*?)<\/footer>/.exec(src(page)) || [])[1] || '';
   check(/<div data-wsda-glossary><\/div>\s*$/.test(foot), 'glossary: ' + page + ' has the holder at the end of its footer');
 }

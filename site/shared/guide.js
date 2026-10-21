@@ -48,8 +48,13 @@
       const note = d.kind === 'facility'
         ? 'Facility layers have the same kind of columns, so the file name says which layer it is: use the recommended name, name the file in bundle.json, or choose its layer in Datasets after loading.'
         : d.kind === 'manifest' ? 'Each layer it lists is then expected as its own file, named as in the list.' : '';
+      // A zone file has no columns: it is recognized by its extension (recognize.js), so that is what is listed.
+      const columns = d.kind === 'zone'
+        ? ['No columns: a ' + listOf((d.extensions || []).map(e => '.' + e)).replace(/ and ([^ ]*)$/, ' or $1') +
+          ' file of polygons, in longitude and latitude']
+        : d.columns.map(label);
       return { id: d.id, name: d.name, file: d.file, required: !!d.required, kind: d.kind, about: d.about || '',
-        columns: d.columns.map(label), exact: d.columns.map(c => typeof c === 'string'), unlocks, note };
+        columns, exact: d.kind === 'zone' ? [false] : d.columns.map(c => typeof c === 'string'), unlocks, note };
     });
     const fac = profile.datasets.find(d => d.kind === 'facility');
     const bundleExample = { profile: profile.id, label: profile.id === 'infrastructure' ? 'Synthetic facilities only' : 'Partner – county totals only', prepared: '2026-09-15',
@@ -129,10 +134,12 @@
     '    │   ├── wa_state_restricted_holding_facilities.csv',
     '    │   ├── facility_overlays_manifest.csv   adds layers beyond the five',
     '    │   └── (each layer the manifest lists)',
-    '    └── emergency/                           later, with the Emergency dashboard'
+    '    └── emergency/                           the Emergency dashboard',
+    '        ├── emergency_case_sites.csv         the positives',
+    '        └── zones.geojson                    optional: zones from a file (GeoJSON or KML)'
   ].join('\n');
   const ALL_EXAMPLE = { label: 'Example bundle – October 2026', prepared: '2026-10-13',
-    coverage: { from: '2019-01-01', to: '2026-09-30' }, profiles: ['cvi', 'infrastructure'],
+    coverage: { from: '2019-01-01', to: '2026-09-30' }, profiles: ['cvi', 'infrastructure', 'emergency'],
     release: { name: 'Example', version: '1', date: '2026-10-13' } };
   const LAYOUT_POINTS = [
     'Folders are for people. Each file is recognized by its own name and columns, so folders can be renamed or left out.',
@@ -175,7 +182,7 @@
     const c = opts.container, state = { downloads: 0, last: null };
     let h = '<h2 id="guide">What data does this need?</h2>' +
       '<p class="muted">Each dashboard works with the files you have; a feature whose data is missing is switched off, ' +
-      'with the reason. Files are CSV, with the column names in the first row.</p>';
+      'with the reason. Files are CSV, with the column names in the first row; Emergency zone files are GeoJSON or KML.</p>';
     if (opts.allInOne) h += sampleHtml() + allInOneHtml();
     for (const p of opts.profiles) {
       if (p.list) h += html(p.list, {});

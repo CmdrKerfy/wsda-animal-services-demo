@@ -23,6 +23,7 @@
 //   v11     version 1.1 on the live pages: the landing page's lines and loose-file outline, a master with a required
 //           column twice, the export lines, the camera picture's name, scale bars, the circles' edge, the live regions,
 //           the maps' text alternative, County Focus's prompt and type-to-find field, the 320 px layout, Infrastructure
+//   v20     version 2.0: the sidebar stays in view while the page scrolls, on CVI's Premise Lookup and on Infrastructure
 //
 // Usage (repository root, after node tests/synthetic/make_test_tables.js or an F1 unit run, which write test-tables/):
 //   node tests/browser/run_ui_browser.js [checks] [controls] [day3] [chartlabels] [fixes] [v11]
@@ -1074,7 +1075,7 @@ async function partV11(b) {
     ready: [...document.querySelectorAll('#profiles .card-ready')].map(e => [e.hidden, e.textContent]),
     pick: document.getElementById('pick-note').textContent, forget: document.getElementById('forget-note').textContent,
     live: (() => { const o = document.getElementById('next-opened'); return [o.getAttribute('role'), o.parentElement.getAttribute('role'), o.parentElement.getAttribute('aria-live')]; })() })`);
-  check(empty.ready.length === 2 && empty.ready.every(([h, t]) => !h && t === 'Load your data below first.'),
+  check(empty.ready.length === 3 && empty.ready.every(([h, t]) => !h && t === 'Load your data below first.'),
     'v11: landing, nothing loaded: each card says "Load your data below first."', empty.ready);
   check(empty.pick === 'Each pick replaces what was loaded: choose the ZIP, or all the files, together.' &&
     empty.forget === 'This page forgets the files when reloaded or closed; open dashboards keep theirs.',
@@ -1244,6 +1245,31 @@ async function partV11(b) {
   return { empty, wa, narrow, find, infra };
 }
 
+// Version 2.0: the sidebar stays in view while the page scrolls (as on the Emergency page). Premise Lookup with its
+// result and the Infrastructure sample, a 1280 by 700 window, scrolled down to where the footer begins.
+const STICKY = [['lookup', 'aside.sidebar', 'CVI Premise Lookup'], ['infra', '.facility-controls', 'Infrastructure']];
+async function stickyAt(b, base, id, sel) {
+  const p = b.page;
+  await openView(b, base, VIEWS.find(v => v.id === id));
+  await p.viewport(1280, 700);
+  await p.eval(`(() => { const f = document.querySelector('footer.foot');
+    scrollTo(0, Math.max(0, f.getBoundingClientRect().top + scrollY - innerHeight)); return true; })()`);
+  await sleep(300);
+  return p.eval(`(() => { const r = document.querySelector(${js(sel)}).getBoundingClientRect();
+    return { scrolled: Math.round(scrollY), top: Math.round(r.top), bottom: Math.round(r.bottom), height: innerHeight }; })()`);
+}
+async function partV20(b) {
+  await b.send('Browser.setDownloadBehavior', { behavior: 'deny' });
+  const out = {};
+  for (const [id, sel, name] of STICKY) {
+    const at = out[id] = await stickyAt(b, SITE_URL, id, sel);
+    check(at.scrolled > 0 && at.top >= 0 && at.top <= 16 && at.bottom <= at.height,
+      'v20: ' + name + ': scrolled down to the footer, the sidebar stays in view', at);
+  }
+  return out;
+}
+
+
 // ── Run ────────────────────────────────────────────────────────────────────────────────────────────────────────
 (async () => {
   for (const f of ['tier_full_master.csv', 'WSDA_sample_all_dashboards_synthetic.zip', 'infrastructure_synthetic.zip']) {
@@ -1259,6 +1285,7 @@ async function partV11(b) {
       else if (part === 'chartlabels') run.results.chartlabels = await partChartLabels(b);
       else if (part === 'fixes') run.results.fixes = await partFixes(b);
       else if (part === 'v11') run.results.v11 = await partV11(b);
+      else if (part === 'v20') run.results.v20 = await partV20(b);
       else throw new Error('Unknown part ' + part);
     }
   } catch (e) {

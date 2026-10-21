@@ -18,7 +18,9 @@
      shared/brand.css, the look every page shares. */
   * { box-sizing: border-box; }
   .layout { display: flex; min-height: calc(100vh - var(--banner-height)); }
-  aside.sidebar { width: 310px; flex: 0 0 310px; border-right: 1px solid var(--border); padding: 0.75rem; overflow-y: auto; max-height: calc(100vh - var(--banner-height)); background: #fff; }
+  /* The sidebar stays in view while the page scrolls (the footer, Premise Lookup's results); as on the Emergency page. */
+  aside.sidebar { width: 310px; flex: 0 0 310px; border-right: 1px solid var(--border); padding: 0.75rem; overflow-y: auto; max-height: calc(100vh - var(--banner-height)); background: #fff;
+    position: sticky; top: 0; }
   main { flex: 1 1 auto; position: relative; min-width: 0; }
   .map-frame { position: relative; }
   #map, #map-b { height: 77vh; width: 100%; }
@@ -450,7 +452,7 @@
   /* Narrow windows, and 400% zoom (320 px wide): the sidebar stacks above the maps, as on the Infrastructure page. */
   @media (max-width: 767px) {
     .layout { flex-direction: column; }
-    aside.sidebar { width: auto; flex: 0 0 auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--border); }
+    aside.sidebar { width: auto; flex: 0 0 auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--border); position: static; }
     .lk-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 </style>
@@ -1303,7 +1305,7 @@
   </main>
 </div>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the chosen file is never uploaded. &middot; <span class="version">Version 1.1 (2026-10-19)</span></p>
+  Runs entirely in this browser tab; the chosen file is never uploaded. &middot; <span class="version">Version 2.0 (2026-10-20)</span></p>
   <details class="credits"><summary>Data sources and credits</summary>
   <p><span id="attrib"></span></p>
   <p>Shaded-map colors: ColorBrewer 2.0, by Cynthia A. Brewer, Penn State (Apache License 2.0).</p>

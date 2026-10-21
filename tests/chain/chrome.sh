@@ -1,6 +1,6 @@
 #!/bin/bash
 # The full regression chain, Chrome half, from the repository root, in the foreground:
-# bash tests/chain/chrome.sh <file|http> <batch 1, 1b, 2, 2b, 3, 4, 5, 6>
+# bash tests/chain/chrome.sh <file|http> <batch 1, 1b, 2, 2b, 3, 4, 5, 6, 7>
 # Each batch stays under 600 seconds. "http" needs tests/browser/serve_case_strict.js running on port 8765.
 cd "$(dirname "$0")/../.." || exit 2
 source tests/chain/step.sh
@@ -9,7 +9,7 @@ if [ "$M" = http ]; then
   H=${CHAIN_HOST:-http://127.0.0.1:8765}   # CHAIN_HOST: another address of site/ (for example a hosted copy)
   export F1_PAGE_URL=$H/index.html S6_PAGE_URL=$H/index.html UI_SITE_URL=$H/ SCALE_SITE_URL=$H/
   for v in S1 S2 S3 S4 S5 S7 S9 MC NR PC S11 CH; do export ${v}_PAGE_URL=$H/cvi/index.html; done
-  export PC_INFRA_URL=$H/infrastructure/index.html S9_INFRA_URL=$H/infrastructure/index.html
+  export PC_INFRA_URL=$H/infrastructure/index.html S9_INFRA_URL=$H/infrastructure/index.html EM_PAGE_URL=$H/index.html
 fi
 case $2 in
   1) step chrome_${M}_s1 node tests/browser/run_s1_browser.js
@@ -30,8 +30,9 @@ case $2 in
      if [ "$M" = http ]; then step chrome_${M}_pc node tests/browser/run_pc_browser.js cvi infra
      else step chrome_${M}_pc node tests/browser/run_pc_browser.js; fi
      step chrome_${M}_s11 node tests/browser/run_s11_browser.js ;;
-  5) step chrome_${M}_ui node tests/browser/run_ui_browser.js checks controls day3 chartlabels fixes v11 ;;
+  5) step chrome_${M}_ui node tests/browser/run_ui_browser.js checks controls day3 chartlabels fixes v11 v20 ;;
   6) step chrome_${M}_ch node tests/browser/run_ch_browser.js
      node tests/synthetic/make_scale_master.js > "$L/scale_master_${M}.log" 2>&1
      step chrome_${M}_scale node tests/browser/run_scale_browser.js ;;
+  7) step chrome_${M}_em node tests/browser/run_em_browser.js ;;
 esac

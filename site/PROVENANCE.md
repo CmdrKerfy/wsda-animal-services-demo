@@ -1,4 +1,4 @@
-# Provenance — site (the landing page, CVI Traceability and Infrastructure dashboards)
+# Provenance — site (the landing page, CVI Traceability, Infrastructure and Emergency Response dashboards)
 
 Everything the pages load is in this folder (`site/`). Nothing is fetched at run time, except map tiles from an opt-in
 tile basemap on the CVI and Infrastructure maps (S3, below) and an opt-in tile background for a branded PNG (S9,
@@ -308,7 +308,8 @@ ColorBrewer file is bundled and nothing is fetched.
 
 Everything in `site/` except `vendor/`, `shared/fonts/` and the generated data files in `geo/` (whose sources are
 above): the landing page (`index.html`, `landing.js`), the CVI page (`cvi/`, with `cvi/app/choropleth.js`, whose colors
-are ColorBrewer's, above), the Infrastructure dashboard (`infrastructure/`), the shared code (`shared/*.js`,
+are ColorBrewer's, above), the Infrastructure dashboard (`infrastructure/`), the Emergency Response dashboard
+(`emergency/`), the shared code (`shared/*.js`,
 `shared/brand.css`), the build scripts (`build/*.R`) and `geo/regions/index.js`, and the tests, are new WSDA work
 product (internal, not licensed for reuse, per the repository README). No source code of CVI or of the Partner Data
 Viewer (another internal WSDA tool) was copied; the CVI files copied are the state centers above (S4), the WSDA logo
@@ -320,3 +321,11 @@ CVI's functions run unmodified.
 request gate, neighboring-region files and credits as the CVI page; no other provider, host, font or data file. Its
 footer carries the Statistics Canada adaptation and non-endorsement statements and the Open Government Licence –
 Canada statement for the British Columbia regions. Facility files stay in the browser's memory.
+
+**Emergency Response dashboard:** it uses the same MapLibre files, map adapter, basemap list and request gate,
+neighboring-region and population files and credits as the Infrastructure page; no other provider, host, font or
+data file. The HPAI type's reference pages (USDA APHIS and CDC) are links only: nothing is fetched from them, and a
+click opens them in a new tab. Its rule for locations too coarse for zone results follows RAD_Animal_Diseases'
+`premises_zone_eligible()` (another internal WSDA project); no code was copied, and the tests compare the page with
+that function run unmodified. Its HPAI layer keys are those of the facility layer list CVI keeps
+(`facility_overlays_manifest.csv`); only the key names were taken.

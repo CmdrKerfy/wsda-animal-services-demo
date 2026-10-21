@@ -44,6 +44,15 @@ backgrounds this document mentions.
 
 ## Deliberate differences from CVI
 
+- **Emergency Response's CVI movements:** the "CVI movements" tab runs Premise Lookup's own match (`lookup.js`
+  `query`, unchanged) with the zones as its sites (the positives with their rings as bands, or a zone file's
+  polygons), every endpoint counting and no date window (CVI has no Emergency tab). Its CSV holds CVI's matched rows
+  without any column whose name holds address, location, street or premise (CVI's Export CSV writes every column).
+- **Emergency Response's locations known only roughly:** a facility whose `geo_source` is `google_city` or `none` is
+  left out of the zone results by default and listed with its reason, as are points that fail RAD's three
+  location-precision columns when a file has them (CVI's Premise Lookup measures every point with coordinates as
+  precise; CVI's PNG counts `google_city` as town-level and leaves `none` out).
+
 - **Plainer words, and easier to read with any eyesight (version 1.1):** first-time users and reviewers of
   version 1.0 misread a few labels, and some states were shown by color or faint gray alone.
   - County Focus's strip names its number "Animals at mapped premises" (CVI: "Animals"). The branded PNG keeps CVI's

@@ -156,7 +156,7 @@ function compareToOracle(name, st, ov) {
   check(!bad && legendOk, name + ': ' + want.length + ' circles, tooltips and legend equal CVI\'s R oracle', { bad, circles: [st.data.length, want.length], legendOk });
 }
 
-if (!process.argv.includes('--ab') && !process.argv.includes('--ui') && !process.argv.includes('--s6-activity') && !process.argv.includes('--s6-entryflow') && !process.argv.includes('--s6-facilities') && !process.argv.includes('--s6-focus') && !process.argv.includes('--s7') && !process.argv.includes('--mc') && !process.argv.includes('--s9') && !process.argv.includes('--pc') && !process.argv.includes('--s11') && !process.argv.includes('--gif') && !process.argv.includes('--ch')) (async () => {
+if (!process.argv.includes('--ab') && !process.argv.includes('--ui') && !process.argv.includes('--s6-activity') && !process.argv.includes('--s6-entryflow') && !process.argv.includes('--s6-facilities') && !process.argv.includes('--s6-focus') && !process.argv.includes('--s7') && !process.argv.includes('--mc') && !process.argv.includes('--s9') && !process.argv.includes('--pc') && !process.argv.includes('--s11') && !process.argv.includes('--gif') && !process.argv.includes('--ch') && !process.argv.includes('--em')) (async () => {
   for (const f of ['sample/CVI_sample_bundle_synthetic.zip', 'tiers/full.zip']) if (!fs.existsSync(path.join(OUT, f))) { console.error('Run node tests/node/run_f1_unit_tests.js first.'); process.exit(2); }
   if (!fs.existsSync(path.join(S1, 'oracle_tier_full.json')) || !fs.existsSync(path.join(S4, 'oracle_s4_cvi_master_s4.json'))) { console.error('Run Rscript tests/oracle/cvi_r_oracle.R first.'); process.exit(2); }
   let d;
@@ -2947,3 +2947,117 @@ async function runCH() {
   });
 }
 if (process.argv.includes('--ch')) runCH().catch(e => { console.error(e.stack); process.exitCode = 2; });
+
+// ---- Emergency Response: node tests/browser/run_safari.js --em ------------------------------------------------------
+// Over http: SAFARI_PAGE_URL=http://127.0.0.1:8765/index.html node tests/browser/run_safari.js --em
+// In Safari at 1400 x 1000: the folder bundle with a GeoJSON zone (test-tables/em_bundle) loaded on the landing page is
+// checked for Emergency; a real click on its Open button opens the Emergency page in its own window with the
+// positives, the feedlots and the zone file unchanged; on the Emergency page, the sample loaded through its file
+// input: the map's positives, rings and sites, every fold closed, the boxes; a real click on the type's "?" opens its
+// note with the two links; with the small CVI master, a real click on "CVI movements" gives Chrome's three CVIs; the
+// Export's files and ZIP (its download call recorded, so the session saves nothing to Downloads). Needs node tests/synthetic/make_em_fixtures.js and the
+// Emergency Chrome suite's sample (local-test-artifacts/em/sample/). Writes local-test-artifacts/em/safari_em_<mode>.json.
+async function runEM() {
+  const mode = PAGE.startsWith('file:') ? 'file' : 'http';
+  const out = path.join(ROOT, 'local-test-artifacts', 'em');
+  const tables = path.join(ROOT, 'test-tables'), samplePath = path.join(out, 'sample', 'emergency_synthetic.zip');
+  for (const f of [samplePath, path.join(tables, 'em_bundle', 'zones.geojson'), path.join(tables, 'em_cvi_master.csv')]) {
+    if (!fs.existsSync(f)) {
+      console.error('Missing ' + f + ' (run node tests/synthetic/make_em_fixtures.js and node tests/browser/run_em_browser.js load first).');
+      process.exit(2);
+    }
+  }
+  const b64 = f => ({ name: path.basename(f), b64: fs.readFileSync(f).toString('base64') });
+  const result = { page: PAGE, started: new Date().toISOString(),
+    limitation: 'Synthetic FileList (no folder paths); network and policy reports unobservable; the export checked from the page, not a saved file.' };
+  let d, timer;
+  try {
+    d = await launch();
+    result.safari = d.version;
+    await d.size(1400, 1000);
+    const errorsOn = 'window.__errors=[];addEventListener("error",function(e){__errors.push(String(e.message))});addEventListener("unhandledrejection",function(e){__errors.push(String(e.reason))});return true;';
+    async function suite() {
+      // The landing page: the bundle with its zone file, sent to the Emergency window by a real click.
+      await d.goto(PAGE);
+      await d.waitFor('window.WSDA && WSDA.landing && WSDA.guide', 15000, 'landing page');
+      await d.run(errorsOn);
+      const landing = await d.handle();
+      const bundle = ['bundle.json', 'emergency_case_sites.csv', 'wa_state_feedlots.csv', 'zones.geojson'].map(n => b64(path.join(tables, 'em_bundle', n)));
+      let v0 = await d.run('return WSDA.landing.state.version;');
+      await d.run(SET_FILES, '#files-input', bundle);
+      await d.waitFor('WSDA.landing.state.version > ' + v0 + ' && !WSDA.landing.state.loading && !WSDA.landing.checklist.state.busy', 20000, 'bundle checked');
+      const st = await d.run(`return { selected: WSDA.landing.state.selected, open: document.getElementById('next-open').hidden ? null : document.getElementById('next-open').textContent,
+        found: WSDA.landing.checklist.state.result.datasets.filter(function(x){return x.status==='found';}).map(function(x){return x.id;}) };`);
+      check(st.selected === 'emergency' && st.open === 'Open Emergency Response' && st.found.join() === 'positives,feedlots,zones',
+        'EM Safari: the bundle with a zone file is checked for Emergency, ready to open', st);
+      const before = await d.handles();
+      await d.click('#next-open');
+      let em = null;
+      for (let i = 0; i < 100 && !em; i++) { em = (await d.handles()).find(h => !before.includes(h)) || null; if (!em) await sleep(100); }
+      check(!!em, 'EM Safari: a real click opens the Emergency page in a new window');
+      if (em) {
+        await d.switchTo(em);
+        await d.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.version > 0 && !WSDA.emergency.state.loading', 20000, 'Emergency loaded');
+        const got = await d.run(`var s=WSDA.emergency.state, out={};for (var k in s.datasets) out[k]=await s.datasets[k].file.text();return {files:out,source:s.source};`);
+        check(got.source === 'hub' && Object.keys(got.files).sort().join() === 'feedlots,positives,zones'
+          && got.files.zones === fs.readFileSync(path.join(tables, 'em_bundle', 'zones.geojson'), 'utf8'),
+        'EM Safari: the Emergency window received the positives, the feedlots and the zone file unchanged', Object.keys(got.files));
+        await d.switchTo(landing);
+      }
+      // The Emergency page on its own, with the sample.
+      await d.goto(new URL('emergency/index.html', new URL('.', PAGE)).href);
+      await d.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map');
+      await d.run(errorsOn);
+      v0 = await d.run('return WSDA.emergency.state.version;');
+      await d.run(SET_FILES, '#files-input', [b64(samplePath)]);
+      await d.waitFor('WSDA.emergency.state.version > ' + v0 + ' && !WSDA.emergency.state.loading && WSDA.emergency.state.map.drawn && WSDA.emergency.state.map.drawn.positives > 0', 20000, 'sample drawn');
+      const page = await d.run(`var s=WSDA.emergency.state;return { drawn: s.map.drawn, zones: s.mapData.zones,
+        folds: ['load-fold','positives-fold','layers-fold','options-fold'].map(function(id){return document.getElementById(id).open;}),
+        boxes: ['box-positives','box-last','box-inside'].map(function(id){return document.querySelector('#'+id+' strong').textContent;}) };`);
+      check(page.drawn.positives === 7 && page.zones === 12 && page.drawn.inside > 0 && page.drawn.outside > 0 && page.folds.every(function (x) { return !x; })
+        && page.boxes[0] === '7' && page.boxes[1] === '2026-10-05' && Number(page.boxes[2]) > 0,
+      'EM Safari: the sample: seven positives, twelve rings, sites inside and faded, every fold closed, the boxes', page);
+      await d.click('button.tip[data-help="em-type"]');
+      const help = await d.run(`return { open: document.getElementById('positives-fold').open, note: !document.getElementById('help-em-type').hidden,
+        links: Array.from(document.querySelectorAll('#em-type-links a')).map(function(a){return a.target+' '+a.rel;}) };`);
+      check(help.open && help.note && help.links.length === 2 && help.links.every(function (l) { return l === '_blank noopener noreferrer'; }),
+        'EM Safari: a real click on the type\'s "?" opens its fold and note, with the two links opening new tabs', help);
+      // With the small CVI master: the movements tab by a real click.
+      v0 = await d.run('return WSDA.emergency.state.version;');
+      await d.run(SET_FILES, '#files-input', [b64(samplePath), b64(path.join(tables, 'em_cvi_master.csv'))]);
+      await d.waitFor('WSDA.emergency.state.version > ' + v0 + ' && !WSDA.emergency.state.loading', 20000, 'master loaded');
+      await d.click('#show-cvi');
+      const cvi = await d.run(`return { line: (document.querySelector('#cvi-result .result-line') || {}).textContent,
+        cvis: Array.from(document.querySelectorAll('#cvi-result tbody tr')).map(function(r){return r.cells[0].textContent;}).sort() };`);
+      check(cvi.line === '3 CVIs, 1,265 animals, left from or arrived inside the zones: 2 origins and 2 destinations inside.'
+        && cvi.cvis.join() === 'EM-0001,EM-0002,EM-0003', 'EM Safari: a real click on "CVI movements" gives the three CVIs Chrome and R give', cvi);
+      // The download itself is replaced by a recorder (a Safari test session would save the ZIP to Downloads).
+      await d.run(`WSDA.sample.download = function (name, bytes) { window.__download = { name: name, size: bytes.length }; };
+        document.getElementById('em-export').click(); return true;`);
+      const ex = await d.run(`return { download: window.__download || null, files: (WSDA.emergency.state.lastExport || []).filter(function(e){return !e.dir;}).map(function(e){return e.name.replace(/^[^/]+\\//,'');}).sort(),
+        line: document.getElementById('em-export-result').textContent };`);
+      check(ex.files.join() === 'cvi_movements.csv,export_params.json,inside_the_zones.csv,layers.csv,left_out.csv,positives.csv'
+        && /^Exported \d{4}-\d\d-\d\d_Emergency\.zip/.test(ex.line) && ex.download && /_Emergency\.zip$/.test(ex.download.name)
+        && ex.download.size > 0, 'EM Safari: Export makes the six files into one ZIP and says so', ex);
+      fs.writeFileSync(path.join(out, 'safari_em_' + mode + '.png'), Buffer.from(await d.screenshot(), 'base64'));
+      const errors = await d.run('var e = window.__errors || []; window.__errors = []; return e;');
+      check(!errors.length, 'EM Safari: no page errors', errors);
+    }
+    await Promise.race([suite(), new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('EM Safari four-minute limit')), 240000);
+    })]);
+  } catch (e) {
+    check(false, 'EM Safari suite stopped', e && e.stack);
+    try { fs.writeFileSync(path.join(out, 'safari_em_' + mode + '_failed.png'), Buffer.from(await d.screenshot(), 'base64')); } catch (e2) { /* window may be gone */ }
+  } finally {
+    clearTimeout(timer);
+    if (d) await d.close();
+  }
+  Object.assign(result, { passed: pass, failed: fail, failures, notes, finished: new Date().toISOString() });
+  fs.writeFileSync(path.join(out, 'safari_em_' + mode + '.json'), JSON.stringify(result, null, 2) + '\n');
+  failures.forEach(f => console.error('  FAIL ' + f));
+  notes.forEach(n => console.log('  note ' + n));
+  console.log('EM Safari ' + (result.safari || '') + ' (' + mode + '): ' + pass + ' passed, ' + fail + ' failed');
+  process.exitCode = fail ? 1 : 0;
+}
+if (process.argv.includes('--em')) runEM().catch(e => { console.error(e.stack); process.exitCode = 2; });

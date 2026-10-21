@@ -19,6 +19,10 @@
  * Kept short: the guide's parts are folded until used (a link to
  * one opens it), the checklist's tables are folded under a one-line result (open when something needs attention),
  * one sample button (the all-in-one sample), shorter wording, and the CVI card says what the CVI page has.
+ * Emergency Response (a preview): its card reads "(preview)"; loose files (no bundle.json list) with a found
+ * positives file are checked for it first (recognized as the Emergency dashboard would, checklist.checkFor), before
+ * the rule that sends facility files without a master to Infrastructure. Its zone files (GeoJSON, KML) travel with
+ * the other files.
  * A new profile adds a folder, a dataset list and an entry in PROFILES. */
 (function (root) {
   'use strict';
@@ -36,8 +40,10 @@
       mapFeature: 'wa-map', list: root.WSDA.profiles.cvi,
       about: 'Animal movements on certificates of veterinary inspection (CVI): WA State and National Flow maps, County ' +
         'Focus, Premise Lookup, charts and exports.' },
-    { id: 'emergency', name: 'Emergency Response', available: false,
-      about: 'Maps for emergency response. In preparation.' },
+    { id: 'emergency', name: 'Emergency Response', preview: true, available: true, url: 'emergency/index.html',
+      open: 'Open Emergency Response', map: 'Emergency Response', mapFeature: 'positives',
+      list: root.WSDA.profiles.emergency,
+      about: 'HPAI positives on a map, their zones, the sites inside them and the CVI movements that touch them.' },
     { id: 'infrastructure', name: 'Infrastructure', available: true, url: 'infrastructure/index.html',
       open: 'Open Infrastructure', map: 'Infrastructure', mapFeature: 'facility-files', list: root.WSDA.profiles.infrastructure,
       about: 'Facility layers on a map, with filters, details and exports. No CVI master needed.' }
@@ -149,7 +155,7 @@
       const card = document.createElement('section');
       card.className = 'card' + (p.available ? '' : ' soon');
       card.setAttribute('data-profile', p.id);
-      const h = document.createElement('h3'); h.textContent = p.name; card.appendChild(h);
+      const h = document.createElement('h3'); h.textContent = p.name + (p.preview ? ' (preview)' : ''); card.appendChild(h);
       const t = document.createElement('p'); t.className = 'card-about'; t.textContent = p.about; card.appendChild(t);
       const note = document.createElement('p'); note.className = 'card-note'; note.hidden = true; card.appendChild(note);
       if (p.available) {
@@ -306,7 +312,8 @@
       const datasets = Object.create(null);
       for (const d of found) {
         const it = items.get(d.fileId);
-        datasets[d.id] = { name: it.name, path: it.path, file: new File([await it.read()], it.name, { type: 'text/csv' }) };
+        const type = d.kind === 'zone' ? 'application/octet-stream' : 'text/csv';   // a zone file is GeoJSON or KML
+        datasets[d.id] = { name: it.name, path: it.path, file: new File([await it.read()], it.name, { type }) };
       }
       return { banner, datasets, synthetic };
     };
@@ -423,7 +430,10 @@
       if (op !== state.op) return;
       const r = route(checklist.state.bundle);
       const found = checklist.state.result && checklist.state.result.datasets || [];
+      const positives = !(r.profile && r.profile.available) && !r.note && await hasPositives();
+      if (op !== state.op) return;
       const id = r.profile && r.profile.available ? r.profile.id
+        : positives ? 'emergency'
         : !r.note && !found.some(d => d.id === 'master' && d.status === 'found')
           && (found.some(d => d.kind === 'facility' && (d.status === 'found' || d.status === 'conflict'))
             || (checklist.state.result?.files || []).some(f => f.candidates?.length || f.layers?.length))
@@ -437,6 +447,15 @@
     }
     state.loading = false; state.version++;
     paintNext();
+  }
+
+  // True when the loaded files hold a positives file for Emergency Response (found, or two files to choose from),
+  // recognized as that dashboard would recognize them.
+  async function hasPositives() {
+    const em = PROFILES.find(p => p.id === 'emergency' && p.available);
+    if (!em) return false;
+    const r = await checklist.checkFor(em.list);
+    return !!(r && r.result.datasets.some(d => d.id === 'positives' && (d.status === 'found' || d.status === 'conflict')));
   }
 
   // Set the status line under the file inputs.

@@ -503,7 +503,7 @@ async function throwsZip(fn, re, name) {
     const win = { addEventListener() {}, WSDA: { load: { fromFileList: () => new Promise(res => pending.push(res)) } } };
     const ctx = vm.createContext({ window: win, document: { getElementById: get, addEventListener() {}, createElement: node, querySelectorAll: () => [] }, TextDecoder, TextEncoder });
     // shared/brand.js as well: the landing page's buttons take their icon and words through it.
-    for (const f of ['shared/brand.js', 'shared/facility-datasets.js', 'shared/recognize.js', 'shared/bundle.js', 'shared/checklist.js', 'shared/sample.js', 'shared/guide.js', 'cvi/datasets.js', 'cvi/sample.js', 'infrastructure/datasets.js', 'infrastructure/sample.js', 'landing.js']) vm.runInContext(fs.readFileSync(path.join(ROOT, 'site', f), 'utf8'), ctx);
+    for (const f of ['shared/brand.js', 'shared/facility-datasets.js', 'shared/recognize.js', 'shared/bundle.js', 'shared/checklist.js', 'shared/sample.js', 'shared/guide.js', 'cvi/datasets.js', 'cvi/sample.js', 'infrastructure/datasets.js', 'infrastructure/sample.js', 'emergency/datasets.js', 'landing.js']) vm.runInContext(fs.readFileSync(path.join(ROOT, 'site', f), 'utf8'), ctx);
     const result = p => ({ items: [{ id: 'f1', path: p, name: p, source: 'files', size: 9, text: async () => 'a,b\n1,2\n' }], ignored: [], errors: [], sources: [] });
     const tick = () => new Promise(r => setImmediate(r));
     get('files-input').change({ target: { files: [], value: '' } }); get('files-input').change({ target: { files: [], value: '' } });
@@ -512,11 +512,16 @@ async function throwsZip(fn, re, name) {
 
     // Routing by bundle.json "profile" and the next step after the checklist (pure functions of the landing page)
     const { nextStep, route, PROFILES } = win.WSDA.landing;
-    check(PROFILES.map(p => p.id + ':' + p.available).join() === 'cvi:true,emergency:false,infrastructure:true', 'landing: CVI available, Emergency in preparation');
+    check(PROFILES.map(p => p.id + ':' + p.available).join() === 'cvi:true,emergency:true,infrastructure:true', 'landing: CVI, Emergency Response (preview) and Infrastructure available');
+    check(PROFILES[1].preview === true && PROFILES[1].url === 'emergency/index.html' && PROFILES[1].list.id === 'emergency' && PROFILES[1].mapFeature === 'positives',
+      'landing: the Emergency card is a preview, opens emergency/index.html and needs the positives', PROFILES[1].url);
+    // The rules for a dashboard in preparation still hold for a later one: checked here with Emergency marked as one.
+    const asPreparing = fn => { const em = PROFILES.find(p => p.id === 'emergency'); em.available = false; try { return fn(); } finally { em.available = true; } };
     const bj = profile => ({ found: true, info: { profile }, banner: null, warnings: [] });
     check(route(null).profile === null && route(null).note === null && route(bj(null)).note === null, 'route: no bundle.json or no profile: no note');
     check(route(bj('cvi')).profile.id === 'cvi' && route(bj('cvi')).note === null, 'route: profile "cvi" goes to CVI');
-    check(route(bj('emergency')).profile.id === 'emergency' && /Emergency Response, which is in preparation\. Your files were checked against CVI Traceability\./.test(route(bj('emergency')).note), 'route: Emergency is in preparation', route(bj('emergency')));
+    check(route(bj('emergency')).profile.id === 'emergency' && route(bj('emergency')).note === null, 'route: profile "emergency" goes to Emergency Response', route(bj('emergency')));
+    check(asPreparing(() => route(bj('emergency'))).profile.id === 'emergency' && /Emergency Response, which is in preparation\. Your files were checked against CVI Traceability\./.test(asPreparing(() => route(bj('emergency'))).note), 'route: a dashboard in preparation is noted', asPreparing(() => route(bj('emergency'))));
     check(route(bj('foo')).profile === null && /"foo", which this site does not have/.test(route(bj('foo')).note), 'route: unknown profile reported', route(bj('foo')));
     const cvi = globalThis.WSDA.profiles.cvi, loadOf = n => ({ items: Array.from({ length: n }, (_, i) => ({ id: 'f' + i })) });
     const cl = (status, header, bundle) => {
@@ -546,8 +551,8 @@ async function throwsZip(fn, re, name) {
       reason: 'it is the CVI master table but has the column Total.Animals more than once; keep one copy of it' }];
     n = nextStep(loadOf(1), twiceCl);
     check(n.kind === 'warn' && n.open === null && n.guide === false && n.text === 'The CVI map needs the CVI master table (CVI_Consolidated_Master.csv). CVI_Consolidated_Master.csv is the CVI master table but has the column Total.Animals more than once; keep one copy of it, then choose all your files again, together.', 'next step: a master with a repeated required column says to keep one copy', n);
-    n = nextStep(loadOf(1), cl('found', req.concat(['Species']), bj('emergency')));
-    check(n.open === 'cvi' && /in preparation/.test(n.notes[0]), 'next step: an Emergency bundle with a CVI master: note, and CVI can still be opened', n);
+    n = asPreparing(() => nextStep(loadOf(1), cl('found', req.concat(['Species']), bj('emergency'))));
+    check(n.open === 'cvi' && /in preparation/.test(n.notes[0]), 'next step: a bundle for a dashboard in preparation, with a CVI master: note, and CVI can still be opened', n);
     // "What data does this need?" is linked whenever something is missing, not for a choice to make
     const g = (st, h) => nextStep(loadOf(st === 'conflict' ? 2 : 1), cl(st, h)).guide;
     check(g('missing') === true && g('found', req) === true && g('found', req.concat(['Species'])) === true && g('found', req.concat(['Species', 'CVI'])) === true
@@ -557,10 +562,14 @@ async function throwsZip(fn, re, name) {
     // AB: a bundle.json listing several dashboards; each card's readiness (pure functions of the landing page)
     const { readiness } = win.WSDA.landing;
     const bl = profiles => ({ found: true, info: { profile: profiles[0], profiles }, banner: null, warnings: [] });
-    let rt = route(bl(['emergency', 'infrastructure', 'cvi']));
+    let rt = asPreparing(() => route(bl(['emergency', 'infrastructure', 'cvi'])));
     check(rt.profile.id === 'infrastructure' && rt.note === null && String(rt.listed) === 'emergency,infrastructure,cvi', 'AB route: the first available listed dashboard gets the checklist', rt);
-    rt = route(bl(['foo', 'emergency']));
+    rt = route(bl(['emergency', 'infrastructure', 'cvi']));
+    check(rt.profile.id === 'emergency' && rt.note === null, 'AB route: Emergency listed first gets the checklist', rt);
+    rt = asPreparing(() => route(bl(['foo', 'emergency'])));
     check(rt.profile.id === 'emergency' && /Emergency Response, which is in preparation/.test(rt.note), 'AB route: only a dashboard in preparation is listed: noted', rt);
+    rt = route(bl(['foo', 'emergency']));
+    check(rt.profile.id === 'emergency' && rt.note === null, 'AB route: Emergency listed beside an unknown id gets the checklist', rt);
     rt = route(bl(['foo', 'bar']));
     check(rt.profile === null && /for "foo" and "bar", which this site does not have/.test(rt.note), 'AB route: unknown dashboards named in the note', rt);
     check(String(route(bj('cvi')).listed) === 'cvi' && route(null).listed === null, 'AB route: the older "profile" is a one-item list');
@@ -585,7 +594,7 @@ async function throwsZip(fn, re, name) {
     check(rd.kind === 'choose' && !rd.open && rd.text === 'Choose a file first (the Feedlots): click the button below to check.'
       && rdSel.kind === 'choose' && rdSel.text === 'Choose a file in Datasets below for the Feedlots.' && readiness(P('cvi'), allOn, false, { needsChoice: [] }).kind === 'ready',
       'AB readiness: a choice on a facility layer: the other card checks first, the selected card says where', [rd, rdSel]);
-    rt = route(bl(['foo', 'emergency']));
+    rt = asPreparing(() => route(bl(['foo', 'emergency'])));
     check(/Emergency Response, which is in preparation, and for "foo", which this site does not have\. Your files were checked/.test(rt.note), 'AB route: unknown ids named beside a dashboard in preparation', rt);
   }
 
@@ -906,7 +915,7 @@ async function throwsZip(fn, re, name) {
       /Partner Data Viewer/.test(curator), 'AB guide: the safety note one line, its full text and the Partner Data Viewer line in the curators\' fold');
     check(/cvi\/[\s\S]*CVI_Consolidated_Master\.csv[\s\S]*facilities\/[\s\S]*emergency\//.test(hg) && /Do not put a ZIP inside the ZIP/.test(hg), 'AB guide: the folder layout and its points');
     const ex = await B.read([item(JSON.stringify(G.ALL_EXAMPLE))]);
-    check(ex.found && ex.warnings.length === 0 && String(ex.info.profiles) === 'cvi,infrastructure' && /release Example, version 1, 2026-10-13$/.test(ex.banner),
+    check(ex.found && ex.warnings.length === 0 && String(ex.info.profiles) === 'cvi,infrastructure,emergency' && /release Example, version 1, 2026-10-13$/.test(ex.banner),
       'AB guide: its bundle.json example reads without a warning', ex);
     const gc = { innerHTML: '', addEventListener() {} };
     G.create({ container: gc, profiles: [{ id: 'cvi', name: 'CVI', list: CVI, sample: { build: async () => null } }], allInOne: { build: async () => null } });

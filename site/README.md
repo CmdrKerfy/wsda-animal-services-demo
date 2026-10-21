@@ -10,6 +10,7 @@ online background map. The data comes from the files you load; the site itself h
 |---|---|
 | `index.html` | The starting page. Load your files (a ZIP, several files or a folder), see which dashboard each file is for and whether each dashboard is ready, then open a dashboard in its own tab. "What data does this need?" lists every dataset each dashboard reads, and offers a sample bundle to try. |
 | `cvi/index.html` | **CVI Traceability**: animal movements from certificates of veterinary inspection. Four views (WA State county map, National Flow between Washington and other states, County Focus on picked counties, and Premise Lookup with buffers around sites), charts, previews, a ZIP export, branded PNG maps and time-series GIFs. |
+| `emergency/index.html` | **Emergency Response (preview)**: positives of an animal disease emergency (HPAI first) on a map with their zones (rings around each positive, or a zone file), the facility and premises sites inside the zones and the nearest one for a layer with nothing inside, the CVI movements that left from or arrived inside the zones, and the results as CSV files in one ZIP. |
 | `infrastructure/index.html` | **Infrastructure**: facility layers (packing plants, markets, feedlots, fairgrounds and more) on a map with filters and details, optional CVI activity, and a branded PNG. No CVI master table needed. |
 
 ## Open it
@@ -98,6 +99,24 @@ Where a later change is planned, the entry number in `docs/FUTURE_ENHANCEMENTS.m
   export line says so.
 - **A newly chosen file that does not load (Safari).** In Safari a file picked to replace the one on screen has
   sometimes needed a second try. If a file you chose does not appear, choose it again.
+
+## Known limits of the Emergency Response preview
+
+- **The values are examples.** HPAI's statuses, its two rings (3 km and 10 km), the layers it suggests and its
+  closed rule are examples until WSDA staff confirm them; the type's "?" says so.
+- **Kilometers only.** Rings and distances are in km; a miles switch is planned.
+- **Positives are points.** A positives file needs a latitude and a longitude per row; an emergency reported by
+  county only is not covered yet.
+- **Zone files in longitude and latitude only.** A GeoJSON, KML or zipped shapefile in another coordinate system
+  (such as Washington State Plane) is refused with a message. A zipped shapefile is loaded on the Emergency page,
+  under "Positives and zones", "Use a zone file"; inside a bundle it arrives unpacked and is not used.
+- **Locations known only roughly are left out of the zone results** by default and listed with their reason: a
+  facility's `geo_source` of `google_city` (a town's center) or `none` (not placed), and, when a file carries them,
+  a `geocode_precision` other than rooftop or street, a `match_status` other than Matched or a `premises_type` other
+  than Street. "More options", "Include locations known only roughly", takes them in.
+- **CVI movements need the master's premises coordinates** (`Origin.Lat`, `Origin.Long`, `Dest.Lat`, `Dest.Long`).
+- **No address is shown or exported.** A column whose name holds address, location, street or premise is never read
+  from the positives file, and the CVI movements' CSV leaves such columns of the master out.
 
 ## For developers
 

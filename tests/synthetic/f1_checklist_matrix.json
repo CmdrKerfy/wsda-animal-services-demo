@@ -272,7 +272,7 @@
         "bundle.json": "bundle"
       },
       "candidates": { "feedlots_2025.csv": ["markets", "feedlots", "restricted"] },
-      "bundle": { "banner": "Emergency – synthetic", "warnings": ["for the \"emergency\" dashboard, so its \"files\" entries were not used"] },
+      "bundle": { "banner": "Reports – synthetic", "warnings": ["for the \"reports\" dashboard, so its \"files\" entries were not used"] },
       "features": { "wa-map": "on", "species-refine": "on", "summaries": "on", "unique-cvis": "off:CVI", "spotlight": "on", "period-modes": "on", "flow-map": "on" }
     },
     "corrupt_zip": {

@@ -81,6 +81,11 @@ Thirty made-up places, each a facility site or a master's origin or destination 
 Columbia or outside them, with the result expected from `locate()` and `resolve()` (`ok` with its county key,
 `mismatch`, `unknown`, `outside` or `none`) and a note saying why. Read by `tests/node/run_nr_unit_tests.js`.
 
+## `em_made_up_type.js` (Emergency: the third-type test)
+
+A made-up emergency type with a different value in every field, loaded by the Emergency unit suite after the HPAI
+type, as a new type file would be, to show that each field reaches the results with no change to the page.
+
 ## `f1_checklist_matrix.json` (F1: expected checklists)
 
 Written by hand from the loader's rules, not from its code: for each bundle case made by `make_bundles.js` (the tiers
@@ -114,3 +119,8 @@ Run them from the repository root; `tests/README.md`, section 2, gives the order
   `local-test-artifacts/scale/cvi_master_50000.csv`, for the timing suite `tests/browser/run_scale_browser.js`.
 - `make_s11_fixtures.js` writes the Premise Lookup (S11) scenarios to `local-test-artifacts/s11/fixtures/` and the
   `s11_*` files to `test-tables/`.
+- `make_em_fixtures.js` writes the Emergency Response files to `local-test-artifacts/em/fixtures/` and the same `em_*`
+  files and the `em_bundle/` folder to `test-tables/`: positives in the HPAI mapping tool's columns and in the earlier
+  demo's, files that must not be taken for positives, and zone files (GeoJSON, KML, one with a hole, one in State
+  Plane). The addresses in them are marked `MARKED-ADDRESS`, so a test can prove they reach no output. The Emergency
+  unit suite runs it.

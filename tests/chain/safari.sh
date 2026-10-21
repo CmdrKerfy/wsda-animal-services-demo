@@ -1,7 +1,7 @@
 #!/bin/bash
 # The full regression chain, Safari, from the repository root, in the foreground:
 # bash tests/chain/safari.sh <file|http> <part ...>
-# Parts: core s6-entryflow s6-facilities s6-focus s6-activity s7 mc s9 pc s11 ab ui gif ch. Safari is quit before and
+# Parts: core s6-entryflow s6-facilities s6-focus s6-activity s7 mc s9 pc s11 ab ui gif ch em. Safari is quit before and
 # after each run. "http" needs tests/browser/serve_case_strict.js running on port 8765.
 cd "$(dirname "$0")/../.." || exit 2
 source tests/chain/step.sh

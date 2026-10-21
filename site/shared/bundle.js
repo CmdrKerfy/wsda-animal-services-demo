@@ -22,7 +22,8 @@
  *   Several bundle.json files are used only if their contents are identical; otherwise none is used.
  * listed(info) -> the dashboards a bundle.json lists, or null (also reads an info with only "profile").
  * filesFor(bundle, profile) -> the "files" entries to give recognition, or {} when the bundle lists other
- *   dashboards only (warning added). */
+ *   dashboards only (warning added). With opts.reuseShared (an explicit switch), the entries for the datasets the
+ *   CVI, Infrastructure and Emergency dashboards share are kept. */
 (function (root) {
   'use strict';
   const MAX_BYTES = 64 * 1024, MAX_FILES = 1000, MAX_LABEL = 200, MAX_PROFILES = 20, MAX_VERSION = 40;
@@ -218,9 +219,10 @@
 
   function filesFor(bundle, profile, opts) {
     if (!bundle || !bundle.found) return {};
-    const list = listed(bundle.info), SHARED = ['cvi', 'infrastructure'];
+    const list = listed(bundle.info), SHARED = ['cvi', 'infrastructure', 'emergency'];
     if (list && !list.includes(profile.id)) {
-      // Explicit switching reuses only descriptors shared by the two available dashboards.
+      // Explicit switching reuses only the descriptors the dashboards share (the master, the facility layers and the
+      // manifest).
       if (opts && opts.reuseShared && list.some(id => SHARED.includes(id)) && SHARED.includes(profile.id)) {
         const ids = new Set((opts.datasets || profile.datasets)
           .filter(d => d.kind === 'facility' || d.kind === 'manifest' || d.id === 'master').map(d => d.id));

@@ -155,14 +155,15 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     const cards = await p.eval(`Array.from(document.querySelectorAll('#profiles .card')).map(c=>({id:c.getAttribute('data-profile'), h:c.querySelector('h3').textContent,
       button:(c.querySelector('button[data-open]')||{}).textContent||null, soon:(c.querySelector('.soon-badge')||{}).textContent||null}))`);
     check(cards.length === 3 && cards[0].id === 'cvi' && cards[0].h === 'CVI Traceability' && cards[0].button === 'Open the CVI map' && !cards[0].soon
-      && cards[1].id === 'emergency' && cards[1].h === 'Emergency Response' && cards[1].button === null && cards[1].soon === 'In preparation' && cards[2].id === 'infrastructure' && cards[2].button === 'Open Infrastructure' && !cards[2].soon, 'cards: CVI available, Emergency in preparation', cards);
+      && cards[1].id === 'emergency' && cards[1].h === 'Emergency Response (preview)' && cards[1].button === 'Open Emergency Response' && !cards[1].soon && cards[2].id === 'infrastructure' && cards[2].button === 'Open Infrastructure' && !cards[2].soon, 'cards: CVI, Emergency Response (preview) and Infrastructure available', cards);
     check(await p.eval('document.getElementById("next-step").hidden'), 'next step hidden before any files are loaded');
     // Version 1.1: before any files are loaded each card says to load them first, and a dashboard opened then says
     // at once that nothing was loaded (not after the 10-second wait). Each tab is closed again, so the later clicks
     // open new ones.
     const firstLines = await p.eval(`Array.from(document.querySelectorAll('#profiles .card-ready')).map(e => e.hidden ? null : e.textContent)`);
-    check(firstLines.length === 2 && firstLines.every(t => t === 'Load your data below first.'), 'cards before any files: "Load your data below first."', firstLines);
-    for (const [id, file, status] of [['cvi', /\/cvi\/index\.html/, 'master-status'], ['infrastructure', /\/infrastructure\/index\.html/, 'load-status']]) {
+    check(firstLines.length === 3 && firstLines.every(t => t === 'Load your data below first.'), 'cards before any files: "Load your data below first."', firstLines);
+    for (const [id, file, status] of [['cvi', /\/cvi\/index\.html/, 'master-status'], ['infrastructure', /\/infrastructure\/index\.html/, 'load-status'],
+      ['emergency', /\/emergency\/index\.html/, 'load-status']]) {
       const n = b.opened.length, t0 = Date.now();
       await p.click(`document.querySelector('#profiles button[data-open="${id}"]').click()`);
       const t = await b.waitTab(n);
@@ -367,7 +368,7 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
       else check(!nx.hidden && nx.kind === 'warn' && nx.open === null && /^The CVI map needs the CVI master table \(CVI_Consolidated_Master\.csv\)(, and none of your files is it\.|\. \S+ (looks|is named) like the CVI master table but is missing the columns? .+\. Ask for a copy with every column listed under "What data does this need\?", then choose all your files again, together\.$)/.test(nx.text), tag + ': next step: says what is missing (a near miss named with its reason)', nx);
       const prof = await p.eval('(WSDA.landing.checklist.state.bundle||{info:null}).info && WSDA.landing.checklist.state.bundle.info.profile');
       check(JSON.stringify(nx.routed) === JSON.stringify(prof === 'cvi' || prof === 'emergency' ? [prof] : []), tag + ': card of the bundle.json profile marked', [prof, nx.routed]);
-      if (name === 'other_profile_bundle') check(nx.routed[0] === 'emergency' && nx.notes.some(t => /Emergency Response, which is in preparation/.test(t)), tag + ': routed to Emergency (in preparation), checked against CVI', nx);
+      if (name === 'other_profile_bundle') check(nx.routed.length === 0 && nx.notes.some(t => /"reports", which this site does not have\. Your files were checked against CVI Traceability/.test(t)), tag + ': a bundle for a dashboard this site does not have: checked against CVI', nx);
       if (name === 'partner') check(nx.routed[0] === 'cvi', tag + ': Partner bundle routed to CVI', nx);
       // A missing column with a feature and a later use names both in the master's notes.
       if (name === 'partner') { const notes = await p.eval(`(function(){var r=document.querySelector('#datasets-table tbody tr[data-dataset="master"]');return r?r.cells[3].textContent:null})()`);
@@ -589,7 +590,7 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
       n.direct=WSDA.landing.openProfile('cvi');document.getElementById('next-open').click();document.querySelector('#profiles button[data-open="cvi"]').click();return n;})()`);
     await sleep(500);
     const kept = await tab.page.eval(`({keep: window.__keep === 1, master: !!CVIWA.state.master})`);
-    check(busy.busy && !busy.hidden && busy.kind === 'checking' && busy.text === 'Checking your files again… The next step appears here when that is done.' && busy.open === null && busy.disabled.length === 3 && busy.disabled.every(Boolean),
+    check(busy.busy && !busy.hidden && busy.kind === 'checking' && busy.text === 'Checking your files again… The next step appears here when that is done.' && busy.open === null && busy.disabled.length === 4 && busy.disabled.every(Boolean),
       'while rechecking, the next step says the files are being checked and every Open button is disabled', busy);
     check(busy.direct === null && kept.keep && kept.master, 'Open while rechecking does nothing (the CVI tab keeps its map)', [busy.direct, kept]);
     await p.eval(`__releaseRecheck(); WSDA.recognize.recognize = __realRecognize; true`);
@@ -723,19 +724,19 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     const guide = await p.eval(`(function(){var rows=Array.from(document.querySelectorAll('table[data-guide-profile="cvi"] tbody tr'));
       return {h2:(document.getElementById('guide')||{}).textContent, h3:(document.getElementById('guide-cvi')||{}).textContent,
         ids:rows.map(r=>r.getAttribute('data-guide-dataset')), files:rows.map(r=>r.cells[1].textContent), req:rows.map(r=>r.querySelector('.req').textContent),
-        soon:(document.querySelector('[data-guide-soon="emergency"]')||{}).textContent||null,
+        soon:(document.querySelector('[data-guide-soon]')||{}).textContent||null, em:(document.getElementById('guide-emergency')||{}).textContent||null,
         buttons:Array.from(document.querySelectorAll('#guide-section button[data-sample]')).map(b=>b.getAttribute('data-sample')+':'+b.textContent),
         parts:Array.from(document.querySelectorAll('details.guide-part')).map(d=>d.getAttribute('data-guide-part')+':'+d.open),
         cardLink:(document.querySelector('#profiles a[data-guide-link="cvi"]')||{}).getAttribute&&document.querySelector('#profiles a[data-guide-link="cvi"]').getAttribute('href'),
         introLink:document.getElementById('intro-guide').getAttribute('href'), geo:!!window.CVIWA_GEO,
         geoScripts:document.querySelectorAll('script[src$="wa-counties.js"]').length};})()`);
-    check(guide.h2 === 'What data does this need?' && guide.h3 === 'CVI Traceability' && guide.soon === 'Emergency Response', 'guide: section with CVI and Emergency (in preparation)', guide);
+    check(guide.h2 === 'What data does this need?' && guide.h3 === 'CVI Traceability' && guide.em === 'Emergency Response' && guide.soon === null, 'guide: section with CVI and Emergency Response (no dashboard in preparation)', guide);
     const facilityFiles = CVI.datasets.filter(d => d.kind === 'facility').map(d => d.file);
     check(guide.ids.join() === 'master,facility-layers,manifest' && guide.files[0] === CVI.datasets[0].file &&
       facilityFiles.every(f => guide.files[1].indexOf(f) >= 0) && guide.req.join() === 'required,optional,optional',
     'guide: the master, the five facility layers in one row (each layer\'s file named) and the manifest', guide);
     check(guide.cardLink === '#guide-cvi' && guide.introLink === '#guide' && guide.buttons.join() === 'all:Download a sample bundle (ZIP)'
-      && guide.parts.join() === 'all:false,cvi:false,infrastructure:false', 'guide: linked from the CVI card and the intro; one sample ' +
+      && guide.parts.join() === 'all:false,cvi:false,emergency:false,infrastructure:false', 'guide: linked from the CVI card and the intro; one sample ' +
       'button; every part folded', guide);
     check(!guide.geo && guide.geoScripts === 0, 'guide: the county file is not read before the sample is asked for', guide);
     await p.click(`document.querySelector('#profiles a[data-guide-link="cvi"]').click()`);
@@ -853,9 +854,11 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
       && byCard(cs, 'infrastructure').help === 'Opens in a new tab with your files.' && !byCard(cs, 'infrastructure').disabled
       && byCard(cs, 'cvi').help === 'Opens in a new tab with your files.',
       'AB all-in-one ZIP: both cards say "Ready."; Infrastructure\'s button opens it directly', cs);
-    check(byCard(cs, 'cvi').routed && byCard(cs, 'infrastructure').routed && !byCard(cs, 'emergency').routed && byCard(cs, 'emergency').ready === null
-      && cs.every(c => !c.unlisted) && byCard(cs, 'cvi').note === 'Your bundle.json says the files are for this dashboard.',
-      'AB all-in-one ZIP: both listed cards marked; Emergency untouched; no "Not listed"', cs);
+    check(byCard(cs, 'cvi').routed && byCard(cs, 'infrastructure').routed && !byCard(cs, 'emergency').routed
+      && byCard(cs, 'emergency').unlisted && byCard(cs, 'emergency').note === 'Not listed in this bundle.'
+      && byCard(cs, 'emergency').ready === 'Needs: the Positives (emergency_case_sites.csv).'
+      && !byCard(cs, 'cvi').unlisted && !byCard(cs, 'infrastructure').unlisted && byCard(cs, 'cvi').note === 'Your bundle.json says the files are for this dashboard.',
+      'AB all-in-one ZIP: both listed cards marked; Emergency "Not listed" and needs its positives', cs);
     check(st9.ms < 1000, 'AB all-in-one ZIP: every card\'s readiness shown within a second of the checklist', st9.ms);
     await p.eval(`document.getElementById('profiles').scrollIntoView()`); await sleep(150);
     fs.writeFileSync(path.join(SHOTS, 'ab_cards_all_in_one.png'), Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' }, p.sid)).data, 'base64'));
@@ -1028,12 +1031,22 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     await p.eval('WSDA.recognize.recognize = window.__rec');
     check(cs.filter(c => c.button).every(c => c.ready === null) && /could not be checked: injected/.test(failText),
       'AB: when the files cannot be checked, no card shows a readiness line', [cs, failText]);
-    // A listed dashboard in preparation says it cannot be opened yet
+    // A listed dashboard in preparation says it cannot be opened yet (Emergency marked as one for this check only)
+    await p.eval(`WSDA.landing.PROFILES.find(x => x.id === 'emergency').available = false`);
     s = await pick('#folder-input', [variant('emergency_and_cvi', { profiles: ['emergency', 'cvi'] })]);
-    cs = (await cardsSettled()).cards;
+    // Its card keeps the button it was drawn with, but gets no readiness line: wait for the other cards only.
+    await p.waitFor(`!WSDA.landing.state.loading && !WSDA.landing.checklist.state.busy && ${CARDS}.filter(c=>c.button&&c.id!=='emergency').every(c=>c.ready && c.kind!=='checking')`, 15000, 'card readiness');
+    cs = await p.eval(CARDS);
+    await p.eval(`WSDA.landing.PROFILES.find(x => x.id === 'emergency').available = true`);
     check(byCard(cs, 'emergency').note === 'Listed in this bundle; in preparation, so it cannot be opened yet.' && byCard(cs, 'emergency').routed
       && byCard(cs, 'cvi').note === 'Your bundle.json says the files are for this dashboard.' && await p.eval('WSDA.landing.state.selected') === 'cvi',
-      'AB: a listed Emergency card says it cannot be opened yet; CVI gets the checklist', cs);
+      'AB: a listed dashboard in preparation says it cannot be opened yet; CVI gets the checklist', cs);
+    // Emergency Response listed first gets the checklist
+    s = await pick('#folder-input', [variant('emergency_and_cvi', { profiles: ['emergency', 'cvi'] })]);
+    cs = (await cardsSettled()).cards;
+    check(byCard(cs, 'emergency').note === 'Your bundle.json says the files are for this dashboard.' && byCard(cs, 'emergency').routed
+      && byCard(cs, 'cvi').routed && await p.eval('WSDA.landing.state.selected') === 'emergency',
+      'AB: Emergency Response listed first gets the checklist; both listed cards marked', cs);
 
     // 9h. The guide's all-in-one part and its download
     await p.goto(PAGE); await p.waitFor('window.WSDA && WSDA.guide', 10000, 'landing page');

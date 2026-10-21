@@ -25,4 +25,7 @@ step r_s11_oracle Rscript tests/oracle/s11_proximity_oracle.R
 step node_s11 node tests/node/run_s11_unit_tests.js
 step node_ch node tests/node/run_ch_unit_tests.js
 step node_ui node tests/node/run_ui_unit_tests.js
+step node_em_fixtures node tests/synthetic/make_em_fixtures.js
+step r_em_oracle Rscript tests/oracle/em_oracle.R
+step node_em node tests/node/run_em_unit_tests.js
 echo "chain done"

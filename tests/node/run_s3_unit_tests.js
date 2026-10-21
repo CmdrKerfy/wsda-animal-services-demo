@@ -146,6 +146,13 @@ const infraConnect = ((/(?:^|;)\s*connect-src ([^;]*)/.exec(infraCsp)) || [])[1]
 check(same(infraConnect.trim().split(/\s+/).sort(), plain(B.hosts()).map(h => 'https://' + h).sort()),
   'Infrastructure CSP connect-src: exactly the basemap hosts, https', { csp: infraConnect, hosts: B.hosts() });
 check(/<meta name="referrer" content="no-referrer">/.test(infraHtml), 'Infrastructure: referrer off (no-referrer)');
+// The Emergency page offers the same basemaps as Infrastructure: the same hosts, and no referrer.
+const emHtml = fs.readFileSync(path.join(ROOT, 'site', 'emergency', 'index.html'), 'utf8');
+const emCsp = (/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(emHtml) || [])[1] || '';
+const emConnect = ((/(?:^|;)\s*connect-src ([^;]*)/.exec(emCsp)) || [])[1] || '';
+check(same(emConnect.trim().split(/\s+/).sort(), plain(B.hosts()).map(h => 'https://' + h).sort()) && emCsp === infraCsp,
+  'Emergency CSP: the same policy as Infrastructure (connect-src: exactly the basemap hosts, https)', { csp: emConnect });
+check(/<meta name="referrer" content="no-referrer">/.test(emHtml), 'Emergency: referrer off (no-referrer)');
 check(same(plain(B.hosts()), [...new Set(OFFERED.flatMap(b => b.hosts))].sort()), 'hosts(): every host of the list, sorted, once');
 
 // 7. The public-copy switch (shared/release.js): with publicCopy true, the list, the picker and the hosts

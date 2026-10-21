@@ -98,7 +98,7 @@
   <div class="pickers">
     <div class="picker">
       <label for="files-input">Choose files or a ZIP bundle</label>
-      <input type="file" id="files-input" multiple accept=".zip,.csv,.json,.geojson,application/zip,text/csv,application/json">
+      <input type="file" id="files-input" multiple accept=".zip,.csv,.json,.geojson,.kml,application/zip,text/csv,application/json">
       <span class="muted">Select one ZIP, or several CSV/JSON files at once.</span>
     </div>
     <div class="picker">
@@ -119,13 +119,13 @@
     <div class="live" role="status" aria-live="polite"><div id="next-opened" class="status ok" hidden></div></div>
   </div>
   <label for="dashboard-select">Check files for dashboard:</label>
-  <select id="dashboard-select"><option value="cvi">CVI Traceability</option><option value="infrastructure">Infrastructure</option></select>
+  <select id="dashboard-select"><option value="cvi">CVI Traceability</option><option value="emergency">Emergency Response (preview)</option><option value="infrastructure">Infrastructure</option></select>
   <p id="dashboard-note" class="muted" role="status">Your files are checked for one dashboard at a time; switching keeps your choices.</p>
   <div id="load-results"></div>
   <section id="guide-section" aria-labelledby="guide"></section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 1.1 (2026-10-19)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.0 (2026-10-20)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="cvi/app/icons.js"></script>
 <script src="shared/brand.js"></script>
@@ -141,6 +141,7 @@
 <script src="cvi/sample.js"></script>
 <script src="infrastructure/datasets.js"></script>
 <script src="infrastructure/sample.js"></script>
+<script src="emergency/datasets.js"></script>
 <script src="landing.js"></script>
 </body>
 </html>
