@@ -173,6 +173,15 @@ scope and approval when its time comes.
     from a network drive. To try on a work PC: a normal Windows shortcut (.lnk) made there, pointing to the icon on
     the shared drive.
 
+20. **Suspect positives on the Emergency page.** The HPAI table holds confirmed cases only; recording suspect cases
+    would need back-work on earlier years. When it exists: a suspect group shown apart (a dashed outline and dashed
+    rings, counted apart from the current totals, sites near suspect positives only on their own count line),
+    through a `group` field on the type's statuses.
+21. **The sick-bird reports as a layer.** The public sick-bird reports are exported from ArcGIS by hand today. A
+    scheduled export to a CSV without the reporters' personal fields, run by an account allowed to read the layer,
+    could feed a reports layer on the page. A live layer in the page itself would need a sign-in and an https
+    address, ending the offline design.
+
 ## Noted for other work
 
 - File picks that need a second try when switching files in Safari: a known limit in `site/README.md`; the cause is

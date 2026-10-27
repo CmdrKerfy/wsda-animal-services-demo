@@ -92,12 +92,13 @@ tests/oracle/cvi_r_oracle.R first"), and those R scripts need the checkout.
 11. Optional source checks: `Rscript tests/oracle/nr_regions_check.R` (the region files against their sources) and
     `Rscript tests/oracle/s4_states_check.R` (the state files against theirs). Exit status 2 means a source is missing.
 12. Emergency Response: `node tests/synthetic/make_em_fixtures.js`, then `Rscript tests/oracle/em_oracle.R` (seconds;
+    it also checks the agreed-table scenario: groups, miles, days since and the page's `zones.geojson` read with sf;
     reads RAD's `core/premises_registry.R` from the `../RAD_Animal_Diseases` checkout, or `RAD_ANIMAL_DISEASES_DIR`;
     writes `local-test-artifacts/em/oracle_em.json`).
 
 The CH (shaded maps) and UI suites need only `test-tables/`, written by step 2 or by
-`node tests/synthetic/make_test_tables.js`. The scale suite needs `node tests/synthetic/make_scale_master.js` first
-(a 50,000-row synthetic master, 17 MB, in `local-test-artifacts/scale/`).
+`node tests/synthetic/make_test_tables.js`. The scale suite and the Emergency Chrome suite's `speed` part need
+`node tests/synthetic/make_scale_master.js` first (a 50,000-row synthetic master, 17 MB, in `local-test-artifacts/scale/`).
 
 `test-tables/` holds synthetic tables collected in one folder, read by the suites and handy for trying the pages by
 hand (some steps pick two files at once). The F1 unit run and `make_test_tables.js` rewrite the files they make there
@@ -156,7 +157,7 @@ Hosted mode: set the suite's page variable to the case-strict server (section 4)
 | `run_s11_browser.js` | Premise Lookup: sites table, Run query against CVI's, zones, facilities, PNG, "Find coordinates" | ~35 s | `page day3 day4 day5` (`S11_PAGE_URL`) |
 | `run_ui_browser.js` | Six views: font, logo, banner, footer, every visible text's size and contrast; buttons, keyboard, Stats, glossary, chart labels; the notes for real files (PNG background notes, the sensitive-data notice, blocked downloads, the load statuses); the sidebars that stay in view on CVI and Infrastructure (`v20`) | 1.5-7 min | `checks`; also `controls day3 chartlabels fixes v11 v20` (`UI_SITE_URL`) |
 | `run_ch_browser.js` | Shaded counties and states on the live maps, the PNG and GIF, Alaska and Hawaii insets | ~25-60 s | `wa records flow insets png` (`CH_PAGE_URL`) |
-| `run_em_browser.js` | Emergency Response: a bundle with a zone file sent from the landing page, loose positives routed to it, the sample loaded and downloaded; the page with the sample (the map's contents, the boxes, the folds, the type's "?" and links, the zone file, a ring distance, the density limits, 320 px); the results (the tabs, CVI movements with a master, the Export ZIP, no marked address anywhere) | ~45 s | `load page results` (`EM_PAGE_URL`) |
+| `run_em_browser.js` | Emergency Response: a bundle with a zone file sent from the landing page, loose positives routed to it, the sample loaded and downloaded; the page with the sample (the map's contents, the boxes, the folds, the type's "?" and links, the zone file, a ring distance, the density limits, 320 px); the results (the tabs, CVI movements with a master, the Export ZIP, no marked address anywhere); E1b on the page (past positives, the window, the play, km \| miles, the zone hover (also inside the map at 320 px), the line under the value boxes, the rows not mapped, the screwworm outbreak); the map picture; the chart; the one-second step at full size (40 positives against 30,000 points, without and with the 50,000-row master, which `make_scale_master.js` writes) | ~70 s | `load page results e1b png chart speed` (`EM_PAGE_URL`) |
 | `run_scale_browser.js` | A 50,000-row master (`make_scale_master.js`): times the hand-off, the load, Browse Play, the charts, County Focus with 39 counties, the GIF and Premise Lookup; a step fails only past 30 seconds | ~50 s | none (`SCALE_SITE_URL`, the site's address) |
 
 ### Safari suite (fg only; quit Safari first)
@@ -174,7 +175,7 @@ are in `local-test-artifacts/f1/safari_run.json` and each part's folder; `S5_SAF
 
 Run the whole chain before a release and after any change that could reach more than one slice. The scripts are in
 `tests/chain/`: `chain_node.sh`, `chrome.sh`, `safari.sh` and their helper `step.sh`, which runs each step under
-macOS `caffeinate -i` (so the computer does not sleep mid-run), writes one log per step (with `exit <code>` at the
+macOS `caffeinate -di` (so neither the computer nor the display sleeps mid-run), writes one log per step (with `exit <code>` at the
 end) to `$CHAIN_LOGS` (default: `local-test-artifacts/chain/`) and prints each step's summary line. The order and
 commands are written out below.
 
@@ -282,7 +283,8 @@ the unmutated suite.
   page 1 to 6 per call; PC unit 5 s, build 30 s; S1.1 unit seconds, page 1 to 3 min; S4 page 4.6 min (one or two per
   call); S5 page two per call; S6 page up to four per call; S7 page 1 to 6 per call; S9 unit 40 s (up to about 12 per
   call), page 1 to 6 per call; S11 unit 8 s, page 12 s, day4 20 s; UI unit 2 s, page 30 s to 2 min; EM (Emergency)
-  unit about 1 s, page about 5 s (its `page` group runs the Chrome suite's parts `page` and `results`).
+  unit about 2 s, page 5 to 60 s (each page mutant names the Chrome suite's parts that must catch it: `page` and
+  `results` for E1a's, `e1b`, `png`, `chart` or `speed` for E1b's; the unmutated run covers every part named).
 - **Ledgers and logs** go to `local-test-artifacts/<slice>/mutations/` (S6: `local-test-artifacts/s6/mutations/`).
 - Page groups run in the foreground. Unit groups, and the PC `build` group, may run as background jobs.
 

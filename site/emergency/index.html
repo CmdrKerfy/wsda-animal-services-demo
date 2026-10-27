@@ -48,6 +48,11 @@
   details.refine summary { cursor: pointer; font-size: 0.85rem; color: var(--heading); margin: 0.25rem 0; }
   .fold-sum { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
   .fold-sum:not(:empty)::before { content: '\00A0\00B7\00A0'; }
+  /* A sidebar fold's summary on its own line under the heading; a line breaks only between whole items (version
+     2.1). */
+  .em-controls .fold-sum { display: block; margin: 0.1rem 0 0 1.05rem; line-height: 1.35; }
+  .em-controls .fold-sum:not(:empty)::before { content: none; }
+  .fold-sum .item { white-space: nowrap; }
   .ctl-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: .6rem; }
   .ctl-row .ctl { margin: 0; }
   .ctl-row .links { font-size: 0.85rem; }
@@ -78,6 +83,40 @@
   .count-card strong { display: block; font-size: 22px; }
   .count-card .card-note { display: block; font-size: 0.8rem; color: var(--muted); }
   .count-card.na strong { font-size: 0.9rem; font-weight: 400; color: var(--muted); padding: 0.35rem 0; }
+  /* The value boxes as the M1 demo's cards (version 2.1): a dark-teal block on the left edge, the
+     name above the number, left-aligned; the "Positives" box's other lines in one line under the boxes, as
+     Infrastructure's line under its cards. CVI and Infrastructure follow in the plan's final UI pass
+     (docs/DELIBERATE_DIFFERENCES.md). */
+  .count-card { position: relative; display: flex; flex-direction: column; text-align: left; padding: 0.45rem 0.4rem 0.45rem 0.75rem; border-radius: 4px; overflow: hidden; }
+  .count-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--box, var(--heading)); }
+  /* Each box's brand color on its edge and its icon (version 2.1): a tile on wider screens, a
+     plain icon before the label on a phone. Every white icon keeps at least 3:1 on its tile. */
+  #box-positives { --box: var(--wsda-crimson); }
+  #box-past { --box: var(--wsda-eggplant); }
+  #box-last { --box: var(--wsda-blue-green); }
+  #box-inside { --box: var(--wsda-evergreen); }
+  .count-card .card-ic { margin-right: 0.3rem; vertical-align: -0.12em; color: var(--box); }
+  @media (min-width: 768px) {
+    .count-card { padding-right: 2.6rem; }
+    .count-card .card-ic { position: absolute; top: 0.45rem; right: 0.45rem; width: 1.8rem; height: 1.8rem; margin: 0; border-radius: 4px;
+      align-items: center; justify-content: center; font-size: 1rem; color: #ffffff; background: var(--box); }
+    .count-card.quar .card-ic { color: var(--wsda-dark-brown); background: var(--wsda-gold); }
+  }
+  .count-card .card-label { order: -1; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+  .count-card strong { white-space: nowrap; }
+  .count-card.na strong { padding: 0.2rem 0; white-space: normal; }
+  /* Past positives still under quarantine: the number in the note, the box's edge and its icon in the warning colors
+     (on a wider screen a gold tile with a dark-brown icon, as the page's warning notices); the rest of the note plain. */
+  .count-card.quar::before { background: var(--notice-text); }
+  .count-card.quar .card-ic { color: var(--notice-text); }
+  .count-card.quar .card-note b { color: var(--notice-text); font-weight: 600; }
+  /* The date fitted to its box: a wide one ("Aug 21, 2026") is never cut on a narrow screen. */
+  #box-last { container-type: inline-size; }
+  #box-last:not(.na) strong { font-size: clamp(15px, 13.5cqi, 22px); }
+  .box-lines { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--text); }
+  .box-lines[hidden] { display: none; }
+  .box-lines .warn { color: var(--notice-text); font-weight: 600; }
+  .box-lines .sep { color: var(--muted); }
   .map-frame { position: relative; height: 62vh; min-height: 300px; }
   #em-map { position: absolute; inset: 0; }
   #em-map.picking canvas { cursor: crosshair; }
@@ -90,6 +129,13 @@
   .region-name { font-size:12px; font-weight:600; letter-spacing:.04em; }
   .hidden { display: none; }
   .maplibregl-popup { z-index: 4; }
+  /* The hover's text as CVI's (site/cvi/index.html, v2.0); each heading in bold, the "as of" line in gray. The
+     population context's hover (.pc-tip, the shared map's) keeps its own. */
+  .maplibregl-popup:not(.pc-tip) .maplibregl-popup-content { font-size: 13px; padding: 6px 10px; line-height: 1.35; }
+  .maplibregl-popup-content strong { color: var(--heading); }
+  .maplibregl-popup-content .tip-item + .tip-item { margin-top: 4px; }
+  .maplibregl-popup-content hr { margin: 4px 0; border: 0; border-top: 1px solid var(--border); }
+  .maplibregl-popup-content .tip-foot { color: var(--muted); margin-top: 4px; }
   .map-screenshot svg, .map-fit svg { width: 15px; height: 15px; display: block; margin: auto; color: #333; }
   #em-legend { position: absolute; right: 8px; bottom: 32px; z-index: 3; background: white; border: 1px solid var(--border); padding: 6px 8px; max-width: 210px; max-height: 50%; overflow-x: hidden; overflow-y: auto; font-size: 12px; line-height: 1.3; }
   #em-legend summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; }
@@ -100,6 +146,8 @@
   .lg-pc-line { display: inline-block; flex: 0 0 18px; width: 18px; height: 0; border-top: 1.5px solid #737373; margin: 0.55em 5px 0 0; }
   .lg-pc-line.dashed { border-top-style: dashed; }
   .lg-pc-swatch { display: inline-block; flex: 0 0 12px; width: 12px; height: 9px; margin: 0.15em 5px 0 0; border: 1px solid rgba(0, 0, 0, 0.15); }
+  #em-legend .lg-pc-head { margin-top: .45rem; }
+  #em-legend .legend-note { color: var(--muted); font-size: 0.75rem; }
   .pc-tip { pointer-events: none; font-size: 12px; }
   /* Copied from site/cvi/index.html, v1.1: the Maps / Premise Lookup switch, here the two result tabs. */
   .tool-switch { display: flex; margin: 0.75rem 0 0.5rem; }
@@ -115,6 +163,27 @@
   .ring-row label { flex: 1 1 auto; }
   .ring-row input { width: 5rem; font: inherit; font-size: 0.85rem; padding: 0.2rem; border: 1px solid var(--border-input); border-radius: 4px; }
   .lg-swatch { display: inline-block; flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; margin-top: 0.1em; border: 2px solid; }
+  /* The window, the play and the km | miles switch (E1b). */
+  .date-row { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 0.3rem 0.5rem; font-size: 0.85rem; }
+  .date-row span { color: var(--text); }
+  .date-row input { font: inherit; font-size: 0.85rem; padding: 0.15rem; border: 1px solid var(--border-input); border-radius: 4px; min-width: 0; }
+  .play-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; margin-top: 0.45rem; font-size: 0.85rem; }
+  .play-row .btn { margin: 0; padding: 0.2rem 0.6rem; }
+  .play-row input[type=range] { flex: 1 1 120px; min-width: 0; }
+  .play-row output { flex: 1 1 100%; color: var(--muted); }
+  #em-play[aria-pressed=true] { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .unit-switch { display: inline-flex; }
+  .unit-switch .btn { margin: 0; padding: 0.05rem 0.5rem; font-size: 0.85rem; font-weight: 400; border-color: var(--muted); color: var(--muted); background: #fff; }
+  .unit-switch .btn:first-child { border-radius: 4px 0 0 4px; }
+  .unit-switch .btn + .btn { margin-left: -1px; border-radius: 0 4px 4px 0; }
+  .unit-switch .btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; position: relative; z-index: 1; }
+  #em-past-fold { margin: 0.2rem 0 0 1.4rem; }
+  #em-past-fold label { display: flex; align-items: flex-start; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; }
+  .lg-past-ring { display: inline-block; flex: 0 0 14px; width: 14px; height: 10px; margin: 0.15em 5px 0 0; border: 2px dashed #737373; }
+  /* The "Zones" list's dates written out; on a narrow screen each row of the "Zones" and "Not mapped" lists as two
+     lines: the name in bold, then the other cells with their column names (E1b's UI pass). */
+  .em-zones-list td.date { white-space: nowrap; }
+  .narrow-only { display: none; }
   #asof-lines { font-size: 0.8rem; color: var(--text); margin: 0.4rem 0; padding-left: 1rem; }
   #asof-lines li { overflow-wrap: anywhere; }
   .em-points { list-style: none; padding: 0; margin: 0.3rem 0; font-size: 0.85rem; }
@@ -123,22 +192,47 @@
   .em-points .muted { flex-basis: 100%; }
   .em-points button { font-size: 0.85rem; }
   .tab-panel { min-height: 4rem; }
+  /* The chart "Positives over time" (chart.js); the hover box copied from site/cvi/index.html, v2.0 (.chart-tip). */
+  #em-chart-fold { margin: 0 0 0.5rem; }
+  #em-chart { min-height: 170px; }
+  #em-chart svg { display: block; }
+  #em-chart .chart-col { cursor: pointer; outline: none; }
+  #em-chart .chart-col:focus-visible { stroke: var(--primary); stroke-width: 2; }
+  .chart-tip { position: fixed; z-index: 20; max-width: 280px; background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.8rem; color: var(--text); box-shadow: 0 2px 6px rgba(0,0,0,0.15); pointer-events: none; }
+  .chart-tip .hint { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 0.15rem; }
   /* The results: one fold per layer (its count line as the header), the left-out list, the CVI movements. */
-  .em-export { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.8rem; margin: 0.6rem 0 0; }
-  .em-export .btn.export-btn { margin-top: 0; }
-  .em-export .export-warning { margin: 0; flex: 1 1 300px; font-size: 0.85rem; }
-  .em-export .live { flex: 1 1 100%; }
+  /* "Export & Preview" at the sidebar's end, as CVI's and Infrastructure's: the buttons full width, one under the other. */
+  .em-export .export-warning { margin: 0.5rem 0 0; font-size: 0.85rem; }
   details.em-layer, details.em-leftout { border-bottom: 1px solid var(--border); padding: 0.35rem 0; }
   details.em-layer > summary, details.em-leftout > summary { cursor: pointer; font-size: 0.9rem; color: var(--text); }
-  details.em-layer > summary strong { color: var(--heading); }
+  details.em-layer > summary strong, details.em-leftout > summary strong { color: var(--heading); }
+  details.em-notmapped > summary strong { color: var(--notice-text); }
   .result-line { font-size: 0.9rem; margin: 0.35rem 0; padding-bottom: 0.35rem; border-bottom: 1px solid var(--border); }
   .result-line strong { color: var(--heading); }
-  .em-results table { margin: 0.3rem 0 0.4rem; }
+  /* Each results table only as wide as its contents, up to the full width; past that it scrolls sideways in its
+     .table-wrap. A number's heading sits over its numbers, as in CVI's tables (E1b's UI pass). */
+  .em-results table { width: auto; max-width: 100%; margin: 0.3rem 0 0.4rem; }
+  .em-results th.num { text-align: right; }
   .em-results .more { font-size: 0.85rem; color: var(--muted); margin: 0 0 0.3rem; }
   .cvi-filters { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.5rem; }
   .cvi-filters fieldset { flex: 1 1 160px; max-height: 120px; }
   .cvi-filters legend { font-weight: 600; font-size: 0.85rem; color: var(--heading); padding: 0 0.2rem; }
   @media (max-width: 767px) { .explore { grid-template-columns: minmax(0, 1fr); } .em-controls { position: static; max-height: none; } .map-frame { height: 55vh; } }
+  /* On a narrow screen the legend sits under the map, open, its entries in columns; it never covers the map (E1b's
+     UI pass). */
+  @media (max-width: 767px) {
+    .map-frame { height: auto; min-height: 0; }
+    #em-map { position: relative; height: 55vh; min-height: 300px; }
+    #em-legend { position: static; max-width: none; max-height: none; overflow: visible; border: 0; border-bottom: 1px solid var(--border); padding: 6px 2px; }
+    #em-legend-content { column-width: 130px; column-gap: 12px; }
+    #em-legend p { break-inside: avoid; }
+    .stack-narrow thead { display: none; }
+    .stack-narrow tr { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 0.6rem; padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
+    .stack-narrow td { border: 0; padding: 0 0.3rem; }
+    .stack-narrow td:first-child { flex: 1 1 100%; font-weight: 600; }
+    .stack-narrow td[data-label]::before { content: attr(data-label) ' '; color: var(--muted); }
+    .narrow-only { display: inline; }
+  }
 </style>
 </head><body>
 <header class="top">
@@ -163,10 +257,17 @@
 <details class="section" id="positives-fold" data-section="positives"><summary>Positives and zones<span class="fold-sum" id="positives-sum"></span>
 <span class="type-line"><select id="em-type" aria-label="Emergency type"></select><button type="button" class="tip" aria-expanded="false" data-help="em-type" aria-controls="help-em-type" aria-label="About the emergency type" title="">?</button></span></summary><div class="section-body">
 <div class="help-note" id="help-em-type" hidden><span id="help-em-type-text"></span><ul id="em-type-links"></ul></div>
-<div class="field"><span class="ctl" id="em-statuses-label">Zones around</span>
-<fieldset class="checklist" id="em-statuses" aria-labelledby="em-statuses-label"></fieldset>
-<div class="field check"><label><input type="checkbox" id="em-closed"> Closed positives too</label></div></div>
-<div class="field" id="em-rings-field"><span class="ctl">Rings (km)</span><div id="em-rings"></div><p class="status err" id="em-rings-msg" role="alert" hidden></p></div>
+<div class="field" id="em-statuses-field"><span class="ctl" id="em-statuses-label">Zones around</span>
+<fieldset class="checklist" id="em-statuses" aria-labelledby="em-statuses-label"></fieldset></div>
+<div class="field check"><label><input type="checkbox" id="em-past"> Show past positives</label>
+<details class="refine" id="em-past-fold" hidden><summary>Past zones</summary>
+<label><input type="checkbox" id="em-past-rings"> Draw their rings</label></details></div>
+<div class="field" id="em-window-field"><span class="ctl" id="em-window-label">Detected between</span>
+<div class="date-row" role="group" aria-labelledby="em-window-label"><span>From</span><input type="date" id="em-from" aria-label="Detected from"><span>To</span><input type="date" id="em-to" aria-label="Detected until"></div>
+<p class="status err" id="em-window-msg" role="alert" hidden></p>
+<div class="play-row"><button type="button" class="btn" id="em-play" aria-pressed="false">Play by week</button>
+<input type="range" id="em-step" min="0" max="0" value="0" aria-label="Week of"><output id="em-step-label" for="em-step"></output></div></div>
+<div class="field" id="em-rings-field"><div class="ctl-row"><span class="ctl">Rings</span><span class="unit-switch" role="group" aria-label="Distance unit"><button type="button" class="btn" id="em-unit-km" data-unit="km" aria-pressed="true">km</button><button type="button" class="btn" id="em-unit-mi" data-unit="mi" aria-pressed="false">miles</button></span></div><div id="em-rings"></div><p class="status err" id="em-rings-msg" role="alert" hidden></p></div>
 <details class="refine" id="em-zone-fold"><summary>Use a zone file</summary>
 <div class="field"><label class="ctl" for="em-zone-file">GeoJSON, KML or zipped shapefile</label><input type="file" id="em-zone-file" accept=".geojson,.json,.kml,.zip"></div>
 <div class="field check"><label><input type="checkbox" id="em-use-zones" disabled> Use the file's zones in place of the rings</label></div>
@@ -193,20 +294,46 @@
 <p id="pc-msg" class="status err" role="alert" hidden></p></div>
 <div class="field check"><label><input type="checkbox" id="em-coarse"> Include locations known only roughly</label></div>
 </div></details>
+<details class="section" id="export-fold" data-section="export"><summary>Export &amp; Preview</summary><div class="section-body">
+<div class="field"><label class="ctl" for="em-png-background">Map picture background</label>
+<select id="em-png-background" class="export-input" title="The background of the map picture. Default needs no network. Satellite, Shaded Relief and Hillshade come from Esri's servers; if one cannot be loaded, Default is used and a notice says so.">
+<option value="standard" selected>Default</option>
+<option value="raster:esri_satellite">Satellite</option>
+<option value="raster:esri_relief">Shaded Relief</option>
+<option value="raster:esri_hillshade">Hillshade</option>
+</select>
+<p class="muted" id="em-png-provider" hidden></p></div>
+<div class="field" id="em-png-quality-field" hidden><label class="ctl" for="em-png-quality">Background quality</label>
+<select id="em-png-quality" class="export-input" title="Standard: fast; fine for screens and reports. High: sharper but slower; for print.">
+<option value="standard" selected>Standard (fast)</option>
+<option value="high">High (slower, larger file)</option>
+</select></div>
+<div class="field"><label class="ctl" for="em-png-resolution">Map picture resolution</label>
+<select id="em-png-resolution" class="export-input" title="Standard: 200 dpi (2200 x 1700 pixels). High: 300 dpi (3300 x 2550 pixels), sharper in print, a larger file.">
+<option value="standard" selected>Standard (200 dpi)</option>
+<option value="high">High (300 dpi)</option>
+</select></div>
+<div class="em-export"><button type="button" class="btn full export-btn" id="em-export" title="Writes the results as CSV files and export_params.json into one ZIP file, handed to your browser to save."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Export (CSV ZIP)</button>
+<button type="button" class="btn full export-btn" id="em-png" title="Draws the map as shown on an 11 x 8.5 in branded page and hands the PNG to your browser to save. Its background and resolution are set above it."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Map picture (PNG)</button>
+<p class="muted export-warning"><span aria-hidden="true">&#9888;</span> Exports and maps contain positive premises' coordinates and facility names and locations: handle as sensitive data and share only with authorized responders.</p>
+<div class="live" role="status" aria-live="polite"><div class="status" id="em-export-result" hidden></div></div></div>
+</div></details>
 </aside>
 <div class="em-main">
-<div id="em-boxes" class="count-cards" role="status">
-<div class="count-card" id="box-positives"><strong>–</strong><span class="card-label">Positives</span><span class="card-note"></span></div>
-<div class="count-card" id="box-last"><strong>–</strong><span class="card-label">Last positive</span><span class="card-note"></span></div>
-<div class="count-card" id="box-inside"><strong>–</strong><span class="card-label">Sites inside the zones</span><span class="card-note"></span></div>
+<div role="status"><div id="em-boxes" class="count-cards">
+<div class="count-card" id="box-positives"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="geo-alt-fill" aria-hidden="true"></span>Current positives</span><span class="card-note"></span></div>
+<div class="count-card" id="box-past"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="clock-history" aria-hidden="true"></span>Past positives</span><span class="card-note"></span></div>
+<div class="count-card" id="box-last"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="calendar-event" aria-hidden="true"></span>Last positive</span><span class="card-note"></span></div>
+<div class="count-card" id="box-inside"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="bullseye" aria-hidden="true"></span>Sites inside the zones</span><span class="card-note"></span></div>
 </div>
+<p class="box-lines" id="em-box-lines" hidden></p></div>
+<details class="refine" id="em-chart-fold" hidden><summary>Positives over time<span class="fold-sum" id="em-chart-sum"></span></summary>
+<div id="em-chart"></div><div class="muted" id="em-chart-note" hidden></div>
+<div class="chart-tip" id="em-chart-tip" role="tooltip" hidden></div></details>
 <div class="map-frame"><div id="em-map" role="region" aria-label="Emergency map" aria-describedby="em-map-alt"></div><div id="basemap-status" class="status warn" hidden><span></span> <button id="offline-back" type="button" class="btn"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div><details id="em-legend" open><summary>Legend</summary><div id="em-legend-content"></div></details></div>
 <div class="live" role="status" aria-live="polite"><div id="screenshot-status" class="status info" hidden></div></div>
 <div id="em-zero" class="status warn" role="status">Load a positives file to see the positives and their zones.</div>
 <p class="muted map-alt" id="em-map-alt" hidden>The map's results are listed in the tabs below.</p>
-<div class="em-export"><button type="button" class="btn export-btn" id="em-export" title="Writes the results as CSV files and export_params.json into one ZIP file, handed to your browser to save."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Export (CSV ZIP)</button>
-<p class="muted export-warning"><span aria-hidden="true">&#9888;</span> Exports and maps contain positive premises' coordinates and facility names and locations: handle as sensitive data and share only with authorized responders.</p>
-<div class="live" role="status" aria-live="polite"><div class="status" id="em-export-result" hidden></div></div></div>
 <div class="tool-switch" role="group" aria-label="Results">
 <button type="button" class="btn" id="show-inside" data-tab="inside" aria-pressed="true">Inside the zones</button>
 <button type="button" class="btn" id="show-cvi" data-tab="cvi" aria-pressed="false">CVI movements</button>
@@ -227,7 +354,7 @@
 </section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.0 (2026-10-20)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.1 (2026-10-27)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="../shared/release.js"></script>
 <script src="../shared/zip.js"></script>
@@ -263,10 +390,17 @@
 <script src="../cvi/app/exports.js"></script>
 <script src="../cvi/app/lookup.js"></script>
 <script src="../shared/brand.js"></script>
+<script src="../shared/branded.js"></script>
+<script src="../shared/tiles.js"></script>
+<script src="../shared/labels.js"></script>
+<script src="../cvi/app/brandedmaps.js"></script>
 <script src="types.js"></script>
 <script src="types/hpai.js"></script>
+<script src="types/nws.js"></script>
 <script src="rules.js"></script>
 <script src="map.js"></script>
+<script src="branded.js"></script>
+<script src="chart.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

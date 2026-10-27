@@ -54,9 +54,11 @@
       const out = { id: f.id, name: f.name, on: true, reason: null };
       if (f.anyKind) {
         const candidates = ((result && result.datasets) || []).filter(d => d.kind === f.anyKind);
+        // The manifest is named only when one is among the files.
+        const manifest = ((result && result.datasets) || []).some(d => d.kind === 'manifest' && d.status === 'found');
         if (!candidates.some(d => d.status === 'found')) return Object.assign(out, { on: false,
           reason: candidates.some(d => d.status === 'conflict') ? 'choose a facility file in Datasets below'
-            : 'needs at least one recognized facility file (a manifest supplies no points)' });
+            : 'needs at least one recognized facility file' + (manifest ? ' (a manifest supplies no points)' : '') });
       }
       for (const need of f.needs) {
         const d = byId.get(need.dataset), spec = profile.datasets.find(x => x.id === need.dataset) || {};

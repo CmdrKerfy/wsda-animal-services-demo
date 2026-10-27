@@ -52,6 +52,37 @@ backgrounds this document mentions.
   left out of the zone results by default and listed with its reason, as are points that fail RAD's three
   location-precision columns when a file has them (CVI's Premise Lookup measures every point with coordinates as
   precise; CVI's PNG counts `google_city` as town-level and leaves `none` out).
+- **Emergency Response's map picture (version 2.1):** a copy of Premise Lookup's branded proximity page with the
+  emergency's own words: the title from the type ("HPAI RESPONSE MAP"), "Detected between" and "As of" the window's
+  end; the panel "POSITIVES" (one row per positive with zones, or per zone-file zone, with its days since the last
+  positive) in place of "QUERY SITES"; each ring in the key in both units ("Infection zone (3 km / 1.9 mi)"); the
+  layers' counts in a right-hand column under "SITES INSIDE" (CVI: "Layer: 8 inside" after the name), the key taking
+  smaller text, then room from the panel, before it lists fewer layers. With a CVI master, the CVI premises with an
+  origin or a destination in a zone are drawn hollow (CVI: filled dots), under "CVI PREMISES" with the CVI tab's years,
+  and the boxes read "CVIs in or out" and "Animals moved".
+- **Emergency Response's `zones.geojson` (version 2.1):** every zone drawn, each with a `name` property ("Infection
+  zone (3 km) around SYN-HPAI-001", as `zones.csv`'s "Zone"), so loaded again as a zone file it reopens with its zones
+  named (CVI writes no zone file).
+- **Emergency Response's value boxes (version 2.1, until the plan's final UI pass):** the M1 demo's cards, a block
+  on the left edge, the name above the number, left-aligned, and a date written "Oct 5, 2026" (fitted to its box on a
+  phone). Four boxes, each count said once: "Current positives", "Past positives" with
+  those still under quarantine, "Last positive", "Sites inside the zones"; under them, in one line as Infrastructure's
+  line under its cards, the rows not mapped and the positives without a date (in the warning color) and the animals at
+  the current positives. Each box has an icon and a brand color on its edge and icon (current crimson, past eggplant,
+  last positive blue-green, sites inside evergreen; a past box with premises still under quarantine in the warning
+  colors, its tile gold): a tile on wider screens, as CVI's own value boxes have, a plain icon before the label on a
+  phone. CVI's and Infrastructure's count cards stay as they are until the final UI pass gives them the same.
+- **Emergency Response's map hover (version 2.1):** each positive's or site's name in bold on its own line; over the
+  zones, each positive named once with one short line per ring ("Infection zone (3 km): 25 days") and one closing
+  line, "Days since the last positive inside each zone, as of ..."; never wider than the screen. The text size and
+  padding are CVI's (13 px).
+- **Emergency Response's legend, fold headers and results tables (version 2.1, until the plan's final UI pass):** on a
+  screen narrower than 768 px the legend sits under the map, open, its entries in columns (Infrastructure's sits on its
+  map and starts folded); a sidebar fold's summary sits on its own gray line under the heading, breaking only between
+  whole items (CVI and Infrastructure: after a dot on the heading's line); each results table is only as wide as its
+  contents, up to the full width, with a number's heading over its numbers (Infrastructure's tables are full width).
+  On a phone the "Zones" and "Not mapped" rows are two lines each. CVI and Infrastructure may follow in the final UI
+  pass.
 
 - **Plainer words, and easier to read with any eyesight (version 1.1):** first-time users and reviewers of
   version 1.0 misread a few labels, and some states were shown by color or faint gray alone.

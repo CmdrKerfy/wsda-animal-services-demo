@@ -558,6 +558,19 @@ async function throwsZip(fn, re, name) {
     check(g('missing') === true && g('found', req) === true && g('found', req.concat(['Species'])) === true && g('found', req.concat(['Species', 'CVI'])) === true
       && g('found', req.concat(['Species', 'CVI'], COORDS)) === false && g('conflict', req) === false,
       'next step: the guide is linked when the master or a feature\'s columns are missing, not when all is there or a choice is needed');
+    // The manifest is named only when one is among the files (v2.1): Infrastructure with no facility file.
+    const infraCl = withManifest => {
+      const result = { datasets: [{ id: 'feedlots', name: 'Feedlots', kind: 'facility', status: 'missing', header: [] }]
+        .concat(withManifest ? [{ id: 'manifest', name: 'Facility layer list', kind: 'manifest', status: 'found', header: [] }] : []) };
+      return { result, features: win.WSDA.checklist.gate(result, win.WSDA.profiles.infrastructure), profile: { id: 'infrastructure' }, bundle: null };
+    };
+    const noMan = infraCl(false), withMan = infraCl(true);
+    check(noMan.features.find(f => f.id === 'facility-files').reason === 'needs at least one recognized facility file'
+      && withMan.features.find(f => f.id === 'facility-files').reason === 'needs at least one recognized facility file (a manifest supplies no points)',
+    'checklist: "a manifest supplies no points" only when a manifest is among the files', [noMan.features, withMan.features]);
+    check(nextStep(loadOf(1), noMan).text === 'Next: add or assign at least one facility file.'
+      && nextStep(loadOf(2), withMan).text === 'Next: add or assign at least one facility file. A manifest lists layers but supplies no points.',
+    'next step: Infrastructure names the manifest only when one is among the files', [nextStep(loadOf(1), noMan), nextStep(loadOf(2), withMan)]);
 
     // AB: a bundle.json listing several dashboards; each card's readiness (pure functions of the landing page)
     const { readiness } = win.WSDA.landing;

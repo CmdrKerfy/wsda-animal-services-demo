@@ -233,12 +233,15 @@ small page part (named in the line). "Data" means it only holds values.
 
 | File | Kind | What it does |
 |---|---|---|
-| `index.html` | Page | The Emergency page: four sidebar folds (Load your data, Positives and zones, Layers to check, More options), the value boxes, the map, Export, the two result tabs. |
-| `app.js` | Page | All page wiring: loading, reading the files into the rules, the folds' controls, the map's data, the boxes, the legend, the tabs, CVI movements (CVI's `lookup.js` `query`), the CSV ZIP (`WSDA.emergency`). |
-| `map.js` | Page | The Emergency map kind of CVI's map adapter: zones (rings or a zone file's polygons), the sites inside and the faded others, the positives, the picked spot (`WSDA.emergencyMap`). |
-| `rules.js` | Pure | The positives and their names, which positives get zones, the locations too coarse for zone results, what lies inside, the "nearest" line, the value boxes, the export rows (`WSDA.emergencyRules`). |
+| `index.html` | Page | The Emergency page: five sidebar folds (Load your data, Positives and zones, Layers to check, More options, Export & Preview with Export and "Map picture (PNG)"), the value boxes, the chart's fold, the map, the two result tabs. |
+| `app.js` | Page | All page wiring: loading, reading the files into the rules, the folds' controls, "Show past positives", the "Detected between" window and the play, km \| miles, the map's data, the boxes, the chart, the legend, the tabs, CVI movements (CVI's `lookup.js` `query`, waiting while the play runs), the ZIP with `zones.csv` and `zones.geojson`, the map picture's input (`WSDA.emergency`). |
+| `map.js` | Page | The Emergency map kind of CVI's map adapter: zones (rings or a zone file's polygons), past positives and their rings, the sites inside and the faded others, the positives, the zone hover with days since, the picked spot (`WSDA.emergencyMap`). |
+| `rules.js` | Pure | The positives read by the type's column names and their names, the rows not mapped, current and past positives, the window and the play's weeks or months, which positives get zones, still under quarantine, the numbers line, the locations too coarse for zone results, what lies inside, the "nearest" line, days since, miles, the value boxes, the chart's counts (`overTime`), the export rows and `zones.geojson` (`WSDA.emergencyRules`). |
+| `chart.js` | Pure | The chart "Positives over time" as SVG text: stacked columns, axis, key, one keyboard stop (`WSDA.emergencyChart`); reusable for E2's chart view. |
+| `branded.js` | Pure | The map picture (PNG), a copy of Premise Lookup's branded page (`site/cvi/app/brandedmaps.js`): its model (title, boxes, rings in both units, key, the POSITIVES panel, the CVI premises in a zone) and its SVG (`WSDA.emergencyBranded`). |
 | `types.js` | Pure | The emergency types' list: checks each type file's fields, picks the type for a positives file (`WSDA.emergencyTypes`). |
 | `types/hpai.js` | Data | The HPAI type; its top comment explains every field. |
+| `types/nws.js` | Data | The New World screwworm type: zones from a dispersal-area file, its own layers and words. |
 | `datasets.js` | Data | The Emergency dataset list: the positives (by their marker columns), the facility files and manifest, zone files (the `zone` kind), the optional master. |
 | `sample.js` | Pure | The Emergency synthetic sample, offered under "Load your data". |
 | `README.md` | Record | The files, and the code copied from the other dashboards with its source and version. |
@@ -380,24 +383,46 @@ a credit in `site/PROVENANCE.md`.
 ### Adding an emergency type
 
 The Emergency Response dashboard names no emergency in its code: each emergency is one small file in
-`site/emergency/types/` that the page reads. HPAI (`types/hpai.js`) is the first; a test-only made-up type
+`site/emergency/types/` that the page reads. HPAI (`types/hpai.js`) is the first and New World screwworm
+(`types/nws.js`, zones from a dispersal-area file) the second; a test-only made-up type
 (`tests/synthetic/em_made_up_type.js`) shows that a third one needs no other change.
 
 1. **Copy `site/emergency/types/hpai.js`** to `site/emergency/types/<your-id>.js` and change its fields. Its top
    comment explains each one:
-   - `id` (lowercase letters, digits, dashes) and `name` (as shown on the page);
-   - `diseaseWords`: words in a positives file's "Disease Name" column that pick this type (any case; a word matches at
-     the start of a word, so "h5" matches "H5N1"). A file with no "Disease Name" column gets the first type loaded;
+   - `id` (lowercase letters, digits, dashes), `name` (as shown on the page) and `title` (the map picture's title,
+     for example "HPAI RESPONSE MAP"; left out, the name in capitals with "RESPONSE MAP");
+   - `diseaseWords`: words in a positives file's disease column (`columns.disease`) that pick this type (any case; a
+     word matches at the start of a word, so "h5" matches "H5N1"). A file with no disease column gets the first type
+     loaded;
+   - `columns`: the column names the page reads for each role, any case, the first name the file has winning: `id`
+     (the positive's name), `detected` (the detection date, in order of preference; a row whose first date is blank
+     takes the next), `disease`, `status`, `quarantine` (the quarantine release date), `flockType` (Commercial,
+     Backyard; counted in the numbers line under the value boxes), `inventory` (the number of animals, thousands commas
+     allowed; added up in that line and giving the flock size class) and `shown` (further columns for the hover and
+     the export). A renamed column in the agency's table is one edit here. A name holding address, location, street
+     or premise is refused: those columns are never read;
+   - `inventoryWord`: the word after the animals' total in the numbers line ("4.1M birds"; "animals" when left out);
+   - `countedApart`: animals added up apart from `inventoryWord`, each entry's species words and the word they are
+     counted under (HPAI: "3,550 cattle, 45 other animals"); a positive counts under the first entry with a word in
+     its species;
    - `statuses`: each status's label, the spellings a file may use for it, and its map color (`#rrggbb`);
-   - `closed`: the column that marks a positive closed and the values that do; a closed positive gets no zones by default;
+   - `closed`: `column` (the column or columns that mark a positive closed), `values` (the values that do) and
+     `dateColumn` (the date surveillance ended, when the file has one). A positive is past on the window's end date
+     when its closed date is on or before it, or, without a readable closed date, when its closed column says so; a
+     past positive never gets zones or counts;
    - `zones`: `source` ("rings" around each positive, or "file": zones come from a zone file, which then replaces the
-     rings as soon as it is loaded), `rings` (each ring's distance in km, label and color), `applyTo` ("open":
-     positives not closed; "confirmed": the first status only; "all") and `unit` ("km");
+     rings as soon as it is loaded), `rings` (each ring's distance, label and color), `applyTo` ("open": positives
+     not closed; "confirmed": the first status only; "all" is refused with its reason, since past positives never get
+     zones) and `unit` ("km" or "mi", the unit of the ring distances; the page's km | miles switch converts both
+     ways);
    - `layers`: the facility layers suggested for checking, by their keys (the built-in layer ids, or the `key` column
      of the facility layer list, the manifest): `bySpecies` maps words in a positives file's species column to keys,
      `default` is used when no word matches. A suggested layer whose file is not loaded is skipped;
    - `links`: reference pages (label and an `https://` address), shown behind the type's "?" and opened in a new tab.
-2. **Add one script line** for it in `site/emergency/index.html`, after `types/hpai.js`:
+   If none of the type's column names is one of the positives file's marker columns (`MARKERS` in
+   `site/emergency/datasets.js`: Case ID, Confirmed Diagnosis, Close Date, Subtype, and the earlier forms), add one of
+   them there, so the landing page and the Emergency page recognize its file.
+2. **Add one script line** for it in `site/emergency/index.html`, after the last `types/` line:
    `<script src="types/<your-id>.js"></script>`. The order of the lines is the order of the type picker; the first
    type is the default.
 3. **Run the unit suite:** `node tests/node/run_em_unit_tests.js`. `types.js` checks every field when the page loads
@@ -409,7 +434,7 @@ The Emergency Response dashboard names no emergency in its code: each emergency 
 **What a type cannot express yet.** Positives are points (a latitude and a longitude each). An emergency whose
 detections are whole counties, with no coordinates, is the first known case the template does not cover; zones by
 county would be the way to add it (`site/shared/facilities.js` `countyMembership` already tests points against
-county polygons). Distances are in km only; a miles switch is planned.
+county polygons).
 
 ### Rebuilding the generated geo files
 

@@ -122,5 +122,7 @@ Run them from the repository root; `tests/README.md`, section 2, gives the order
 - `make_em_fixtures.js` writes the Emergency Response files to `local-test-artifacts/em/fixtures/` and the same `em_*`
   files and the `em_bundle/` folder to `test-tables/`: positives in the HPAI mapping tool's columns and in the earlier
   demo's, files that must not be taken for positives, and zone files (GeoJSON, KML, one with a hole, one in State
-  Plane). The addresses in them are marked `MARKED-ADDRESS`, so a test can prove they reach no output. The Emergency
-  unit suite runs it.
+  Plane). The addresses in them are marked `MARKED-ADDRESS`, so a test can prove they reach no output. The rules'
+  scenarios: E1a's (`em_rules_*` in E1a's columns) and the agreed HPAI table's (`em_rules_agreed.csv`, a layer for
+  rings in miles, a zone holding two positives, and the page's own `zones.geojson` for the R reference to read). The
+  Emergency unit suite runs it.

@@ -17,7 +17,17 @@
 #   - the speed set: 40 positives against 30,000 points, timed;
 #   - the CVI movements for one case (the Emergency sample's positives with zones, HPAI's rings as the bands, a small
 #     synthetic master): CVI's own load_master_csv and run_proximity_query (shiny/R/master_loader.R and map_helpers.R
-#     in the CVI_Traceability checkout, unchanged and checked by SHA-256 as the S11 reference checks them).
+#     in the CVI_Traceability checkout, unchanged and checked by SHA-256 as the S11 reference checks them);
+#   - the agreed-table scenario (E1b; rules.json "agreed"): each row mapped or not and why (a pair unusable as
+#     written that falls in Washington the other way round "looks swapped"), the names, the detection date
+#     (Confirmed Diagnosis, else Date Reported) and the closed date read with as.Date, each positive's group on two
+#     end dates (past: its Close Date on or before the end, else Status Closed) and still under quarantine, the flock
+#     size classes (Small under 100, Medium 100 to 1,000, Large over 1,000) and the current positives' counts by flock
+#     type and their animals; the inside rows with rings in miles (1 mile = 1.609344 km, the distance shown in miles);
+#     days since the last positive for each ring of each positive with zones and for the zone file's zone (read with
+#     sf and tested with GEOS); and the page's zones.geojson read with sf: each polygon valid (st_is_valid), each
+#     circle 361 points with the first equal to the last and every vertex at its ring's distance from its positive,
+#     each exterior running counterclockwise.
 # The Node suite (tests/node/run_em_unit_tests.js) compares the row sets and distances within 1e-6, not counts alone.
 # RAD's and the fixtures' files are only read; nothing is installed.
 #
@@ -183,10 +193,11 @@ for (f in names(cvi_sha)) {
 suppressPackageStartupMessages(
   for (f in c("R/master_loader.R", "R/map_helpers.R")) source(file.path(cvi_dir, "shiny", f), local = .GlobalEnv))
 cv <- rules$cvi
+# The sample is in the agency's agreed HPAI table's columns: Case ID, Latitude, Longitude, and Status Closed.
 sp <- read_fixture(cv$positives)
-sp_closed <- tolower(trimws(sp[["Surveillance Closed"]])) %in% c("yes", "y", "true", "1")
+sp_closed <- tolower(trimws(sp[["Status"]])) %in% c("closed", "yes", "y", "true", "1")
 sp <- sp[!sp_closed, , drop = FALSE]
-cvi_sites <- data.frame(name = sp[["AnimalDiseaseReportId"]], lat = num(sp[["Lat"]]), long = num(sp[["Long"]]),
+cvi_sites <- data.frame(name = sp[["Case ID"]], lat = num(sp[["Latitude"]]), long = num(sp[["Longitude"]]),
                         buffer_km = NA_real_, stringsAsFactors = FALSE)
 cvi_master <- load_master_csv(file.path(fx_dir, cv$master))
 cvi_bands <- as.numeric(unlist(cv$bands))
@@ -198,8 +209,139 @@ cvi_out <- list(status = cvi_r$status, summary = cvi_r$summary,
                 matched_sites = setNames(as.list(cvi_r$matched_df$matched_sites), as.character(cvi_r$matched_df$CVI)))
 cat(sprintf("cvi movements: %s, %d CVIs\n", cvi_r$status, length(cvi_out$cvis)))
 
+# ── The agreed-table scenario (E1b) ────────────────────────────────────────────────────────────────
+ag <- rules$agreed
+ap <- read_fixture(ag$positives)
+# Dates written YYYY-MM-DD, YYYY/MM/DD or M/D/YYYY; anything else (or an impossible date) is NA.
+as_day <- function(x) {
+  x <- trimws(x)
+  out <- as.Date(rep(NA_character_, length(x)))
+  iso <- grepl("^[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}$", x)
+  us <- grepl("^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$", x)
+  out[iso] <- as.Date(gsub("/", "-", x[iso]), format = "%Y-%m-%d")
+  out[us] <- as.Date(x[us], format = "%m/%d/%Y")
+  out
+}
+lat_t <- trimws(ap[["Latitude"]])
+lon_t <- trimws(ap[["Longitude"]])
+alat <- num(lat_t)
+alon <- num(lon_t)
+mapped <- usable(alat, alon)
+in_wa <- function(lat, lon) lat >= 45.5 & lat <= 49.1 & lon >= -124.9 & lon <= -116.9
+reason <- ifelse(!nzchar(lat_t) & !nzchar(lon_t), "no coordinates",
+          ifelse(!nzchar(lat_t), "no latitude",
+          ifelse(!nzchar(lon_t), "no longitude",
+          ifelse(!is.na(alat) & !is.na(alon) & in_wa(alon, alat), "latitude and longitude look swapped",
+                 "coordinates not readable"))))
+reason[mapped] <- NA
+aid <- trimws(ap[["Case ID"]])
+acounty <- trimws(ap[["County"]])
+with_county <- function(s) paste0(s, ifelse(nzchar(acounty), paste0(" (", acounty, ")"), ""))
+anames <- ifelse(nzchar(aid), aid, with_county(ifelse(mapped, paste0("Positive ", cumsum(mapped)),
+                                                         paste0("Line ", seq_along(aid) + 1))))
+confirmed <- trimws(ap[["Confirmed Diagnosis"]])
+detected <- as_day(ifelse(nzchar(confirmed), confirmed, trimws(ap[["Date Reported"]])))
+closed_date <- as_day(ap[["Close Date"]])
+closed_flag <- tolower(trimws(ap[["Status"]])) %in% c("closed", "yes", "y", "true", "1")
+release <- as_day(ap[["Quarantine Release"]])
+inv_t <- trimws(ap[["Flock/Herd Inventory"]])
+inv_ok <- grepl("^[0-9]+$", inv_t) | grepl("^[0-9]{1,3}(,[0-9]{3})+$", inv_t)
+inventory <- ifelse(inv_ok, suppressWarnings(as.numeric(gsub(",", "", inv_t))), NA)
+size <- ifelse(is.na(inventory), NA, ifelse(inventory < 100, "Small", ifelse(inventory <= 1000, "Medium", "Large")))
+flock <- tolower(trimws(ap[["Flock/Herd Type"]]))
+# HPAI counts cattle apart from the birds: a species with one of these words at the start of a word.
+cattle <- grepl("(^|[^a-z0-9])(cattle|dairy|bovine|cow)", tolower(trimws(ap[["Species"]])))
+win_start <- min(detected[mapped], na.rm = TRUE)
+# Each mapped positive's group on an end date (the window from the first detection to it), and the current ones'
+# counts by flock type, their birds and their cattle.
+groups_on <- function(end) {
+  inside <- mapped & (is.na(detected) | (detected >= win_start & detected <= end))
+  past <- ifelse(!is.na(closed_date), closed_date <= end, closed_flag)
+  group <- ifelse(!mapped, "Not mapped", ifelse(!inside, "Outside", ifelse(past, "Past", "Current")))
+  still <- group == "Past" & (is.na(release) | release > end)
+  cur <- group == "Current"
+  kinds <- lapply(split(seq_along(flock)[cur], flock[cur]), function(k)
+    list(count = length(k), animals = sum(inventory[k], na.rm = TRUE)))
+  list(end = format(end), group = I(group), still = I(still),
+       kinds = kinds, animals = sum(inventory[cur & !cattle], na.rm = TRUE),
+       cattle = sum(inventory[cur & cattle], na.rm = TRUE), missing = sum(cur & is.na(inventory)))
+}
+as_of <- as.Date(ag$asOf)
+ag_groups <- list(asOf = groups_on(as_of), earlier = groups_on(as.Date(ag$earlierEnd)))
+in_window <- mapped & (is.na(detected) | (detected >= win_start & detected <= as_of))
+ag_target <- which(ag_groups$asOf$group == "Current")
+km_per_mile <- 1.609344
+ag_rings_km <- vapply(ag$rings, function(r) as.numeric(r$distance), numeric(1)) * km_per_mile
+ag_labels <- vapply(ag$rings, function(r) r$label, character(1))
+lay <- read_fixture(ag$layer$file)
+llat <- num(lay[["lat"]])
+llon <- num(lay[["long"]])
+mile_rows <- list()
+for (s in ag_target) {
+  d <- distHaversine(cbind(llon, llat), c(alon[s], alat[s]), r = 6378137) / 1000
+  inside <- which(d <= max(ag_rings_km))
+  for (k in inside[order(d[inside], lay[["name"]][inside])]) {
+    mile_rows[[length(mile_rows) + 1]] <- list(site = anames[s], name = lay[["name"]][k], mi = d[k] / km_per_mile,
+                                               zone = ag_labels[which(ag_rings_km >= d[k])[1]])
+  }
+}
+# Days since: the dated positives inside the window, whatever their group.
+dated <- which(in_window & !is.na(detected))
+latest_in <- function(hit) if (any(hit)) format(max(detected[dated][hit])) else NA
+days_to <- function(latest) if (is.na(latest)) NA else as.numeric(as_of - as.Date(latest))
+ring_days <- lapply(ag_target, function(s) {
+  d <- distHaversine(cbind(alon[dated], alat[dated]), c(alon[s], alat[s]), r = 6378137) / 1000
+  rings <- lapply(ag_rings_km, function(km) {
+    latest <- latest_in(d <= km)
+    list(km = km, latest = latest, days = days_to(latest))
+  })
+  list(name = anames[s], rings = rings)
+})
+zone2 <- st_set_crs(st_zm(suppressWarnings(st_read(file.path(fx_dir, ag$zoneFile), quiet = TRUE))), 4326)
+dated_pts <- st_as_sf(data.frame(x = alon[dated], y = alat[dated]), coords = c("x", "y"), crs = 4326)
+zone_hit <- lengths(suppressMessages(st_intersects(dated_pts, zone2))) > 0
+zone_latest <- latest_in(zone_hit)
+zone_days <- list(name = as.character(zone2$name[1]), inside = I(anames[dated][zone_hit]), latest = zone_latest,
+                  days = days_to(zone_latest))
+cat(sprintf("agreed: %d rows, %d mapped, %d current, %d past, %d inside rows in miles, zone %s: %s days\n",
+            length(anames), sum(mapped), length(ag_target), sum(ag_groups$asOf$group == "Past"), length(mile_rows),
+            zone_days$name, zone_days$days))
+# The page's zones.geojson, read with sf.
+gj <- suppressWarnings(st_read(file.path(fx_dir, ag$geojson), quiet = TRUE))
+ccw <- function(m) {
+  x <- m[, 1]
+  y <- m[, 2]
+  j <- c(length(x), seq_len(length(x) - 1))
+  sum((x[j] - x) * (y[j] + y)) > 0
+}
+gj_check <- lapply(seq_len(nrow(gj)), function(i) {
+  xy <- st_coordinates(gj[i, ])
+  outer <- xy[xy[, "L1"] == 1, c("X", "Y"), drop = FALSE]
+  circle <- !is.na(gj$positive[i])
+  err <- NA
+  if (circle) {
+    s <- which(anames == gj$positive[i] & mapped)
+    err <- max(abs(distHaversine(outer, c(alon[s], alat[s]), r = 6378137) / 1000 - gj$distance[i] * km_per_mile))
+  }
+  list(zone = gj$zone[i], positive = if (circle) gj$positive[i] else NA, group = gj$group[i],
+       valid = isTRUE(st_is_valid(gj[i, ])), points = nrow(outer),
+       closed = all(outer[1, ] == outer[nrow(outer), ]), ccw = ccw(outer), vertex_error_km = err,
+       days = gj$days_since_last_positive[i])
+})
+gj_props <- setdiff(names(gj), attr(gj, "sf_column"))
+cat(sprintf("agreed zones.geojson: %d features, all valid %s, largest vertex error %.3g km\n", nrow(gj),
+            all(vapply(gj_check, function(x) x$valid, logical(1))),
+            max(vapply(gj_check, function(x) if (is.na(x$vertex_error_km)) 0 else x$vertex_error_km, numeric(1)))))
+agreed_out <- list(
+  names = I(anames), mapped = I(mapped), reason = I(reason), detected = I(format(detected)),
+  closed_date = I(format(closed_date)), size = I(size), inventory = I(inventory),
+  groups = ag_groups, window = list(start = format(win_start), end = format(as_of)),
+  mile_rows = mile_rows, ring_days = ring_days, zone_days = zone_days,
+  geojson = list(features = nrow(gj), properties = I(gj_props), check = gj_check))
+
 # ── Written out ────────────────────────────────────────────────────────────────────────────────────
-inputs <- c("rules.json", rules$positives, cv$positives, cv$master, vapply(rules$layers, function(l) l$file, character(1)), unlist(rules$zoneFiles))
+inputs <- c("rules.json", rules$positives, cv$positives, cv$master, vapply(rules$layers, function(l) l$file, character(1)),
+            unlist(rules$zoneFiles), ag$positives, ag$layer$file, ag$zoneFile, ag$geojson)
 out <- list(
   generated_by = "tests/oracle/em_oracle.R",
   r_version = R.version.string,
@@ -213,8 +355,9 @@ out <- list(
   nearest = nearest,
   zones = zone_out,
   speed = list(pairs = pairs, distinct = distinct, seconds = speed_s),
-  cvi = cvi_out
+  cvi = cvi_out,
+  agreed = agreed_out
 )
 dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)
-writeLines(toJSON(out, auto_unbox = TRUE, digits = NA, null = "null", pretty = FALSE), out_file)
+writeLines(toJSON(out, auto_unbox = TRUE, digits = NA, null = "null", na = "null", pretty = FALSE), out_file)
 cat("wrote", out_file, "\n")

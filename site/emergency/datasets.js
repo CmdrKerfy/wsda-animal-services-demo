@@ -3,8 +3,10 @@
  *
  * Positives: a table recognized by its columns only (the file name breaks ties, as for every dataset): a latitude
  * and a longitude column ("Case Lat" and "Case Long" as the earlier Emergency demo writes them, or "Lat" and "Long"
- * in any form the facility files accept) and at least one marker column ("Surveillance Closed", "Case Status",
- * "Detection Date", "AnimalDiseaseReportId" or "Disease Name"; any case). The HPAI mapping tool's CSV ("Lat",
+ * in any form the facility files accept) and at least one marker column: from the agency's agreed HPAI table
+ * (2026-10-22) "Case ID", "Confirmed Diagnosis", "Close Date" or "Subtype", or from the earlier forms "Surveillance
+ * Closed", "Case Status", "Detection Date", "AnimalDiseaseReportId" or "Disease Name" (any case). The agreed table's
+ * "Status" is not a marker (too common a name). The HPAI mapping tool's CSV ("Lat",
  * "Long", "County", "Premise Location", "Surveillance Closed") fits as it is. "Premise Location" is not a marker, so a
  * facility or premises file that carries it stays a facility layer. As a table, a positives file is never taken for
  * a facility layer, whatever its other columns (recognize.js).
@@ -22,22 +24,27 @@
     label: 'latitude column (Case Lat, Lat, Latitude or y)' };
   const LONG = { anyOf: ['case long', 'long', 'lon', 'lng', 'longitude', 'x'], caseless: true,
     label: 'longitude column (Case Long, Long, Lon, Lng, Longitude or x)' };
-  const MARKERS = ['Surveillance Closed', 'Case Status', 'Detection Date', 'AnimalDiseaseReportId', 'Disease Name'];
+  const MARKERS = ['Case ID', 'Confirmed Diagnosis', 'Close Date', 'Subtype',
+    'Surveillance Closed', 'Case Status', 'Detection Date', 'AnimalDiseaseReportId', 'Disease Name'];
   const MARKER = { anyOf: MARKERS.map(m => m.toLowerCase()), caseless: true,
-    label: 'at least one of Surveillance Closed, Case Status, Detection Date, AnimalDiseaseReportId or Disease Name' };
+    label: 'at least one of Case ID, Confirmed Diagnosis, Close Date or Subtype (or the earlier Surveillance Closed, ' +
+      'Case Status, Detection Date, AnimalDiseaseReportId or Disease Name)' };
 
   const positives = { id: 'positives', name: 'Positives', file: 'emergency_case_sites.csv', required: true,
     kind: 'table', columns: [LAT, LONG, MARKER],
     useful: [
-      { columns: ['Case Status'], with: 'Each positive\'s status (confirmed, presumptive, suspect) and its color',
-        without: 'positives are shown without a status' },
-      { columns: ['Detection Date'], with: 'The "Last positive" box',
-        without: 'the "Last positive" box says "Not available"' },
-      { columns: ['County'], with: 'Positives named with their county when the file has no report ID',
+      { columns: ['Confirmed Diagnosis'],
+        with: 'The "Last positive" box (Date Reported when a row has no Confirmed Diagnosis)',
+        without: 'the date comes from Date Reported (or the earlier Detection Date); with neither, ' +
+          'the "Last positive" box says "Not available"' },
+      { columns: ['Status'], with: 'Closed positives shown apart, without zones',
+        without: 'only a Close Date (or the earlier Surveillance Closed column) shows a positive as closed' },
+      { columns: ['County'], with: 'Positives named with their county when the file has no Case ID',
         without: 'positives are named "Positive 1", "Positive 2" and so on' }
     ],
     features: ['positives'],
-    about: 'One row per positive premises, with its latitude and longitude and its status or closed mark.' };
+    about: 'One row per positive premises, as in the agency\'s HPAI table: its Case ID, dates, latitude and longitude, ' +
+      'and Status (Active or Closed).' };
 
   const zones = { id: 'zones', name: 'Zone file', file: 'zones.geojson', required: false, kind: 'zone',
     extensions: ['geojson', 'kml'], columns: [], useful: [], features: [],

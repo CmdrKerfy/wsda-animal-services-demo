@@ -10,7 +10,7 @@ online background map. The data comes from the files you load; the site itself h
 |---|---|
 | `index.html` | The starting page. Load your files (a ZIP, several files or a folder), see which dashboard each file is for and whether each dashboard is ready, then open a dashboard in its own tab. "What data does this need?" lists every dataset each dashboard reads, and offers a sample bundle to try. |
 | `cvi/index.html` | **CVI Traceability**: animal movements from certificates of veterinary inspection. Four views (WA State county map, National Flow between Washington and other states, County Focus on picked counties, and Premise Lookup with buffers around sites), charts, previews, a ZIP export, branded PNG maps and time-series GIFs. |
-| `emergency/index.html` | **Emergency Response (preview)**: positives of an animal disease emergency (HPAI first) on a map with their zones (rings around each positive, or a zone file), the facility and premises sites inside the zones and the nearest one for a layer with nothing inside, the CVI movements that left from or arrived inside the zones, and the results as CSV files in one ZIP. |
+| `emergency/index.html` | **Emergency Response (preview)**: positives of an animal disease emergency (HPAI first) on a map with their zones (rings around each positive, or a zone file), the facility and premises sites inside the zones and the nearest one for a layer with nothing inside, the CVI movements that left from or arrived inside the zones. Current and past positives (those still under quarantine counted), the rows that cannot be mapped listed, a date window with a play by week or month, a chart of positives over time, km or miles, the results as CSV files and `zones.geojson` in one ZIP, and a branded map picture (PNG). New World screwworm is a second type, as an example of adding one. |
 | `infrastructure/index.html` | **Infrastructure**: facility layers (packing plants, markets, feedlots, fairgrounds and more) on a map with filters and details, optional CVI activity, and a branded PNG. No CVI master table needed. |
 
 ## Open it
@@ -104,7 +104,10 @@ Where a later change is planned, the entry number in `docs/FUTURE_ENHANCEMENTS.m
 
 - **The values are examples.** HPAI's statuses, its two rings (3 km and 10 km), the layers it suggests and its
   closed rule are examples until WSDA staff confirm them; the type's "?" says so.
-- **Kilometers only.** Rings and distances are in km; a miles switch is planned.
+- **Dates as M/D/YYYY or YYYY-MM-DD.** A date in another form (for example "Oct 15, 2026") cannot be read; the line
+  under the value boxes counts the unreadable dates. An Excel workbook is saved as CSV first.
+- **The window ends on the latest detection.** The page opens with the window's end on the latest detection;
+  a premises closed after that date counts as current until the "To" date is moved later.
 - **Positives are points.** A positives file needs a latitude and a longitude per row; an emergency reported by
   county only is not covered yet.
 - **Zone files in longitude and latitude only.** A GeoJSON, KML or zipped shapefile in another coordinate system

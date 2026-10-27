@@ -1,4 +1,4 @@
-/* Emergency types: the list the Emergency page reads. Each emergency (HPAI now; New World screwworm later) is one
+/* Emergency types: the list the Emergency page reads. Each emergency (HPAI; New World screwworm, as an example) is one
  * small file in site/emergency/types/ that calls WSDA.emergencyTypes.add({ ... }); no page code names an emergency.
  * The fields are explained at the top of types/hpai.js, and "Adding an emergency type" in docs/DEVELOPER_GUIDE.md
  * says how to add one. A field that is missing or of the wrong form stops the type with a message naming the field,
@@ -12,14 +12,24 @@
  *   case; a word matches at the start of a word in the value, so "h5" matches "H5N1"); the type with the most values
  *   wins, the earlier type on a tie, and the first type when no value matches. counts: type id -> values matched.
  * statusOf(type, value) -> the status whose words hold the value (any case, spaces trimmed), or null
- * isClosed(type, value) -> true when a value of the type's closed column marks a positive closed (any case) */
+ * isClosed(type, value) -> true when a value of the type's closed column marks a positive closed (any case)
+ * COLUMN_DEFAULTS: the column names a type gets for a role it does not list (E1a's names for id, detected and
+ *   disease), so a file in E1a's form still reads under any type.
+ * INVENTORY_WORD: the word after the animals' total when a type names none ("animals"); countedApart is empty when
+ *   a type names none; a type without a title gets its name in capitals with "RESPONSE MAP". */
 (function (root) {
   'use strict';
   const types = [];
   const HEX = /^#[0-9a-f]{6}$/i;
-  const APPLY = ['open', 'confirmed', 'all'];
+  const APPLY = ['open', 'confirmed'];
   const SOURCES = ['rings', 'file'];
-  const UNITS = ['km'];
+  const UNITS = ['km', 'mi'];
+  // The column roles a type may name, and E1a's names used when it names none.
+  const COLUMN_DEFAULTS = { id: ['AnimalDiseaseReportId'], detected: ['Detection Date'], disease: ['Disease Name'],
+    status: [], quarantine: [], flockType: [], inventory: [], shown: [] };
+  const INVENTORY_WORD = 'animals';
+  // A column whose name holds one of these words is never read (the same words as rules.js PRIVATE).
+  const PRIVATE = /address|location|street|premise/i;
 
   const words = (v, field, fail) => {
     if (!Array.isArray(v) || !v.length || v.some(w => typeof w !== 'string' || !w.trim())) {
@@ -34,6 +44,18 @@
   const color = (v, field, fail) => {
     if (typeof v !== 'string' || !HEX.test(v)) fail(field, 'a color written #rrggbb');
     return v.toLowerCase();
+  };
+  // Column names, kept as written (matched in any case): a list of words, none naming a column that is never read.
+  // empty: an empty list is fine.
+  const names = (v, field, fail, empty) => {
+    if (empty && Array.isArray(v) && !v.length) return [];
+    words(v, field, fail);
+    const bad = v.find(n => PRIVATE.test(n));
+    if (bad) {
+      fail(field, `column names the page may read ("${bad}" names an address, location, street or premise column, ` +
+        'which is never read)');
+    }
+    return v.map(n => n.trim());
   };
   const oneOf = (v, allowed, field, fail) => {
     if (!allowed.includes(v)) fail(field, 'one of ' + allowed.map(a => '"' + a + '"').join(', '));
@@ -51,6 +73,16 @@
       fail('id', 'a short key of lowercase letters, digits and dashes');
     }
     const out = { id: t.id, name: text(t.name, 'name', fail), diseaseWords: words(t.diseaseWords, 'diseaseWords', fail) };
+    // The map picture's title: the type's own, else its name in capitals with "RESPONSE MAP".
+    out.title = t.title === undefined ? out.name.toUpperCase() + ' RESPONSE MAP' : text(t.title, 'title', fail);
+    out.inventoryWord = t.inventoryWord === undefined ? INVENTORY_WORD : text(t.inventoryWord, 'inventoryWord', fail);
+    // The animals counted apart from inventoryWord in the numbers line, by words in the positive's species.
+    const apart = t.countedApart === undefined ? [] : t.countedApart;
+    if (!Array.isArray(apart)) fail('countedApart', 'a list of species words and the word they are counted under (it may be empty)');
+    out.countedApart = apart.map((a, i) => ({
+      species: words(a && a.species, `countedApart[${i}].species`, fail),
+      word: text(a && a.word, `countedApart[${i}].word`, fail)
+    }));
 
     if (!Array.isArray(t.statuses) || !t.statuses.length) fail('statuses', 'a list of one or more statuses');
     out.statuses = t.statuses.map((s, i) => ({
@@ -59,12 +91,30 @@
       color: color(s && s.color, `statuses[${i}].color`, fail)
     }));
 
+    const cols = t.columns === undefined ? {} : t.columns;
+    if (!cols || typeof cols !== 'object' || Array.isArray(cols)) fail('columns', 'the column names for each role, in { }');
+    const unknown = Object.keys(cols).find(k => !(k in COLUMN_DEFAULTS));
+    if (unknown) fail('columns', 'roles among ' + Object.keys(COLUMN_DEFAULTS).join(', ') + ` (not "${unknown}")`);
+    out.columns = {};
+    for (const k of Object.keys(COLUMN_DEFAULTS)) {
+      out.columns[k] = cols[k] === undefined ? COLUMN_DEFAULTS[k].slice() : names(cols[k], `columns.${k}`, fail, true);
+    }
+
+    // The closed column: one name or a list of names, first found wins; the checked copy holds a list.
     const c = t.closed;
     if (!c || typeof c !== 'object') fail('closed', 'a column and its values, in { }');
-    out.closed = { column: text(c.column, 'closed.column', fail), values: words(c.values, 'closed.values', fail) };
+    if (typeof c.column !== 'string' && !Array.isArray(c.column)) fail('closed.column', 'a column name, or a list of names');
+    out.closed = {
+      column: names(typeof c.column === 'string' ? [c.column] : c.column, 'closed.column', fail),
+      values: words(c.values, 'closed.values', fail),
+      dateColumn: c.dateColumn === undefined ? [] : names(c.dateColumn, 'closed.dateColumn', fail, true)
+    };
 
     const z = t.zones;
     if (!z || typeof z !== 'object') fail('zones', 'the zones\' source, rings, use and unit, in { }');
+    if (z.applyTo === 'all') {
+      fail('zones.applyTo', '"open" or "confirmed" ("all" is no longer used: past positives never get zones)');
+    }
     out.zones = {
       source: oneOf(z.source, SOURCES, 'zones.source', fail),
       applyTo: oneOf(z.applyTo, APPLY, 'zones.applyTo', fail),
@@ -75,7 +125,9 @@
     if (z.source === 'rings' && !z.rings.length) fail('zones.rings', 'a list of one or more rings when zones.source is "rings"');
     out.zones.rings = z.rings.map((r, i) => {
       const d = r && r.distance;
-      if (typeof d !== 'number' || !(d > 0) || d > 500) fail(`zones.rings[${i}].distance`, 'a number above 0, at most 500');
+      if (typeof d !== 'number' || !(d > 0) || d > 500) {
+        fail(`zones.rings[${i}].distance`, `a number above 0, at most 500 (in ${z.unit})`);
+      }
       return { distance: d, label: text(r.label, `zones.rings[${i}].label`, fail),
         color: color(r.color, `zones.rings[${i}].color`, fail) };
     });
@@ -158,5 +210,5 @@
   }
 
   root.WSDA = root.WSDA || {};
-  root.WSDA.emergencyTypes = { add, list, get, pick, statusOf, isClosed, check };
+  root.WSDA.emergencyTypes = { add, list, get, pick, statusOf, isClosed, check, COLUMN_DEFAULTS, INVENTORY_WORD };
 })(typeof window !== 'undefined' ? window : globalThis);

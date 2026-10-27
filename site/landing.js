@@ -120,8 +120,10 @@
         guide: off.length > 0 };
     }
     const reason = map ? map.reason : 'needs data that was not found';
+    // The manifest is named only when one is among the files.
+    const manifest = cl.result.datasets.some(d => d.kind === 'manifest' && d.status === 'found');
     if (p.id === 'infrastructure' && !/^choose /.test(reason)) return { kind: 'warn',
-      text: 'Next: add or assign at least one facility file. A manifest lists layers but supplies no points.',
+      text: 'Next: add or assign at least one facility file.' + (manifest ? ' A manifest lists layers but supplies no points.' : ''),
       notes, open: null, guide: true };
     // Some reasons already say where to choose.
     const where = / in Datasets below$/.test(reason) ? '' : ' in Datasets below';

@@ -324,8 +324,12 @@ Canada statement for the British Columbia regions. Facility files stay in the br
 
 **Emergency Response dashboard:** it uses the same MapLibre files, map adapter, basemap list and request gate,
 neighboring-region and population files and credits as the Infrastructure page; no other provider, host, font or
-data file. The HPAI type's reference pages (USDA APHIS and CDC) are links only: nothing is fetched from them, and a
-click opens them in a new tab. Its rule for locations too coarse for zone results follows RAD_Animal_Diseases'
+data file. The types' reference pages (HPAI: USDA APHIS and CDC; New World screwworm: USDA APHIS and
+Screwworm.gov) are links only: nothing is fetched from them, and a click opens them in a new tab. The map picture
+(PNG) uses the shared branded page and the same tile backgrounds as the Infrastructure page's PNG (Default needs no
+network); the CVI premises it draws are the loaded CVI master's own matched rows, and `zones.geojson` is written on
+the page from the zones drawn. The synthetic screwworm outbreak in `test-tables/` (its positives and its dispersal
+areas) is made up by `tests/synthetic/make_em_fixtures.js`; it is not an APHIS area. Its rule for locations too coarse for zone results follows RAD_Animal_Diseases'
 `premises_zone_eligible()` (another internal WSDA project); no code was copied, and the tests compare the page with
 that function run unmodified. Its HPAI layer keys are those of the facility layer list CVI keeps
 (`facility_overlays_manifest.csv`); only the key names were taken.

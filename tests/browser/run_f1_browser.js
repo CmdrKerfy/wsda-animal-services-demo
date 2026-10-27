@@ -958,8 +958,17 @@ const SNAPSHOT = `(async function(){var r=WSDA.landing.state.result,s=document.g
     await pick('#files-input', [path.join(ROOT, 'tests', 'synthetic', 'cvi_master_small.csv'), path.join(ROOT, 'tests', 'synthetic', 'cvi_master_wa39.csv')]);
     cs = (await cardsSettled()).cards;
     check(byCard(cs, 'cvi').ready === 'Choose a file in Datasets below.' && byCard(cs, 'cvi').kind === 'choose'
-      && byCard(cs, 'infrastructure').ready === 'Needs: at least one recognized facility file (a manifest supplies no points).' && byCard(cs, 'infrastructure').button === 'Check files for Infrastructure',
-      'AB: two masters: CVI asks for a choice in Datasets below; Infrastructure names what it needs', cs);
+      && byCard(cs, 'infrastructure').ready === 'Needs: at least one recognized facility file.' && byCard(cs, 'infrastructure').button === 'Check files for Infrastructure',
+      'AB: two masters: CVI asks for a choice in Datasets below; Infrastructure names what it needs (no manifest named: none was loaded)', cs);
+    // A manifest and nothing else: now the Infrastructure card names it (v2.1: only when one is among the files)
+    const manOnly = path.join(ABFIX, 'manifest_only');
+    fs.mkdirSync(manOnly, { recursive: true });
+    fs.writeFileSync(path.join(manOnly, 'facility_overlays_manifest.csv'),
+      'key,file,name_col,label,group\npoultry,synthetic_commercial_poultry.csv,name,Commercial Poultry,Dairy & Producers\n');
+    await pick('#folder-input', [manOnly]);
+    cs = (await cardsSettled()).cards;
+    check(byCard(cs, 'infrastructure').ready === 'Needs: at least one recognized facility file (a manifest supplies no points).',
+      'AB: a manifest alone: the Infrastructure card says a manifest supplies no points', cs);
     // Two feedlot files and nothing else, in a bundle for CVI: Infrastructure (not selected) needs a choice first
     const feed = n => 'name,lat,long\nSynthetic Feedlot ' + n + ',47.25,-122.35\n';
     const twoFeed = path.join(ABFIX, 'two_feedlots');

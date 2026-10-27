@@ -34,5 +34,7 @@ case $2 in
   6) step chrome_${M}_ch node tests/browser/run_ch_browser.js
      node tests/synthetic/make_scale_master.js > "$L/scale_master_${M}.log" 2>&1
      step chrome_${M}_scale node tests/browser/run_scale_browser.js ;;
-  7) step chrome_${M}_em node tests/browser/run_em_browser.js ;;
+  7) # The part "speed" reads the 50,000-row master batch 6 writes; written here when batch 7 runs on its own.
+     [ -f local-test-artifacts/scale/cvi_master_50000.csv ] || node tests/synthetic/make_scale_master.js > "$L/scale_master_${M}.log" 2>&1
+     step chrome_${M}_em node tests/browser/run_em_browser.js ;;
 esac

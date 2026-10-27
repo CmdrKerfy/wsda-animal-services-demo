@@ -2,11 +2,14 @@
  * premises and disposal sites, and a GeoJSON zone, with a bundle.json for this dashboard. Every file is written out
  * here as text (no arithmetic), so the ZIP is the same bytes in every browser; it uses the shared ZIP writer
  * (shared/sample.js). Downloaded from the Emergency page's "Load your data"; the all-in-one sample on the landing
- * page does not change. Not real records: names, report IDs and coordinates are invented, and the "Premise Location"
- * values are marked "(synthetic)".
+ * page does not change. Not real records: names, Case IDs and coordinates are invented, and the "Premises" and
+ * "Address" values are marked "(synthetic)" (the page never reads either column).
+ * The positives are in the agency's agreed HPAI table's 20 columns (2026-10-22), dates written M/D/YYYY as there.
  * The manifest's keys are those of WSDA's own facility list (CVI_Traceability's reference/facility_overlays_manifest.csv),
  * so the HPAI type's suggested layers are ticked as they will be with the real files.
- * What the files show: open positives in each status and one closed; sites at different distances from the positives
+ * What the files show: open positives and one closed (its surveillance ended, its quarantine released later); one
+ * positive with a Date Reported and no Confirmed Diagnosis; inventories with thousands commas; sites at different
+ * distances from the positives
  * (inside 3 km, inside 10 km, outside both), so each layer has an inside list or a "nearest" line; premises with each
  * location-precision value (the coarse ones are left out of the zone results); a dairy located only to its town; a
  * control area drawn around one positive. */
@@ -15,14 +18,14 @@
   const fileName = 'emergency_synthetic.zip';
   const files = {
     'emergency_case_sites.csv': [
-      'AnimalDiseaseReportId,Disease Name,Case Status,Detection Date,County,Species,Premise Location,Lat,Long,Surveillance Closed',
-      'SYN-HPAI-001,HPAI H5N1,Confirmed,2026-09-02,Yakima,Poultry,(synthetic) 100 Example Road,46.5520,-120.4700,No',
-      'SYN-HPAI-002,HPAI H5N1,Presumptive,2026-09-10,Yakima,Poultry,(synthetic) 107 Example Road,46.4010,-120.3150,No',
-      'SYN-HPAI-003,HPAI H5N1,Confirmed,2026-08-21,Franklin,Dairy cattle,(synthetic) 114 Example Road,46.4000,-119.0500,No',
-      'SYN-HPAI-004,HPAI H5N1,Suspect,2026-09-28,Skagit,Poultry,(synthetic) 121 Example Road,48.4200,-122.3300,No',
-      'SYN-HPAI-005,HPAI H5N1,Confirmed,2026-07-15,Snohomish,Poultry,(synthetic) 128 Example Road,48.0500,-122.1500,Yes',
-      'SYN-HPAI-006,HPAI H5N1,Confirmed,2026-09-18,Lewis,Backyard poultry,(synthetic) 135 Example Road,46.6600,-122.9600,No',
-      'SYN-HPAI-007,HPAI H5N1,Presumptive,2026-10-05,Whatcom,Dairy cattle,(synthetic) 142 Example Road,48.9000,-122.4500,No'
+      'Case ID,Date Reported,Close Date,Confirmed Diagnosis,Quarantine Release,Premises,Address,City,County,Latitude,Longitude,Status,Subtype,Flock/Herd Type,Production Type,Species,Flock/Herd Inventory,Depop Inventory,Structures,Disposal Method',
+      'SYN-HPAI-001,8/31/2026,,9/2/2026,,(synthetic) Example Farm 1,(synthetic) 100 Example Road,Synthetic Town,Yakima,46.5520,-120.4700,Active,H5N1 2.3.4.4b,Commercial,Commercial Table Egg Layer,Chicken,"1,200,000","1,200,000",6,Landfill',
+      'SYN-HPAI-002,9/8/2026,,9/10/2026,,(synthetic) Example Farm 2,(synthetic) 107 Example Road,Synthetic Town,Yakima,46.4010,-120.3150,Active,H5N1 2.3.4.4b,Backyard,WOAH Non-Poultry,Multiple Poultry Species,35,35,1,On-Site Burial',
+      'SYN-HPAI-003,8/19/2026,,8/21/2026,,(synthetic) Example Farm 3,(synthetic) 114 Example Road,Synthetic Town,Franklin,46.4000,-119.0500,Active,H5N1 2.3.4.4b,Commercial,Dairy,Cattle,"2,400",,4,',
+      'SYN-HPAI-004,9/28/2026,,,,(synthetic) Example Farm 4,(synthetic) 121 Example Road,Synthetic Town,Skagit,48.4200,-122.3300,Active,H5N1 2.3.4.4b,Backyard,WOAH Non-Poultry,Duck,12,12,1,Outdoor Compost',
+      'SYN-HPAI-005,7/13/2026,8/20/2026,7/15/2026,9/1/2026,(synthetic) Example Farm 5,(synthetic) 128 Example Road,Synthetic Town,Snohomish,48.0500,-122.1500,Closed,H5N1 2.3.4.4b,Commercial,Commercial Meat Turkey,Turkey,"18,500","18,500",3,Incinerator',
+      'SYN-HPAI-006,9/16/2026,,9/18/2026,,(synthetic) Example Farm 6,(synthetic) 135 Example Road,Synthetic Town,Lewis,46.6600,-122.9600,Active,H5N1 2.3.4.4b,Backyard,WOAH Non-Poultry,Chicken,7,7,1,On-Site Burial',
+      'SYN-HPAI-007,10/3/2026,,10/5/2026,,(synthetic) Example Farm 7,(synthetic) 142 Example Road,Synthetic Town,Whatcom,48.9000,-122.4500,Active,H5N1 2.3.4.4b,Commercial,Dairy,Cattle,"1,150",,2,'
     ],
     'wa_state_public_livestock_markets.csv': [
       'name,lat,long,Species',

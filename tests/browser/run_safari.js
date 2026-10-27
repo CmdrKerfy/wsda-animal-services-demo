@@ -2955,7 +2955,11 @@ if (process.argv.includes('--ch')) runCH().catch(e => { console.error(e.stack); 
 // positives, the feedlots and the zone file unchanged; on the Emergency page, the sample loaded through its file
 // input: the map's positives, rings and sites, every fold closed, the boxes; a real click on the type's "?" opens its
 // note with the two links; with the small CVI master, a real click on "CVI movements" gives Chrome's three CVIs; the
-// Export's files and ZIP (its download call recorded, so the session saves nothing to Downloads). Needs node tests/synthetic/make_em_fixtures.js and the
+// Export's files and ZIP (its download call recorded, so the session saves nothing to Downloads). E1b: a real click on
+// "Show past positives"; "Detected between" as Safari's date box; real clicks on Play and Pause; a real arrow key on
+// the slider; real clicks on km | miles; the zone hover by a real pointer move; a real click on a column of "Positives
+// over time"; a real click on "Map picture (PNG)", the picture drawn and encoded by Safari (its blob read, nothing
+// saved); the synthetic screwworm outbreak picking its type and zones. Needs node tests/synthetic/make_em_fixtures.js and the
 // Emergency Chrome suite's sample (local-test-artifacts/em/sample/). Writes local-test-artifacts/em/safari_em_<mode>.json.
 async function runEM() {
   const mode = PAGE.startsWith('file:') ? 'file' : 'http';
@@ -3014,9 +3018,9 @@ async function runEM() {
       const page = await d.run(`var s=WSDA.emergency.state;return { drawn: s.map.drawn, zones: s.mapData.zones,
         folds: ['load-fold','positives-fold','layers-fold','options-fold'].map(function(id){return document.getElementById(id).open;}),
         boxes: ['box-positives','box-last','box-inside'].map(function(id){return document.querySelector('#'+id+' strong').textContent;}) };`);
-      check(page.drawn.positives === 7 && page.zones === 12 && page.drawn.inside > 0 && page.drawn.outside > 0 && page.folds.every(function (x) { return !x; })
-        && page.boxes[0] === '7' && page.boxes[1] === '2026-10-05' && Number(page.boxes[2]) > 0,
-      'EM Safari: the sample: seven positives, twelve rings, sites inside and faded, every fold closed, the boxes', page);
+      check(page.drawn.positives === 6 && page.zones === 12 && page.drawn.inside > 0 && page.drawn.outside > 0 && page.folds.every(function (x) { return !x; })
+        && page.boxes[0] === '6' && page.boxes[1] === 'Oct 5, 2026' && Number(page.boxes[2]) > 0,
+      'EM Safari: the sample: six current positives (the past one hidden), twelve rings, sites inside and faded, every fold closed, the boxes', page);
       await d.click('button.tip[data-help="em-type"]');
       const help = await d.run(`return { open: document.getElementById('positives-fold').open, note: !document.getElementById('help-em-type').hidden,
         links: Array.from(document.querySelectorAll('#em-type-links a')).map(function(a){return a.target+' '+a.rel;}) };`);
@@ -3036,9 +3040,87 @@ async function runEM() {
         document.getElementById('em-export').click(); return true;`);
       const ex = await d.run(`return { download: window.__download || null, files: (WSDA.emergency.state.lastExport || []).filter(function(e){return !e.dir;}).map(function(e){return e.name.replace(/^[^/]+\\//,'');}).sort(),
         line: document.getElementById('em-export-result').textContent };`);
-      check(ex.files.join() === 'cvi_movements.csv,export_params.json,inside_the_zones.csv,layers.csv,left_out.csv,positives.csv'
+      check(ex.files.join() === 'cvi_movements.csv,export_params.json,inside_the_zones.csv,layers.csv,left_out.csv,positives.csv,zones.csv,zones.geojson'
         && /^Exported \d{4}-\d\d-\d\d_Emergency\.zip/.test(ex.line) && ex.download && /_Emergency\.zip$/.test(ex.download.name)
-        && ex.download.size > 0, 'EM Safari: Export makes the six files into one ZIP and says so', ex);
+        && ex.download.size > 0, 'EM Safari: Export makes the eight files into one ZIP and says so', ex);
+      await d.click('#show-inside');
+
+      // ---- E1b ----
+      const S = 'WSDA.emergency.state';
+      await d.run(`document.getElementById('positives-fold').open = true; return true;`);
+      await d.click('#em-past');
+      const past = await d.run(`var s=${S};return { positives: s.mapData.positives, past: s.mapData.past, box: document.querySelector('#box-positives strong').textContent };`);
+      check(past.positives === 7 && past.past === 1 && past.box === '6',
+        'EM Safari: a real click on "Show past positives" draws the past one; the "Positives" box still counts six', past);
+      await d.click('#em-past');
+      // "Detected between": Safari's own date box, set as a picker sets it.
+      const win = await d.run(`var i=document.getElementById('em-to');i.value='2026-09-05';i.dispatchEvent(new Event('change'));
+        var s=${S};return { type: i.type, end: s.window.end, positives: s.mapData.positives, last: document.querySelector('#box-last strong').textContent };`);
+      check(win.type === 'date' && win.end === '2026-09-05' && win.positives === 2 && win.last === 'Sep 2, 2026',
+        'EM Safari: "Detected between" is a date box in Safari; a second date of Sep 5 shows the two positives current then', win);
+      await d.run(`var i=document.getElementById('em-to');i.value='';i.dispatchEvent(new Event('change'));return true;`);
+      // The play: real clicks on Play and Pause; then a real arrow key on the slider.
+      await d.click('#em-play');
+      const playing = await d.run(`var s=${S};return { playing: s.playing, button: document.getElementById('em-play').textContent, at: s.stepAt, end: s.window.end };`);
+      await sleep(1600);
+      const later = await d.run(`return ${S}.stepAt;`);
+      await d.click('#em-play');
+      const paused = await d.run(`var s=${S};return { playing: s.playing, button: document.getElementById('em-play').textContent, at: s.stepAt };`);
+      check(playing.playing && playing.button === 'Pause' && playing.at === 0 && playing.end === '2026-07-18' && later >= 1
+        && !paused.playing && paused.button === 'Play by week' && paused.at >= later,
+      'EM Safari: real clicks on Play and Pause: the play starts on the first week, steps once a second and stops where it is', [playing, later, paused]);
+      await foreground();
+      await d.run(`document.getElementById('em-step').focus();return document.activeElement.id;`);
+      await d.key('\uE014');
+      const keyed = await d.run(`var s=${S};return { at: s.stepAt, label: document.getElementById('em-step-label').textContent, playing: s.playing };`);
+      check(keyed.at === paused.at + 1 && new RegExp('^Up to .+ \u00b7 week ' + (keyed.at + 1) + ' of \\d+$').test(keyed.label) && !keyed.playing,
+        'EM Safari: a real right-arrow key on the slider moves one week on', [paused.at, keyed]);
+      await d.run(`var i=document.getElementById('em-step');i.value=i.max;i.dispatchEvent(new Event('input'));return true;`);
+      // km | miles by real clicks: the rings shown in miles, then exactly 3 and 10 km again.
+      await d.click('#em-unit-mi');
+      const mi = await d.run(`return [0,1].map(function(k){return document.getElementById('em-ring-'+k).value;});`);
+      await d.click('#em-unit-km');
+      const km = await d.run(`return [0,1].map(function(k){return document.getElementById('em-ring-'+k).value;});`);
+      check(mi.join() === '1.86,6.21' && km.join() === '3,10', 'EM Safari: real clicks on miles and km: 1.86 and 6.21 mi, then 3 and 10 km again', [mi, km]);
+      // The zone hover by a real pointer move over the map.
+      await d.run(`var m=${S}.map.map;m.getCanvas().scrollIntoView({block:'center'});m.fitBounds([[-120.45, 46.33], [-120.18, 46.47]], { animate: false });return true;`);
+      await sleep(700);
+      const at = await d.run(`var m=${S}.map.map,pt=m.project([-120.315, 46.415]),r=m.getCanvas().getBoundingClientRect();return [r.left+pt.x, r.top+pt.y];`);
+      await d.move(at[0], at[1]);
+      await sleep(500);
+      const tip = await d.run(`return (document.querySelector('.maplibregl-popup')||{}).textContent||'';`);
+      check(/^SYN-HPAI-002Infection zone \(3 km\): 25 days/.test(tip) && /Days since the last positive inside each zone, as of Oct 5, 2026$/.test(tip),
+        'EM Safari: a real pointer move over a zone opens its hover: the rings under the pointer with their days since, as of the date shown', tip);
+      await d.move(5, 5);
+      // "Positives over time": open after the load (v2.1), and a column picked by a real click.
+      check(await d.run(`return document.getElementById('em-chart-fold').open;`), 'EM Safari: the chart is open after the load');
+      await d.click('.chart-col[data-col="7"]');
+      const chart = await d.run(`var s=${S};return { open: document.getElementById('em-chart-fold').open, at: s.stepAt, end: s.window.end,
+        columns: document.querySelectorAll('.chart-col').length };`);
+      check(chart.open && chart.columns === 13 && chart.at === 7 && chart.end === '2026-09-05',
+        'EM Safari: a real click on the chart\'s eighth column shows the map as of that week\'s Saturday', chart);
+      await d.run(`var i=document.getElementById('em-step');i.value=i.max;i.dispatchEvent(new Event('input'));document.getElementById('em-chart-fold').open=false;return true;`);
+      // The map picture: drawn and encoded by Safari; its blob read here, the save replaced (nothing goes to Downloads).
+      await d.run(`window.__png=null;window.__download=null;var make=URL.createObjectURL;
+        URL.createObjectURL=function(b){if(b&&b.type==='image/png')window.__png=b;return make.call(URL,b);};
+        HTMLAnchorElement.prototype.click=function(){window.__download={name:this.download};};document.getElementById('export-fold').open=true;return true;`);
+      await d.click('#em-png');
+      await d.waitFor(`window.__png && !document.getElementById('em-png').disabled`, 60000, 'map picture drawn');
+      const png = await d.run(`var u=new Uint8Array(await window.__png.arrayBuffer()),dv=new DataView(u.buffer),at=0;
+        for(var i=8;i<u.length-4&&i<4096;i++){if(u[i]===112&&u[i+1]===72&&u[i+2]===89&&u[i+3]===115){at=i;break;}}
+        return { sig: String.fromCharCode(u[1],u[2],u[3]), width: dv.getUint32(16), height: dv.getUint32(20), ppm: at ? dv.getUint32(at+4) : 0,
+          name: (window.__download||{}).name, title: ${S}.lastPng.model.title, line: document.getElementById('em-export-result').textContent };`);
+      check(png.sig === 'PNG' && png.width === 2200 && png.height === 1700 && png.ppm === 7874 && /^emergency_hpai_\d{4}-\d\d-\d\d\.png$/.test(png.name)
+        && /^Saved emergency_hpai_/.test(png.line),
+      'EM Safari: a real click on "Map picture (PNG)": Safari draws and encodes the 2200 x 1700 picture at 200 dpi, named for the type and the day', png);
+      // The synthetic screwworm outbreak: its type and its dispersal areas as the zones.
+      v0 = await d.run(`return ${S}.version;`);
+      await d.run(SET_FILES, '#files-input', [b64(path.join(tables, 'em_nws_synthetic.zip'))]);
+      await d.waitFor(`${S}.version > ` + v0 + ` && !${S}.loading && ${S}.map.drawn && ${S}.map.drawn.positives > 0`, 20000, 'screwworm drawn');
+      const nws = await d.run(`var s=${S};return { type: document.getElementById('em-type').value, useZones: s.useZones, zones: s.mapData.zones,
+        box: document.querySelector('#box-positives strong').textContent };`);
+      check(nws.type === 'nws' && nws.useZones && nws.zones === 2 && nws.box === '8',
+        'EM Safari: the screwworm outbreak picks New World screwworm and uses its two dispersal areas; eight current positives', nws);
       fs.writeFileSync(path.join(out, 'safari_em_' + mode + '.png'), Buffer.from(await d.screenshot(), 'base64'));
       const errors = await d.run('var e = window.__errors || []; window.__errors = []; return e;');
       check(!errors.length, 'EM Safari: no page errors', errors);
