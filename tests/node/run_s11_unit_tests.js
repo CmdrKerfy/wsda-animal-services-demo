@@ -488,6 +488,152 @@ FM.bands.forEach((text, i) => {
   check(sameNotes(notes, cvi.notes), 'Bands "' + text + '": CVI\'s notifications', [notes, cvi.notes]);
   tally.module++;
 });
+// 2.2: a site's own bands, one rule (siteBands) for the Add a site form, a Bands cell, pasted rows and Run query:
+// numbers above 0, different from each other, at most 3, put in order; blank uses the Band radii box. CVI has no
+// such check (its parts that are not numbers are dropped without a word), so the expectations are written here.
+{
+  const L = W.lookup, eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const SB = [
+    ['', { radii: null }], ['   ', { radii: null }], [null, { radii: null }],
+    ['1, 5, 10', { radii: [1, 5, 10], text: '1, 5, 10' }], ['10;5 1', { radii: [1, 5, 10], text: '1, 5, 10' }],
+    ['2.5', { radii: [2.5], text: '2.5' }], [' 3 ,  10 ', { radii: [3, 10], text: '3, 10' }],
+    ['1, 5, ten', { reason: '"ten" is not a distance. Use numbers above 0, such as 1, 5, 10.' }],
+    ['0, 5', { reason: '"0" is not a distance. Use numbers above 0, such as 1, 5, 10.' }],
+    ['-3', { reason: '"-3" is not a distance. Use numbers above 0, such as 1, 5, 10.' }],
+    ['Inf', { reason: '"Inf" is not a distance. Use numbers above 0, such as 1, 5, 10.' }],
+    ['5km', { reason: '"5km" is not a distance. Use numbers above 0, such as 1, 5, 10.' }],
+    ['5, 5', { reason: '5 km is given twice. Use different distances, such as 1, 5, 10.' }],
+    ['1, 5, 10, 20', { reason: 'use at most 3 bands; "1, 5, 10, 20" has 4.' }]
+  ];
+  SB.forEach(([raw, want]) => check(eq(L.siteBands(raw), want), 'Site bands ' + JSON.stringify(raw) + ': ' +
+    (want.reason ? 'refused, "' + want.reason + '"' : want.radii ? 'kept as ' + want.text : 'blank, the Band radii used'),
+  [L.siteBands(raw), want]));
+  // The form: in Bands mode the bands are checked and kept in order (no buffer); a bad list adds nothing and its
+  // reason goes under the field; without bands (Single mode) the form is CVI's.
+  let r = L.addSiteRule(0, { name: 'Banded', lat: 46.6, long: -120.5, buffer: 7, bands: '10, 1, 5' });
+  check(r.site && r.site.bands_csv === '1, 5, 10' && r.site.buffer_km === null && !r.bands,
+    'Add a site, Bands mode: "10, 1, 5" kept as "1, 5, 10", no buffer', r);
+  r = L.addSiteRule(0, { name: 'Blank bands', lat: 46.6, long: -120.5, buffer: null, bands: '' });
+  check(r.site && r.site.bands_csv === null, 'Add a site, Bands mode: blank bands use the Band radii', r);
+  r = L.addSiteRule(0, { name: 'Word', lat: 46.6, long: -120.5, buffer: null, bands: '1, 5, ten' });
+  check(!r.site && r.bands && r.message.level === 'warn' &&
+    r.message.text === 'Bands km: "ten" is not a distance. Use numbers above 0, such as 1, 5, 10.',
+  'Add a site, Bands mode: a word is refused with its reason, nothing added', r);
+  r = L.addSiteRule(0, { name: 'Four', lat: 46.6, long: -120.5, buffer: null, bands: '1, 5, 10, 20' });
+  check(!r.site && r.bands && /use at most 3 bands/.test(r.message.text), 'Add a site, Bands mode: four bands refused', r);
+  r = L.addSiteRule(0, { name: 'No latitude', lat: null, long: -120.5, buffer: null, bands: 'ten' });
+  check(!r.site && !r.bands && /Enter a latitude/.test(r.message.text),
+    'Add a site, Bands mode: the coordinates are checked first', r);
+  // Pasted rows: a row with a bad band list is not added and stays to be fixed; the others are added.
+  const pasted = L.parsePaste('Good, 46.6, -120.5, 1, 5\nFour, 46.7, -120.6, 1, 5, 10, 20\nWord, 46.8, -120.7, 1, ten\n' +
+    'Buffer, 46.9, -120.8, 7');
+  check(eq(pasted.sites.map(x => [x.name, x.bands_csv, x.buffer_km]), [['Good', '1,5', null], ['Buffer', null, 7]]) &&
+    pasted.skipped === 0, 'Paste: the rows with good bands or a buffer added, the bad band lists not', pasted);
+  check(eq(L.refusedMessages(pasted), [
+    { level: 'warn', text: 'Not added: "Four": use at most 3 bands; "1, 5, 10, 20" has 4.' },
+    { level: 'warn', text: 'Not added: "Word": "ten" is not a distance. Use numbers above 0, such as 1, 5, 10.' }]) &&
+    eq(pasted.refused.map(x => x.line), ['Four, 46.7, -120.6, 1, 5, 10, 20', 'Word, 46.8, -120.7, 1, ten']),
+  'Paste: one message for each row not added, with its reason; the rows kept to put back in the box', pasted.refused);
+  // Run query in Bands mode checks each site's bands again; Single mode leaves them out, as CVI.
+  const base = { master: masterOf(FM.runs[0].master), loading: false, mode: 'bands', defaultKm: 3, bandsText: '3, 10, 20',
+    endpoint: 'either', years: [], quarters: [], species: [] };
+  const site = (name, bands) => ({ name, lat: 46.6, long: -120.5, buffer_km: null, bands_csv: bands });
+  let plan = L.prepareRun(Object.assign({}, base, { sites: [site('Fine', '1, 5'), site('Bad', '1, 2, 3, 4')] }));
+  check(plan.stop && eq(plan.messages, [{ level: 'warn', text: 'Bands for "Bad": use at most 3 bands; "1, 2, 3, 4" has ' +
+    '4. Fix them in the Sites to query table.' }]), 'Run query, Bands mode: a site whose bands break the rule stops ' +
+    'the run, named', plan.messages);
+  plan = L.prepareRun(Object.assign({}, base, { sites: [site('Fine', '1, 5'), site('Blank', null), site('Empty', '')] }));
+  check(!plan.stop && plan.args.sites.length === 3, 'Run query, Bands mode: good and blank bands run', plan.messages);
+  plan = L.prepareRun(Object.assign({}, base, { mode: 'single', sites: [site('Bad', '1, 2, 3, 4')] }));
+  check(!plan.stop, 'Run query, Single mode: a site\'s bands are left out, so not checked', plan.messages);
+}
+
+// 2.2: "Search around a premises from your CVI file": the premises grouped as County Focus groups them (at a row's
+// counted end, by the farm entity id there, else by its coordinates), named by city with "#n" and the end, the CVI
+// match's filters, the most animals first; the list shown for the city box. A new choice (CVI's R app has none), so
+// the expectations are written here from a small synthetic file.
+{
+  const L = W.lookup, eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const HEAD = 'CVI,Species.Group,Reporting.Year,Reporting.Quarter,Movement,Total.Animals,Origin.City,Origin.State,' +
+    'Origin.County,Origin.Lat,Origin.Long,Origin.County.Lat,Origin.County.Long,Dest.City,Dest.State,Dest.County,' +
+    'Dest.Lat,Dest.Long,Dest.County.Lat,Dest.County.Long,farm_entity_id_origin,farm_entity_id_dest';
+  const ROWS = [
+    // Synthetic Town A: one farm id at two points (one premises), two CVIs; a second farm there without an id
+    'C1,Cattle,2025,1,Outbound,100,Synthetic Town A,WA,Yakima,46.60,-120.50,46.5,-120.6,Elsewhere,OR,Umatilla,45.6,-118.8,45.6,-118.8,F-ALPHA,',
+    'C2,Cattle,2025,2,Outbound,50,Synthetic Town A,WA,Yakima,46.61,-120.51,46.5,-120.6,Elsewhere,OR,Umatilla,45.6,-118.8,45.6,-118.8,F-ALPHA,',
+    'C3,Swine,2024,3,Outbound,400,Synthetic Town A,WA,Yakima,46.62,-120.40,46.5,-120.6,Elsewhere,ID,Ada,43.6,-116.2,43.6,-116.2,,',
+    'C3,Swine,2024,3,Outbound,5,Synthetic Town A,WA,Yakima,46.62,-120.40,46.5,-120.6,Elsewhere,ID,Ada,43.6,-116.2,43.6,-116.2,,',
+    // a destination in Yakima (Inbound), and an Inbound row whose origin is in Yakima (its premises is at the destination)
+    'C4,Equids,2025,1,Inbound,7,Far Town,OR,Umatilla,45.6,-118.8,45.6,-118.8,Synthetic Town B,WA,Yakima,46.40,-120.30,46.5,-120.6,,F-BETA',
+    'C5,Equids,2025,1,Inbound,9,Synthetic Town C,WA,Yakima,46.30,-120.20,46.5,-120.6,Synthetic Town D,WA,Kittitas,47.0,-120.5,47.0,-120.5,,',
+    // a WA-to-WA record: the loader makes an Outbound copy (Yakima origin) and an Inbound copy (Kittitas destination)
+    'C6,Poultry,2025,4,Intrastate,30,Synthetic Town A,WA,Yakima,46.60,-120.50,46.5,-120.6,Synthetic Town E,WA,Kittitas,47.1,-120.6,47.0,-120.5,F-ALPHA,',
+    // blank city, no usable coordinates, a Yakima county outside WA, no direction
+    'C7,Cattle,2025,1,Outbound,3,,WA,Yakima,46.555,-120.4444,46.5,-120.6,Elsewhere,OR,Umatilla,45.6,-118.8,45.6,-118.8,,',
+    'C8,Cattle,2025,1,Outbound,60,Synthetic Town F,WA,Yakima,,,46.5,-120.6,Elsewhere,OR,Umatilla,45.6,-118.8,45.6,-118.8,,',
+    'C9,Cattle,2025,1,Outbound,80,Synthetic Town G,OR,Yakima,45.9,-120.1,45.9,-120.1,Elsewhere,OR,Umatilla,45.6,-118.8,45.6,-118.8,,',
+    'C11,Cattle,2025,1,Outbound,20,Synthetic Town H,OR,Malheur,44.0,-117.0,44.0,-117.0,Elsewhere,ID,Ada,43.6,-116.2,43.6,-116.2,,',
+    'C10,Cattle,2025,1,,80,Synthetic Town A,WA,Yakima,46.7,-120.7,46.5,-120.6,Elsewhere,OR,Umatilla,45.6,-118.8,45.6,-118.8,,'
+  ];
+  const m = W.master.load(HEAD + '\n' + ROWS.join('\n') + '\n');
+  check(m.ok, 'Premises fold: the synthetic CVI file loads', m.error);
+  const all = { county: 'Yakima', ends: 'both', years: [], quarters: [], species: [] };
+  const got = L.cviPremises(m, all);
+  const brief = g => [g.name, g.cvis, g.animals];
+  check(eq(got.premises.map(brief), [['Synthetic Town A #1 (origin)', 1, 405], ['Synthetic Town A #2 (origin)', 3, 180],
+    ['Synthetic Town B (destination)', 1, 7], ['-120.444, 46.555 (origin)', 1, 3]]),
+  'Premises fold: grouped at the counted end by farm id, else by coordinates; "#n" by animals within a city; the ' +
+    'blank city named by its coordinates; the most animals first', got.premises.map(brief));
+  check(got.noCoords === 1, 'Premises fold: a premises row without usable coordinates left out and counted', got.noCoords);
+  check(got.premises.every(g => !/F-ALPHA|F-BETA/.test(g.name + g.key.replace(/e:F-(ALPHA|BETA)/, ''))) &&
+    got.premises.every(g => g.name.indexOf('F-') < 0),
+  'Premises fold: the farm entity id is never in a name', got.premises.map(g => g.name));
+  const a1 = got.premises[1];
+  check(a1.lat === 46.6 && a1.long === -120.5, 'Premises fold: a farm id\'s premises placed at its first row\'s point',
+    [a1.lat, a1.long]);
+  check(eq(L.cviPremises(m, Object.assign({}, all, { ends: 'origin' })).premises.map(g => g.name),
+    ['Synthetic Town A #1 (origin)', 'Synthetic Town A #2 (origin)', '-120.444, 46.555 (origin)']) &&
+    eq(L.cviPremises(m, Object.assign({}, all, { ends: 'dest' })).premises.map(g => g.name),
+      ['Synthetic Town B (destination)']), 'Premises fold: "Origins" and "Destinations" keep one end each');
+  check(eq(L.cviPremises(m, Object.assign({}, all, { county: 'Kittitas' })).premises.map(brief),
+    [['Synthetic Town D (destination)', 1, 9], ['Synthetic Town E (destination)', 1, 30]].sort((x, y) => y[2] - x[2])),
+  'Premises fold: another county; a WA-to-WA record counted once at each end',
+  L.cviPremises(m, Object.assign({}, all, { county: 'Kittitas' })).premises.map(brief));
+  check(eq(L.cviPremises(m, Object.assign({}, all, { years: [2024] })).premises.map(brief),
+    [['Synthetic Town A (origin)', 1, 405]]) &&
+    eq(L.cviPremises(m, Object.assign({}, all, { quarters: ['Q4'] })).premises.map(brief),
+      [['Synthetic Town A (origin)', 1, 30]]) &&
+    eq(L.cviPremises(m, Object.assign({}, all, { species: ['Equids'] })).premises.map(brief),
+      [['Synthetic Town B (destination)', 1, 7]]),
+  'Premises fold: follows the CVI match\'s years, quarters and species (no "#n" when a city has one premises left)');
+  check(got.hasCvi === true, 'Premises fold: a file with a CVI column counts CVIs', got.hasCvi);
+  // A file without a CVI column: each row counts as a record (the page says "records").
+  const noCvi = W.master.load(HEAD.replace(/^CVI,/, '') + '\n' + ROWS.map(r => r.replace(/^C\d+,/, '')).join('\n') + '\n');
+  const nc = L.cviPremises(noCvi, all);
+  check(nc.hasCvi === false && eq(nc.premises.map(brief)[0], ['Synthetic Town A #1 (origin)', 2, 405]),
+    'Premises fold: without a CVI column, the rows are counted (two rows at the no-id premises)', nc.premises.map(brief));
+  check(eq(L.premisesCounties(m), ['Kittitas', 'Yakima']),
+    'Premises fold: the counties are the WA counties at a row\'s counted end, sorted', L.premisesCounties(m));
+  // The list for the city box: six before anything is typed, the matches (up to 50) after.
+  const many = Array.from({ length: 60 }, (_, i) => ({ key: 'k' + i, name: (i % 2 ? 'Synthetic Town A #' : 'Other Town #') +
+    (i + 1) + ' (origin)' }));
+  let v = L.premisesShown(many, '');
+  check(v.shown.length === 6 && v.matching.length === 60 && v.shown[0].key === 'k0' &&
+    v.note === 'Showing the 6 with the most animals; type to find others.', 'Premises fold: six shown before a city is ' +
+    'typed, with the note', v.note);
+  v = L.premisesShown(many, '  SYNTHETIC town a ');
+  check(v.shown.length === 30 && v.matching.length === 30 && v.note === '', 'Premises fold: the city box matches ' +
+    'without regard to case or spaces around it; all 30 matches shown', v.shown.length);
+  v = L.premisesShown(many, 'town');
+  check(v.shown.length === 50 && v.matching.length === 60 &&
+    v.note === 'Showing the 50 of 60 with the most animals; type more to narrow.', 'Premises fold: at most 50 matches ' +
+    'shown, with the note', v.note);
+  v = L.premisesShown(many, 'Spokane');
+  check(!v.shown.length && v.note === 'No premises match "Spokane".', 'Premises fold: no match says so', v.note);
+  v = L.premisesShown(many.slice(0, 4), '');
+  check(v.shown.length === 4 && v.note === '', 'Premises fold: four premises, all shown, no note', v.note);
+}
+
 // Run query: the page's steps from the same inputs, every notification in CVI's order and the result.
 FM.runs.forEach((cs, i) => {
   const cvi = MOD.runs[i], name = 'Run "' + cs.name + '"';
@@ -1663,6 +1809,29 @@ async function auditFixes() {
     m4.panel.rows.every(r => /…$/.test(r.name) && r.name.length < 200 && long.indexOf(r.name.slice(0, -1)) === 0),
   'Limits: 100,000-character names: the page built in under 3 s, every panel name cut to fit',
     e4 ? e4.message : [tallyZ.longMs, m4 && m4.panel.rows.map(r => r.name.length)]);
+  // 2.2: Premise Lookup's key with more and more layers: a facility row is never drawn closer than
+  // its label's lines (keyLeast, at least 0.6); smaller text comes before fewer layers; fewer layers only at the
+  // smallest text, "and N more layers" then said.
+  const ks = PX.prepareSites([{ name: 'Key site', lat: 46.6, long: -120.5, buffer_km: 10 }], { defaultKm: 10 }).sites;
+  const keySweep = [2, 4, 6, 10, 18, 26, 40].map(n => {
+    const layers = Array.from({ length: n }, (v, i) => ({ key: 'k' + i, label: 'Synthetic facility layer number ' + (i + 1),
+      pngLabel: 'Synthetic facility layer number ' + (i + 1), color: '#0097a7',
+      points: [{ name: 'F' + i, lat: 46.6 + i * 0.0005, lon: -120.5 }] }));
+    const built = BM.proximity({ sites: ks, bandsMode: false, facilitiesOnly: true, fac: W.lookup.facilitiesInside(ks, layers),
+      counties: COUNTIES, date: DATE, filters: { year: [], quarter: [], species: [] } });
+    const m = built.model, svg = BR.svg(built.parts);
+    // These names take two lines in the key: two facility rows are at least two lines of text apart.
+    const ys = m.keyRows.filter(r => /^Synthetic facility/.test(r.label)).map(r => r.y);
+    const apart = ys.every((y, i) => !i || y - ys[i - 1] >= 2 * 1.15 * BR.textPt(3.0) * m.keyTextScale - 1e-6);
+    return { n, mode: m.keyMode, scale: m.keyTextScale, squeeze: m.keySqueeze, least: m.keyLeast, fits: m.keyFits,
+      shown: (m.keyShown || []).length, apart, ok: apart && (m.keyFits || m.keySqueeze >= m.keyLeast - 1e-9) && m.keyLeast >= 0.6 &&
+        (m.keyMode !== 'top' || m.keyTextScale === 0.8) && (m.keyMode === 'top') === (svg.indexOf('more layer') >= 0) };
+  });
+  check(keySweep.every(x => x.ok), 'PNG key (2.2): 2 to 40 layers: every facility row at least as tall as its text, ' +
+    'fewer layers only at the smallest text, then named in one line', keySweep.filter(x => !x.ok));
+  check(keySweep.some(x => x.mode === 'one' && x.scale < 1) && keySweep.some(x => x.mode === 'top') &&
+    keySweep.some(x => x.mode === 'one' && x.scale === 1), 'PNG key (2.2): the sweep reaches every stage (full size, ' +
+    'smaller text, fewer layers)', keySweep.map(x => [x.n, x.mode, x.scale, +x.squeeze.toFixed(2), +x.least.toFixed(2), x.shown]));
   // The halving search gives the answer of taking off one character at a time, on random widths and rooms.
   let cutSame = 0;
   for (let t = 0; t < 300; t++) {

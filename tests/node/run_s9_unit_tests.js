@@ -1974,6 +1974,85 @@ function checkPeriodGaps() {
 // A known case: Adams and Asotin, where the WA inset at CVI's bottom right partly covered
 // Asotin. Synthetic premises in both counties; the inset should leave the bottom right for the empty bottom left,
 // the strip start after it, and CVI's style keep the bottom right.
+// 2.2: County Focus's key in the page's style. CVI PREMISES first (the roles, then "Animals per
+// premises"), then FACILITY LOCATIONS two layers to a row when both names fit their half; the role and facility rows
+// never drawn closer than their text; when the box is still short, the layers' rows in smaller text, then the last
+// layers named as "and N more layers (see the CSV export)". CVI's own style keeps CVI's order. Synthetic inputs.
+function checkFocusKey() {
+  const tag = 'focus key';
+  const premise = (id, dir, lon, lat, total) => ({ premises_id: id, group_key: id, direction: dir, lon, lat,
+    total_animals: total, city: 'Synthetic', radius_px: 10 });
+  const f = { counties: ['Yakima', 'Benton', 'Franklin', 'Kittitas'], species: ['Cattle'], rawSpecies: [], years: [2024],
+    quarters: ['Q1'], direction: 'both', mode: 'overlap', scaling: 'log', nBins: 5, opacity: 0.8, hideCircles: false };
+  const rows = [premise('A', 'Inbound', -120.5, 46.6, 2800), premise('B', 'Outbound', -119.4, 46.25, 900),
+    premise('C', 'Inbound', -118.9, 46.5, 130), premise('D', 'Outbound', -120.55, 47.05, 40)];
+  // The real layers' shapes (stars and triangles reach past a circle, so their rows are as tall as their marks).
+  const SHAPES = ['star', 'triangle', 'diamond', 'triangle-down', 'circle'];
+  const layer = (i, label) => ({ key: 'k' + i, label, color: '#d62728', shape: SHAPES[i % SHAPES.length],
+    points: [{ name: 'F' + i, lon: -120.45 + i * 0.002, lat: 46.62 }] });
+  const input = (labels, hide) => ({ premises: rows, f: Object.assign({}, f, { hideCircles: !!hide }), universe: ['Cattle'],
+    title: '', date: new Date(2026, 9, 27), counties: COUNTIES, facilities: labels.map((l, i) => layer(i, l)) });
+  const svgOf = b => b.parts.join('');
+  const order = (svg, words) => words.map(w => svg.indexOf('>' + w + '<')).every((at, i, a) => at >= 0 && (!i || at > a[i - 1]));
+  // The order, and two short names to a row.
+  let b = BM.focus(input(['Feedlots', 'Markets', 'Fairgrounds']));
+  check(order(svgOf(b), ['CVI PREMISES', 'Importer (received)', 'Exporter (sent)', 'Animals per premises',
+    'FACILITY LOCATIONS', 'Feedlots', 'Markets', 'Fairgrounds']), tag + ': CVI PREMISES first (the roles, then Animals ' +
+    'per premises), then FACILITY LOCATIONS');
+  check(JSON.stringify(b.model.legendFacilityRows) === JSON.stringify([['Feedlots', 'Markets'], ['Fairgrounds']]) &&
+    b.model.legendFacilityScale === 1 && b.model.legendFacilitiesLeftOut === 0 && b.model.legendFits,
+  tag + ': the facility layers two to a row, at the key\'s text size', b.model.legendFacilityRows);
+  // A name too long for its half has a row of its own.
+  const longName = 'Restricted holding facilities for quarantined animals';
+  b = BM.focus(input(['Feedlots', longName, 'Markets']));
+  check(JSON.stringify(b.model.legendFacilityRows) === JSON.stringify([['Feedlots'], [longName], ['Markets']]),
+    tag + ': a name too long for half the box has its own row', b.model.legendFacilityRows);
+  // Circles hidden: the facility layers only.
+  b = BM.focus(input(['Feedlots', 'Markets'], true));
+  check(svgOf(b).indexOf('>CVI PREMISES<') < 0 && svgOf(b).indexOf('>FACILITY LOCATIONS<') >= 0,
+    tag + ': with the CVI circles hidden, only FACILITY LOCATIONS');
+  // CVI's style keeps CVI's order.
+  check(order(svgOf(BM.focus(input(['Feedlots', 'Markets']), BR.CVI_STYLE)), ['PREMISES ROLE', 'FACILITY LOCATIONS',
+    'ANIMALS / PREMISES']), tag + ': CVI\'s style keeps CVI\'s order (PREMISES ROLE, FACILITY LOCATIONS, ANIMALS / PREMISES)');
+  // More and more layers: the key always fits under the Top box, its facility rows never closer than their text;
+  // smaller text comes before layers left out, and layers left out are the last ones, named in one line.
+  const pt = BR.textPt(3.0);
+  const sweep = [4, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40].map(n => {
+    const labels = Array.from({ length: n }, (v, i) => 'Synthetic layer ' + (i + 1));
+    const built = BM.focus(input(labels)), m = built.model, svg = BR.svg(built.parts);
+    const listed = [].concat(...m.legendFacilityRows);
+    const facility = new Set(labels.concat(['']));
+    const rowsAt = m.legendCircles.filter(c => facility.has(c.label)).map(c => c.y);
+    const least = pt * m.legendFacilityScale * 1.2 + 2;
+    return { n, m, ok: m.legendFits && m.legendY + m.legendHeight <= m.topY - 0.008 + 1e-9 &&
+      JSON.stringify(listed) === JSON.stringify(labels.slice(0, n - m.legendFacilitiesLeftOut)) &&
+      rowsAt.every((y, i) => !i || y - rowsAt[i - 1] >= least - 1e-6) &&
+      (m.legendFacilitiesLeftOut > 0) === (svg.indexOf('more layer') >= 0 && svg.indexOf('(see the CSV export)') >= 0) &&
+      (m.legendFacilitiesLeftOut === 0 || m.legendFacilityScale === 0.8) };
+  });
+  check(sweep.every(x => x.ok), tag + ': 4 to 40 layers: the key fits under the Top box, its facility rows never ' +
+    'closer than their text, layers left out only at the smallest text, the last ones, named in one line',
+  sweep.filter(x => !x.ok).map(x => [x.n, x.m.legendFits, x.m.legendFacilityScale, x.m.legendFacilitiesLeftOut]));
+  check(sweep.some(x => x.m.legendFacilitiesLeftOut > 0) && sweep.some(x => x.m.legendFacilityScale === 1) &&
+    sweep.some(x => x.m.legendFacilityScale < 1 && x.m.legendFacilitiesLeftOut === 0) &&
+    sweep.every((x, i) => !i || x.m.legendFacilityScale <= sweep[i - 1].m.legendFacilityScale),
+  tag + ': the sweep reaches every stage (all at full size, every layer at a smaller size, layers left out), in that ' +
+    'order',
+  sweep.map(x => [x.n, x.m.legendFacilityScale, x.m.legendFacilitiesLeftOut]));
+  // In the GIF every frame's key is laid out under the lowest Top box of all frames (input.legendTop), so the key stays
+  // the same from frame to frame: given a limit 0.1 lower than this page's own Top box, the key stays under it, made
+  // smaller or shorter than on its own.
+  const labels12 = Array.from({ length: 12 }, (v, i) => 'Synthetic layer ' + (i + 1));
+  const own = BM.focus(input(labels12)).model;
+  const limit = own.topY - 0.1;
+  const low = BM.focus(Object.assign(input(labels12), { legendTop: limit })).model;
+  check(low.legendY + low.legendHeight <= limit - 0.008 + 1e-9 && low.legendFits &&
+    (low.legendFacilityScale < own.legendFacilityScale || low.legendFacilitiesLeftOut > own.legendFacilitiesLeftOut),
+  tag + ': the GIF\'s lower limit (every frame\'s lowest Top box) keeps the key under it, smaller or shorter',
+  [own.topY, limit, low.legendY + low.legendHeight, own.legendFacilityScale, low.legendFacilityScale,
+    own.legendFacilitiesLeftOut, low.legendFacilitiesLeftOut]);
+}
+
 function checkFocusInsetAsotin() {
   const tag = 'inset Adams-Asotin';
   const premise = (id, dir, lon, lat, total) => ({ premises_id: id, group_key: id, direction: dir, lon, lat,
@@ -2091,6 +2170,7 @@ checkFrameRules();
 checkViewGifSpread();
 try {
   checkFocusInsetAsotin();
+  checkFocusKey();
   checkSyntheticLine();
   checkPeriodGaps();
 } catch (e) {

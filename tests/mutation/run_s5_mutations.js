@@ -29,7 +29,7 @@ const PAGE = [
   ['cluster species totals wrong', M, '(spec[k] || 0) + o[k]', '(spec[k] || 0) + o[k] + 1'],
   ['stale hover accepted', M, 'token !== st.hoverToken || st.map.getSource(SRC[dir]) !== src', 'false'],
   ['absent facility files retained', U, 't === undefined ? null', 't === undefined ? fo.fac.layers[l.key]'],
-  ['hidden size legend retained', U, 'if (fo.hide) { line(', 'if (false) { line('],
+  ['hidden size legend retained', U, 'if (fo.hide) return only(', 'if (false) return only('],   // 2.2: the legend's groups
   ['reset keeps a county', F, "return { counties: [], direction: 'combined'", "return { counties: ['King'], direction: 'combined'"],
   ['popup unreadable font restored', M, "overflow: 'auto', fontSize: '14px'", "overflow: 'auto', fontSize: '0.78em'"],
   ['popup short-window height cap removed', M, "maxHeight: 'min(240px, 30vh, calc(38.5vh - 80px))'", "maxHeight: '240px'"],

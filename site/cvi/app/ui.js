@@ -1544,6 +1544,7 @@
     $('focus-map').style.visibility = 'hidden';
     $('fit-focus').disabled = true;
     $('legend-panel-focus').hidden = true; $('legend-toggle-focus').disabled = true;   // as the other maps' legends
+    $('legend-panel-focus').classList.add('no-map');   // not shown under the map on a phone either (index.html)
   }
   const focusLive = () => focusMap && !focusFailed;
   doc.querySelectorAll('input[name=fo-direction]').forEach(r => r.addEventListener('change', () => {
@@ -1807,66 +1808,97 @@
     if (b && !(focusMap && focusMap.basemapFailed)) return b.dark ? null : '#ffffff';
     return focusMap && focusMap.nr ? W.map.landColor(focusMap) : W.map.LAND_PAINT['fill-color'];
   };
+  // 2.2 (with CVI premises, the facility layers and the population layers on, the legend ran to
+  // about 40 lines and the facility rows pushed the CVI key out of view): the legend in groups that fold, the CVI
+  // premises first and open, then "Facility locations" (its number of layers), "Population context" and "Notes" (how
+  // facilities and activity are counted), folded at first. Each group keeps its open or folded state while the
+  // legend is redrawn (it is redrawn on every change of picks or layers). The panel's height cap and the layout
+  // under the map below 768 px are in index.html (#legend-panel-focus).
+  const focusGroupsOpen = { cvi: true, facilities: false, population: false, notes: false };
+  function legendGroup(p, key, title, count) {
+    const d = doc.createElement('details');
+    d.className = 'lg-group';
+    d.setAttribute('data-group', key);
+    d.open = !!focusGroupsOpen[key];
+    const sum = doc.createElement('summary'), strong = doc.createElement('strong');
+    strong.textContent = title;
+    sum.appendChild(strong);
+    if (count) {
+      const c = doc.createElement('span'); c.className = 'lg-count'; c.textContent = ' ' + count;
+      sum.appendChild(c);
+    }
+    d.appendChild(sum);
+    d.addEventListener('toggle', () => { focusGroupsOpen[key] = d.open; });
+    p.appendChild(d);
+    return d;
+  }
+  let focusNotes = [];   // the notes renderFocusLegendBody collects, drawn last in their own group
   // Draws the County Focus legend with its population part; returns what the main part drew.
   function renderFocusLegend() {
+    const p = $('legend-panel-focus');
     const drew = renderFocusLegendBody();
-    pcLegend($('legend-panel-focus'), 'focus');
+    pcLegend(p, 'focus', n => legendGroup(p, 'population', 'Population context', n + ' layer' + (n === 1 ? '' : 's')));
+    if (focusNotes.length) {
+      const g = legendGroup(p, 'notes', 'Notes');
+      focusNotes.forEach(e => g.appendChild(e));
+    }
+    drew.groups = [...p.querySelectorAll('.lg-group')].map(g => ({ key: g.getAttribute('data-group'), open: g.open }));
     return drew;
   }
-  // Draws the County Focus legend's main part (facilities, premises roles, sizes, clusters); returns what it shows.
+  // Draws the County Focus legend's main part: the CVI premises group (roles, sizes, clusters), then the facility
+  // layers' group; its notes are kept for the Notes group (focusNotes). Returns what it shows.
   function renderFocusLegendBody() {
     const p = $('legend-panel-focus');
     p.textContent = '';
-    const line = (t, cls) => {
-      const e = doc.createElement(cls ? 'div' : 'em'); if (cls) e.className = cls;
-      e.textContent = t; p.appendChild(e); return e;
+    focusNotes = [];
+    const note = (t, cls) => {
+      const e = doc.createElement('div'); e.className = cls || 'lg-note'; e.textContent = t; focusNotes.push(e); return e;
     };
-    const head = t => {
+    const line = t => { const e = doc.createElement('em'); e.textContent = t; p.appendChild(e); };
+    const head = (box, t) => {
       const h = doc.createElement('div'); h.style.marginBottom = '4px';
-      const s = doc.createElement('strong'); s.textContent = t; h.appendChild(s); p.appendChild(h);
+      const s = doc.createElement('strong'); s.textContent = t; h.appendChild(s); box.appendChild(h);
     };
-    const hr = () => { p.appendChild(doc.createElement('hr')).style.margin = '6px 0'; };
     const facilities = fo.fac && fo.fac.result ? fo.fac.result.layers : [];
-    if (facilities.length) {
-      head('Facility locations');
+    const facilityGroup = () => {
+      if (!facilities.length) return;
+      const g = legendGroup(p, 'facilities', 'Facility locations', facilities.length + ' layer' +
+        (facilities.length === 1 ? '' : 's'));
       facilities.forEach(l => {
         const row = doc.createElement('div'); row.className = 'lg-row';
         const mark = W.facilities.markElement(l, 18);
         const text = doc.createElement('span'); text.textContent = l.liveLabel + ' — ' + l.count;
-        row.append(mark, text); p.append(row);
+        row.append(mark, text); g.append(row);
       });
       const shared = W.facilities.sharedNote(facilities);
-      if (shared) line(shared, 'lg-note facility-shared-note');
-      line('Facilities are unclustered points within the selected focus counties, refined by their attributes. Counts are rows, not deduplicated sites.', 'lg-note'); hr();
-    }
+      if (shared) note(shared, 'lg-note facility-shared-note');
+      note('Facilities are unclustered points within the selected focus counties, refined by their attributes. Counts are rows, not deduplicated sites.');
+    };
+    // Without premises to show, one line in place of the CVI premises group, then the facility layers.
     const b = fo.built || { premises: [], missingCoordinates: [] };
-    if (!fo.counties.length) {
-      line('Pick a focus county in the sidebar to view the map.'); return (fo.legend = { state: 'no-picks' });
-    }
-    if (b.missingCoordinates.length && fo.strip && fo.strip.lines) {
-      line(fo.strip.lines.join(' ')); return (fo.legend = { state: 'no-coordinates' });
-    }
-    if (!b.premises.length) { line('No data matches current filters.'); return (fo.legend = { state: 'empty' }); }
-    if (fo.hide) { line('CVI circles are hidden ("Hide CVI circles" in County Focus Style).'); return (fo.legend = { state: 'hidden' }); }
-    head('Premises role');
+    const only = (t, state) => { line(t); facilityGroup(); return (fo.legend = { state }); };
+    if (!fo.counties.length) return only('Pick a focus county in the sidebar to view the map.', 'no-picks');
+    if (b.missingCoordinates.length && fo.strip && fo.strip.lines) return only(fo.strip.lines.join(' '), 'no-coordinates');
+    if (!b.premises.length) return only('No data matches current filters.', 'empty');
+    if (fo.hide) return only('CVI circles are hidden ("Hide CVI circles" in County Focus Style).', 'hidden');
+    const g = legendGroup(p, 'cvi', 'CVI premises');   // the premises roles first, under the group's own title
     const land = focusLand(), op = Number(fo.opacity);
     const swatches = [['Importer — received animals', '#1C9CD9'], ['Exporter — sent animals', '#F0A06E']]
       .map(([label, color]) => {
       const row = doc.createElement('div'); row.className = 'lg-row';
       const shown = land ? W.palettes.blend(color, op, land) : color.toLowerCase();
       const dot = doc.createElement('span'); dot.className = 'lg-dot'; dot.style.width = dot.style.height = '14px'; dot.style.background = shown;
-      const t = doc.createElement('span'); t.textContent = label; row.append(dot, t); p.appendChild(row);
+      const t = doc.createElement('span'); t.textContent = label; row.append(dot, t); g.appendChild(row);
       return { label, color, shown, land };
     });
     let sizes = [];
     if (b.legend) {
-      hr(); head('Animals per premises');
+      head(g, 'Animals per premises');
       const n = nestedSizes(b.legend.values, b.legend.radii);
-      sizes = n.labels; p.appendChild(n.svg);
+      sizes = n.labels; g.appendChild(n.svg);
     }
     // The cluster example only while premises are grouped; it says the bubbles keep one size.
     if (fo.group) {
-      hr();
       const cl = doc.createElement('div'); cl.className = 'lg-row'; cl.style.gap = '5px';
       [['12', '#1C9CD9'], ['8', '#F0A06E']].forEach(([n, c]) => {
         const e = doc.createElement('span'); e.className = 'lg-cl'; e.style.background = c; e.textContent = n;
@@ -1875,13 +1907,13 @@
       const ct = doc.createElement('span'); ct.className = 'lg-note'; ct.style.color = '#444';
       ct.textContent = 'Numbered bubbles group nearby premises (count shown) and keep one size; zoom in, or untick ' +
         '"Group nearby premises", to see each premises sized.';
-      cl.appendChild(ct); p.appendChild(cl);
+      cl.appendChild(ct); g.appendChild(cl);
     }
-    hr();
-    const note = doc.createElement('div'); note.className = 'lg-note';
+    facilityGroup();
+    const activity = doc.createElement('div'); activity.className = 'lg-note';
     const emph = doc.createElement('em'); emph.textContent = 'at each premises';
-    note.append('Counts are activity ', emph, '. A WA-to-WA shipment between two focus counties appears at both its origin and destination premises, so layer totals are not deduplicated shipment volume.');
-    p.appendChild(note);
+    activity.append('Counts are activity ', emph, '. A WA-to-WA shipment between two focus counties appears at both its origin and destination premises, so layer totals are not deduplicated shipment volume.');
+    focusNotes.push(activity);
     return (fo.legend = { state: 'legend', swatches, sizes });
   }
   $('fo-labels').addEventListener('change', e => {
@@ -2579,14 +2611,20 @@
   });
   syncPcControls();
   // The live legend's block (index.html .lg-pc-*): the outline entries and the density classes, as drawn now.
-  function pcLegend(p, view) {
+  // into (County Focus, 2.2): makes the group the rows go into, given the number of layers, in place of the divider
+  // and heading.
+  function pcLegend(p, view, into) {
     if (!PN || view === 'flow') return;
-    const entries = PN.legendEntries(pcDrawn(view), PN.DEFAULT_RAMP);
+    const drawn = pcDrawn(view);
+    const entries = PN.legendEntries(drawn, PN.DEFAULT_RAMP);
     if (!entries.length) return;
-    p.appendChild(doc.createElement('hr')).style.margin = '6px 0';
-    const head = doc.createElement('div'); head.style.marginBottom = '4px';
-    const strong = doc.createElement('strong'); strong.textContent = 'Population context'; head.appendChild(strong);
-    p.appendChild(head);
+    if (into) p = into(Object.keys(drawn).filter(k => drawn[k]).length);
+    else {
+      p.appendChild(doc.createElement('hr')).style.margin = '6px 0';
+      const head = doc.createElement('div'); head.style.marginBottom = '4px';
+      const strong = doc.createElement('strong'); strong.textContent = 'Population context'; head.appendChild(strong);
+      p.appendChild(head);
+    }
     entries.forEach(e => {
       const row = doc.createElement('div'); row.className = 'lg-row lg-pc';
       if (e.type === 'title') { row.className = 'lg-note lg-pc'; row.textContent = e.label; p.appendChild(row); return; }

@@ -28,10 +28,18 @@
 //           refused files, every lookup in the main cache file against CVI's module (its coordinates and text), a
 //           failed second file leaving the first in use, and Add site after a hit; then spell check and autocomplete
 //           off on the typed boxes, a large cache file, and export_params.json after a band edit.
+//   bands   (2.2) a site's own bands: "Bands km (optional)" in the Add a site form in Concentric bands mode, its hint
+//           following the Band radii box, the warnings under the field; the sites table's gray default and a Bands
+//           cell edit refused with its reason; a pasted row with four bands refused; Run query's check.
+//   cvifirst (2.2) the CVI match first: the sidebar's sections named and in order ("CVI match" first, "Facilities
+//           inside (optional)" folded with no layer ticked), Matched CVIs above Facilities inside, and "Search around
+//           a premises from your CVI file": grayed with its reason, the county and ends, the list for the CVI match's
+//           filters, the city box, ticks, Tick all and Clear, the button's count, the premises added as sites (not
+//           twice), Run query around them, the Band radii sentence.
 //
 // Usage (repository root, after node tests/node/run_f1_unit_tests.js, node tests/synthetic/make_s11_fixtures.js and
 // Rscript tests/oracle/s11_proximity_oracle.R):
-//   node tests/browser/run_s11_browser.js [page] [day3] [day4] [day5]
+//   node tests/browser/run_s11_browser.js [page] [day3] [day4] [day5] [bands] [cvifirst]
 // Writes local-test-artifacts/s11/browser/run.json (results).
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -42,7 +50,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const OUT = path.join(ROOT, 'local-test-artifacts', 's11', 'browser');
 const PAGE = process.env.S11_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'cvi', 'index.html')).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ALL_PARTS = ['page', 'day3', 'day4', 'day5'];
+const ALL_PARTS = ['page', 'day3', 'day4', 'day5', 'bands', 'cvifirst'];
 const asked = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const PARTS = asked.length ? asked : ALL_PARTS;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -301,9 +309,16 @@ function facilityPoints(text) {
   const iLat = h.findIndex(c => /^(lat|latitude|y)$/.test(c)), iLon = h.findIndex(c => /^(long|lon|lng|longitude|x)$/.test(c));
   return rows.slice(1).map(r => [Number(r[iLat]), Number(r[iLon])]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
 }
-const sendFacilities = (b, texts) => b.page.eval(`(t => { const d = {};
+// Since 2.2 no layer is ticked when the files arrive; the older checks were written for the start before it (every
+// usable layer ticked the first time the page has some), so the helper ticks them then, as a user would with All.
+// { asIs: true } sends the files without it (the checks of the start itself).
+const sendFacilities = (b, texts, o) => b.page.eval(`((t, asIs) => { const d = {};
   Object.keys(t).forEach(k => { d[k] = { file: new Blob([t[k]], { type: 'text/csv' }) }; });
-  return CVIWA.setFacilityFiles(d).then(() => true); })(${js(texts)})`);
+  return CVIWA.setFacilityFiles(d).then(() => {
+    const usable = document.querySelectorAll('#lk-fac-list input[id^=lk-layer-]:not(:disabled)').length > 0;
+    if (!asIs && usable && !window.s11FirstTicks) { window.s11FirstTicks = true; document.getElementById('lk-fac-all').click(); }
+    if (asIs && usable) window.s11FirstTicks = true;
+    return true; }); })(${js(texts)}, ${o && o.asIs ? 'true' : 'false'})`);
 const waitMap = b => b.page.waitFor(`CVIWA.lookupState.map && CVIWA.lookupState.map.ready && CVIWA.lookupState.map.drawn`,
   15000, 'match map');
 const idle = b => b.page.eval(`new Promise(res => { const m = CVIWA.lookupState.map.map;
@@ -399,12 +414,21 @@ async function partDay3(b) {
 
   // ── Facilities inside (the Full tier's facility files) ──
   const texts = facilityTexts();
-  await sendFacilities(b, texts);
+  await sendFacilities(b, texts, { asIs: true });
   const fl = await p.eval(`(() => ({ boxes: [...document.querySelectorAll('#lk-fac-list input[type=checkbox][id^=lk-layer-]')]
     .map(c => ({ key: c.value, on: c.checked, usable: !c.disabled })), none: document.getElementById('lk-fac-none').hidden }))()`);
   const usableKeys = fl.boxes.filter(x => x.usable).map(x => x.key);
-  check(usableKeys.length === 7 && fl.boxes.filter(x => x.usable).every(x => x.on) && fl.none,
-    'day3: the facility files list their layers, every usable layer ticked (as on the Infrastructure dashboard)', fl);
+  // 2.2: the facilities are optional in Premise Lookup: no layer ticked when the files arrive, the section folded and
+  // its summary saying so (the Infrastructure dashboard still ticks every usable layer: S6).
+  const facStart = await p.eval(`({ open: document.getElementById('lk-fac-section').open,
+    sum: document.getElementById('lk-fac-sum').textContent })`);
+  check(usableKeys.length === 7 && fl.boxes.every(x => !x.on) && fl.none && !facStart.open &&
+    facStart.sum === 'none ticked', 'day3: the facility files list their layers, none ticked and the section folded ' +
+    '("none ticked")', [fl, facStart]);
+  await click(b, 'lk-fac-all');
+  const facAll = await p.eval(`({ on: [...document.querySelectorAll('#lk-fac-list input[type=checkbox][id^=lk-layer-]')]
+    .filter(c => c.checked).length, sum: document.getElementById('lk-fac-sum').textContent })`);
+  check(facAll.on === 7 && facAll.sum === '7 of 7 ticked', 'day3: All ticks every usable layer ("7 of 7 ticked")', facAll);
   // Sites near facilities, then counts worked out here.
   const pts = {};
   ['slaughterhouses', 'fairgrounds', 'markets', 'feedlots', 'restricted', 'syn_custommeat', 'syn_disposal']
@@ -1163,9 +1187,10 @@ async function partPage(b) {
   'page: pasted rows added with CVI\'s message, the short line counted as skipped (a recorded difference); the box emptied', t.rows);
   await radio(b, 'lk-mode', 'bands');
   t = await sitesShown(b);
-  check(t.head[4] === 'Bands (km, optional)' && t.rows[2][4] === '1,3,5' && t.rows[1][4] === '' &&
+  check(t.head[4] === 'Bands (km, optional)' && t.rows[2][4] === '1, 3, 5' && t.rows[1][4] === 'Default: 3, 10, 20' &&
     await shown(b, 'lk-bands-block') && !(await shown(b, 'lk-single-block')),
-  'page: Concentric bands shows the Bands column (the pasted 1, 3, 5) and the band radii box', t);
+  'page: Concentric bands shows the Bands column (the pasted 1, 3, 5 written with spaces; a blank cell showing the ' +
+    'Band radii as "Default: 3, 10, 20", 2.2) and the band radii box', t);
   await radio(b, 'lk-mode', 'single');
 
   // The pages of the sites table.
@@ -1592,6 +1617,292 @@ async function partDay5(b) {
   return { hits };
 }
 
+// ── Part bands: a site's own bands (2.2) ─────────────────────────────────────────────────────
+// In Concentric bands mode the Add a site form asks for "Bands km" with a hint naming the Band radii in use; one rule
+// (lookup.js siteBands, checked against written expectations in the S11 unit suite) for the form, a Bands cell, pasted
+// rows and Run query; a blank Bands cell names the Band radii it uses, in gray.
+async function partBands(b) {
+  const p = b.page;
+  await openPage(b);
+  await p.viewport(1400, 1000);
+  await loadMaster(b, FULL);
+  await click(b, 'show-lookup');
+  const form = () => p.eval(`(() => { const t = id => document.getElementById(id);
+    const on = id => !t(id).closest('[hidden]') && t(id).getClientRects().length > 0;
+    return { buffer: on('lk-new-buffer'), bands: on('lk-new-bands'),
+      label: document.querySelector('label[for=lk-new-bands]').textContent, placeholder: t('lk-new-bands').placeholder,
+      hint: t('lk-new-bands-hint').textContent, lead: t('lk-add-optional').textContent }; })()`);
+  let f = await form();
+  check(f.buffer && !f.bands && f.lead === 'Buffer is optional — leave it blank to use the default buffer / preset above.',
+    'bands: Single buffer mode keeps "Buffer km (optional)" and its sentence', f);
+  await radio(b, 'lk-mode', 'bands');
+  f = await form();
+  check(!f.buffer && f.bands && f.label === 'Bands km (optional)' && f.placeholder === 'e.g. 1, 5, 10' &&
+    f.lead === 'Bands are optional — leave them blank to use the Band radii above.' &&
+    f.hint === 'Up to 3 distances, separated by commas. Leave blank to use the Band radii above.',
+  'bands: in Concentric bands mode the form asks for "Bands km (optional)", digits in the example, the hint', f);
+  // The hint names no distances: the blank Bands cells in the table show them.
+  await setValue(b, 'lk-bands', '20, 5, 10');
+  check((await form()).hint === 'Up to 3 distances, separated by commas. Leave blank to use the Band radii above.',
+    'bands: the hint stays the same when the Band radii change', (await form()).hint);
+  await p.eval(`document.querySelector('.lk-band-preset[data-bands="3, 10, 20"]').click(); true`);
+
+  // The form: a word, then four bands, warned under the field and nothing added; fixed, the site is added in order.
+  await setValue(b, 'lk-new-name', 'Banded farm');
+  await setValue(b, 'lk-new-lat', 46.6);
+  await setValue(b, 'lk-new-long', -120.5);
+  await setValue(b, 'lk-new-bands', '1, 5, ten');
+  check(js(await lines(b, 'lk-new-bands-msg')) === js([{ level: 'warn',
+    text: 'Bands km: "ten" is not a distance. Use numbers above 0, such as 1, 5, 10.' }]),
+  'bands: a word in "Bands km" is warned under the field', await lines(b, 'lk-new-bands-msg'));
+  await click(b, 'lk-add');
+  check(!(await sitesState(b)).length && (await lines(b, 'lk-add-msg')).length === 0 &&
+    (await lines(b, 'lk-new-bands-msg')).length === 1, 'bands: Add site with the word adds nothing; the warning stays ' +
+    'under the field');
+  await setValue(b, 'lk-new-bands', '1, 5, 10, 20');
+  check(js(await lines(b, 'lk-new-bands-msg')) === js([{ level: 'warn',
+    text: 'Bands km: use at most 3 bands; "1, 5, 10, 20" has 4.' }]), 'bands: four bands are warned',
+  await lines(b, 'lk-new-bands-msg'));
+  await setValue(b, 'lk-new-bands', '10, 1, 5');
+  check(!(await lines(b, 'lk-new-bands-msg')).length, 'bands: the warning goes once the bands are fixed');
+  // The warning is tied to the box for screen readers: in its description, the box marked invalid while it shows.
+  const aria = async () => p.eval(`({ by: document.getElementById('lk-new-bands').getAttribute('aria-describedby'),
+    invalid: document.getElementById('lk-new-bands').getAttribute('aria-invalid') })`);
+  const ariaOk = await aria();
+  await setValue(b, 'lk-new-bands', '1, 5, ten');
+  const ariaBad = await aria();
+  await setValue(b, 'lk-new-bands', '1, 5, 10');
+  const ariaFixed = await aria();
+  check(ariaOk.by === 'lk-new-bands-hint lk-new-bands-msg' && ariaOk.invalid === null && ariaBad.invalid === 'true' &&
+    ariaFixed.invalid === null, 'bands: the warning is in the box\'s description; the box is marked invalid only while ' +
+    'it shows', [ariaOk, ariaBad, ariaFixed]);
+  await click(b, 'lk-add');
+  check(js(await sitesState(b)) === js([{ name: 'Banded farm', lat: 46.6, long: -120.5, buffer_km: null,
+    bands_csv: '1, 5, 10' }]) && (await lines(b, 'lk-add-msg'))[0].text === 'Added "Banded farm".' &&
+    await p.eval(`document.getElementById('lk-new-bands').value === ''`),
+  'bands: Add site adds the site with its bands in order, then empties the field', await sitesState(b));
+  await setValue(b, 'lk-new-name', 'Plain farm');
+  await setValue(b, 'lk-new-lat', 46.4);
+  await setValue(b, 'lk-new-long', -120.2);
+  await click(b, 'lk-add');
+  check((await sitesState(b))[1].bands_csv === null, 'bands: a site added with the field blank has no bands of its own');
+
+  // The table: own bands with spaces; a blank cell names the Band radii, in gray, following the box.
+  const bandCells = () => p.eval(`[...document.querySelectorAll('#lk-sites td[data-field=bands_csv]')].map(td => ({
+    text: td.textContent, gray: !!td.querySelector('.lk-default-bands'),
+    color: getComputedStyle(td.querySelector('.lk-default-bands') || td).color }))`);
+  let cells = await bandCells();
+  check(cells[0].text === '1, 5, 10' && !cells[0].gray && cells[1].text === 'Default: 3, 10, 20' && cells[1].gray &&
+    cells[1].color !== cells[0].color, 'bands: the sites table writes a site\'s bands with spaces; a blank cell reads ' +
+    '"Default: 3, 10, 20" in gray (the Band radii)', cells);
+  await setValue(b, 'lk-bands', '5, 10, 20');
+  cells = await bandCells();
+  check(cells[1].text === 'Default: 5, 10, 20', 'bands: the blank cell follows the Band radii box', cells);
+  await setValue(b, 'lk-bands', '3, 10, 20');
+
+  // A Bands cell edited: four bands are not saved, with the reason under the table; good ones are saved.
+  await editCell(b, 1, 'bands_csv', '1, 2, 3, 4');
+  check((await sitesState(b))[1].bands_csv === null && js(await lines(b, 'lk-sites-msg')) === js([{ level: 'warn',
+    text: 'Bands for "Plain farm" not saved: use at most 3 bands; "1, 2, 3, 4" has 4.' }]),
+  'bands: four bands typed in a Bands cell are not saved; the reason shows under the table', await lines(b, 'lk-sites-msg'));
+  await editCell(b, 1, 'bands_csv', '4 2');
+  cells = await bandCells();
+  check((await sitesState(b))[1].bands_csv === '4 2' && cells[1].text === '2, 4' && !(await lines(b, 'lk-sites-msg')).length,
+    'bands: good bands typed in the cell are saved and shown in order with spaces; the warning goes', cells);
+
+  // Pasted rows: the row with four bands is not added, its reason given, and it stays in the box to fix.
+  await p.eval(`document.getElementById('lk-bulk').open = true; true`);
+  await setValue(b, 'lk-paste', 'Good row, 46.7, -120.6, 1, 5\nFour row, 46.8, -120.7, 1, 5, 10, 20');
+  await click(b, 'lk-paste-add');
+  check(js(await lines(b, 'lk-bulk-msg')) === js([{ level: 'ok', text: 'Added 1 site(s).' },
+    { level: 'warn', text: 'Not added: "Four row": use at most 3 bands; "1, 5, 10, 20" has 4.' }]) &&
+    await p.eval(`document.getElementById('lk-paste').value`) === 'Four row, 46.8, -120.7, 1, 5, 10, 20' &&
+    (await sitesState(b)).length === 3, 'bands: a pasted row with four bands is not added, with its reason, and stays ' +
+    'in the box; the good row is added', await lines(b, 'lk-bulk-msg'));
+
+  // Run query checks every site's bands again (a site from before this check, set in the page's state).
+  await p.eval(`CVIWA.lookupState.sites[0].bands_csv = '1, ten'; true`);
+  await click(b, 'lk-run');
+  await sleep(300);
+  check(js(await lines(b, 'lk-run-lines')) === js([{ level: 'warn', text: 'Bands for "Banded farm": "ten" is not a ' +
+    'distance. Use numbers above 0, such as 1, 5, 10. Fix them in the Sites to query table.' }]) &&
+    !(await p.eval(`!!CVIWA.lookupState.lastRun`)), 'bands: Run query stops on a site whose bands break the rule, ' +
+    'naming it', await lines(b, 'lk-run-lines'));
+  await p.eval(`CVIWA.lookupState.sites[0].bands_csv = '1, 5, 10'; true`);
+  await click(b, 'lk-run');
+  await waitMap(b);
+  const radii = await p.eval(`CVIWA.lookupState.lastRun.sites.map(s => s.radii)`);
+  check(js(radii) === js([[1, 5, 10], [2, 4], [1, 5]]), 'bands: Run query uses each site\'s own bands', radii);
+
+  // Back to Single buffer: the buffer field again.
+  await radio(b, 'lk-mode', 'single');
+  f = await form();
+  check(f.buffer && !f.bands, 'bands: back in Single buffer mode the form asks for "Buffer km" again', f);
+  return { radii };
+}
+
+// ── Part cvifirst: Premise Lookup with the CVI match first (2.2) ─────────────────────────────────
+// The premises list's own rule (lookup.js cviPremises: grouping, names, filters) is checked against written
+// expectations in the S11 unit suite; here the page shows what it returns for the fold's choices and the CVI match's
+// filters, and acts on the ticks.
+async function partCviFirst(b) {
+  const p = b.page;
+  await openPage(b);
+  await p.viewport(1400, 1000);
+  await click(b, 'show-lookup');
+  const side = await p.eval(`(() => { const secs = [...document.querySelectorAll('#lookup-side > details.section')];
+    return { heads: secs.map(d => d.querySelector('summary').firstChild.textContent.trim()), open: secs.map(d => d.open),
+      line: document.querySelector('#lk-cvi-section .section-body > p.muted').textContent,
+      facLine: document.querySelector('#lk-fac-section .section-body > p.muted').textContent,
+      sum: document.getElementById('lk-fac-sum').textContent }; })()`);
+  check(js(side.heads) === js(['CVI match', 'Buffer', 'Locations to query', 'Facilities inside (optional)', 'Map Style']) &&
+    js(side.open) === js([true, true, true, false, true]) &&
+    side.line === 'Finds the CVIs whose origin or destination lies inside each site\'s buffer. Always on.' &&
+    side.facLine === 'Also list the facilities of the ticked layers inside each buffer or zone. Off until a layer is ticked.' &&
+    side.sum === 'no facility files', 'cvifirst: the sidebar starts with "CVI match" and its line; "Facilities inside ' +
+    '(optional)" comes after Locations to query, folded', side);
+
+  // The fold, grayed without a master.
+  const fold = () => p.eval(`(() => { const t = id => document.getElementById(id);
+    return { disabled: t('lk-prem-body').disabled, off: t('lk-prem-off').hidden ? '' : t('lk-prem-off').textContent,
+      counties: [...t('lk-prem-county').options].map(o => o.value), county: t('lk-prem-county').value,
+      count: t('lk-prem-count').textContent, names: [...t('lk-prem-list').querySelectorAll('label > span')]
+        .map(s => s.firstChild.textContent), notes: [...t('lk-prem-list').querySelectorAll('p.muted')].map(x => x.textContent),
+      button: t('lk-prem-add-text').textContent, buttonOff: t('lk-prem-add').disabled,
+      how: t('lk-prem-how').textContent, summary: t('lk-prem').querySelector('summary').textContent }; })()`);
+  let f = await fold();
+  check(f.disabled && f.off === 'Grayed: Load a master dataset (Master dataset, above) to run a query.' &&
+    f.summary === 'Search around a premises from your CVI file', 'cvifirst: without a master the premises fold is ' +
+    'grayed with the reason', f);
+
+  // With the Full tier: the counties, then a county's premises for the CVI match's filters.
+  await loadMaster(b, FULL);
+  await p.eval(`document.getElementById('lk-prem').open = true; true`);
+  const want = (county, ends, find) => p.eval(`(() => { const ps = CVIWA.lookupState, L = CVIWA.lookup;
+    const all = L.cviPremises(CVIWA.state.master, { county: ${js(county)}, ends: ${js(ends)}, years: ps.years,
+      quarters: ps.quarters, species: ps.species }).premises;
+    const v = L.premisesShown(all, ${js(find || '')});
+    return { counties: L.premisesCounties(CVIWA.state.master), n: v.matching.length, names: v.shown.map(g => g.name),
+      note: v.note }; })()`);
+  f = await fold();
+  let w = await want(f.county, 'both');
+  check(await p.eval(`[...document.querySelectorAll('#lk-prem-list input')].every(c => !c.hasAttribute('value'))`),
+    'cvifirst: the tick boxes carry no value (a premises\' key may hold a farm entity id)');
+  check(!f.disabled && !f.off && js(f.counties) === js(w.counties) && f.county === w.counties[0] && w.counties.length > 3,
+    'cvifirst: with a master the fold opens up, listing the WA counties with premises (the first chosen)', f.counties);
+  await setValue(b, 'lk-prem-county', 'Yakima');
+  f = await fold();
+  w = await want('Yakima', 'both');
+  check(f.count === w.n + ' premises' && w.n > 6 && js(f.names) === js(w.names) && f.names.length === 6 &&
+    f.notes[0] === 'Showing the 6 with the most animals; type to find others.' && f.buttonOff &&
+    f.button === 'Search around 0 ticked premises', 'cvifirst: a county\'s premises, the six with the most animals ' +
+    'shown, the count and note; the button grayed at 0', [f, w]);
+  await setValue(b, 'lk-prem-ends', 'origin');
+  f = await fold();
+  w = await want('Yakima', 'origin');
+  check(f.count === w.n + ' premises' && js(f.names) === js(w.names) && f.names.every(x => / \(origin\)$/.test(x)),
+    'cvifirst: "Origins" lists the origins only', f.names);
+  await setValue(b, 'lk-prem-ends', 'both');
+  // The CVI match's filters: one year unticked changes the list.
+  const before = (await fold()).count;
+  await p.eval(`document.querySelector('#lk-years input').click(); true`);
+  f = await fold();
+  const yearOff = await p.eval(`CVIWA.lookupState.years`);
+  w = await want('Yakima', 'both');
+  check(f.count === w.n + ' premises' && f.count !== before && js(f.names) === js(w.names),
+    'cvifirst: the list follows the CVI match\'s years', [before, f.count, yearOff]);
+  await click(b, 'lk-years-all');
+  // Tick all with nothing typed ticks the six listed, never the whole county (each premises becomes a site).
+  await click(b, 'lk-prem-all');
+  const allN = (await want('Yakima', 'both')).n;
+  check((await fold()).button === 'Search around 6 ticked premises' && allN > 6,
+    'cvifirst: Tick all with nothing typed ticks the six listed, not all ' + allN + ' premises', allN);
+  await click(b, 'lk-prem-clear');
+  // The city box.
+  const city = (await want('Yakima', 'both')).names[0].replace(/( #\d+)? \((origin|destination)\)$/, '');
+  await setValue(b, 'lk-prem-find', city.toLowerCase());
+  f = await fold();
+  w = await want('Yakima', 'both', city.toLowerCase());
+  check(js(f.names) === js(w.names) && f.names.length > 0 && f.names.every(x => x.indexOf(city) === 0) &&
+    f.count === w.n + ' premises', 'cvifirst: typing a city lists its premises', [city, f.names]);
+  // Tick all ticks every match; Clear none.
+  await click(b, 'lk-prem-all');
+  f = await fold();
+  check(f.button === 'Search around ' + w.names.length + ' ticked premises' && !f.buttonOff, 'cvifirst: Tick all ticks ' +
+    'the premises the city box lists', f.button);
+  await click(b, 'lk-prem-clear');
+  check((await fold()).button === 'Search around 0 ticked premises', 'cvifirst: Clear takes every tick off');
+  await setValue(b, 'lk-prem-find', '');
+  // Two ticked, added as sites with the buffer above; added again, not twice.
+  await p.eval(`(() => { const c = document.querySelectorAll('#lk-prem-list input'); c[0].click(); c[1].click(); return true; })()`);
+  f = await fold();
+  check(f.button === 'Search around 2 ticked premises' && !f.buttonOff, 'cvifirst: the button counts the ticks', f.button);
+  const picked = await p.eval(`CVIWA.lookupState.prem.premises.filter(g => CVIWA.lookupState.prem.ticked.has(g.key))
+    .map(g => ({ name: g.name, lat: g.lat, long: g.long, buffer_km: null, bands_csv: null }))`);
+  await click(b, 'lk-prem-add');
+  check(js(await sitesState(b)) === js(picked) && picked.length === 2 && (await fold()).button ===
+    'Search around 0 ticked premises' && js(await lines(b, 'lk-prem-msg')) === js([{ level: 'ok', text:
+    'Added 2 premises to Sites to query. Click Run query to find the CVIs near them.' }]),
+  'cvifirst: the ticked premises added to Sites to query by name, at their points, with the buffer above; the ticks cleared',
+  await sitesState(b));
+  await p.eval(`(() => { const c = document.querySelectorAll('#lk-prem-list input'); c[0].click(); c[1].click(); return true; })()`);
+  await click(b, 'lk-prem-add');
+  check((await sitesState(b)).length === 2 && js(await lines(b, 'lk-prem-msg')) === js([{ level: 'info',
+    text: '2 already in Sites to query, not added again.' }]), 'cvifirst: premises already in the table are not added twice',
+  await lines(b, 'lk-prem-msg'));
+  // Concentric bands: the sentence names the Band radii.
+  await radio(b, 'lk-mode', 'bands');
+  const howBands = (await fold()).how;
+  await radio(b, 'lk-mode', 'single');
+  check(howBands === 'They are added to Sites to query, with the Band radii above.' &&
+    (await fold()).how === 'They are added to Sites to query, with the buffer above.',
+  'cvifirst: the sentence under the button follows the buffer style', howBands);
+
+  // Run query around them: the CVIs near the premises; no facility layer ticked, so no Facilities inside card.
+  await sendFacilities(b, facilityTexts(), { asIs: true });
+  check(await p.eval(`document.getElementById('lk-fac-sum').textContent`) === 'none ticked' &&
+    !(await p.eval(`document.getElementById('lk-fac-section').open`)), 'cvifirst: facility files loaded, no layer ' +
+    'ticked, the section still folded');
+  await click(b, 'lk-run');
+  await waitMap(b);
+  const r1 = await p.eval(`({ status: CVIWA.lookupState.lastRun.status, n: CVIWA.lookupState.lastRun.matched.length,
+    sites: CVIWA.lookupState.lastRun.sites.map(s => s.name), fac: document.getElementById('lk-fac-card').hidden,
+    cvi: document.getElementById('lk-cvi-card').hidden })`);
+  check(r1.status === 'ok' && r1.n > 0 && js(r1.sites) === js(picked.map(x => x.name)) && r1.fac && !r1.cvi,
+    'cvifirst: Run query finds the CVIs near the premises; with no layer ticked only Matched CVIs shows', r1);
+  // With layers ticked: Matched CVIs first, then Facilities inside.
+  await click(b, 'lk-fac-all');
+  await click(b, 'lk-run');
+  await p.waitFor(`!document.getElementById('lk-fac-card').hidden`, 10000, 'facilities card');
+  const order = await p.eval(`(() => { const top = id => document.getElementById(id).getBoundingClientRect().top;
+    return { map: top('lk-map-card'), cvi: top('lk-cvi-card'), fac: top('lk-fac-card'), exp: top('lk-export-card'),
+      alt: document.getElementById('lookup-map-alt').textContent }; })()`);
+  check(order.map < order.cvi && order.cvi < order.fac && order.fac < order.exp &&
+    order.alt === 'The sites and matches on this map are also listed under Sites to query, Matched CVIs and Facilities ' +
+    'inside, and in the export\'s CSV files.', 'cvifirst: the results read the match map, Matched CVIs, Facilities ' +
+    'inside, then Export', order);
+
+  // The Partner tier (no premises coordinates): the fold grayed with the CVI match's reason.
+  await loadMaster(b, FX.module.runs.find(r => r.name === 'missing coordinate columns').master);
+  f = await fold();
+  check(f.disabled && f.off === 'Grayed: Needs the columns Origin.Lat, Origin.Long, Dest.Lat and Dest.Long in the CVI ' +
+    'master table.' && !f.counties.length && f.count === '0 premises' && !(await lines(b, 'lk-prem-msg')).length,
+  'cvifirst: without premises coordinates the fold is grayed with the reason; the last file\'s message gone', f);
+  // With facility files and no layer ticked, Run query's reason (and the result area's line) names the facilities-only run.
+  await click(b, 'lk-fac-clear');
+  const offer = await p.eval(`({ reason: document.getElementById('lk-run-reason').textContent,
+    empty: document.getElementById('lk-empty').textContent, off: document.getElementById('lk-run').disabled })`);
+  const OFFER = ' Or tick a layer under Facilities inside (optional) to check the facilities only.';
+  check(offer.off && offer.reason === 'Needs the columns Origin.Lat, Origin.Long, Dest.Lat and Dest.Long in the CVI master ' +
+    'table.' + OFFER && offer.empty === 'Run query is grayed: ' + offer.reason, 'cvifirst: with facility files and no ' +
+    'layer ticked, the grayed Run query offers the facilities-only run', offer);
+  await click(b, 'lk-fac-all');
+  check(await p.eval(`document.getElementById('lk-run-reason').textContent`) === 'The CVI match is grayed: Needs the ' +
+    'columns Origin.Lat, Origin.Long, Dest.Lat and Dest.Long in the CVI master table. Run query checks the facilities only.',
+  'cvifirst: a layer ticked: Run query checks the facilities only');
+  return { picked: picked.map(x => x.name), matched: r1.n };
+}
+
 // ── Run ────────────────────────────────────────────────────────────────────────────────────────────────────────
 (async () => {
   const b = await launch();
@@ -1602,6 +1913,8 @@ async function partDay5(b) {
       else if (part === 'day3') run.results.day3 = await partDay3(b);
       else if (part === 'day4') run.results.day4 = await partDay4(b);
       else if (part === 'day5') run.results.day5 = await partDay5(b);
+      else if (part === 'bands') run.results.bands = await partBands(b);
+      else if (part === 'cvifirst') run.results.cvifirst = await partCviFirst(b);
       else throw new Error('Unknown part ' + part);
     }
   } catch (e) {

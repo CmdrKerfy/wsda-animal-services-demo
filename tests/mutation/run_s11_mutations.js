@@ -16,9 +16,14 @@
 //          index.html) against the Chrome suite's part "day4" (foreground)
 //   day5   Find coordinates and the geocode cache file on the page (lookup.js, index.html) against the
 //          Chrome suite's part "day5" (foreground); the address rules' mutants are in the group "unit".
+//   bands  (2.2) the bands field, the sites table's default and the cell check (lookup.js, index.html) against the
+//          Chrome suite's part "bands" (foreground); the rule's own mutants (siteBands) are in the group "unit".
+//   cvifirst (2.2) the CVI match first, Facilities inside optional, the results order and the premises fold
+//          (lookup.js, index.html) against the Chrome suite's part "cvifirst" (foreground); the premises list's own
+//          mutants (cviPremises) are in the group "unit".
 //
 // Usage (repository root): node tests/mutation/run_s11_mutations.js unit|page|day3 [numbers ...]
-//                          node tests/mutation/run_s11_mutations.js list   (groups: unit, page, day3, png, day4, day5)
+//                          node tests/mutation/run_s11_mutations.js list   (groups: unit, page, day3, png, day4, day5, bands, cvifirst)
 // The unmutated suite runs first in the same copy and must pass. The copy is deleted at the end, and the
 // repository's files are checked unchanged (SHA-256). Logs and a ledger: local-test-artifacts/s11/mutations/.
 const fs = require('fs');
@@ -34,6 +39,14 @@ const PX = 'site/shared/proximity.js', LK = 'site/cvi/app/lookup.js';
 const LM = 'site/cvi/app/lookupmap.js', UI = 'site/cvi/app/ui.js', IC = 'site/cvi/app/icons.js';
 const ZN = 'site/shared/zones.js', PN = 'site/shared/population.js', EX = 'site/cvi/app/exports.js';
 const HT = 'site/cvi/index.html', BM = 'site/cvi/app/brandedmaps.js';
+
+// The results' two cards since 2.2 (Matched CVIs first) and in v2.1's order, for the group cvifirst.
+const CVI_CARD = '    <div class="lk-card" id="lk-cvi-card" hidden>\n      <div class="lk-card-head">Matched CVIs</div>\n' +
+  '      <div class="lk-card-body" id="lk-table"></div>\n    </div>\n';
+const FAC_CARD = '    <div class="lk-card" id="lk-fac-card" hidden>\n      <div class="lk-card-head">Facilities inside</div>\n' +
+  '      <div class="lk-card-body">\n        <div id="lk-fac-counts"></div>\n        <div id="lk-fac-table"></div>\n' +
+  '      </div>\n    </div>\n';
+const CARDS_NOW = CVI_CARD + FAC_CARD, CARDS_OLD = FAC_CARD + CVI_CARD;
 
 // [name, file, exact original text, replacement]
 const GROUPS = {
@@ -93,7 +106,7 @@ const GROUPS = {
     ['upload: a leading space not prefixed with X (make.names)', LK,
       "if (!/^([A-Za-z]|\\.(?![0-9]))/.test(s)) s = 'X' + s;", "if (!/^([A-Za-z ]|\\.(?![0-9]))/.test(s)) s = 'X' + s;"],
     ['bands: repeated radii allowed', LK, 'if (new Set(v).size < v.length) return', 'if (false) return'],
-    ['bands: four radii allowed', LK, 'if (v.length > 3) return', 'if (v.length > 4) return'],
+    ['bands: four radii allowed', LK, 'if (v.length > 3) return { message:', 'if (v.length > 4) return { message:'],
     ['add a site: latitude -90 refused', LK, 'if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {\n      return { message:',
       'if (Math.abs(lat) >= 90 || Math.abs(lon) > 180) {\n      return { message:'],
     ['add a site: an unnamed site numbered from 0', LK, "const name = typed !== '' ? typed : 'Site ' + (count + 1);",
@@ -220,7 +233,46 @@ const GROUPS = {
     ['a UTF-16 file not refused for its encoding', LK, "    if (raw.indexOf('\\u0000') >= 0) {", '    if (false) {'],
     ['a facility listed twice counted twice', LK, "const distinct = new Set(found.map(r => r.lat + '\\r' + r.lon + '\\r' + r.name)).size;",
       'const distinct = found.length;'],
-    ['bidirectional controls kept', 'site/shared/branded.js', '\\u061C\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069]/g', ']/g']
+    ['bidirectional controls kept', 'site/shared/branded.js', '\\u061C\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069]/g', ']/g'],
+    // 2.2: a site's own bands (siteBands and where it is used).
+    ['site bands: a word taken', LK, 'const bad = v.findIndex(x => x === null || !Number.isFinite(x) || x <= 0);',
+      'const bad = v.findIndex(x => x !== null && x <= 0);'],
+    ['site bands: four taken', LK, '    if (v.length > 3) return { reason: \'use at most 3 bands;', '    if (v.length > 4) return { reason: \'use at most 3 bands;'],
+    ['site bands: a distance twice taken', LK, '    if (twice !== undefined) return { reason:', '    if (false) return { reason:'],
+    ['site bands: not put in order', LK, '    const radii = v.slice().sort((a, b) => a - b);\n    return { radii, text:',
+      '    const radii = v.slice();\n    return { radii, text:'],
+    ['site bands: a pasted row with bad bands added', LK, '      if (own && own.reason) {\n        refused.push(', '      if (false) {\n        refused.push('],
+    ['site bands: Run query does not check them', LK, '      if (wrong) {\n        return stop(', '      if (false) {\n        return stop('],
+    ['site bands: the form\'s bands not checked', LK, "      if (own.reason) return { message: { level: 'warn', text: 'Bands km: ' + own.reason }, bands: true };\n",
+      ''],
+    // 2.2: the PNG key's facility rows never closer than their text; smaller text before fewer layers.
+    ['PNG key: rows drawn closer than their label\'s lines', BM,
+      '        textScale: scale || 1, least: Math.max(MIN_KEY_SQUEEZE, ...shownFacilities.map(it => textShare(it, pt))) };',
+      '        textScale: scale || 1, least: MIN_KEY_SQUEEZE };'],
+    ['PNG key: no smaller text before fewer layers', BM, '    for (const scale of KEY_TEXT_STEPS.slice(1)) {', '    for (const scale of []) {'],
+    // 2.2: Search around a premises from your CVI file (cviPremises, premisesCounties, premisesShown)
+    ['premises: at the row\'s origin whatever its direction', LK,
+      "      const end = r.Movement === 'Inbound' ? 'Dest' : 'Origin';\n      if (!isWa(r[end + '.State']) || text(",
+      "      const end = 'Origin';\n      if (!isWa(r[end + '.State']) || text("],
+    ['premises: the farm entity id not used', LK, "const key = end + '\\r' + (eid ? 'e:' + eid : 'c:' + lon + ',' + lat);",
+      "const key = end + '\\r' + ('c:' + lon + ',' + lat);"],
+    ['premises: "#n" on a city\'s only premises', LK, "(same.length > 1 ? ' #' + (i + 1) : '')", "' #' + (i + 1)"],
+    ['premises: a county outside WA kept', LK,
+      "if (!isWa(r[end + '.State']) || text(r[end + '.County']) !== opts.county) return;",
+      "if (text(r[end + '.County']) !== opts.county) return;"],
+    ['premises: rows counted as CVIs', LK, 'g.cvis.add(hasCvi ? text(r.CVI) : index);', 'g.cvis.add(index);'],
+    ['premises: the years not followed', LK, "if ((yr.size && !yr.has(r['Reporting.Year'])) || (qt.size",
+      "if ((false) || (qt.size"],
+    ['premises: fifty shown before a city is typed', LK, 'const cap = t ? PREMISES_FOUND : PREMISES_SHOWN;',
+      'const cap = PREMISES_FOUND;'],
+    ['premises: the city box minds case', LK, "const t = String(find || '').trim().toLowerCase();",
+      "const t = String(find || '').trim();"],
+    ['premises: counties outside WA listed', LK, "if (end && county && isWa(r[end + '.State'])) names.add(county);",
+      'if (end && county) names.add(county);'],
+    ['premises: a row without coordinates not counted', LK, 'if (!P().usable(lat, lon)) { noCoords++; return; }',
+      'if (!P().usable(lat, lon)) { return; }'],
+    ['premises: a file without a CVI column said to count CVIs', LK, 'return { premises: list.sort(order), noCoords, hasCvi };',
+      'return { premises: list.sort(order), noCoords };']
   ],
   page: [
     ['switch: the maps stay shown with Premise Lookup', UI, "$('maps-main').hidden = lookup;", "$('maps-main').hidden = false;"],
@@ -245,7 +297,7 @@ const GROUPS = {
       "tip.setLngLat(e.lngLat).setHTML('').addTo(map);"],
     ['tiles: an icon missing from icons.js', IC, '    "geo": "<svg', '    "geo-x": "<svg'],
     ['result area: no reason while Run query is grayed', LK,
-      "const emptyNote = () => (ps.runReason && !ps.facilitiesOnly ? 'Run query is grayed: ' + ps.runReason : EMPTY_NOTE);",
+      "const emptyNote = () => (ps.runReason && !ps.facilitiesOnly ? 'Run query is grayed: ' + ps.runReason + (ps.runOffer || '')\n      : EMPTY_NOTE);",
       'const emptyNote = () => EMPTY_NOTE;'],
     ['select: the table rebuilt on a click (no double-click in Safari)', LK,
       "      const tr = $('lk-sites').querySelector('tr[data-uid=\"' + uid + '\"]');\n      if (!tr) return;",
@@ -335,8 +387,8 @@ const GROUPS = {
     ['PNG: no facilities', LK, 'const main = await pngPage(res, ps.facResult, choices, now, choices.background);',
       'const main = await pngPage(res, null, choices, now, choices.background);'],
     ['PNG: the Streets data path wrong', LK, "host.loadScript('../geo/streets-wa.js')", "host.loadScript('../geo/streets.js')"],
-    ['export: Branded map (.png) not ticked', HT, 'value="branded_png" checked>', 'value="branded_png">'],
-    ['export quality always hidden', LK, "$('lk-png-quality-field').hidden = !root.WSDA.tiles.BACKGROUNDS[$('lk-png-background').value];",
+    ['export: Branded map (.png) not ticked', HT, 'name="lk-format" value="branded_png" checked>', 'name="lk-format" value="branded_png">'],
+    ['export quality always hidden', LK, "$('lk-png-quality-field').hidden = !T.BACKGROUNDS[$('lk-png-background').value];",
       "$('lk-png-quality-field').hidden = true;"],
     ['population: the switches drive the Maps side\'s state', LK,
       "    $('lk-pc-block').addEventListener('change', e => {", "    $('pc-block').addEventListener('change', e => {"],
@@ -358,7 +410,9 @@ const GROUPS = {
       "const holes = childByName(poly, 'innerBoundaryIs').map(b => kmlRing(b, name, tally));", 'const holes = [];'],
     ['zone rows: the point and "Zone" cells editable', LK, 'const fixed = !!site.zone && j > 0;', 'const fixed = false;'],
     ['Place column: never filled in', LK, "if (ps.places !== 'ready') return '…';", "if (true) return '…';"],
-    ['facility layers: none ticked when the files arrive', LK, '!ps.facInitialized && usable);', 'false);'],
+    // 2.2: Premise Lookup starts with no layer ticked; this mutant ticks every usable layer as before.
+    ['facility layers: every usable layer ticked when the files arrive', LK, 'ps.fac.attributes, false);',
+      'ps.fac.attributes, true);'],
     ['Run query: no facilities-only run without a usable master', LK,
       'const facilitiesOnly = !!reason && !host.loading() && checkedLayers().length > 0;', 'const facilitiesOnly = false;'],
     ['Pick on map: latitude and longitude swapped', LK, "$('lk-new-lat').value = String(la);", "$('lk-new-lat').value = String(lo);"],
@@ -386,6 +440,53 @@ const GROUPS = {
     ['a facilities-only run while a master loads', LK, 'const facilitiesOnly = !!reason && !host.loading() && checkedLayers().length > 0;',
       'const facilitiesOnly = !!reason && checkedLayers().length > 0;']
   ],
+  // 2.2: the bands field, the table's default and the cell check on the page.
+  bands: [
+    ['the form keeps "Buffer km" in Bands mode', LK, "$('lk-new-buffer-field').hidden = mode === 'bands';",
+      "$('lk-new-buffer-field').hidden = false;"],
+    ['the blank Bands cells do not follow the Band radii box', LK,
+      "    $('lk-bands').addEventListener('input', () => {\n      if (ps.mode === 'bands') renderSites();",
+      "    $('lk-bands').addEventListener('input', () => {\n      void 0;"],
+    ['no warning under the field while typing', LK, "    $('lk-new-bands').addEventListener('change', () => checkNewBands(true));\n", ''],
+    ['a blank Bands cell left blank', LK, "              td.replaceChildren(el('span', 'lk-default-bands', r ? 'Default: ' + r : ''));",
+      '              void r;'],
+    ['the gray default not gray', HT, '  .lk-sites .lk-default-bands { color: var(--muted); }\n', ''],
+    ['a bad Bands cell saved', LK, "const own = keep && field === 'bands_csv' ? siteBands(input.value) : {};", 'const own = {};'],
+    ['the refused pasted row not kept in the box', LK, "$('lk-paste').value = r.refused.map(x => x.line).join('\\n');",
+      "$('lk-paste').value = '';"],
+    ['the Bands km box never marked invalid', LK, "      if (messages.length) $('lk-new-bands').setAttribute('aria-invalid', 'true');\n", '']
+  ],
+  cvifirst: [
+    ['the first section named "Filters" again', HT, '        <summary>CVI match</summary>', '        <summary>Filters</summary>'],
+    ['Facilities inside open at the start', HT, '<details class="section" id="lk-fac-section">',
+      '<details class="section" id="lk-fac-section" open>'],
+    ['the facilities summary empty', LK, "!usable.length ? 'no facility files' : !on ? 'none ticked'",
+      "!usable.length ? 'no facility files' : !on ? ''"],
+    // The two cards as v2.1 placed them (one contiguous piece of index.html, swapped back)
+    ['the Facilities inside card before Matched CVIs (v2.1\'s order)', HT, CARDS_NOW, CARDS_OLD],
+    ['the premises fold not grayed', LK, "$('lk-prem-body').disabled = off;", "$('lk-prem-body').disabled = false;"],
+    ['the premises fold ignores the years', LK, 'ends: pr.ends, years: ps.years,', 'ends: pr.ends, years: [],'],
+    ['a year ticked or unticked leaves the list as it was', LK,
+      '          refreshPremises();   // the premises fold follows', '          void 0;   // the premises fold follows'],
+    ['"Premises as" does nothing', LK, '      ps.prem.ends = e.target.value;\n', ''],
+    ['the city box does nothing', LK, '      ps.prem.find = e.target.value;\n', ''],
+    ['Tick all ticks a whole county (every match, not only those listed)', LK,
+      'premisesShown(ps.prem.premises, ps.prem.find).shown.forEach(', 'premisesShown(ps.prem.premises, ps.prem.find).matching.forEach('],
+    ['a premises added twice', LK, 'const fresh = picked.filter(g => !there(g));', 'const fresh = picked;'],
+    ['the ticks kept after Search around', LK, "      ps.prem.ticked.clear();\n      renderPremises();\n      say($('lk-prem-msg'), lines);",
+      "      renderPremises();\n      say($('lk-prem-msg'), lines);"],
+    ['the sentence says "buffer" in Bands mode', LK, "(mode === 'bands' ? 'Band radii' : 'buffer') + ' above.';",
+      "'buffer' + ' above.';"],
+    ['the map\'s note names the cards in the old order', HT, 'Sites to query, Matched CVIs and Facilities inside, and',
+      'Sites to query, Facilities inside and Matched CVIs, and'],
+    ['the premises fold\'s message kept after a new file', LK,
+      "      say($('lk-prem-msg'), []);   // the premises fold's last message was about the file before\n", ''],
+    ['the grayed Run query does not offer the facilities-only run', LK,
+      "        ? ' Or tick a layer under Facilities inside (optional) to check the facilities only.' : '';", "        ? '' : '';"],
+    ['a premises\' key written into its tick box', LK,
+      "        cb.type = 'checkbox';   // no value: the key may hold a farm entity id, never written into the page\n",
+      "        cb.type = 'checkbox';\n        cb.value = g.key;\n"]
+  ],
   day5: [
     ['Add site keeps the address', LK, "['lk-new-name', 'lk-new-address', 'lk-new-lat',", "['lk-new-name', 'lk-new-lat',"],
     ['Add site keeps the address message', LK, "        say($('lk-geo-msg'), []);\n", ''],
@@ -412,7 +513,7 @@ if (mode === 'list') {
   process.exit(0);
 }
 if (!GROUPS[mode] || picks.some(n => !Number.isInteger(n) || n < 1 || n > GROUPS[mode].length)) {
-  throw new Error('Use: <unit|page|day3|png|day4|day5> [numbers ...] | list');
+  throw new Error('Use: <unit|page|day3|png|day4|day5|bands> [numbers ...] | list');
 }
 const list = GROUPS[mode].map((m, i) => ({ n: i + 1, name: m[0], file: m[1], from: m[2], to: m[3] }))
   .filter(m => !picks.length || picks.includes(m.n));
@@ -427,7 +528,9 @@ function runSuite(label) {
   const suite = mode === 'page' ? ['tests/browser/run_s11_browser.js', 'page']
     : mode === 'day3' ? ['tests/browser/run_s11_browser.js', 'day3']
       : mode === 'day4' ? ['tests/browser/run_s11_browser.js', 'day4']
-        : mode === 'day5' ? ['tests/browser/run_s11_browser.js', 'day5'] : ['tests/node/run_s11_unit_tests.js'];
+        : mode === 'day5' ? ['tests/browser/run_s11_browser.js', 'day5']
+          : mode === 'bands' ? ['tests/browser/run_s11_browser.js', 'bands']
+          : mode === 'cvifirst' ? ['tests/browser/run_s11_browser.js', 'cvifirst'] : ['tests/node/run_s11_unit_tests.js'];
   const r = cp.spawnSync(process.execPath, suite, { cwd: COPY, encoding: 'utf8',
     maxBuffer: 64 << 20, timeout: 5 * 60000, killSignal: 'SIGINT' });
   const output = (r.stdout || '') + (r.stderr || '');

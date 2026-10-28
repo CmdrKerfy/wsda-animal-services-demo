@@ -2099,9 +2099,9 @@
         popRows);
       // A box too short for everything (a size circle would reach into its heading): the
       // grouping note in one line, when that lets the legend fit.
+      const shortNote = nGroupedAway > 0
+        ? [S().comma(plain.length) + ' premises in ' + S().comma(grouped.length) + ' grouped circles'] : [''];
       if (!legendBox.fits && noteLines.length) {
-        const shortNote = nGroupedAway > 0
-          ? [S().comma(plain.length) + ' premises in ' + S().comma(grouped.length) + ' grouped circles'] : [''];
         const shorter = focusLegendBySize(legend, showCircles, facilities, lgY, lgH, legendTop - 0.008 - lgY, style,
           shortNote, popRows);
         if (shorter.fits) {
@@ -2113,6 +2113,28 @@
         legendBox = focusLegendBySize(legend, showCircles, facilities, lgY, lgH, legendTop - 0.008 - lgY, style, noteLines);
         popCorner = populationCorner(popRows, mapPanel, around.concat(markers), mapNameBoxes,
           Math.max(0.03, input.band || 0), insetAtBox);
+      }
+      // Still short of room with the facility layers on (2.2): their text smaller, each size tried with the
+      // grouping note as it is, then in one line; then the last layers named as "and N more layers (see the CSV
+      // export)", as many listed as fit at the smallest text with the note in one line.
+      if (!legendBox.fits && facilities.length) {
+        const again = (fo, note) => focusLegendBySize(legend, showCircles, facilities, lgY, lgH, legendTop - 0.008 - lgY,
+          style, note, popCorner ? null : popRows, fo);
+        const notes = noteLines.length && nGroupedAway > 0 ? [noteLines, shortNote] : [noteLines];
+        let found = null;
+        for (const scale of FOCUS_KEY_TEXT) {
+          for (const note of notes) {
+            const key = found ? null : again({ scale }, note);
+            if (key && key.fits) found = { key, note };
+          }
+        }
+        if (!found) {
+          const scale = FOCUS_KEY_TEXT[FOCUS_KEY_TEXT.length - 1], note = notes[notes.length - 1];
+          const k = longestFitting(facilities.length - 1, j => again({ scale, shown: j }, note).fits);
+          found = { key: again({ scale, shown: k }, note), note };
+        }
+        legendBox = found.key;
+        noteLines = found.note;
       }
     } else {
       legendBox = focusLegendEven(legend, showCircles, facilities, lgY, lgH, style);
@@ -2142,6 +2164,9 @@
       view: 'focus', title, titleSize: BR.titleSize(title), meta, stats, boxes, top, legend,
       legendY: lgY, legendHeight: legendBox.height, legendCircles: legendBox.circles, legendOverlap: legendBox.overlap,
       legendAcross: !!legendBox.across, legendAcrossRows: legendBox.acrossRows || 0, legendSqueezed: !!legendBox.squeezed,
+      // The key's facility rows (each row's layer names), their text size and the layers named only in a count (2.2).
+      legendFacilityRows: legendBox.facilityRows || null, legendFacilityScale: legendBox.facilityScale || 1,
+      legendFacilitiesLeftOut: legendBox.facilitiesLeftOut || 0, legendFits: legendBox.fits === undefined ? null : legendBox.fits,
       circles: drawn, grouped: { premises: plain.length, circles: grouped.length, note: noteLines, noteY },
       names, nameArea: area, extent, corrected, scale, mapKm, topY, highlights: input.highlights || [],
       mapPanel: { left: mapPanel.left, top: mapPanel.top, width: mapPanel.width, height: mapPanel.height },
@@ -2165,51 +2190,85 @@
     return { model, parts, style };
   }
 
-  // The County Focus legend entries (.build_focus_legend, SMR 4261-4430, without facility layers): PREMISES ROLE
-  // (the two colors), a divider, ANIMALS / PREMISES (the size tiers); with the circles hidden, nothing of either.
-  // With facility layers on, a FACILITY LOCATIONS section between the two (each layer's label and color, the
-  // registry's order), as CVI's; with the circles hidden, only that section.
-  function focusLegendEntries(legend, showCircles, facilities, style) {
+  // The County Focus key in the page's style (2.2: CVI's order, .build_focus_legend SMR 4261-4430,
+  // ran the facility rows into the premises rows once the box was short): CVI PREMISES first (the two roles, then
+  // "Animals per premises" with the size tiers and the sizing line), then FACILITY LOCATIONS (each layer's mark and
+  // label, the registry's order), two layers to a row when both names fit their half. The role and facility rows are
+  // never drawn closer than their text (keep). With the circles hidden, only the facility layers. fo: { scale (the
+  // facility rows' text, a share of the key's), shown (how many layers are listed; the rest named in one line) }.
+  // CVI's own style keeps CVI's order and places (focusLegendEven).
+  function focusLegendEntries(legend, showCircles, facilities, style, fo) {
     const BR = B();
+    const o = fo || {};
+    const pt = BR.textPt(3.0);
+    const shown = o.shown === undefined ? facilities.length : o.shown;
+    const heading = t => ({ text: t, pt: BR.textPt(3.2), color: '#222222', bold: true });
     const entries = [];
-    const rule = { rule: { color: '#bbbbbb', width: 0.3, x0: 0.06, x1: 0.94 } };
-    const facilityRows = () => {
-      entries.push({ text: 'FACILITY LOCATIONS', pt: BR.textPt(3.2), color: '#222222', bold: true });
-      for (const l of facilities) {
-        entries.push({ circle: { size: 4, stroke: 0.8, fill: l.color, opacity: 1, shape: l.shape }, x: 0.14, labelX: 0.26,
-          label: l.label,
-          labelPt: BR.textPt(3.0) });
-      }
-    };
-    if (!showCircles && facilities.length) facilityRows();
     if (showCircles) {
-      entries.push({ text: 'PREMISES ROLE', pt: BR.textPt(3.2), color: '#222222', bold: true });
+      entries.push(heading('CVI PREMISES'));
       for (const [dir, label] of [['Inbound', 'Importer (received)'], ['Outbound', 'Exporter (sent)']]) {
-        entries.push({ circle: { size: 5, stroke: 0.8, fill: ROLE_COLORS[dir], opacity: 0.85 }, x: 0.14, labelX: 0.26,
-          label, labelPt: BR.textPt(3.0) });
+        entries.push({ keep: true, circle: { size: 5, stroke: 0.8, fill: ROLE_COLORS[dir], opacity: 0.85 }, x: 0.14,
+          labelX: 0.26, label, labelPt: pt });
       }
-      if (facilities.length) {
-        entries.push(rule);
-        facilityRows();
-      }
-      entries.push(rule, { text: 'ANIMALS / PREMISES', pt: BR.textPt(3.2), color: '#222222', bold: true }, { flex: true });
+      entries.push({ text: 'Animals per premises', pt: BR.textPt(2.8), color: '#444444', bold: true }, { flex: true });
       legend.labels.forEach((label, i) => entries.push({ circle: { size: legend.sizes[i], stroke: 1.0,
-        fill: '#888888', opacity: 0.5 }, x: 0.18, labelX: 0.40, label, labelPt: BR.textPt(3.0) }));
+        fill: '#888888', opacity: 0.5 }, x: 0.18, labelX: 0.40, label, labelPt: pt }));
       entries.push({ flex: true });
       if (style.sizingLine) {
         entries.push({ text: legend.sizing, pt: BR.textPt(2.5), color: '#444444', italic: true });
       }
     }
+    if (facilities.length) {
+      if (showCircles) entries.push({ rule: { color: '#bbbbbb', width: 0.3, x0: 0.06, x1: 0.94 } });
+      entries.push(heading('FACILITY LOCATIONS'));
+      entries.push(...facilityKeyRows(facilities.slice(0, shown), pt * (o.scale || 1)));
+      const more = facilities.length - shown;
+      if (more > 0) {
+        entries.push({ text: 'and ' + S().comma(more) + ' more layer' + (more === 1 ? '' : 's'), pt: 7.5, color: '#666666',
+          italic: true }, { text: '(see the CSV export)', pt: 7.5, color: '#666666', italic: true });
+      }
+    }
     return entries;
   }
+  // The facility layers' rows of County Focus's key: two layers to a row (the second at the box's middle) when both
+  // labels fit their half, else one layer to a row as before; each row at least as tall as its text (keep).
+  // Each row's entry carries its layers' labels (names) for the model.
+  const FACILITY_MARK = { size: 4, stroke: 0.8, opacity: 1 };
+  function facilityKeyRows(layers, pt) {
+    const BR = B();
+    const MARK = FACILITY_MARK;
+    // The row's sample is drawn from x (the key's u(0.08)): each layer's mark, then its name gap points after it.
+    const inner = BR.px(BR.LAYOUT.gutterW) - 10;   // the key's inner width (legendColumn's margin: 5 points)
+    const x0 = 0.08 * inner, gap = 9;               // the mark's place, and its label's distance from the mark
+    const room = 0.5 * inner - x0 - gap - 4;        // a label's width in its half
+    const reach = l => (root.WSDA.facilities ? root.WSDA.facilities.MARK_EXTENT[l.shape] || 1 : 1);
+    const markH = l => 2 * BR.pointRadius(MARK.size, MARK.stroke) * reach(l);
+    const mark = (l, x, y) => BR.circle(x, y, MARK.size, MARK.stroke, l.color, MARK.opacity, '#ffffff', l.shape);
+    const rows = [];
+    for (let i = 0; i < layers.length; i++) {
+      const a = layers[i], b = layers[i + 1];
+      // Both in one row, or this one alone, its mark and name where the left column's are.
+      const row = b && BR.textWidth(a.label, pt) <= room && BR.textWidth(b.label, pt) <= room ? [a, b] : [a];
+      if (row.length === 2) {
+        i++;
+      }
+      rows.push({ keep: true, x: 0.08, label: '', labelPt: pt, names: row.map(l => l.label),
+        sample: { height: Math.max(...row.map(markH)), draw: (x, y) => row.map((l, k) =>
+          mark(l, x + k * 0.5 * inner, y) + BR.text(l.label, x + k * 0.5 * inner + gap, y, { pt, color: '#444444' })).join('') } });
+    }
+    return rows;
+  }
+  // The facility rows' text sizes tried, as shares of the key's, before fewer layers are listed (as Emergency's key).
+  const FOCUS_KEY_TEXT = [1, 0.9, 0.8];
   // When the stacked column does not fit, the size samples go side by side in one row (sizes unchanged and
   // never touching), if that row fits the box's width; when one row is too wide, in two or three rows, the smaller
   // samples first (so natural breaks' circles are not drawn over each other).
-  function focusLegendBySize(legend, showCircles, facilities, y, minH, maxH, style, noteLines, extra) {
+  // fo: the facility rows' text size and how many layers are listed (focusLegendEntries).
+  function focusLegendBySize(legend, showCircles, facilities, y, minH, maxH, style, noteLines, extra, fo) {
     const BR = B();
     // nRows: 0 for the stacked column, else the number of side-by-side rows.
     const build = nRows => {
-      let entries = focusLegendEntries(legend, showCircles, facilities, style);
+      let entries = focusLegendEntries(legend, showCircles, facilities, style, fo);
       if (nRows) {
         const rows = entries.filter(e => e.circle && e.x === 0.18);
         const at = entries.indexOf(rows[0]);
@@ -2222,7 +2281,10 @@
         entries.push({ rule: { color: '#bbbbbb', width: 0.3, x0: 0.06, x1: 0.94 } });
         noteLines.forEach(t => entries.push({ text: t, pt: 7.5, color: '#666666', italic: true }));
       }
-      return BR.legendColumn(entries, { bottom: y, minH, maxH: Math.max(minH, maxH) });
+      // The facility rows as drawn (each row's layer names), the text size and the layers left out, for the model.
+      return Object.assign(BR.legendColumn(entries, { bottom: y, minH, maxH: Math.max(minH, maxH) }), {
+        facilityRows: entries.filter(e => e.names).map(e => e.names), facilityScale: (fo && fo.scale) || 1,
+        facilitiesLeftOut: facilities.length - entries.filter(e => e.names).reduce((t, e) => t + e.names.length, 0) });
     };
     const column = build(0);
     if (column.fits || !showCircles) return column;
@@ -2693,12 +2755,18 @@
   }
   // The page's layout (the legend column by size): each row as tall as its mark, the box growing up to maxH; the
   // population rows after the key. The facility layers stay in one column while their rows can be drawn at
-  // MIN_KEY_SQUEEZE of their height or more; else the key lists the layers with the most facilities, as many as fit
-  // that way, and "and N more layers (see the facilities CSV)" (at 25 layers every row was drawn over the next). The
-  // rows above the facility layers keep their height. mode: 'one' or 'top'; shown: the facility layers in the key.
+  // MIN_KEY_SQUEEZE of their height or more, and never closer than their label's lines (2.2: CVI's
+  // 0.6 alone let a name on two lines run into the next row; Emergency's key fixed it first); before listing fewer
+  // layers, their rows are tried in smaller text (KEY_TEXT_STEPS of the key's text size); else the key lists the
+  // layers with the most facilities, as many as fit at the smallest text, and "and N more layers (see the
+  // facilities CSV)" (at 25 layers every row was drawn over the next). The rows above the facility layers keep their
+  // height and text size. mode: 'one' or 'top'; shown: the facility layers in the key; textScale: their text size.
   // Readable: 13 layers with every row at 0.69 read well, 25 at 0.39 did not; with the rows above them kept whole,
   // 13 layers' facility rows are at 0.64.
   const MIN_KEY_SQUEEZE = 0.6;
+  const KEY_TEXT_STEPS = [1, 0.9, 0.8];
+  // legendColumn's label lines are labelPt * 1.15 apart; its rows are max(mark, lines * labelPt * 1.2) + 2 points tall.
+  const KEY_LINE_STEP = 1.15, KEY_ROW_LINE = 1.2, KEY_ROW_GAP = 2;
   function proximityKeyColumn(items, y, minH, maxH, extra) {
     const BR = B();
     const labelPt = BR.textPt(3.0);
@@ -2706,22 +2774,29 @@
       const reach = g.mark ? root.WSDA.facilities.MARK_EXTENT[g.mark] || 1 : 1;
       return g.shape === 21 ? 2 * BR.pointRadius(g.size, g.stroke) * reach : shapeHeight(g.shape, g.size, g.stroke);
     };
-    const rowOf = it => ({ sample: { height: markHeight(it.glyph), draw: (x, yy) => drawGlyph(it.glyph, x, yy) }, x: 0.14,
-      labelX: 0.28, label: keyLines(it.label, labelPt), labelPt });
+    // A row at its text size (pt: the key's, or smaller for the layers when the key is crowded).
+    const rowOf = (it, pt) => ({ sample: { height: markHeight(it.glyph), draw: (x, yy) => drawGlyph(it.glyph, x, yy) },
+      x: 0.14, labelX: 0.28, label: keyLines(it.label, pt), labelPt: pt });
     const head = it => (it.type === 'header' ? [{ text: it.label, pt: BR.textPt(3.2), color: '#222222', bold: true }]
       // Room above the divider for the row over it (so "Search buffer" does not sit close to the line).
       : [{ gap: 3 }, { rule: { color: '#bbbbbb', width: 0.3, x0: 0.06, x1: 0.94 } },
         { text: it.label, pt: BR.textPt(3.2), color: '#222222', bold: true }]);
     const facilities = items.filter(it => it.facility);
-    const readable = c => c.fits || c.squeeze >= MIN_KEY_SQUEEZE;
-    const build = (mode, shownFacilities) => {
-      const entries = [];
+    const lineCount = label => (Array.isArray(label) ? label.length : 1);
+    // The least a facility row may be drawn at: its label's lines, as a share of its full height.
+    const textShare = (it, pt) => {
+      const r = rowOf(it, pt), n = lineCount(r.label);
+      return n * KEY_LINE_STEP * pt / (Math.max(r.sample.height, n * KEY_ROW_LINE * pt) + KEY_ROW_GAP);
+    };
+    const readable = c => c.fits || c.squeeze >= c.least;
+    const build = (mode, shownFacilities, scale) => {
+      const pt = labelPt * (scale || 1), entries = [];
       items.forEach(it => {
         if (it.type !== 'row') entries.push(...head(it));
         // The rows above the facility layers (query site, buffers, matched ends) keep their height.
-        else if (!it.facility) entries.push(Object.assign(rowOf(it), { keep: true }));
+        else if (!it.facility) entries.push(Object.assign(rowOf(it, labelPt), { keep: true }));
       });
-      shownFacilities.forEach(it => entries.push(rowOf(it)));
+      shownFacilities.forEach(it => entries.push(rowOf(it, pt)));
       const more = facilities.length - shownFacilities.length;
       if (more > 0) {
         entries.push({ text: 'and ' + S().comma(more) + ' more layer' + (more === 1 ? '' : 's'), pt: 7.5, color: '#666666',
@@ -2730,17 +2805,23 @@
       entries.push(...(extra || []));
       const col = BR.legendColumn(entries, { bottom: y, minH, maxH: Math.max(minH, maxH) });
       return { parts: col.parts, height: col.height, rows: col.circles, fits: col.fits, box: col.box, mode,
-        shown: shownFacilities.map(it => it.facility.label), squeeze: col.squeeze, overlap: col.overlap };
+        shown: shownFacilities.map(it => it.facility.label), squeeze: col.squeeze, overlap: col.overlap,
+        textScale: scale || 1, least: Math.max(MIN_KEY_SQUEEZE, ...shownFacilities.map(it => textShare(it, pt))) };
     };
     const key = build('one', facilities);
     // With the population rows asked for, a key that does not fit goes back to the caller as it is: the population rows
     // move to a corner of the map first, and the key is laid out again without them.
     if (readable(key) || !facilities.length || (extra && extra.length)) return key;
-    // The most facilities first (the registry's order among equals), as many as fit.
+    for (const scale of KEY_TEXT_STEPS.slice(1)) {
+      const smaller = build('one', facilities, scale);
+      if (readable(smaller)) return smaller;
+    }
+    // The most facilities first (the registry's order among equals), as many as fit, at the smallest text.
+    const least = KEY_TEXT_STEPS[KEY_TEXT_STEPS.length - 1];
     const ranked = facilities.slice().sort((a, b) => b.facility.n - a.facility.n
       || facilities.indexOf(a) - facilities.indexOf(b));
-    const k = longestFitting(ranked.length - 1, j => readable(build('top', ranked.slice(0, j))));
-    return build('top', ranked.slice(0, k));
+    const k = longestFitting(ranked.length - 1, j => readable(build('top', ranked.slice(0, j), least)));
+    return build('top', ranked.slice(0, k), least);
   }
 
   // The WA inset with the sites (SMR 5768-5779): every county light gray with white lines, the sites inside its frame as
@@ -3093,6 +3174,7 @@
       keyY: lgY, keyHeight: key.height, keyRows: key.rows, keyFits: key.fits, keyMode: key.mode || 'even',
       keySqueeze: key.squeeze === undefined ? 1 : key.squeeze,
       keyShown: key.shown || null,
+      keyTextScale: key.textScale || 1, keyLeast: key.least || null,   // 2.2: the layers' text size; the least squeeze kept
       extent, corrected, scale, mapKm, mapPanel: { left: mapPanel.left, top: mapPanel.top, width: mapPanel.width,
         height: mapPanel.height },
       sites: siteMarks.map((m, i) => ({ name: m.name, x: m.x, y: m.y, lon: sites[i].lon, lat: sites[i].lat })),

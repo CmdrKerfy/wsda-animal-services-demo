@@ -61,6 +61,20 @@
   .gif-progress .btn { flex: none; padding: 0.15rem 0.6rem; }
   .legend-toggle { position: absolute; bottom: 10px; left: 10px; z-index: 5; opacity: 0.85; font-size: 0.85rem; padding: 0.2rem 0.5rem; background: #f8f9fa; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
   .legend-panel { position: absolute; bottom: 42px; left: 10px; width: 190px; z-index: 5; background: rgba(255,255,255,0.93); border: 1px solid #ccc; border-radius: 4px; padding: 8px; font-size: 0.78em; max-height: calc(100% - 52px); overflow-y: auto; }
+  /* 2.2: County Focus's legend in groups that fold (ui.js legendGroup), 210 px wide and capped at
+     60% of the map's height so the zoom buttons stay clear; a group opened scrolls inside the cap. */
+  #legend-panel-focus { width: 210px; max-height: 60%; }
+  #legend-panel-focus .lg-group { margin: 0 0 4px; }
+  #legend-panel-focus .lg-group > summary { cursor: pointer; padding: 3px 0; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  #legend-panel-focus .lg-count { color: var(--muted); font-weight: normal; }
+  /* Below 768 px the legend sits under the map, open, its groups in columns; it never covers the map (after
+     Emergency's narrow legend, site/emergency/index.html, E1b's UI pass). */
+  @media (max-width: 767px) {
+    #legend-toggle-focus { display: none; }
+    #legend-panel-focus { position: static; width: auto; max-height: none; overflow: visible; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 8px 4px; background: #fff; column-width: 180px; column-gap: 16px; }
+    #legend-panel-focus:not(.no-map) { display: block; }
+    #legend-panel-focus .lg-group { break-inside: avoid; }
+  }
   .lg-sizes { display: block; overflow: visible; }
   .lg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
   .lg-dot { display: inline-block; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 1px #999; flex-shrink: 0; }
@@ -71,7 +85,7 @@
   .county-label.covered { visibility: hidden; }   /* S11: a name the match map hides over its sites (lookupmap.js) */
   /* PC: the population layers' names (map.js), smaller and lighter than the county names; census-designated places in
      italics; a name that would cover another is hidden but keeps its size (placement measures it). */
-  .county-label.pc-name { font-size: 10px; color: #444444; }
+  .county-label.pc-name { font-size: 10px; color: var(--pc-name, #444444); }
   .county-label.pc-name.pc-cdp { font-style: italic; }
   .county-label.pc-name.collided { visibility: hidden; }
   #pc-block label:has(input:disabled) { color: var(--disabled); cursor: not-allowed; }
@@ -362,8 +376,16 @@
   details.lk-bulk { margin: 0.25rem 0 0.5rem; }
   details.lk-bulk > summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
   details.lk-bulk .btn { margin-top: 0.4rem; }
+  /* 2.2: Search around a premises from your CVI file */
+  .lk-prem-body { border: 0; margin: 0; padding: 0; min-width: 0; }
+  .lk-prem-body:disabled { opacity: 0.55; }
+  .lk-prem-list { border: 1px solid var(--border-input); border-radius: 4px; padding: 0.3rem 0.5rem; margin: 0.25rem 0; font-size: 0.85rem; }
+  .lk-prem-list label { display: flex; gap: 0.4rem; align-items: flex-start; padding: 0.15rem 0; }
+  .lk-prem-list small { display: block; color: var(--muted); font-size: 0.75rem; }   /* the text floor */
+  .lk-prem-list .muted { margin: 0.25rem 0 0; }
   .btn.lk-run { background: var(--primary); color: #fff; margin-top: 0.25rem; }
-  #lk-add-msg .status, #lk-bulk-msg .status { margin: 0.4rem 0 0; }
+  #lk-add-msg .status, #lk-bulk-msg .status, #lk-new-bands-msg .status, #lk-sites-msg .status, #lk-prem-msg .status { margin: 0.4rem 0 0; }
+  .lk-sites .lk-default-bands { color: var(--muted); }
   /* S11: the address box with Find coordinates beside it, as CVI's row. The typed boxes (address, Name, paste
      and the table's cell editor) have spell check and autocomplete off, so no browser spelling service sees a premises
      address. */
@@ -984,9 +1006,11 @@
     </div>
     <!-- S11: the Premise Lookup sidebar (lookup.js); CVI's mod_premise_lookup.R filters and "Locations to query". -->
     <div id="lookup-side" hidden>
-      <details class="section" open>
-        <summary>Filters</summary>
+      <!-- 2.2: the CVI match named and first (finding CVIs comes first). -->
+      <details class="section" id="lk-cvi-section" open>
+        <summary>CVI match</summary>
         <div class="section-body">
+          <p class="muted">Finds the CVIs whose origin or destination lies inside each site's buffer. Always on.</p>
           <div class="field">
             <div class="ctl-row"><span class="ctl">Year(s)</span><span class="links"><button type="button" id="lk-years-all">All</button> &middot; <button type="button" id="lk-years-clear">Clear</button></span></div>
             <div class="checklist" id="lk-years" role="group" aria-label="Premise Lookup Years"></div>
@@ -1036,7 +1060,7 @@
                 <button type="button" class="btn lk-band-preset" data-bands="3, 10, 20">3 / 10 / 20</button>
                 <button type="button" class="btn lk-band-preset" data-bands="5, 10, 20">5 / 10 / 20</button>
               </div>
-              <p class="muted">Ascending radii drawn as concentric zones. Use the table's per-site Bands column to override a site.</p></div>
+              <p class="muted">Ascending radii drawn as concentric zones. To give a site its own bands, use Bands km in Add a site or the site's Bands cell in the table.</p></div>
           </div>
         </div>
       </details>
@@ -1044,7 +1068,7 @@
         <summary>Locations to query</summary>
         <div class="section-body">
           <div class="lk-subhead">Add a site</div>
-          <p class="muted">Enter a name and coordinates, then click <b>Add site</b>. Added sites appear in the Sites to query table. Buffer is optional — leave it blank to use the default buffer / preset above.</p>
+          <p class="muted">Enter a name and coordinates, then click <b>Add site</b>. Added sites appear in the Sites to query table. <span id="lk-add-optional">Buffer is optional — leave it blank to use the default buffer / preset above.</span></p>
           <p class="muted">Or click <b>Pick on map</b>, then click the match map to fill in the latitude and longitude.</p>
           <!-- S11: the address lookup, offline: only in a geocode cache file the user loads. -->
           <div class="field"><label class="ctl" for="lk-new-address">Street address (optional)</label>
@@ -1065,18 +1089,48 @@
             <div class="field"><label class="ctl" for="lk-new-long">Longitude</label>
               <input type="number" class="lk-input" id="lk-new-long" min="-180" max="180" step="0.0001"></div>
           </div>
-          <div class="field"><label class="ctl" for="lk-new-buffer">Buffer km (optional)</label>
+          <div class="field" id="lk-new-buffer-field"><label class="ctl" for="lk-new-buffer">Buffer km (optional)</label>
             <input type="number" class="lk-input" id="lk-new-buffer" min="0.1" step="0.5"></div>
+          <!-- 2.2: a site's own bands in Bands mode, checked as the Band radii box is (lookup.js siteBands). -->
+          <div class="field" id="lk-new-bands-field" hidden><label class="ctl" for="lk-new-bands">Bands km (optional)</label>
+            <input type="text" class="lk-input" id="lk-new-bands" spellcheck="false" autocomplete="off" placeholder="e.g. 1, 5, 10" aria-describedby="lk-new-bands-hint lk-new-bands-msg">
+            <p class="muted" id="lk-new-bands-hint">Up to 3 distances, separated by commas. Leave blank to use the Band radii above.</p>
+            <div class="live" role="status" aria-live="polite"><div id="lk-new-bands-msg" hidden></div></div></div>
           <div class="lk-add-buttons">
             <button type="button" class="btn lk-go" id="lk-add"><span class="btn-icon" data-icon="plus-lg" aria-hidden="true"></span>Add site</button>
             <button type="button" class="btn" id="lk-pick" aria-pressed="false" title="Click the match map to fill in the latitude and longitude of a new site"><span class="btn-icon" data-icon="geo-alt" aria-hidden="true"></span>Pick on map</button>
           </div>
           <div class="live" role="status" aria-live="polite"><div id="lk-add-msg" hidden></div></div>
+          <!-- 2.2: premises from the CVI file as places to search around (lookup.js cviPremises). Grayed, with the
+               CVI match's reason, without a master with premises coordinates. -->
+          <details class="lk-bulk" id="lk-prem">
+            <summary>Search around a premises from your CVI file</summary>
+            <p class="muted">Pick premises from your CVI file as places to search around. <b>Run query</b> then finds the CVIs that started or ended near them.</p>
+            <p class="muted lk-prem-off" id="lk-prem-off" hidden></p>
+            <fieldset class="lk-prem-body" id="lk-prem-body">
+              <div class="lk-pair">
+                <div class="field"><label class="ctl" for="lk-prem-county">County</label>
+                  <select class="lk-input" id="lk-prem-county"></select></div>
+                <div class="field"><label class="ctl" for="lk-prem-ends">Premises as</label>
+                  <select class="lk-input" id="lk-prem-ends">
+                    <option value="both">Both ends</option>
+                    <option value="origin">Origins</option>
+                    <option value="dest">Destinations</option>
+                  </select></div>
+              </div>
+              <div class="field"><input type="search" class="lk-input" id="lk-prem-find" spellcheck="false" autocomplete="off" placeholder="Type to find a city" aria-label="Find a city"></div>
+              <div class="ctl-row"><span class="ctl" id="lk-prem-count"></span><span class="links"><button type="button" id="lk-prem-all">Tick all</button> &middot; <button type="button" id="lk-prem-clear">Clear</button></span></div>
+              <div class="lk-prem-list" id="lk-prem-list" role="group" aria-label="Premises from your CVI file"></div>
+              <button type="button" class="btn lk-go" id="lk-prem-add"><span id="lk-prem-add-text">Search around 0 ticked premises</span></button>
+              <p class="muted" id="lk-prem-how">They are added to Sites to query, with the buffer above.</p>
+              <div class="live" role="status" aria-live="polite"><div id="lk-prem-msg" hidden></div></div>
+            </fieldset>
+          </details>
           <details class="lk-bulk" id="lk-bulk">
             <summary>Paste / upload bulk locations</summary>
             <div class="field"><label class="ctl" for="lk-paste">Paste rows (one per line)</label>
               <textarea id="lk-paste" class="lk-input" rows="5" spellcheck="false" autocomplete="off" placeholder="Affected Farm A, 46.5, -120.5&#10;Affected Farm B, 47.0, -120.0, 10&#10;Banded Farm C, 47.2, -120.2, 1, 3, 5"></textarea>
-              <p class="muted">Format: <code>name, lat, long</code>. Add <b>one</b> number for a single buffer (km), or <b>two or more</b> for concentric bands (e.g. <code>...,-120.2, 1, 3, 5</code> = 1/3/5 km rings).</p>
+              <p class="muted">Format: <code>name, lat, long</code>. Add <b>one</b> number for a single buffer (km), or <b>two or three</b> for concentric bands (e.g. <code>...,-120.2, 1, 3, 5</code> = 1/3/5 km rings).</p>
               <button type="button" class="btn lk-go" id="lk-paste-add"><span class="btn-icon" data-icon="plus-lg" aria-hidden="true"></span>Add pasted rows to table</button></div>
             <div class="field"><label class="ctl" for="lk-upload">Upload CSV</label>
               <input type="file" id="lk-upload" accept=".csv,text/csv">
@@ -1095,10 +1149,11 @@
         </div>
       </details>
       <!-- S11: the facility layers checked inside each buffer (shared/facility-ui.js, as on the Infrastructure dashboard). -->
-      <details class="section" id="lk-fac-section" open>
-        <summary>Facilities inside</summary>
+      <!-- 2.2: optional, folded, and no layer ticked at the start (the Infrastructure dashboard still ticks every one). -->
+      <details class="section" id="lk-fac-section">
+        <summary>Facilities inside (optional)<span class="fold-sum" id="lk-fac-sum"></span></summary>
         <div class="section-body">
-          <p class="muted">For each site, the facilities of the ticked layers that lie inside its buffer or zone.</p>
+          <p class="muted">Also list the facilities of the ticked layers inside each buffer or zone. Off until a layer is ticked.</p>
           <div class="field">
             <div class="ctl-row"><span class="ctl">Facility layers</span><span class="links"><button type="button" id="lk-fac-all">All</button> &middot; <button type="button" id="lk-fac-clear">Clear</button></span></div>
             <div class="live" role="status" aria-live="polite"><p class="fac-why lk-fac-utf8" id="lk-fac-utf8" hidden></p></div>
@@ -1219,6 +1274,7 @@
       <div class="lk-card-body">
         <p class="muted">Double-click any cell to edit a site. Select a row, then <b>Remove selected</b>, to delete just that one.</p>
         <div id="lk-sites"></div>
+        <div class="live" role="status" aria-live="polite"><div id="lk-sites-msg" hidden></div></div>
         <div class="lk-row-buttons">
           <button type="button" class="btn" id="lk-remove"><span class="btn-icon" data-icon="dash-lg" aria-hidden="true"></span>Remove selected</button>
           <button type="button" class="btn lk-danger" id="lk-clear"><span class="btn-icon" data-icon="x-lg" aria-hidden="true"></span>Clear all</button>
@@ -1240,7 +1296,12 @@
         <div class="live" role="status" aria-live="polite"><div id="lookup-status" class="status info" hidden>Starting map…</div></div>
         <div id="lookup-toast" aria-live="polite"></div>
       </div>
-      <p class="muted map-alt" id="lookup-map-alt">The sites and matches on this map are also listed under Sites to query, Facilities inside and Matched CVIs, and in the export's CSV files.</p>
+      <p class="muted map-alt" id="lookup-map-alt">The sites and matches on this map are also listed under Sites to query, Matched CVIs and Facilities inside, and in the export's CSV files.</p>
+    </div>
+    <!-- 2.2: the matched CVIs first, then the facilities inside. -->
+    <div class="lk-card" id="lk-cvi-card" hidden>
+      <div class="lk-card-head">Matched CVIs</div>
+      <div class="lk-card-body" id="lk-table"></div>
     </div>
     <div class="lk-card" id="lk-fac-card" hidden>
       <div class="lk-card-head">Facilities inside</div>
@@ -1248,10 +1309,6 @@
         <div id="lk-fac-counts"></div>
         <div id="lk-fac-table"></div>
       </div>
-    </div>
-    <div class="lk-card" id="lk-cvi-card" hidden>
-      <div class="lk-card-head">Matched CVIs</div>
-      <div class="lk-card-body" id="lk-table"></div>
     </div>
     <div class="lk-card" id="lk-export-card" hidden>
       <div class="lk-card-head">Export</div>
@@ -1305,7 +1362,7 @@
   </main>
 </div>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the chosen file is never uploaded. &middot; <span class="version">Version 2.1 (2026-10-27)</span></p>
+  Runs entirely in this browser tab; the chosen file is never uploaded. &middot; <span class="version">Version 2.2 (2026-10-28)</span></p>
   <details class="credits"><summary>Data sources and credits</summary>
   <p><span id="attrib"></span></p>
   <p>Shaded-map colors: ColorBrewer 2.0, by Cynthia A. Brewer, Penn State (Apache License 2.0).</p>

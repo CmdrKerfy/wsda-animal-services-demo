@@ -32,6 +32,9 @@ const PN = 'site/shared/population.js', BM = 'site/cvi/app/brandedmaps.js', R = 
 const MAP = 'site/cvi/app/map.js', UI = 'site/cvi/app/ui.js', IAPP = 'site/infrastructure/app.js';
 const EXP = 'site/cvi/app/exports.js';
 const IHTML = 'site/infrastructure/index.html';
+const CHTML = 'site/cvi/index.html', EHTML = 'site/emergency/index.html';
+const NAME_CSS = '.county-label.pc-name { font-size: 10px; color: var(--pc-name, #444444); }';
+const NAME_CSS_OLD = '.county-label.pc-name { font-size: 10px; color: #444444; }';
 // A page mutant: the County lines group moved back below the population group (the span from its
 // comment to the group's last line, read from the page, with its first two lines moved to the end).
 const ORDER = (() => {
@@ -139,7 +142,25 @@ const GROUPS = {
       "const OUTLINE = '#4d4d4d';", 'cvi'],
     ['the Infrastructure switch labels at 16 px', IHTML,
       '  #pc-block .tip-row > label { display: flex;', '  #pc-block .tip-row > label.none { display: flex;', 'infra'],
-    ['County lines and labels below the population group again', IHTML, ORDER.from, ORDER.to, 'infra']
+    ['County lines and labels below the population group again', IHTML, ORDER.from, ORDER.to, 'infra'],
+    // 2.2: the names' color follows the map's halo (light on a dark one), on each page.
+    ['the names dark gray over a dark halo too', MAP,
+      "el.style.setProperty('--pc-name', c.halo === '#ffffff' ? PC_NAME_DARK : c.label);",
+      "el.style.setProperty('--pc-name', PC_NAME_DARK);", 'names'],
+    ['the CVI page\'s names not reading the map\'s color', CHTML, NAME_CSS, NAME_CSS_OLD, 'names'],
+    ['Infrastructure\'s names not reading the map\'s color', IHTML, NAME_CSS, NAME_CSS_OLD, 'names'],
+    ['Emergency\'s names not reading the map\'s color', EHTML, NAME_CSS, NAME_CSS_OLD, 'names'],
+    // 2.2: County Focus's live legend in groups that fold.
+    ['the legend groups forget their state on a redraw', UI, "    d.addEventListener('toggle', () => { focusGroupsOpen[key] = d.open; });\n", '', 'legend'],
+    ['the facility layers\' group open at the start', UI, 'const focusGroupsOpen = { cvi: true, facilities: false,',
+      'const focusGroupsOpen = { cvi: true, facilities: true,', 'legend'],
+    ['the legend without its 60% cap', CHTML, '  #legend-panel-focus { width: 210px; max-height: 60%; }', '  #legend-panel-focus { width: 210px; }', 'legend'],
+    ['the legend hidden under the map on a phone', CHTML, '    #legend-panel-focus:not(.no-map) { display: block; }\n', '', 'legend'],
+    ['the facility layers left out of the legend', UI, '    facilityGroup();\n    const activity', '    const activity', 'legend'],
+    // 2.2: County Focus's map picture key: the grouping note in one line before any layer is left out.
+    ['the picture key leaves layers out before the note goes to one line', BM,
+      '        const notes = noteLines.length && nGroupedAway > 0 ? [noteLines, shortNote] : [noteLines];',
+      '        const notes = [noteLines];', 'legend']
   ],
   p2: [
     ['county names: a free spot outside the county before step (b)', BM, 'score = 2000 + (middleIn ? 0 : 500) + k;',

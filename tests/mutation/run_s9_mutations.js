@@ -122,7 +122,24 @@ const UNIT = [
   ['GIF: the strip over an inset at the bottom left', TS,
     "if (inset.corner === 'bottom left') return { x0: inset.x + inset.w + INSET_GAP, x1: STRIP.x1 };",
     "if (inset.corner === 'bottom left') return { x0: STRIP.x0, x1: STRIP.x1 };"],
-  ['inset: a thin piece of land not counted', BM, 'return vertexIn ? 1 / (nx * ny) : 0;', 'return 0;']
+  ['inset: a thin piece of land not counted', BM, 'return vertexIn ? 1 / (nx * ny) : 0;', 'return 0;'],
+  // 2.2: County Focus's key in the page's style.
+  ['focus key: the facility layers before the CVI premises', BM,
+    "    if (showCircles) {\n      entries.push(heading('CVI PREMISES'));",
+    "    if (facilities.length) entries.push(heading('FACILITY LOCATIONS'));\n    if (showCircles) {\n      entries.push(heading('CVI PREMISES'));"],
+  ['focus key: one layer to a row always', BM, '      const row = b && BR.textWidth(a.label, pt) <= room && BR.textWidth(b.label, pt) <= room ? [a, b] : [a];',
+    '      const row = [a];'],
+  ['focus key: two to a row whatever the names\' width', BM, '      const row = b && BR.textWidth(a.label, pt) <= room && BR.textWidth(b.label, pt) <= room ? [a, b] : [a];',
+    '      const row = b ? [a, b] : [a];'],
+  // (A mutant letting the facility rows be drawn closer, keep: false, cannot fail: the key is made smaller or shorter
+  // until it fits, so its rows are never drawn closer either way; not counted. The grouping note in one line
+  // is a page mutant of tests/mutation/run_pc_mutations.js, part "legend": only a grouped view has that note.)
+  ['focus key: no smaller text or fewer layers when short of room', BM, '      if (!legendBox.fits && facilities.length) {\n        const again',
+    '      if (false) {\n        const again'],
+  ['focus key: the first layers left out', BM, '      entries.push(...facilityKeyRows(facilities.slice(0, shown), pt * (o.scale || 1)));',
+    '      entries.push(...facilityKeyRows(facilities.slice(facilities.length - shown), pt * (o.scale || 1)));'],
+  ['focus key: the layers left out not named', BM, "        entries.push({ text: 'and ' + S().comma(more) + ' more layer' + (more === 1 ? '' : 's'), pt: 7.5, color: '#666666',\n          italic: true }, { text: '(see the CSV export)', pt: 7.5, color: '#666666', italic: true });",
+    '        void more;']
 ];
 
 // [name, file, exact original text, replacement, Chrome part (default "gif")]; each must fail that part.

@@ -110,6 +110,9 @@
   const MC_TEAL = '#245566', MC_RING = '#7a3e9d';
   const MC_LABEL = { size: 12.5, weight: 600, halo: 3 };   // as .mc-on .county-label in index.html
   const MC_LABEL_DARK = '#1f1f1f';
+  // The population layers' names (index.html .pc-name) over a white halo; over a dark one they take the map's light
+  // name color (2.2: dark names were hard to read on satellite).
+  const PC_NAME_DARK = '#444444';
   const MC_SOURCES = { lines: 'mc_lines_source', heads: 'mc_heads_source', rings: 'mc_rings_source',
     counties: 'mc_counties_source', badges: 'mc_badges_source' };
   const MC_LAYERS = ['mc-lines', 'mc-heads', 'mc-rings', 'mc-hit', 'mc-county-hit', 'mc-badges'];
@@ -926,6 +929,7 @@
     el.style.setProperty('--county-label', c.label); el.style.setProperty('--county-halo', c.halo);
     // The movement view's county names: dark text a little darker over its white halo (13C), light text unchanged.
     el.style.setProperty('--county-label-strong', c.halo === '#ffffff' ? MC_LABEL_DARK : c.label);
+    el.style.setProperty('--pc-name', c.halo === '#ffffff' ? PC_NAME_DARK : c.label);
     if (st.ready && !st.switching && st.map.getLayer('county-lines')) {
       st.map.setPaintProperty('county-lines', 'line-color', c.line);
       Object.keys(st.nr.data).forEach(id => ['counties', 'outline'].forEach(part => {

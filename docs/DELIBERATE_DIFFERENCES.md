@@ -230,7 +230,8 @@ backgrounds this document mentions.
     hole, or an outline with no area, is left out and counted. Known limits: the same file loaded twice adds its zones
     twice (as pasting rows twice); how far a KML file's XML entities expand depends on the browser's XML reader.
   - Facilities inside: "Facilities inside" in the sidebar lists the facility files the page holds (from the
-    hand-off), picked as on the Infrastructure dashboard (every usable layer ticked at first; attribute filters). Run
+    hand-off), picked as on the Infrastructure dashboard (attribute filters; since 2.2 no layer is ticked at first,
+    see "the CVI match first" below). Run
     query adds, per site, the facilities of the ticked layers inside its buffer or zone: a counts table, a list with
     distance and ring, and their dots on the match map. With no usable master (none loaded, or the Partner or Public
     tier) and a layer ticked, Run query stays on and checks the facilities only, saying why the CVI match is grayed
@@ -346,6 +347,32 @@ backgrounds this document mentions.
     Maps side.
   - Known limit: the rings have three colors, so with more than three different radii (Single buffer, per-site
     buffers) the outer rings share Light Blue and the key shows those rows in one color.
+- **Premise Lookup: a site's own bands (version 2.2):** in Concentric bands mode the Add a site form
+  asks for "Bands km (optional)" (CVI's form has only a buffer box; a site's bands could be set only in the table),
+  with a hint naming the Band radii in use. A site's bands keep the Band radii box's rule (numbers above 0, different,
+  at most 3, put in order): the form warns under the field and adds nothing until they are fixed; a Bands cell
+  edited in the table is not saved and the reason shows under the table; a pasted row with bands that break it is not
+  added, its reason given and the row kept in the box; Run query names a site whose bands break it. CVI takes any
+  band list, drops the parts that are not numbers without a word and uses more than three. The sites table writes a
+  site's bands in order with spaces ("1, 5, 10"; CVI: as typed) and a blank Bands cell as the Band radii it uses, in
+  gray ("Default: 3, 10, 20"; CVI: empty). The paste note says "two or three" numbers for bands (CVI: "two or
+  more").
+- **Premise Lookup: the CVI match first (version 2.2):** the sidebar's first section is "CVI match"
+  (CVI's "Filters"), with one line saying what it does; "Facilities inside (optional)" comes after Locations to query,
+  folded, its summary counting the ticked layers, and no layer is ticked when the facility files arrive (the
+  Infrastructure dashboard still ticks every usable layer). The results show Matched CVIs right after the match map,
+  then Facilities inside. New in Locations to query, "Search around a premises from your CVI file": the CVI file's
+  premises in a county (both ends, origins or destinations), grouped as County Focus groups them (at the end each row
+  is counted for, by the farm entity id there, else by its coordinates) and named by city with "#n" and the end, never
+  by the farm entity id; it follows the CVI match's years, quarters and species; the ticked premises are added to Sites
+  to query with the buffer or Band radii above, and one already there is not added twice. Grayed with Run query's
+  reason without a master with premises coordinates. "Tick all" ticks the premises listed (six, or up to 50 for a
+  typed city), never a whole county, since each premises becomes a site. A state written "wa" or " WA " counts as
+  Washington here, as in Premise Lookup's own match; County Focus takes only "WA", so a premises with such rows can be
+  counted a little differently in the two views. A file without a CVI column counts records instead of CVIs. With
+  facility files loaded and the CVI match grayed, Run query's reason says a ticked layer runs the facilities only.
+  CVI's R app has no such choice (its "Premise Type" mode, shown there as coming soon, would have searched markets
+  and feedlots).
 - **Population context:** CVI has none of these layers, and all three are off unless the user turns one on, so CVI's
   style and the page's other outputs are unchanged by default.
   - City limits from the WA Department of Revenue, with the 2020 Census population joined by place code.
@@ -644,6 +671,19 @@ backgrounds this document mentions.
   are read (as the landing page's dataset list; the skipped rows are named under the list); a manifest without "key"
   and "file" columns is said under the list (CVI shows a notification). One hover pop-up for what is on top, a
   facility marker being above the premises (CVI: one per layer).
+- **County Focus's legends (version 2.2):** the live legend is in groups that fold: "CVI premises"
+  first and open (the two roles under the group's title, "Animals per premises", the cluster example), then "Facility
+  locations" (with its number of layers), "Population context" and "Notes" (the notes on how facilities and activity
+  are counted), folded at first; each group keeps its state while the legend is redrawn; the panel is 210 px wide and
+  at most 60% of the map's height, so the zoom buttons stay clear; below 768 px it sits under the map, open, in
+  columns. CVI shows one flat panel, facility layers first. The map picture's key in the page's style lists "CVI
+  PREMISES" first (the roles, then "Animals per premises"), then "FACILITY LOCATIONS" two layers to a row; its rows
+  are never drawn closer than their text (CVI squeezes them, and the rows ran together with the facility layers on);
+  when the box is still short, the facility names get smaller and the grouping note goes to one line, then
+  the last layers are named as "and N more layers (see the CSV export)". CVI's own look (kept for the tests that
+  compare the page with CVI, `CVI_STYLE`) keeps CVI's key. Premise Lookup's picture key follows the same rule: its
+  facility rows are never drawn closer than their label's lines, and smaller text is tried before fewer layers
+  (as Emergency's key).
 - **County Focus legend, Browse, neighbors and Reset All:** the legend's role swatches at the circle opacity over the
   land under the circles (full strength on a dark basemap; over white while a neighboring region is on), as the WA
   legend (CVI: full strength); the "Animals per premises" circles nested at the radii the map draws (4–24 px, from the

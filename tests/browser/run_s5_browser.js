@@ -1166,8 +1166,9 @@ async function timing() {
       lg = await p.eval(LG);
       const land = await p.eval(`CVIWA.map.landColor(${FO})`);
       const wantDots = [['Importer — received animals', hexBlend('#1C9CD9', 0.8, land)], ['Exporter — sent animals', hexBlend('#F0A06E', 0.8, land)]];
-      check(JSON.stringify(lg.heads) === JSON.stringify(['Premises role', 'Animals per premises']) && JSON.stringify(lg.dots.map(d => [d[0], toHex(d[1])])) === JSON.stringify(wantDots),
-        'Focus legend: CVI\'s sections; both role swatches at the circle opacity over the land (S1.1 rule)', [lg.heads, lg.dots, wantDots]);
+      // 2.2: in groups that fold, "CVI premises" first (the roles under the group's title), the notes in their own group.
+      check(JSON.stringify(lg.heads) === JSON.stringify(['CVI premises', 'Animals per premises', 'Notes']) && JSON.stringify(lg.dots.map(d => [d[0], toHex(d[1])])) === JSON.stringify(wantDots),
+        'Focus legend: the CVI premises group first, then its sizes, the notes last (2.2); both role swatches at the circle opacity over the land (S1.1 rule)', [lg.heads, lg.dots, wantDots]);
       const drawnR = await p.eval(`(function(){var h=${FO},s={};['Inbound','Outbound'].forEach(function(d){h.premises[d].forEach(function(x){s[x.radius_px]=1})});return Object.keys(s).map(Number)})()`);
       const legendOf = await p.eval(`CVIWA.focusState.built.legend`);
       check(lg.rs.length >= 2 && lg.rs.every(r => r >= 4 && r <= 24 && drawnR.some(x => Math.abs(x - r) < 1e-9)) && JSON.stringify(lg.labels) === JSON.stringify(await p.eval(`CVIWA.focusState.built.legend.values.map(CVIWA.scaling.comma)`)),

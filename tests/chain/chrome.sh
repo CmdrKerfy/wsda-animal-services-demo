@@ -9,7 +9,7 @@ if [ "$M" = http ]; then
   H=${CHAIN_HOST:-http://127.0.0.1:8765}   # CHAIN_HOST: another address of site/ (for example a hosted copy)
   export F1_PAGE_URL=$H/index.html S6_PAGE_URL=$H/index.html UI_SITE_URL=$H/ SCALE_SITE_URL=$H/
   for v in S1 S2 S3 S4 S5 S7 S9 MC NR PC S11 CH; do export ${v}_PAGE_URL=$H/cvi/index.html; done
-  export PC_INFRA_URL=$H/infrastructure/index.html S9_INFRA_URL=$H/infrastructure/index.html EM_PAGE_URL=$H/index.html
+  export PC_INFRA_URL=$H/infrastructure/index.html PC_EM_URL=$H/emergency/index.html S9_INFRA_URL=$H/infrastructure/index.html EM_PAGE_URL=$H/index.html
 fi
 case $2 in
   1) step chrome_${M}_s1 node tests/browser/run_s1_browser.js
@@ -27,7 +27,7 @@ case $2 in
      step chrome_${M}_mc node tests/browser/run_mc_browser.js
      step chrome_${M}_s7 node tests/browser/run_s7_browser.js ;;
   4) step chrome_${M}_s9 node tests/browser/run_s9_browser.js
-     if [ "$M" = http ]; then step chrome_${M}_pc node tests/browser/run_pc_browser.js cvi infra
+     if [ "$M" = http ]; then step chrome_${M}_pc node tests/browser/run_pc_browser.js cvi infra names legend
      else step chrome_${M}_pc node tests/browser/run_pc_browser.js; fi
      step chrome_${M}_s11 node tests/browser/run_s11_browser.js ;;
   5) step chrome_${M}_ui node tests/browser/run_ui_browser.js checks controls day3 chartlabels fixes v11 v20 ;;

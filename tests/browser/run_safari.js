@@ -636,7 +636,14 @@ async function runS6Focus() {
    check(await d.run(`return ${H}.map.getLayoutProperty('focus_points_in','visibility')==='none'&&document.getElementById('legend-panel-focus').textContent.includes('Facility locations');`),'Hide CVI facility independence/legend');
    check(await d.run(`return Object.keys(${H}.map.getStyle().sources.focus_fac_src_0.data.features[0].properties).sort().join()==='name,ref_display,row_id'&&${H}.map.getStyle().sources.focus_fac_src_0.cluster!==true;`),'minimal/unclustered Focus payload');
    for(const [w,h]of [[1366,768],[1024,600]]){await d.size(w,h);await sleep(300);const boxes=await d.run(`document.getElementById('legend-panel-focus').hidden=false;const m=document.getElementById('focus-map').getBoundingClientRect(),p=document.querySelector('.facility-details').getBoundingClientRect(),l=document.getElementById('legend-panel-focus').getBoundingClientRect();return {detail:p.x>=m.x-1&&p.right<=m.right+1&&p.y>=m.y-1&&p.bottom<=m.bottom+1,legend:l.x>=m.x-1&&l.right<=m.right+1&&l.y>=m.y-1&&l.bottom<=m.bottom+1};`);check(boxes.detail&&boxes.legend,'Focus containment '+w+'x'+h,boxes);fs.writeFileSync(path.join(out,'safari_'+mode+'_details_'+w+'.png'),Buffer.from(await d.screenshot(),'base64'));}
-   await d.click('.focus-fac-click .maplibregl-popup-close-button');check(!await d.run('return !!document.querySelector(".facility-details");'),'Focus real pointer Close');await point();await d.waitFor('document.querySelector(".facility-details")');await pick('Beta');check(!await d.run(`return !!${H}.clickPopup;`),'filtered-out row closes details');
+   await d.click('.focus-fac-click .maplibregl-popup-close-button');check(!await d.run('return !!document.querySelector(".facility-details");'),'Focus real pointer Close');
+   // 2.2: a real click opens a legend group, and the group stays open when the legend is redrawn (an opacity change).
+   await d.click('#legend-panel-focus .lg-group[data-group="facilities"] > summary');await sleep(250);
+   const grp=()=>d.run(`const g=document.querySelector('#legend-panel-focus .lg-group[data-group="facilities"]');return !!g&&g.open;`);const opened=await grp();
+   await d.run(`const o=document.getElementById('fo-opacity');o.dispatchEvent(new Event('change',{bubbles:true}));return true;`);await sleep(300);
+   check(opened&&await grp(),'Focus legend group opened by a real click stays open after a redraw');
+   await d.run(`const g=document.querySelector('#legend-panel-focus .lg-group[data-group="facilities"]');if(g)g.open=false;return true;`);await sleep(200);   // folded again: open, it covers the point clicked next
+   await point();await d.waitFor('document.querySelector(".facility-details")');await pick('Beta');check(!await d.run(`return !!${H}.clickPopup;`),'filtered-out row closes details');
    await counties(['King']);check(await count()===0&&await d.run(`return !document.querySelector('#fo-fac-list input[value="feedlots"]').disabled&&document.getElementById('fo-fac-list').textContent.includes('No facilities match');`),'usable zero result');
    await send(csv.replaceAll('Alpha','Gamma').replaceAll('Beta','Delta'));check(await d.run(`return ${F}.fac.attributes.feedlots.Kind.length===0&&!document.getElementById('fo-fac-notice').hidden&&${F}.fac.prepared.layers[3].choices.Kind.join()==='Delta,Gamma';`),'same-size replacement choices/notice');
    await counties(['Pierce']);await pick('Gamma');await send(csv.replaceAll('Alpha','Gamma').replaceAll('Beta','Delta'));check(await d.run(`return ${F}.fac.attributes.feedlots.Kind.join()==='Gamma';`),'valid replacement pick retained');
@@ -2303,6 +2310,21 @@ async function runS11() {
       check(miss[0] && miss[0].text === 'No match for that address in the geocode cache file. Enter lat/long manually.',
         'S11 Safari: an address not in the file: the offline message', miss);
 
+      // ── Search around a premises from your CVI file (2.2), by real clicks: the fold, a tick, the button ──
+      await d.click('#lk-prem > summary');
+      const premOpen = await d.run(`return document.getElementById('lk-prem').open && !document.getElementById('lk-prem-body').disabled
+        && document.querySelectorAll('#lk-prem-list input').length > 0;`);
+      const sitesBefore = await d.run(`return ${PS}.sites.length;`);
+      await d.click('#lk-prem-list label:first-of-type input');
+      const premButton = await d.run(`return document.getElementById('lk-prem-add-text').textContent;`);
+      const premName = await d.run(`var g = ${PS}.prem.premises.filter(function (x) { return ${PS}.prem.ticked.has(x.key); });
+        return g.length === 1 ? g[0].name : null;`);
+      await d.click('#lk-prem-add');
+      const premAdded = await d.run(`var s = ${PS}.sites; return { n: s.length, name: s[s.length - 1].name };`);
+      check(premOpen && premButton === 'Search around 1 ticked premises' && premName && premAdded.n === sitesBefore + 1 &&
+        premAdded.name === premName, 'S11 Safari: Search around a premises: the fold opened, one premises ticked and ' +
+        'added as a site by real clicks', { premOpen, premButton, premName, premAdded });
+
       // ── Preview and Export (real clicks) on CVI's case "single, three sites" ──
       // The Full tier's facility files, as the landing page's hand-off gives them (the Chrome suite does the same),
       // handed over only now, so the three cases above compare Run query's lines with CVI's alone.
@@ -2315,7 +2337,16 @@ async function runS11() {
       Object.keys(facFiles).forEach(k => { texts[k] = fs.readFileSync(path.join(tier, facFiles[k]), 'utf8'); });
       await d.run(`var t = args[0], dd = {}; Object.keys(t).forEach(function (k) { dd[k] = { file: new Blob([t[k]], { type: 'text/csv' }) }; });
         await CVIWA.setFacilityFiles(dd); return true;`, texts);
-      await d.waitFor(`document.querySelectorAll('#lk-fac-list input:checked, #lk-fac-section input[type=checkbox]:checked').length > 0`, 15000, 'facility layers');
+      // 2.2: no layer ticked when the files arrive; the folded section opened and All clicked, as a user would.
+      await d.waitFor(`document.querySelectorAll('#lk-fac-list input[id^=lk-layer-]').length > 0`, 15000, 'facility layers');
+      const facStart = await d.run(`return { on: document.querySelectorAll('#lk-fac-list input:checked').length,
+        open: document.getElementById('lk-fac-section').open, sum: document.getElementById('lk-fac-sum').textContent };`);
+      await d.click('#lk-fac-section > summary');
+      await d.click('#lk-fac-all');
+      const facAll = await d.run(`return document.getElementById('lk-fac-sum').textContent;`);
+      check(facStart.on === 0 && !facStart.open && facStart.sum === 'none ticked' && facAll === '7 of 7 ticked',
+        'S11 Safari: facility files arrive with no layer ticked, the section folded; opened and All ticks every layer ' +
+        '(real clicks)', { facStart, facAll });
       const ci = FX.module.runs.findIndex(r => r.name === 'single, three sites'), cs = FX.module.runs[ci];
       await d.run(`var ps = ${PS}; ps.years = ps.yearChoices.slice(); ps.quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
         ps.species = ps.speciesChoices.slice();

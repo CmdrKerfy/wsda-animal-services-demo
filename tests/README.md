@@ -153,8 +153,8 @@ Hosted mode: set the suite's page variable to the case-strict server (section 4)
 | `run_mc_browser.js` | Chart filters and the movement view on the page | ~1.5 min | `marks wa flow focus movement exports perf` (`MC_PAGE_URL`) |
 | `run_s7_browser.js` | Charts, layouts, spotlight, previews and the export ZIP | ~2 min | `png layout charts spotlight measure subsets perf checkpoint previews exports special` (`S7_PAGE_URL`) |
 | `run_s9_browser.js` | Branded PNGs, backgrounds, name markers, Facilities PNG, the GIFs | ~2-2.5 min | `png export additions backgrounds names facilities gif viewgif` (`S9_PAGE_URL`, `S9_INFRA_URL`) |
-| `run_pc_browser.js` | Population switches on the CVI page and Infrastructure; their PNGs | under 1 min | `cvi infra` (`PC_PAGE_URL`, `PC_INFRA_URL`) |
-| `run_s11_browser.js` | Premise Lookup: sites table, Run query against CVI's, zones, facilities, PNG, "Find coordinates" | ~35 s | `page day3 day4 day5` (`S11_PAGE_URL`) |
+| `run_pc_browser.js` | Population switches on the CVI page and Infrastructure; their PNGs; the names' color on all three live maps | under 1 min | `cvi infra names legend` (`PC_PAGE_URL`, `PC_INFRA_URL`, `PC_EM_URL`) |
+| `run_s11_browser.js` | Premise Lookup: sites table, Run query against CVI's, zones, facilities, PNG, "Find coordinates", a site's bands, the CVI match first and the premises fold | ~45 s | `page day3 day4 day5 bands cvifirst` (`S11_PAGE_URL`) |
 | `run_ui_browser.js` | Six views: font, logo, banner, footer, every visible text's size and contrast; buttons, keyboard, Stats, glossary, chart labels; the notes for real files (PNG background notes, the sensitive-data notice, blocked downloads, the load statuses); the sidebars that stay in view on CVI and Infrastructure (`v20`) | 1.5-7 min | `checks`; also `controls day3 chartlabels fixes v11 v20` (`UI_SITE_URL`) |
 | `run_ch_browser.js` | Shaded counties and states on the live maps, the PNG and GIF, Alaska and Hawaii insets | ~25-60 s | `wa records flow insets png` (`CH_PAGE_URL`) |
 | `run_em_browser.js` | Emergency Response: a bundle with a zone file sent from the landing page, loose positives routed to it, the sample loaded and downloaded; the page with the sample (the map's contents, the boxes, the folds, the type's "?" and links, the zone file, a ring distance, the density limits, 320 px); the results (the tabs, CVI movements with a master, the Export ZIP, no marked address anywhere); E1b on the page (past positives, the window, the play, km \| miles, the zone hover (also inside the map at 320 px), the line under the value boxes, the rows not mapped, the screwworm outbreak); the map picture; the chart; the one-second step at full size (40 positives against 30,000 points, without and with the 50,000-row master, which `make_scale_master.js` writes) | ~70 s | `load page results e1b png chart speed` (`EM_PAGE_URL`) |
@@ -238,7 +238,7 @@ for v in S1 S2 S3 S4 S5 S7 S9 MC NR PC S11 CH; do export ${v}_PAGE_URL=$H/cvi/in
 export PC_INFRA_URL=$H/infrastructure/index.html S9_INFRA_URL=$H/infrastructure/index.html EM_PAGE_URL=$H/index.html
 ```
 
-Over `http` batch 4 runs `run_pc_browser.js cvi infra`. The F1 suite has one check fewer over `http`
+Over `http` batch 4 runs `run_pc_browser.js cvi infra names legend`. The F1 suite has one check fewer over `http`
 (a `file://`-only check). Stop the server when done (Ctrl+C or SIGTERM); it must print `case misses: 0`.
 
 **Part 4, Safari, once over `file://` and once over `http`** (foreground, the server running for `http`):
@@ -267,7 +267,7 @@ node tests/mutation/run_<slice>_mutations.js page n [n ...]  # mutants against t
 ```
 
 Numbers are 1-based, as listed; no number runs the whole group where the runner allows it. Some runners have more
-groups: S11 `unit page day3 png day4 day5`, PC `unit build page p2`. `page 0` (S5) or `0` alone (S1.1, S4) runs only
+groups: S11 `unit page day3 png day4 day5 bands cvifirst`, PC `unit build page p2`. `page 0` (S5) or `0` alone (S1.1, S4) runs only
 the unmutated suite.
 
 - **The copy.** Each call copies `site/`, `tests/` and the fixtures it needs into a folder under

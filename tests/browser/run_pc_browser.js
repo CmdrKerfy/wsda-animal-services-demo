@@ -16,10 +16,16 @@
 //           counties' names; the Facilities PNG with the layers (the Density view draws the outlines only) and
 //           export_params.json; Reset All; the High-quality Branded preview timed with all three layers on (S9's
 //           budget: 6 seconds; Standard 3).
+//   names   the population names' color on the live maps of the CVI page, Infrastructure and Emergency: dark gray
+//           on a white halo over the offline map and a light basemap, light on a dark halo over satellite and with
+//           "Light text" picked (2.2); the basemap tiles answered by this suite.
+//   legend  County Focus's live legend in groups that fold (2.2): their order and states with every facility and
+//           population layer on, the state kept across a redraw, the 210 px width and 60% cap clear of the zoom
+//           buttons, under the map below 768 px.
 //
 // Usage (repository root, after node tests/node/run_f1_unit_tests.js and Rscript tests/oracle/s9_branded_oracle.R,
 // whose fixture and facility files the parts reuse):
-//   node tests/browser/run_pc_browser.js [cvi] [infra]
+//   node tests/browser/run_pc_browser.js [cvi] [infra] [names] [legend]
 // Writes local-test-artifacts/pc/browser/run.json (results).
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -31,8 +37,9 @@ const OUT = path.join(ROOT, 'local-test-artifacts', 'pc', 'browser');
 const S9 = path.join(ROOT, 'local-test-artifacts', 's9');
 const PAGE = process.env.PC_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'cvi', 'index.html')).href;
 const INFRA = process.env.PC_INFRA_URL || pathToFileURL(path.join(ROOT, 'site', 'infrastructure', 'index.html')).href;
+const EM = process.env.PC_EM_URL || pathToFileURL(path.join(ROOT, 'site', 'emergency', 'index.html')).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ALL_PARTS = ['cvi', 'infra'];
+const ALL_PARTS = ['cvi', 'infra', 'names', 'legend'];
 const asked = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const PARTS = asked.length ? asked : ALL_PARTS;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -759,6 +766,220 @@ async function partInfra(b) {
   return out;
 }
 
+// ── Part: the names' color on the live maps (2.2) ─────────────────────────────────────────────────────────────
+// The population names keep their dark gray over a white halo (the offline map, a light basemap); over a dark one
+// (satellite, or "Light text" picked) they take the map's light name color on its dark halo, as the county names
+// do. On the CVI page, Infrastructure and Emergency, which all draw them through CVI's map.js. The basemap tiles
+// (The National Map's) are answered here with a solid picture, so nothing leaves the computer.
+const zlib = require('zlib');
+// A solid-color PNG of w x h pixels (as run_s11_browser.js solidPng), for the answered tile requests.
+function solidPng(w, h, rgb) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc = buf => { let c = 0xffffffff; for (const x of buf) c = crcTable[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type), data]);
+    const c = Buffer.alloc(4); c.writeUInt32BE(crc(td));
+    return Buffer.concat([len, td, c]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(w * 3).fill(Buffer.from(rgb))]);
+  const raw = Buffer.concat(Array.from({ length: h }, () => row));
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+const TILE_HOST = /^https:\/\/basemap\.nationalmap\.gov\//;
+const DARK_TILE = solidPng(256, 256, [38, 52, 40]), LIGHT_TILE = solidPng(256, 256, [236, 232, 220]);
+// The first name shown: its color and its halo (the text-shadow's color).
+const NAME_LOOK = handle => `(() => {
+  const e = (${handle}.pcLabels || []).map(m => m.getElement()).find(e => !e.classList.contains('collided'));
+  if (!e) return null;
+  const cs = getComputedStyle(e), halo = (cs.textShadow.match(/rgb\\([^)]*\\)/) || [''])[0];
+  return { name: e.textContent, color: cs.color, halo };
+})()`;
+const DARK_NAME = { color: 'rgb(68, 68, 68)', halo: 'rgb(255, 255, 255)' };
+const LIGHT_NAME = { color: 'rgb(240, 240, 240)', halo: 'rgb(26, 26, 26)' };
+async function partNames(b) {
+  const p = b.page;
+  b.listeners.push(async m => {
+    if (m.method !== 'Fetch.requestPaused' || m.sessionId !== b.sid) return;
+    const url = m.params.request.url;
+    if (!TILE_HOST.test(url)) return;
+    await b.send('Fetch.fulfillRequest', { requestId: m.params.requestId, responseCode: 200,
+      body: (/USGSTopo/.test(url) ? LIGHT_TILE : DARK_TILE).toString('base64'),
+      responseHeaders: [{ name: 'Content-Type', value: 'image/png' }, { name: 'Access-Control-Allow-Origin', value: '*' }] }, b.sid);
+  });
+  await b.send('Fetch.enable', { patterns: [{ urlPattern: '*basemap.nationalmap.gov*' }] }, b.sid);
+  b.answered = url => TILE_HOST.test(url);
+
+  const pick = (id, v) => p.eval(`(() => { const s = document.getElementById('${id}'); s.value = ${JSON.stringify(v)};
+    s.dispatchEvent(new Event('input', { bubbles: true })); s.dispatchEvent(new Event('change', { bubbles: true }));
+    return s.value; })()`);
+  const same = (got, want) => !!got && got.color === want.color && got.halo === want.halo;
+  const pages = [
+    { tag: 'cvi', H: 'CVIWA.state.mapHandle', basemap: 's-basemap', label: 's-label-style',
+      open: () => openCvi(b, oracleOf('tier_full')) },
+    { tag: 'infra', H: 'WSDA.infrastructure.state.map', basemap: 'infra-basemap', label: 'label-style',
+      open: async () => {
+        await p.goto(INFRA);
+        await p.waitFor('window.WSDA && WSDA.infrastructure && WSDA.infrastructure.state.map && ' +
+          'WSDA.infrastructure.state.map.ready', 20000, 'dashboard ready');
+      } },
+    { tag: 'emergency', H: 'WSDA.emergency.state.map', basemap: 'em-basemap', label: null,
+      open: async () => {
+        await p.goto(EM);
+        await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map && WSDA.emergency.state.map.ready',
+          20000, 'dashboard ready');
+      } }
+  ];
+  const out = {};
+  for (const g of pages) {
+    const H = g.H, look = {};
+    await g.open();
+    await p.viewport(1400, 1000);
+    await clickBox(p, 'places');
+    await waitLayer(p, H, 'places', true);
+    await p.waitFor(`${H}.pcLabels && ${H}.pcLabels.some(m => !m.getElement().classList.contains('collided'))`, 15000,
+      'names shown');
+    const offline = await p.eval(`document.getElementById('${g.basemap}').options[0].value`);
+    // Waits until the basemap picked is on the map with its tiles (or the offline map is back).
+    const shown = async id => {
+      await pick(g.basemap, id);
+      await p.waitFor(id === offline ? `!${H}.shown && !${H}.switching`
+        : `${H}.shown && ${H}.shown.id === '${id}' && !${H}.switching && !${H}.basemapFailed && ${H}.map.areTilesLoaded()`,
+      20000, 'basemap ' + (id || 'offline'));
+      await sleep(300);
+      return p.eval(NAME_LOOK(H));
+    };
+    look.offline = await p.eval(NAME_LOOK(H));
+    check(same(look.offline, DARK_NAME), g.tag + ': on the offline map the population names are dark gray (#444444) ' +
+      'on a white halo', look.offline);
+    look.satellite = await shown('usgs-imagery');
+    check(same(look.satellite, LIGHT_NAME), g.tag + ': on a satellite basemap (USGS Imagery) the names are light ' +
+      '(#f0f0f0) on a dark halo (#1a1a1a), the county names\' colors', look.satellite);
+    look.light = await shown('usgs-topo');
+    check(same(look.light, DARK_NAME), g.tag + ': on a light basemap (USGS Topo) the names are dark gray on a white ' +
+      'halo again', look.light);
+    if (g.label) {
+      await pick(g.label, 'light');
+      await sleep(200);
+      look.lightText = await p.eval(NAME_LOOK(H));
+      check(same(look.lightText, LIGHT_NAME), g.tag + ': "Light text" picked by hand makes the names light on a dark ' +
+        'halo on a light basemap', look.lightText);
+      await pick(g.label, 'auto');
+      await sleep(200);
+    }
+    look.back = await shown(offline);
+    check(same(look.back, DARK_NAME), g.tag + ': back on the offline map, the names dark gray again', look.back);
+    await clickBox(p, 'places');
+    out[g.tag] = look;
+  }
+  return out;
+}
+
+// ── Part: County Focus's live legend in groups (2.2) ──────────────────────────────────────────────────────────
+// With CVI premises, every facility layer of the Full tier (test-tables/tier_full/) and the three population layers
+// on: the groups in their order ("CVI premises" open first; "Facility locations" with its number of layers,
+// "Population context" and "Notes" folded), a group's state kept across a redraw, the panel 210 px wide and capped
+// at 60% of the map's height, clear of the zoom buttons; below 768 px under the map, open, the groups in columns.
+const TIER_FULL = path.join(ROOT, 'test-tables', 'tier_full');
+async function partLegend(b) {
+  const p = b.page;
+  await openCvi(b, oracleOf('tier_full'));
+  await p.viewport(1400, 1000);
+  // The facility files under the page's layer keys (the manifest and each layer's file).
+  const FILES = { manifest: 'facility_overlays_manifest.csv', slaughterhouses: 'usda_wa_slaughter_facilities.csv',
+    fairgrounds: 'wa_state_fairs.csv', markets: 'wa_state_public_livestock_markets.csv', feedlots: 'wa_state_feedlots.csv',
+    restricted: 'wa_state_restricted_holding_facilities.csv', syn_custommeat: 'synthetic_custom_meat_geocoded.csv',
+    syn_disposal: 'synthetic_animal_disposal.csv' };
+  const texts = Object.fromEntries(Object.keys(FILES).map(k => [k, fs.readFileSync(path.join(TIER_FULL, FILES[k]), 'utf8')]));
+  await p.eval(`(t => { const d = {}; Object.keys(t).forEach(k => { d[k] = { file: new Blob([t[k]], { type: 'text/csv' }) }; });
+    return CVIWA.setFacilityFiles(d).then(() => true); })(${JSON.stringify(texts)})`);
+  await p.eval(`document.getElementById('show-focus').click(); true`);
+  await p.waitFor('CVIWA.state.focusHandle && CVIWA.state.focusHandle.ready', 20000, 'focus map ready');
+  await p.eval(`(() => { const want = ['Yakima', 'Benton', 'Franklin', 'Kittitas'];
+    [...document.querySelectorAll('#fo-counties input')].forEach(b => { const on = want.includes(b.value);
+      if (b.checked !== on) { b.checked = on; b.dispatchEvent(new Event('change')); } }); return true; })()`);
+  await sleep(900);
+  const layers = await p.eval(`(() => { const ids = [...document.querySelectorAll('[id^=focus-layer-]')]
+    .filter(c => !c.disabled).map(c => c.id); ids.forEach(id => { const c = document.getElementById(id); if (!c.checked) c.click(); });
+    return ids.length; })()`);
+  for (const l of ['cities', 'places', 'density']) {
+    if (!(await boxes(p))[l].checked) await clickBox(p, l);
+  }
+  await waitLayer(p, 'CVIWA.state.focusHandle', 'density', true);
+  await sleep(1200);
+  if (await p.eval(`document.getElementById('legend-panel-focus').hidden`)) {
+    await p.eval(`document.getElementById('legend-toggle-focus').click(); true`);
+  }
+  await sleep(300);
+  const look = () => p.eval(`(() => { const panel = document.getElementById('legend-panel-focus'), r = panel.getBoundingClientRect();
+    const map = document.getElementById('focus-map').getBoundingClientRect();
+    const zoom = [...document.querySelectorAll('#focus-map .maplibregl-ctrl-top-left .maplibregl-ctrl')].map(e => e.getBoundingClientRect());
+    const meet = (a, c) => Math.min(a.right, c.right) - Math.max(a.left, c.left) > 0.5 && Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top) > 0.5;
+    const cs = getComputedStyle(panel);
+    return { groups: [...panel.querySelectorAll('.lg-group')].map(g => [g.getAttribute('data-group'),
+      g.querySelector('summary').textContent.trim(), g.open]), width: r.width, height: r.height, mapH: map.height,
+      top: r.top, mapBottom: map.bottom, display: cs.display, position: cs.position, columns: cs.columnWidth,
+      zoomClear: zoom.length > 0 && zoom.every(z => !meet(z, r)), scrolls: panel.scrollHeight > panel.clientHeight + 1,
+      toggle: getComputedStyle(document.getElementById('legend-toggle-focus')).display }; })()`);
+  let v = await look();
+  check(JSON.stringify(v.groups) === JSON.stringify([['cvi', 'CVI premises', true],
+    ['facilities', 'Facility locations ' + layers + ' layers', false], ['population', 'Population context 3 layers', false],
+    ['notes', 'Notes', false]]), 'legend: the groups in order: "CVI premises" open first, then "Facility locations" ' +
+    '(its ' + layers + ' layers), "Population context" (3 layers) and "Notes", folded', v.groups);
+  check(Math.abs(v.width - 210) < 0.5 && v.height <= 0.6 * v.mapH + 0.5 && v.zoomClear, 'legend: the panel 210 px wide, ' +
+    'at most 60% of the map\'s height, clear of the zoom buttons', v);
+  // Open the facility layers and the population groups: the panel keeps its cap and scrolls inside it.
+  await p.eval(`['facilities', 'population'].forEach(k => { const g = document.querySelector('#legend-panel-focus .lg-group[data-group=' + k + ']');
+    if (g) g.open = true; }); true`);
+  await sleep(200);
+  v = await look();
+  check(v.height <= 0.6 * v.mapH + 0.5 && v.scrolls && v.zoomClear, 'legend: with groups opened the panel stays under ' +
+    'its cap and scrolls inside it, the zoom buttons clear', v);
+  // A redraw (one facility layer off): each group keeps its state; the count follows.
+  await p.eval(`(() => { const c = [...document.querySelectorAll('[id^=focus-layer-]')].find(x => x.checked); c.click(); return true; })()`);
+  await sleep(900);
+  v = await look();
+  check(JSON.stringify(v.groups.map(g => g[2])) === JSON.stringify([true, true, true, false]) &&
+    v.groups[1][1] === 'Facility locations ' + (layers - 1) + ' layer' + (layers - 1 === 1 ? '' : 's'),
+  'legend: after a redraw each group keeps its open or folded state, the layer count follows', v.groups);
+  // Below 768 px: under the map, open (also when its button had closed it), the groups in columns, the button gone.
+  await p.eval(`document.getElementById('legend-toggle-focus').click(); true`);
+  check(await p.eval(`document.getElementById('legend-panel-focus').hidden`), 'legend: the Legend button closes it on a ' +
+    'wide screen');
+  await p.viewport(700, 1000);
+  await sleep(500);
+  v = await look();
+  check(v.position === 'static' && v.display === 'block' && v.top >= v.mapBottom - 0.5 && v.columns === '180px' &&
+    v.toggle === 'none', 'legend: below 768 px it sits under the map, open, its groups in columns, without the ' +
+    'Legend button', v);
+  await p.viewport(1400, 1000);
+  await sleep(300);
+  // The map picture's key (2.2) for the same view, the layer turned off above back on: with these
+  // layers and four counties every layer is listed and the key fits its box under the Top box.
+  await p.eval(`(() => { const c = [...document.querySelectorAll('[id^=focus-layer-]')].find(x => !x.disabled && !x.checked);
+    if (c) c.click(); return true; })()`);
+  await sleep(900);
+  await p.eval(`CVIWA.state.lastPreviewMap = null; document.getElementById('preview-map').click(); true`);
+  await p.waitFor('CVIWA.state.lastPreviewMap && CVIWA.state.lastPreviewMap.length', 60000, 'preview drawn');
+  const key = await p.eval(`(() => { const m = CVIWA.state.lastBranded.models[0];
+    return { rows: m.legendFacilityRows, leftOut: m.legendFacilitiesLeftOut, fits: m.legendFits, scale: m.legendFacilityScale,
+      inside: m.legendY + m.legendHeight <= m.topY - 0.008 + 1e-9,
+      withFacilities: CVIWA.focusState.fac.result.layers.filter(l => l.count > 0).length }; })()`);
+  // Layers with no facility in the counties stay out of the key, as before.
+  check(key.leftOut === 0 && key.fits && key.inside && key.withFacilities >= 4 &&
+    [].concat(...key.rows).length === key.withFacilities, 'legend: the map picture\'s key lists every layer with a ' +
+    'facility in the four counties (' + key.withFacilities + ') and fits its box under the Top box', key);
+  await p.eval(`(() => { const d = document.querySelector('dialog[open]'); if (d) d.close(); return true; })()`);
+  return { layers, key };
+}
+
 // ── Run ────────────────────────────────────────────────────────────────────────────────────────────────────────
 (async () => {
   const b = await launch();
@@ -767,6 +988,8 @@ async function partInfra(b) {
     for (const part of PARTS) {
       if (part === 'cvi') run.results.cvi = await partCvi(b);
       else if (part === 'infra') run.results.infra = await partInfra(b);
+      else if (part === 'names') run.results.names = await partNames(b);
+      else if (part === 'legend') run.results.legend = await partLegend(b);
       else throw new Error('Unknown part ' + part);
     }
   } catch (e) {
@@ -777,7 +1000,8 @@ async function partInfra(b) {
     check(!b.log.csp.length, 'page: no Content Security Policy reports', b.log.csp);
     // Only the site's own files (file://, the local server or a hosted copy of site/) and in-page addresses.
     const siteBase = new URL('../', PAGE).href;
-    const outside = b.log.requests.filter(u => !/^(data:|blob:|about:)/.test(u) && !u.startsWith(siteBase));
+    const outside = b.log.requests.filter(u => !/^(data:|blob:|about:)/.test(u) && !u.startsWith(siteBase) &&
+      !(b.answered && b.answered(u)));
     check(!outside.length, 'page: no request outside the site', outside);
     await b.close();
   }

@@ -316,6 +316,9 @@ Viewer (another internal WSDA tool) was copied; the CVI files copied are the sta
 (S9) and the Open Sans font file (for the shared look). The behavior is ported from CVI's R code and checked against
 CVI's functions run unmodified.
 
+Copies within the platform: County Focus's legend below 768 px (`cvi/index.html`, version 2.2) follows the Emergency
+Response page's narrow legend (`emergency/index.html`): under the map, open, in columns.
+
 
 **Infrastructure dashboard (S6):** it uses the same MapLibre files, map adapter, basemap list and
 request gate, neighboring-region files and credits as the CVI page; no other provider, host, font or data file. Its

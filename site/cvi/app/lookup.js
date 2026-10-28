@@ -216,11 +216,13 @@
   // "Paste rows": one site per line, "name, lat, long" (commas or tabs), then one number for a buffer or two or more
   // for bands. A line with fewer than three parts, or whose latitude or longitude is not a number, counts as skipped
   // (a deliberate difference: CVI leaves the short lines out without counting them; shortLines says
-  // how many). Returns { empty, sites, skipped, shortLines }.
+  // how many). A row whose bands break the rule of siteBands is not added, with the reason in refused (2.2; CVI
+  // drops the unreadable parts without a word). Returns { empty, sites, skipped, shortLines, refused: [{ name,
+  // reason, line }] }.
   function parsePaste(raw) {
     const text = raw === null || raw === undefined ? '' : String(raw);
-    if (trimR(text) === '') return { empty: true, sites: [], skipped: 0, shortLines: 0 };
-    const parsed = [];
+    if (trimR(text) === '') return { empty: true, sites: [], skipped: 0, shortLines: 0, refused: [] };
+    const parsed = [], refused = [];
     let shortLines = 0;
     text.split('\n').map(trimR).filter(l => l !== '').forEach(line => {
       const parts = splitR(line, /[,\t]/).map(trimR);
@@ -229,6 +231,11 @@
         return;
       }
       const extra = parts.slice(3).filter(x => x !== '');
+      const own = extra.length >= 2 ? siteBands(extra.join(',')) : null;
+      if (own && own.reason) {
+        refused.push({ name: parts[0], reason: own.reason, line });
+        return;
+      }
       parsed.push({
         name: parts[0],
         lat: P().number(parts[1]),
@@ -238,7 +245,7 @@
       });
     });
     const sites = parsed.filter(x => x.lat !== null && x.long !== null);
-    return { empty: false, sites, skipped: parsed.length - sites.length + shortLines, shortLines };
+    return { empty: false, sites, skipped: parsed.length - sites.length + shortLines, shortLines, refused };
   }
   // The message after a paste: the sites added and the lines skipped, or why nothing was added.
   function pasteMessage(r) {
@@ -251,6 +258,9 @@
     if (r.skipped > 0) text += ' Skipped ' + r.skipped + ' unparseable line(s).';
     return { level: 'ok', text };
   }
+  // One message for each pasted row not added for its bands (parsePaste's refused).
+  const refusedMessages = r => (r.refused || []).map(x => ({ level: 'warn',
+    text: 'Not added: "' + x.name + '": ' + x.reason }));
 
   // R's make.names(unique = TRUE), which read.csv applies to the header: an "X" goes in front of a name that does not
   // start with a letter (or "." and no digit), then characters other than letters, digits, "." and "_" become ".",
@@ -403,8 +413,9 @@
   }
 
   // "Add a site" (CVI's site_add): both coordinates needed and in range; an unnamed site becomes "Site <n>" (n: the
-  // table's rows plus one). input: { name (text), lat, long, buffer (numbers or null) }. Returns { site, message } or
-  // { message }.
+  // table's rows plus one). input: { name (text), lat, long, buffer (numbers or null), bands (the form's "Bands km"
+  // text, Bands mode only: checked by siteBands, kept in order; 2.2) }. Returns { site, message } or { message }
+  // ({ message, bands: true } when the bands break the rule: the message goes under the field).
   function addSiteRule(count, input) {
     const lat = input.lat, lon = input.long;
     if (lat === null || lat === undefined || lon === null || lon === undefined) {
@@ -416,7 +427,13 @@
     const typed = trimR(input.name === null || input.name === undefined ? '' : input.name);
     const name = typed !== '' ? typed : 'Site ' + (count + 1);
     const buffer = input.buffer === undefined ? null : input.buffer;
-    return { site: { name, lat, long: lon, buffer_km: buffer, bands_csv: null },
+    let bands = null;
+    if (input.bands !== undefined) {
+      const own = siteBands(input.bands);
+      if (own.reason) return { message: { level: 'warn', text: 'Bands km: ' + own.reason }, bands: true };
+      bands = own.text || null;
+    }
+    return { site: { name, lat, long: lon, buffer_km: input.bands !== undefined ? null : buffer, bands_csv: bands },
       message: { level: 'ok', text: 'Added "' + name + '".' } };
   }
 
@@ -446,6 +463,23 @@
     return { radii: sorted, note: moved
       ? { level: 'info', text: 'Bands sorted ascending: ' + sorted.map(numText).join(' / ') + ' km.' } : null };
   }
+  // One site's own bands (2.2), checked by the Band radii box's rule: numbers above 0, different
+  // from each other, at most 3, put in order. Used by the Add a site form, a Bands cell edited in the sites table,
+  // pasted rows and Run query. Returns { radii: null } when blank (the site uses the Band radii box),
+  // { radii, text } (text "1, 5, 10", in order) or { reason } (a sentence saying what to fix).
+  function siteBands(raw) {
+    const tokens = splitR(raw === null || raw === undefined ? '' : String(raw), /[,;\s]+/).map(trimR)
+      .filter(t => t !== '');
+    if (!tokens.length) return { radii: null };
+    const v = tokens.map(t => P().number(t));
+    const bad = v.findIndex(x => x === null || !Number.isFinite(x) || x <= 0);
+    if (bad >= 0) return { reason: '"' + tokens[bad] + '" is not a distance. Use numbers above 0, such as 1, 5, 10.' };
+    if (v.length > 3) return { reason: 'use at most 3 bands; "' + tokens.join(', ') + '" has ' + v.length + '.' };
+    const twice = v.find((x, i) => v.indexOf(x) !== i);
+    if (twice !== undefined) return { reason: numText(twice) + ' km is given twice. Use different distances, such as 1, 5, 10.' };
+    const radii = v.slice().sort((a, b) => a - b);
+    return { radii, text: radii.map(numText).join(', ') };
+  }
 
   // Run query, before the engine (CVI's run_query observer). input: { master, loading, sites (the table's rows),
   // mode ('single' or 'bands'), defaultKm (the box's value: a number or null), bandsText, endpoint, years, quarters,
@@ -472,6 +506,12 @@
       if (!b.radii) return stop(b.message);
       if (b.note) messages.push(b.note);
       bands = b.radii;
+      // Each site's own bands, checked again (2.2): one that breaks the rule stops the run with its name.
+      const wrong = sites.filter(s => !s.zone).map(s => ({ s, own: siteBands(s.bands_csv) })).find(x => x.own.reason);
+      if (wrong) {
+        return stop({ level: 'warn', text: 'Bands for "' + wrong.s.name + '": ' + wrong.own.reason +
+          ' Fix them in the Sites to query table.' });
+      }
     } else {
       // Single: a site's own band list would turn the engine to band mode, so it is left out (CVI).
       sites = sites.map(s => (s.zone ? { name: s.name, lat: s.lat, long: s.long, buffer_km: s.buffer_km, zone: s.zone }
@@ -690,6 +730,83 @@
       r.zone ? null : r.bandKm, r.county, r.town]) };
   }
 
+  // ── Search around a premises from your CVI file (2.2) ──
+  // The CVI file's premises, as places to search around. Grouped as County Focus groups them (focus.js build): a
+  // row's premises is at its counted end (the origin of an Outbound row, the destination of an Inbound one), in a WA
+  // county, keyed by the farm entity id at that end when there is one, else by its coordinates. Each is named by
+  // its city ("#n" when the city has several at that end, the largest by animals first; the coordinates when the
+  // city is blank), then "(origin)" or "(destination)". The farm entity id is only a key: never in a name.
+  const PREMISES_ENDS = { origin: ['Outbound'], dest: ['Inbound'], both: ['Outbound', 'Inbound'] };
+  // The WA counties holding a premises at a row's counted end, sorted.
+  function premisesCounties(master) {
+    const names = new Set();
+    master.rows.forEach(r => {
+      const end = r.Movement === 'Inbound' ? 'Dest' : r.Movement === 'Outbound' ? 'Origin' : null;
+      const county = end && r[end + '.County'] !== null && r[end + '.County'] !== undefined
+        ? String(r[end + '.County']).trim() : '';
+      if (end && county && isWa(r[end + '.State'])) names.add(county);
+    });
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }
+  // opts: { county, ends ('both', 'origin' or 'dest'), years, quarters, species } (an empty filter list means every
+  // value, as for Run query). Returns { premises (the most animals first: { key, name, city, end, lat, long, cvis,
+  // animals }), noCoords (premises rows left out for unusable coordinates), hasCvi (false: a file without a CVI
+  // column, whose cvis count records) }.
+  function cviPremises(master, opts) {
+    const text = v => (v === null || v === undefined ? '' : String(v).trim());
+    const yr = new Set(opts.years || []), qt = new Set(opts.quarters || []), sp = new Set(opts.species || []);
+    const moves = PREMISES_ENDS[opts.ends] || PREMISES_ENDS.both;
+    const hasCvi = master.header.indexOf('CVI') >= 0;
+    const groups = new Map();
+    let noCoords = 0;
+    master.rows.forEach((r, index) => {
+      if (moves.indexOf(r.Movement) < 0) return;
+      if ((yr.size && !yr.has(r['Reporting.Year'])) || (qt.size && !qt.has(r['Reporting.Quarter']))
+        || (sp.size && !sp.has(r['Species.Group']))) return;
+      const end = r.Movement === 'Inbound' ? 'Dest' : 'Origin';
+      if (!isWa(r[end + '.State']) || text(r[end + '.County']) !== opts.county) return;
+      const lat = P().number(r[end + '.Lat']), lon = P().number(r[end + '.Long']);
+      if (!P().usable(lat, lon)) { noCoords++; return; }
+      const eid = text(r['farm_entity_id_' + end.toLowerCase()]);
+      const key = end + '\r' + (eid ? 'e:' + eid : 'c:' + lon + ',' + lat);
+      if (!groups.has(key)) {
+        groups.set(key, { key, city: text(r[end + '.City']), end, lat, long: lon, cvis: new Set(), animals: 0 });
+      }
+      const g = groups.get(key);
+      g.cvis.add(hasCvi ? text(r.CVI) : index);
+      if (Number.isFinite(r['Total.Animals'])) g.animals += r['Total.Animals'];
+    });
+    const list = [...groups.values()].map(g => Object.assign(g, { cvis: g.cvis.size }));
+    // "#n" within a city and end, the most animals first (ties by key, so the names do not depend on row order).
+    const order = (a, b) => b.animals - a.animals || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+    const byCity = new Map();
+    list.forEach(g => {
+      const id = g.end + '\r' + g.city;
+      if (!byCity.has(id)) byCity.set(id, []);
+      byCity.get(id).push(g);
+    });
+    byCity.forEach(same => same.sort(order).forEach((g, i) => {
+      g.name = (g.city || g.long.toFixed(3) + ', ' + g.lat.toFixed(3)) + (same.length > 1 ? ' #' + (i + 1) : '') +
+        (g.end === 'Origin' ? ' (origin)' : ' (destination)');
+    }));
+    return { premises: list.sort(order), noCoords, hasCvi };
+  }
+  const PREMISES_SHOWN = 6, PREMISES_FOUND = 50;   // listed before anything is typed, and at most when a city is typed
+  // The premises the fold lists for the text typed in its city box: { shown, matching (all that match), note }.
+  function premisesShown(premises, find) {
+    const t = String(find || '').trim().toLowerCase();
+    const matching = t ? premises.filter(g => g.name.toLowerCase().indexOf(t) >= 0) : premises;
+    const cap = t ? PREMISES_FOUND : PREMISES_SHOWN;
+    const shown = matching.slice(0, cap);
+    let note = '';
+    if (!t && matching.length > cap) note = 'Showing the ' + cap + ' with the most animals; type to find others.';
+    else if (t && !matching.length) note = 'No premises match "' + String(find).trim() + '".';
+    else if (t && matching.length > cap) {
+      note = 'Showing the ' + cap + ' of ' + matching.length + ' with the most animals; type more to narrow.';
+    }
+    return { shown, matching, note };
+  }
+
   // ── The page side ───────────────────────────────────────────────────────────────────────────────────────────────
   // init(host) wires the Premise Lookup sidebar and results of cvi/index.html; host (ui.js): { master() (the loaded
   // master or null), loading() (a file is being read), loadScript(src), geo (the county file), watchFile(input,
@@ -709,6 +826,8 @@
   // with premises coordinates or a ticked facility layer is there (facilities only, with the CVI match's reason, when
   // the master is missing); Pick on map; the facilities-inside card; the match map's legend; the export ZIP (the
   // matched rows as CVI's Export CSV writes them, the facilities inside, export_params.json).
+  // Since 2.2: the CVI match first ("CVI match", then the results' Matched CVIs before Facilities
+  // inside), the facility layers optional and none ticked at first, and "Search around a premises from your CVI file".
 
   const SITES_PAGE = 8, TABLE_PAGE = 10;   // CVI's pageLength for the sites and matched-CVI tables
   const SECOND_CLICK_MS = 600;   // two clicks on one cell within this time open it, as a double-click
@@ -732,7 +851,9 @@
       years: [], quarters: QUARTERS.slice(), species: [], yearChoices: [], speciesChoices: [], endpoint: 'either',
       result: null, table: { search: '', sortColumn: 0, descending: false, page: 0 },
       map: null, mapFailed: false, mapLoading: false, shown: false,
-      fac: { selectedLayers: [], attributes: Object.create(null) }, facInitialized: false, facResult: null,
+      fac: { selectedLayers: [], attributes: Object.create(null) }, facResult: null,
+      // Search around a premises from your CVI file (2.2): the fold's choices, the premises listed and those ticked
+      prem: { county: '', ends: 'both', find: '', premises: [], noCoords: 0, ticked: new Set() },
       facTable: { search: '', sortColumn: 0, descending: false, page: 0 },
       places: 'idle', picking: false, pick: null, runTime: null,
       // The geocode cache file loaded for Find coordinates ({ rows } from parseGeocodeCache, and its name)
@@ -765,6 +886,7 @@
         cb.addEventListener('change', () => {
           ps[key] = cb.checked ? ps[key].concat([v]) : ps[key].filter(x => x !== v);
           $('lk-' + key + '-none').hidden = ps[key].length > 0;
+          refreshPremises();   // the premises fold follows the CVI match's years, quarters and species
         });
         l.append(cb, doc.createTextNode(' ' + label(v)));
         box.appendChild(l);
@@ -777,6 +899,7 @@
       renderChecks('years', ps.yearChoices, String);
       renderChecks('quarters', QUARTERS, String);
       renderChecks('species', ps.speciesChoices, String);
+      refreshPremises();
     }
     ['years', 'quarters', 'species'].forEach(key => {
       const all = () => (key === 'quarters' ? QUARTERS : key === 'years' ? ps.yearChoices : ps.speciesChoices);
@@ -792,8 +915,42 @@
       ps.mode = mode;
       $('lk-single-block').hidden = mode !== 'single';
       $('lk-bands-block').hidden = mode !== 'bands';
+      // Add a site: "Buffer km" in Single mode, "Bands km" in Bands mode (2.2), and the first sentence to match.
+      $('lk-new-buffer-field').hidden = mode === 'bands';
+      $('lk-new-bands-field').hidden = mode !== 'bands';
+      $('lk-add-optional').textContent = mode === 'bands'
+        ? 'Bands are optional — leave them blank to use the Band radii above.'
+        : 'Buffer is optional — leave it blank to use the default buffer / preset above.';
+      $('lk-prem-how').textContent = 'They are added to Sites to query, with the ' +
+        (mode === 'bands' ? 'Band radii' : 'buffer') + ' above.';
       renderSites();
     }
+    // The Band radii box's distances as text ("3, 10, 20"), or null while the box breaks its rule.
+    const radiiText = () => {
+      const b = validateBands($('lk-bands').value);
+      return b.radii ? b.radii.map(numText).join(', ') : null;
+    };
+    // The form's bands checked as typed: a warning under the field once one is shown or the field is left, gone
+    // when fixed.
+    function checkNewBands(always) {
+      const shown = !$('lk-new-bands-msg').hidden;
+      if (!always && !shown) return;
+      const own = siteBands($('lk-new-bands').value);
+      sayBands(own.reason ? [{ level: 'warn', text: 'Bands km: ' + own.reason }] : []);
+    }
+    // The warning under "Bands km", tied to the box: it is in the box's description, and the box is marked invalid
+    // while one shows (for screen readers).
+    function sayBands(messages) {
+      say($('lk-new-bands-msg'), messages);
+      if (messages.length) $('lk-new-bands').setAttribute('aria-invalid', 'true');
+      else $('lk-new-bands').removeAttribute('aria-invalid');
+    }
+    $('lk-new-bands').addEventListener('input', () => checkNewBands(false));
+    $('lk-new-bands').addEventListener('change', () => checkNewBands(true));
+    // A blank Bands cell shows the Band radii ("Default: 3, 10, 20"), so the table follows the box.
+    $('lk-bands').addEventListener('input', () => {
+      if (ps.mode === 'bands') renderSites();
+    });
     doc.querySelectorAll('input[name=lk-mode]').forEach(r => r.addEventListener('change', () => {
       if (r.checked) setMode(r.value);
     }));
@@ -802,6 +959,7 @@
     }));
     doc.querySelectorAll('.lk-band-preset').forEach(b => b.addEventListener('click', () => {
       $('lk-bands').value = b.getAttribute('data-bands');
+      if (ps.mode === 'bands') renderSites();
     }));
 
     // ── Sites table ──
@@ -857,6 +1015,16 @@
           const fixed = !!site.zone && j > 0;
           const shown = fixed && j === 3 ? 'Zone (' + site.zoneFile + ')' : cellText(site[field]);
           const td = el('td', j === 0 ? null : fixed ? 'num lk-fixed' : 'num', shown);
+          // A site's bands written in order with spaces; a blank cell shows the Band radii it uses, in gray, as
+          // "Default: 3, 10, 20" (2.2), empty while the box cannot be read.
+          if (field === 'bands_csv' && !fixed) {
+            const own = siteBands(site[field]);
+            if (own.text) td.textContent = own.text;
+            else if (!own.reason) {
+              const r = radiiText();
+              td.replaceChildren(el('span', 'lk-default-bands', r ? 'Default: ' + r : ''));
+            }
+          }
           td.tabIndex = 0;
           td.title = fixed ? (j === 3 ? 'A zone from ' + site.zoneFile + ': it matches inside its polygon' :
             'A point inside the zone (fixed)') : (j === 0 ? cellText(site[field]) + ' — ' : '') +
@@ -979,7 +1147,15 @@
       const finish = keep => {
         if (done) return;
         done = true;
-        if (keep) editCell(site, field, input.value);
+        // A site's bands are saved only when they keep the rule (2.2); otherwise the cell keeps its value and the
+        // reason shows under the table.
+        const own = keep && field === 'bands_csv' ? siteBands(input.value) : {};
+        if (own.reason) {
+          say($('lk-sites-msg'), [{ level: 'warn', text: 'Bands for "' + site.name + '" not saved: ' + own.reason }]);
+        } else {
+          if (keep) editCell(site, field, input.value);
+          if (field === 'bands_csv') say($('lk-sites-msg'), []);
+        }
         focusAfter = { uid: site.uid, field };
         renderSites();
       };
@@ -1007,15 +1183,20 @@
 
     // Add a site (CVI's site_add, addSiteRule): the form is emptied after a site is added.
     $('lk-add').addEventListener('click', () => {
-      const r = addSiteRule(ps.sites.length, { name: $('lk-new-name').value, lat: P().number($('lk-new-lat').value),
-        long: P().number($('lk-new-long').value), buffer: P().number($('lk-new-buffer').value) });
+      const input = { name: $('lk-new-name').value, lat: P().number($('lk-new-lat').value),
+        long: P().number($('lk-new-long').value), buffer: P().number($('lk-new-buffer').value) };
+      if (ps.mode === 'bands') input.bands = $('lk-new-bands').value;
+      const r = addSiteRule(ps.sites.length, input);
       if (r.site) {
         addSites([r.site]);
-        ['lk-new-name', 'lk-new-address', 'lk-new-lat', 'lk-new-long', 'lk-new-buffer'].forEach(id => { $(id).value = ''; });
+        ['lk-new-name', 'lk-new-address', 'lk-new-lat', 'lk-new-long', 'lk-new-buffer', 'lk-new-bands']
+          .forEach(id => { $(id).value = ''; });
         say($('lk-geo-msg'), []);
         if (ps.picking) setPicking(false);
       }
-      say($('lk-add-msg'), [r.message]);
+      // The bands' reason goes under their field; the field's warning is cleared once the site is added.
+      sayBands(r.bands ? [r.message] : []);
+      say($('lk-add-msg'), r.bands ? [] : [r.message]);
     });
 
     // ── Find coordinates (geocodeRule): the loaded geocode cache file only ──
@@ -1112,9 +1293,10 @@
       const m = pasteMessage(r);
       if (r.sites.length) {
         addSites(r.sites);
-        $('lk-paste').value = '';
+        // Rows not added for their bands stay in the box to be fixed (2.2).
+        $('lk-paste').value = r.refused.map(x => x.line).join('\n');
       }
-      say($('lk-bulk-msg'), [m]);
+      say($('lk-bulk-msg'), [m].concat(refusedMessages(r)));
     });
     host.watchFile($('lk-upload'), f => {   // ui.js: once per pick, the picker emptied so the same file can be chosen again
       const reader = new root.FileReader();
@@ -1165,9 +1347,12 @@
       const f = facilityFiles();
       return f ? f.prepared.layers.filter(l => l.usable).map(l => l.key) : [];
     };
-    // Redraws the facility layer check list (the facility files' usable layers).
+    // Redraws the facility layer check list (the facility files' usable layers) and the section's summary.
     function renderFacilityList() {
       const f = facilityFiles(), usable = usableLayers();
+      const on = ps.fac.selectedLayers.filter(k => usable.indexOf(k) >= 0).length;
+      $('lk-fac-sum').textContent = !usable.length ? 'no facility files' : !on ? 'none ticked'
+        : on + ' of ' + usable.length + ' ticked';
       $('lk-fac-none').hidden = usable.length > 0;
       const list = $('lk-fac-list');
       if (!f || !usable.length) { list.replaceChildren(); return; }
@@ -1186,19 +1371,119 @@
         .map(l => ({ key: l.key, label: l.liveLabel, pngLabel: l.label, color: l.color, shape: l.shape,
           points: l.points }));
     }
-    // The facility files changed: the layer picks are brought in line with them and the list redrawn.
+    // The facility files changed: the layer picks are brought in line with them and the list redrawn. No layer is
+    // ticked when the files arrive (2.2: the facilities are optional here; the Infrastructure dashboard still ticks
+    // every usable layer at the start).
     function facilitiesChanged() {
       const f = facilityFiles();
       if (f) {
-        const usable = usableLayers().length > 0;
-        const next = FAC().reconcile(f.prepared, ps.fac.selectedLayers, ps.fac.attributes, !ps.facInitialized && usable);
+        const next = FAC().reconcile(f.prepared, ps.fac.selectedLayers, ps.fac.attributes, false);
         ps.fac.selectedLayers = next.selectedLayers;
         ps.fac.attributes = next.attributes;
-        if (usable) ps.facInitialized = true;
       }
       renderFacilityList();
       gateRun();
     }
+
+    // ── Search around a premises from your CVI file (2.2) ──
+    // Grayed with the CVI match's reason (no master, or no premises coordinates), as Run query's CVI match is.
+    function premisesGate(reason) {
+      const off = !!reason;
+      $('lk-prem-body').disabled = off;
+      $('lk-prem-off').hidden = !off;
+      $('lk-prem-off').textContent = off ? 'Grayed: ' + reason : '';
+    }
+    // The fold's premises worked out again (the master, the CVI match's filters, the county or the ends changed);
+    // the ticks of premises no longer listed are dropped.
+    function refreshPremises() {
+      const m = host.master(), pr = ps.prem;
+      const counties = m && !ps.runReason ? premisesCounties(m) : [];
+      if (counties.indexOf(pr.county) < 0) pr.county = counties.length ? counties[0] : '';
+      const sel = $('lk-prem-county');
+      sel.replaceChildren(...counties.map(c => { const o = el('option', null, c); o.value = c; return o; }));
+      sel.value = pr.county;
+      const got = pr.county ? cviPremises(m, { county: pr.county, ends: pr.ends, years: ps.years,
+        quarters: ps.quarters, species: ps.species }) : { premises: [], noCoords: 0 };
+      pr.premises = got.premises;
+      pr.noCoords = got.noCoords;
+      pr.hasCvi = got.hasCvi !== false;
+      const keys = new Set(pr.premises.map(g => g.key));
+      pr.ticked = new Set([...pr.ticked].filter(k => keys.has(k)));
+      renderPremises();
+    }
+    // Redraws the list for the text typed, its count and the button.
+    function renderPremises() {
+      const pr = ps.prem, view = premisesShown(pr.premises, pr.find);
+      $('lk-prem-count').textContent = view.matching.length + ' premises';
+      const list = $('lk-prem-list');
+      list.replaceChildren();
+      view.shown.forEach(g => {
+        const l = el('label'), cb = el('input'), span = el('span', null, g.name);
+        cb.type = 'checkbox';   // no value: the key may hold a farm entity id, never written into the page
+        cb.checked = pr.ticked.has(g.key);
+        cb.addEventListener('change', () => {
+          if (cb.checked) pr.ticked.add(g.key); else pr.ticked.delete(g.key);
+          premisesButton();
+        });
+        const what = pr.hasCvi ? ' CVI' : ' record';   // a file without a CVI column counts its records
+        span.appendChild(el('small', null, g.cvis.toLocaleString('en-US') + what + (g.cvis === 1 ? '' : 's') + ', ' +
+          Math.round(g.animals).toLocaleString('en-US') + ' animals'));
+        l.append(cb, span);
+        list.appendChild(l);
+      });
+      const notes = [view.note];
+      if (!pr.premises.length) notes.push(pr.county ? 'No premises in ' + pr.county + ' County with these filters.' : '');
+      if (pr.noCoords) notes.push(pr.noCoords + ' row(s) left out without usable coordinates.');
+      notes.filter(Boolean).forEach(t => list.appendChild(el('p', 'muted', t)));
+      list.hidden = !list.children.length;
+      premisesButton();
+    }
+    function premisesButton() {
+      const n = ps.prem.ticked.size;
+      $('lk-prem-add-text').textContent = 'Search around ' + n + ' ticked premises';
+      $('lk-prem-add').disabled = !n;
+    }
+    $('lk-prem-county').addEventListener('change', e => {
+      ps.prem.county = e.target.value;
+      ps.prem.ticked.clear();
+      refreshPremises();
+    });
+    $('lk-prem-ends').addEventListener('change', e => {
+      ps.prem.ends = e.target.value;
+      ps.prem.ticked.clear();
+      refreshPremises();
+    });
+    $('lk-prem-find').addEventListener('input', e => {
+      ps.prem.find = e.target.value;
+      renderPremises();
+    });
+    // Tick all: the premises listed (six, or up to 50 for a typed city), never a whole county at once: each one is a
+    // site, and Run query's work grows with sites times rows. Clear: every tick.
+    $('lk-prem-all').addEventListener('click', () => {
+      premisesShown(ps.prem.premises, ps.prem.find).shown.forEach(g => ps.prem.ticked.add(g.key));
+      renderPremises();
+    });
+    $('lk-prem-clear').addEventListener('click', () => {
+      ps.prem.ticked.clear();
+      renderPremises();
+    });
+    // The ticked premises become sites (the buffer or bands above); one already in the table is not added twice.
+    $('lk-prem-add').addEventListener('click', () => {
+      const picked = ps.prem.premises.filter(g => ps.prem.ticked.has(g.key));
+      const there = s => ps.sites.some(x => !x.zone && x.name === s.name && x.lat === s.lat && x.long === s.long);
+      const fresh = picked.filter(g => !there(g));
+      addSites(fresh.map(g => ({ name: g.name, lat: g.lat, long: g.long, buffer_km: null, bands_csv: null })));
+      const lines = [];
+      if (fresh.length) {
+        lines.push({ level: 'ok', text: 'Added ' + fresh.length + ' premises to Sites to query. Click Run query to find the CVIs near them.' });
+      }
+      if (picked.length > fresh.length) {
+        lines.push({ level: 'info', text: (picked.length - fresh.length) + ' already in Sites to query, not added again.' });
+      }
+      ps.prem.ticked.clear();
+      renderPremises();
+      say($('lk-prem-msg'), lines);
+    });
 
     // ── Run query ──
     function gateRun() {
@@ -1213,16 +1498,25 @@
       // With the CVI match grayed, ticked facility layers still run (facilities only).
       const facilitiesOnly = !!reason && !host.loading() && checkedLayers().length > 0;   // not while a master loads
       $('lk-run').disabled = !!reason && !facilitiesOnly;
+      // With facility files but no layer ticked, the reason also names the facilities-only run (since 2.2 no layer is
+      // ticked at first, so it is no longer there on its own).
+      const offer = !!reason && !facilitiesOnly && !host.loading() && usableLayers().length > 0
+        ? ' Or tick a layer under Facilities inside (optional) to check the facilities only.' : '';
       $('lk-run-reason').textContent = !reason ? '' : facilitiesOnly
-        ? 'The CVI match is grayed: ' + reason + ' Run query checks the facilities only.' : reason;
+        ? 'The CVI match is grayed: ' + reason + ' Run query checks the facilities only.' : reason + offer;
       $('lk-run-reason').hidden = !reason;
+      const changed = ps.runReason !== reason;
       ps.runReason = reason;
       ps.facilitiesOnly = facilitiesOnly;
+      ps.runOffer = offer;
+      premisesGate(reason);
+      if (changed) refreshPremises();
       $('lk-empty').textContent = emptyNote();
     }
     // The result area's line before a result: what to do, or why Run query is grayed (the button is at the end of
     // the sidebar, often out of view).
-    const emptyNote = () => (ps.runReason && !ps.facilitiesOnly ? 'Run query is grayed: ' + ps.runReason : EMPTY_NOTE);
+    const emptyNote = () => (ps.runReason && !ps.facilitiesOnly ? 'Run query is grayed: ' + ps.runReason + (ps.runOffer || '')
+      : EMPTY_NOTE);
     // The facilities inside, or a run line saying why they could not be found (so an error here does not end the
     // click with no message and the old result left on screen).
     function facilitiesStep(sites, layers) {
@@ -1907,6 +2201,7 @@
       ps.speciesChoices = m ? m.speciesChoices.slice() : [];
       ps.years = ps.yearChoices.slice();   // CVI: every year and species group selected when a master loads
       ps.species = ps.speciesChoices.slice();
+      say($('lk-prem-msg'), []);   // the premises fold's last message was about the file before
       renderFilters();
       gateRun();
       if (ps.result) {
@@ -1935,7 +2230,8 @@
 
   root.CVIWA = root.CVIWA || {};
   root.CVIWA.lookup = { query, round2, keyOf, parsePaste, pasteMessage, makeNames, parseUpload, TEMPLATE_NAME,
-    TEMPLATE_CSV, addSiteRule, editField, editCell, validateBands, prepareRun, afterRun, tiles, TABLE_COLUMNS, table,
+    TEMPLATE_CSV, addSiteRule, editField, editCell, validateBands, siteBands, refusedMessages, prepareRun, afterRun, tiles, TABLE_COLUMNS, table,
     mapData, BAND_COLORS, MANY_SITES, placeText, facilitiesInside, facilitiesMessage, facilityCounts, facilityTable,
-    FACILITY_TABLE_COLUMNS, normalizeAddress, parseGeocodeCache, findAddress, geocodeRule, init };
+    FACILITY_TABLE_COLUMNS, normalizeAddress, parseGeocodeCache, findAddress, geocodeRule, premisesCounties, cviPremises,
+    premisesShown, PREMISES_SHOWN, PREMISES_FOUND, init };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -106,7 +106,7 @@
   .map-frame { position: relative; height: 65vh; min-height: 300px; }
   #facility-map { position: absolute; inset: 0; }
   /* PC: the population layers' names (map.js), census-designated places in italics; hidden names keep their size. */
-  .county-label.pc-name { font-size: 10px; color: #444444; }
+  .county-label.pc-name { font-size: 10px; color: var(--pc-name, #444444); }
   .county-label.pc-name.pc-cdp { font-style: italic; }
   .county-label.pc-name.collided { visibility: hidden; }
   /* The switches sit in help-button rows, out of reach of the .field.check > label rule: the CVI page's sizes. */
@@ -356,7 +356,7 @@
 
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.1 (2026-10-27)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.2 (2026-10-28)</span></p>
   <details class="credits"><summary>Data sources and credits</summary>
   <p>Adapted from Statistics Canada, 2021 Census Boundary Files (census divisions, cartographic), reference date 2021. This does not constitute an endorsement by Statistics Canada of this product. Contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada" target="_blank" rel="noopener noreferrer">Open Government Licence – Canada</a>.</p></details>
   <div data-wsda-glossary></div></footer>
