@@ -119,8 +119,8 @@
  *     available: needs ..." as its reason (never shown as zero). Each count is said once: the positives' value
  *     counts the current positives inside the window, its note "5 with zones" only when that differs; the past box
  *     counts the past positives inside it, its note "2 still under quarantine" (or "none under quarantine"); lines
- *     holds the not-mapped line, "2 dates not readable" (detection, closed and release dates together), "1 without
- *     a date" and "Animals at the current positives: ..." (the numbers line), each when it applies; the last
+ *     holds the not-mapped line, "2 dates not readable" (detection, closed and release dates together) and "1
+ *     without a date", each when it applies (the animals are the Overview's box since 2.3); the last
  *     positive is the latest inside the window, its note "As of Oct 5, 2026" (the window's end). Without a window
  *     (no readable detection date) the current positives are those not past by their closed column, the past box is
  *     not available and only the not-mapped and unreadable-dates lines are added.
@@ -128,6 +128,33 @@
  *     for the CSV files, with no address column; positives.csv lists the positives inside the window and the rows
  *     not mapped, each with its group, the details and a note ("Still under quarantine", or "Not mapped: ..."). The
  *     distances in the unit (km by default).
+ *
+ * The Overview (2.3), from the positives inside the window, current or past on its end date:
+ *   countyOf(p, counties) -> the file's County (as the county's own name when it names one of Washington's, whatever
+ *     its case, spacing or a trailing "County"), else the name of the county shape holding the positive (counties: the
+ *     map's county Features, site/geo/wa-counties.js), else the nearest within NEAR_KM (2 km), else "Outside
+ *     Washington" (OUTSIDE_WA).
+ *   countyRows(read, win, counties) -> [{ county, current, past, total, animals ([[word, n]], the current positives'),
+ *     animalsText ("1.3M birds"), missing (current positives without a count) }], by current, then total, then name,
+ *     "Outside Washington" last.
+ *   positiveRows(read, win, counties) -> { columns, rows }: the ID (or "Positive"), Detected, County, Flock size, the
+ *     flock type, species, status, "Current or past" and quarantine release columns the file has; dates written out
+ *     ("Oct 5, 2026"); newest first, the undated last. No address column.
+ *   peopleInside(sites, tracts, opts) -> null without sites, else { total, rounded (three significant figures:
+ *     roughly(n)), year, tracts: [{ geoid, pop, share, people }] (each tract touched), beyond (a zone reaches past
+ *     Washington: reachesPastWashington) }: tracts [{ geoid, pop, coordinates }] (a MultiPolygon's, as population.js
+ *     geometry() decodes them; Washington's); opts { year, counties }. How it is measured: at the function.
+ *   overviewBoxes(read, win, counties, people) -> { counties: { value (counties with a current positive, "Outside
+ *     Washington" not counted), note ("8 counties since Nov 2024 · 1 outside Washington") }, animals: { value ("1.3M
+ *     birds"), note (the counted-apart animals, the flock types, "1 without a count") }, people: { value (rounded),
+ *     note ("Estimate from 57 Census tracts (2020)", with " · Washington only" when a zone reaches past the state; "Not
+ *     available: the zones are outside Washington" when it touches no tract) } }, each with a reason ("Not available: needs zones") when its
+ *     value cannot be given, never zero for an unknown.
+ *   overviewBars(countyRows, result) -> { counties, layers }: [{ label, parts: [{ key, value }], total }] for the two
+ *     bar charts (current and past by county; each ring's or zone's count by layer, the total its distinct sites).
+ *   countyTable(read, countyRows) -> { columns, rows } for counties.csv: County, Current, Past, Total, each animal
+ *     word's exact total at the current positives, and the current positives without a count.
+ *   flockKinds(list), animalTotals(read, list), animalsText(totals): the counts shared with numbersLine.
  * The inside rows and counts are copied from site/cvi/app/lookup.js, v1.1 (facilitiesInside, facilityCounts and
  * facilityTable), with the zones' labels and the unit added, and the rows grouped by layer first (the results tab lists
  * them layer by layer); round2 is copied from the same file. */
@@ -444,35 +471,50 @@
   function numbersLine(read, list) {
     const hasType = !!read.columns.flockType, hasInventory = !!read.columns.inventory;
     if (!list.length || (!hasType && !hasInventory)) return null;
-    const parts = [];
-    if (hasType) {
-      const kinds = new Map();
-      for (const p of list) {
-        const key = text(p.flockType).toLowerCase();
-        const k = kinds.get(key) || { key, count: 0, animals: 0 };
-        k.count++;
-        k.animals += p.inventory || 0;
-        kinds.set(key, k);
-      }
-      const order = [...kinds.values()].sort((a, b) => (a.key === '') - (b.key === '') || b.animals - a.animals ||
-        b.count - a.count || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-      order.forEach(k => parts.push(k.count + ' ' + (k.key || 'without a type')));
-    }
+    const parts = hasType ? flockKinds(list).map(kindText) : [];
     let line = '';
     if (hasInventory) {
-      const known = list.filter(p => p.inventory !== null);
-      const totals = new Map([read.type.inventoryWord].concat(read.type.countedApart.map(a => a.word)).map(w => [w, null]));
-      for (const p of known) {
-        const w = inventoryWordOf(read.type, p);
-        totals.set(w, (totals.get(w) || 0) + p.inventory);
-      }
-      totals.forEach((n, w) => { if (n !== null) parts.push(bigNumber(n) + ' ' + w); });
+      const a = animalTotals(read, list);
+      a.totals.forEach(([w, n]) => parts.push(bigNumber(n) + ' ' + w));
       line = parts.join(', ');
-      const missing = list.length - known.length;
-      if (missing) line += (line ? '; ' : '') + missing + ' without an inventory';
+      if (a.missing) line += (line ? '; ' : '') + a.missing + ' without an inventory';
     } else line = parts.join(', ');
     return line;
   }
+
+  // The positives by flock type: [{ key (lowercase, '' when blank), count, animals }], the type with the most
+  // animals first, then the most positives, then by name; a blank type last. kindText(k) -> "3 commercial".
+  function flockKinds(list) {
+    const kinds = new Map();
+    for (const p of list) {
+      const key = text(p.flockType).toLowerCase();
+      const k = kinds.get(key) || { key, count: 0, animals: 0 };
+      k.count++;
+      k.animals += p.inventory || 0;
+      kinds.set(key, k);
+    }
+    return [...kinds.values()].sort((a, b) => (a.key === '') - (b.key === '') || b.animals - a.animals ||
+      b.count - a.count || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  }
+  const kindText = k => k.count + ' ' + (k.key || 'without a type');
+
+  // The positives' animals added up by the word they are counted under: { totals: [[word, n]] in the type's order
+  // (its inventoryWord, then its countedApart words; a word with no counted positive left out), missing (the
+  // positives without a count, never counted as zero) }. animalsText(totals) -> "1.2M birds, 35 cattle".
+  function animalTotals(read, list) {
+    const totals = new Map([read.type.inventoryWord].concat(read.type.countedApart.map(a => a.word)).map(w => [w, null]));
+    let missing = 0;
+    for (const p of list) {
+      if (p.inventory === null) {
+        missing++;
+        continue;
+      }
+      const w = inventoryWordOf(read.type, p);
+      totals.set(w, (totals.get(w) || 0) + p.inventory);
+    }
+    return { totals: [...totals].filter(([, n]) => n !== null), missing };
+  }
+  const animalsText = totals => totals.map(([w, n]) => bigNumber(n) + ' ' + w).join(', ');
 
   // The rows without usable coordinates, counted by reason: "2 not mapped: no coordinates", or with several reasons
   // "3 not mapped: 2 no coordinates, 1 latitude and longitude look swapped". Null when every row is mapped.
@@ -728,11 +770,8 @@
       const bad = (read.badDates || 0) + (read.badCloseDates || 0) + (read.badReleaseDates || 0);
       if (bad) lines.push(bad.toLocaleString('en-US') + (bad === 1 ? ' date' : ' dates') + ' not readable');
     }
-    if (g) {
-      if (g.undated.length) lines.push(g.undated.length.toLocaleString('en-US') + ' without a date');
-      const numbers = numbersLine(read, g.current);
-      if (numbers) lines.push('Animals at the current positives: ' + numbers);
-    }
+    // The animals at the current positives are the Overview's own box (2.3), no longer a line here.
+    if (g && g.undated.length) lines.push(g.undated.length.toLocaleString('en-US') + ' without a date');
     const quarantined = g ? g.stillQuarantined.length : 0;
     const past = !read ? { value: null, reason: 'Not available: needs the positives file' }
       : !g ? { value: null, reason: last.value === null ? last.reason : 'Not available: needs dates' }
@@ -776,6 +815,284 @@
     return { positives, inside, layers, leftOut };
   }
 
+
+  // ---- The Overview (2.3) ----------------------------------------------------------------------------------------
+
+  const OUTSIDE_WA = 'Outside Washington';
+
+  // A positive's county: the file's County, written as one of the map's county names whatever its case, spacing or a
+  // trailing "County" ("yakima", "Yakima County"), or else as written ("Umatilla (Oregon)"); a blank County, the
+  // county its location falls in (the map's county shapes, each a GeoJSON Feature with properties.name), else the
+  // nearest within NEAR_KM (a location geocoded just off the shore), else "Outside Washington". Kept per positive.
+  const NEAR_KM = 2;
+  const countyMemo = new WeakMap(), shapeMemo = new WeakMap();
+  const countyKey = name => text(name).replace(/\s+/g, ' ').replace(/ county$/i, '').toLowerCase();
+  function countyShapes(counties) {
+    let c = shapeMemo.get(counties);
+    if (!c) {
+      const names = new Map(counties.map(f => [countyKey(f.properties.name), f.properties.name]));
+      const rings = counties.map(f => (f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates).flat());
+      const boxes = rings.map(rs => { const pts = rs.flat();
+        return [Math.min(...pts.map(q => q[0])), Math.min(...pts.map(q => q[1])), Math.max(...pts.map(q => q[0])), Math.max(...pts.map(q => q[1]))]; });
+      c = { names, rings, boxes };
+      shapeMemo.set(counties, c);
+    }
+    return c;
+  }
+  // The distance in km from a point to the nearest edge of a county's rings (a flat plane at the point's latitude).
+  function edgeKm(lon, lat, rings) {
+    const kx = 111.32 * Math.cos(lat * Math.PI / 180), ky = 110.574;
+    let best = Infinity;
+    for (const r of rings) {
+      for (let i = 1; i < r.length; i++) {
+        const ax = (r[i - 1][0] - lon) * kx, ay = (r[i - 1][1] - lat) * ky, bx = (r[i][0] - lon) * kx, by = (r[i][1] - lat) * ky;
+        const dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy;
+        const t = len ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len)) : 0;
+        best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+      }
+    }
+    return best;
+  }
+  function countyOf(p, counties) {
+    const list = counties || [];
+    const kept = countyMemo.get(p);
+    if (kept && kept.counties === list) return kept.name;
+    const c = countyShapes(list), written = text(p.county);
+    let name = written ? c.names.get(countyKey(written)) || written : null;
+    if (!name) {
+      const hit = list.find(f => P().inZone(p.lon, p.lat, f.geometry));
+      if (hit) name = hit.properties.name;
+    }
+    if (!name) {
+      const dLat = NEAR_KM / 110.574, dLon = NEAR_KM / (111.32 * Math.cos(p.lat * Math.PI / 180));
+      let best = NEAR_KM;
+      list.forEach((f, k) => {
+        const b = c.boxes[k];
+        if (p.lon < b[0] - dLon || p.lon > b[2] + dLon || p.lat < b[1] - dLat || p.lat > b[3] + dLat) return;
+        const km = edgeKm(p.lon, p.lat, c.rings[k]);
+        if (km <= best) { best = km; name = f.properties.name; }
+      });
+    }
+    name = name || OUTSIDE_WA;
+    countyMemo.set(p, { counties: list, name });
+    return name;
+  }
+  const monthLabel = iso => MONTHS[+iso.slice(5, 7) - 1] + ' ' + iso.slice(0, 4);
+
+  function countyRows(read, win, counties) {
+    const g = groups(read, win), rows = new Map();
+    const row = name => rows.get(name) || rows.set(name, { county: name, current: 0, past: 0, total: 0, list: [] }).get(name);
+    for (const p of g.current) {
+      const r = row(countyOf(p, counties));
+      r.current++;
+      r.list.push(p);
+    }
+    for (const p of g.past) row(countyOf(p, counties)).past++;
+    const out = [...rows.values()].map(r => {
+      const a = read.columns.inventory ? animalTotals(read, r.list) : { totals: [], missing: 0 };
+      return { county: r.county, current: r.current, past: r.past, total: r.current + r.past, animals: a.totals,
+        animalsText: animalsText(a.totals), missing: a.missing };
+    });
+    return out.sort((a, b) => (a.county === OUTSIDE_WA) - (b.county === OUTSIDE_WA) || b.current - a.current ||
+      b.total - a.total || (a.county < b.county ? -1 : a.county > b.county ? 1 : 0));
+  }
+
+  function positiveRows(read, win, counties) {
+    const g = groups(read, win), c = read.columns, end = win ? win.end : null;
+    const day = d => (d ? dayLabel(d) : '');
+    const all = [
+      [c.id || 'Positive', p => p.name, true],
+      ['Detected', p => day(p.detected), !!c.detected],
+      ['County', p => countyOf(p, counties), true],
+      ['Flock size', p => p.size || '', !!c.inventory],
+      [c.flockType, p => text(p.flockType), !!c.flockType],
+      [c.species, p => text(p.species), !!c.species],
+      [c.status, p => (p.status ? p.status.label : text(p.statusText)), !!c.status],
+      ['Current or past', p => groupOf(p, end), true],
+      [c.quarantine, p => day(p.quarantine), !!c.quarantine]].filter(col => col[2]);
+    const list = g.current.concat(g.past).sort((a, b) => (b.detected || '').localeCompare(a.detected || '') || a.line - b.line);
+    return { columns: all.map(col => col[0]), rows: list.map(p => all.map(col => col[1](p))) };
+  }
+
+  // People inside the zones: each Census tract's people counted by the share of its area inside the zones, the people
+  // taken as spread evenly over the tract; zones that overlap counted once. The share is measured with square cells
+  // on one plane for all of Washington (longitude and latitude scaled to km at 47.3 degrees north, on CVI's sphere of
+  // 6,378,137 m), a cell counting where its middle lies (inside the tract by its polygon; inside a zone by the shared
+  // engine's distance, the edge counting, or the zone's polygon). Each tract has its own cells: 250 m, or smaller so
+  // that a small tract holds about 2,500 of them. Only the part of the tract's box under the zones is covered, and the
+  // share is the cells inside both over the tract's area on the same plane (at most 1).
+  const PLANE_LAT = 47.3, CELL_KM = 0.25, TRACT_CELLS = 2500;
+  const tractPrep = new WeakMap();
+  function plane(px) {
+    const ky = px.EARTH_RADIUS_M / 1000 * Math.PI / 180;
+    return { kx: ky * Math.cos(PLANE_LAT * Math.PI / 180), ky };
+  }
+  // A tract's box, area on the plane and cell size, worked out once and kept with it.
+  function preparedTract(t, px) {
+    let prep = tractPrep.get(t);
+    if (prep) return prep;
+    const { kx, ky } = plane(px), box = [Infinity, Infinity, -Infinity, -Infinity];
+    let area = 0;
+    for (const polygon of t.coordinates) {
+      polygon.forEach((ring, k) => {
+        let twice = 0;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          twice += ring[j][0] * kx * ring[i][1] * ky - ring[i][0] * kx * ring[j][1] * ky;
+          box[0] = Math.min(box[0], ring[i][0]);
+          box[1] = Math.min(box[1], ring[i][1]);
+          box[2] = Math.max(box[2], ring[i][0]);
+          box[3] = Math.max(box[3], ring[i][1]);
+        }
+        area += (k === 0 ? 1 : -1) * Math.abs(twice) / 2;
+      });
+    }
+    prep = { box, area, cell: Math.min(CELL_KM, Math.sqrt(area / TRACT_CELLS)),
+      geometry: { type: 'MultiPolygon', coordinates: t.coordinates } };
+    tractPrep.set(t, prep);
+    return prep;
+  }
+  // A site's box in degrees: its zone's box, or its circle's (a little wide).
+  function siteBox(site, ky) {
+    if (site.zone) return site.zoneBox;
+    const dLat = site.bufferKm / ky * 1.01;
+    const far = Math.min(89, Math.abs(site.lat) + dLat);
+    const dLon = site.bufferKm / (ky * Math.cos(far * Math.PI / 180)) * 1.01;
+    return [site.lon - dLon, site.lat - dLat, site.lon + dLon, site.lat + dLat];
+  }
+  const overlaps = (a, b) => a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
+  const inBox = (lon, lat, b) => lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3];
+
+  function peopleInside(sites, tracts, opts) {
+    const o = opts || {};
+    if (!sites || !sites.length) return null;
+    const px = P(), { kx, ky } = plane(px);
+    const boxes = sites.map(site => siteBox(site, ky));
+    const all = [Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])), Math.max(...boxes.map(b => b[2])),
+      Math.max(...boxes.map(b => b[3]))];
+    const rows = [];
+    for (const t of tracts) {
+      const prep = preparedTract(t, px), tb = prep.box;
+      if (!overlaps(tb, all)) continue;
+      const near = boxes.map((b, k) => k).filter(k => overlaps(boxes[k], tb));
+      if (!near.length) continue;
+      const inside = (lon, lat) => near.some(k => {
+        if (!inBox(lon, lat, boxes[k])) return false;
+        const km = px.siteKm(lat, lon, sites[k]);
+        return km !== null && km <= sites[k].bufferKm;
+      });
+      // The tract's cells under each zone's box, each counted once (zones' boxes overlap).
+      const c = prep.cell, seen = new Set();
+      let hits = 0;
+      for (const k of near) {
+        const b = [Math.max(tb[0], boxes[k][0]), Math.max(tb[1], boxes[k][1]), Math.min(tb[2], boxes[k][2]), Math.min(tb[3], boxes[k][3])];
+        for (let i = Math.floor((b[0] - tb[0]) * kx / c); i <= Math.floor((b[2] - tb[0]) * kx / c); i++) {
+          const lon = tb[0] + (i + 0.5) * c / kx;
+          for (let j = Math.floor((b[1] - tb[1]) * ky / c); j <= Math.floor((b[3] - tb[1]) * ky / c); j++) {
+            const at = i * 1e6 + j;
+            if (seen.has(at)) continue;
+            seen.add(at);
+            const lat = tb[1] + (j + 0.5) * c / ky;
+            if (inside(lon, lat) && px.inZone(lon, lat, prep.geometry)) hits++;
+          }
+        }
+      }
+      const share = Math.min(1, hits * c * c / prep.area);
+      if (share > 0) rows.push({ geoid: t.geoid, pop: t.pop, share, people: t.pop * share });
+    }
+    const total = rows.reduce((sum, r) => sum + r.people, 0);
+    return { total, rounded: roughly(total), year: o.year || null, tracts: rows,
+      beyond: o.counties ? reachesPastWashington(sites, o.counties) : false };
+  }
+  // Whether a zone reaches into Oregon, Idaho or British Columbia, where the tracts (Washington's) count no one: a
+  // point of its edge (a ring's 64 points, a zone's corners) outside every county shape and past one of the state's
+  // land borders (north of 49 degrees, east of Idaho's line, or south toward the Columbia and Oregon), so a zone
+  // that reaches only over Puget Sound or the ocean does not count.
+  function reachesPastWashington(sites, counties) {
+    const past = (lon, lat) => (lat > 49.0 || lon > -117.04 || (lat < 46.3 && lon > -124.0))
+      && !counties.some(f => P().inZone(lon, lat, f.geometry));
+    return sites.some(site => {
+      if (site.zone) {
+        const g = site.zone, polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+        return polys.some(poly => poly[0].some(q => past(q[0], q[1])));
+      }
+      for (let k = 0; k < 64; k++) {
+        const [lon, lat] = P().destination(site.lat, site.lon, site.bufferKm, k * 360 / 64);
+        if (past(lon, lat)) return true;
+      }
+      return past(site.lon, site.lat);
+    });
+  }
+  // To three significant figures (12,437 -> 12,400); under 100 to the nearest whole person.
+  function roughly(n) {
+    if (n < 100) return Math.round(n);
+    const step = Math.pow(10, Math.floor(Math.log10(n)) - 2);
+    return Math.round(n / step) * step;
+  }
+
+  function overviewBoxes(read, win, counties, people) {
+    const g = groups(read, win), cur = g.current;
+    const named = list => {
+      const set = new Set(list.map(p => countyOf(p, counties)));
+      set.delete(OUTSIDE_WA);
+      return set;
+    };
+    const outside = cur.filter(p => countyOf(p, counties) === OUTSIDE_WA).length;
+    const all = named(cur.concat(g.past));
+    const first = cur.concat(g.past).map(p => p.detected).filter(Boolean).sort()[0];
+    const countyBox = { value: named(cur).size, reason: null,
+      note: [all.size + (all.size === 1 ? ' county' : ' counties') + (first ? ' since ' + monthLabel(first) : ''),
+        outside ? outside + ' outside Washington' : ''].filter(Boolean).join(' · ') };
+    let animals;
+    if (!read.columns.inventory) animals = { value: null, reason: 'Not available: needs ' + read.type.columns.inventory[0], note: null };
+    else if (!cur.length) animals = { value: '0 ' + read.type.inventoryWord, reason: null, note: null };
+    else {
+      const a = animalTotals(read, cur);
+      const note = [animalsText(a.totals.slice(1)), read.columns.flockType ? flockKinds(cur).map(kindText).join(', ') : '',
+        a.missing ? a.missing + ' without a count' : ''].filter(Boolean).join(' · ') || null;
+      animals = a.totals.length ? { value: animalsText(a.totals.slice(0, 1)), reason: null, note }
+        : { value: null, reason: 'Not available: no animal counts at the current positives', note };
+    }
+    // Washington's tracts only: "Washington only" when a zone reaches past the state; zones wholly outside it are
+    // not available, never zero.
+    const peopleBox = !people ? { value: null, reason: 'Not available: needs zones', note: null }
+      : people.beyond && !people.tracts.length ? { value: null, reason: 'Not available: the zones are outside Washington', note: null }
+      : { value: people.rounded, reason: null, note: 'Estimate from ' + people.tracts.length.toLocaleString('en-US') +
+        (people.tracts.length === 1 ? ' Census tract' : ' Census tracts') + (people.year ? ' (' + people.year + ')' : '') +
+        (people.beyond ? ' · Washington only' : '') };
+    return { counties: countyBox, animals, people: peopleBox };
+  }
+
+  // The two bar charts' rows: [{ label, parts: [{ key, value }], total }] by county (current, then past) and by layer
+  // (one part per ring or zone, as the layer's byZone; its total the distinct sites inside, since a zone file's zones
+  // can overlap).
+  function overviewBars(rows, result) {
+    return {
+      counties: rows.map(r => ({ label: r.county, parts: [{ key: 'current', value: r.current }, { key: 'past', value: r.past }],
+        total: r.total })),
+      layers: !result ? [] : result.layers.map(l => ({ label: l.label, parts: l.byZone.map(z => ({ key: z.label, value: z.count })),
+        total: l.inside }))
+    };
+  }
+
+  // counties.csv: the counties table with each animal word's exact total at the current positives, in the type's
+  // order ("Birds at the current positives"), and the current positives without a count. A county without a current
+  // positive with a count has a blank total, never zero for an unknown.
+  function countyTable(read, rows) {
+    const words = [read.type.inventoryWord].concat(read.type.countedApart.map(a => a.word))
+      .filter(w => rows.some(r => r.animals.some(a => a[0] === w)));
+    const columns = ['County', 'Current', 'Past', 'Total']
+      .concat(words.map(w => w.charAt(0).toUpperCase() + w.slice(1) + ' at the current positives'))
+      .concat(read.columns.inventory ? ['Current positives without a count'] : []);
+    return { columns, rows: rows.map(r => {
+      const counted = r.current - r.missing > 0;
+      const animals = words.map(w => {
+        const hit = r.animals.find(a => a[0] === w);
+        return hit ? hit[1] : counted ? 0 : null;
+      });
+      return [r.county, r.current, r.past, r.total].concat(animals, read.columns.inventory ? [r.missing] : []);
+    }) };
+  }
+
   root.WSDA = root.WSDA || {};
   root.WSDA.emergencyRules = { readPositives, statusChoices, defaultTicks, targets, suggestedLayers, ringSites,
     zoneSites, ringLabel,
@@ -783,5 +1100,6 @@
     PRECISION, toKm, fromKm, KM_PER_MILE, inventoryOf, sizeClass, windowOf, inWindow, isPast, stillQuarantined, groups,
     groupOf, weekOf, dayLabel, playSteps, MAX_WEEKS, overTime, bigNumber, inventoryWordOf, numbersLine, notMappedLine, details, daysSince, byQuiet,
     zoneRows,
-    zonesGeoJson };
+    zonesGeoJson, flockKinds, animalTotals, animalsText, OUTSIDE_WA, NEAR_KM, countyOf, countyRows, positiveRows, CELL_KM,
+    PLANE_LAT, TRACT_CELLS, peopleInside, reachesPastWashington, roughly, overviewBoxes, overviewBars, countyTable };
 })(typeof window !== 'undefined' ? window : globalThis);

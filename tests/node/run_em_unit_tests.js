@@ -18,6 +18,10 @@ for (const f of ['cvi/app/csv.js', 'cvi/app/master.js', 'cvi/app/scaling.js', 'c
   'emergency/types/hpai.js', 'emergency/types/nws.js', 'emergency/rules.js', 'emergency/chart.js']) {
   require(path.join(SITE, f));
 }
+// The Overview's map data, as the page loads them: the county shapes and the 2020 Census tracts, decoded by
+// population.js (its window globals land on globalThis here).
+globalThis.window = globalThis.window || globalThis;
+for (const f of ['shared/population.js', 'geo/wa-counties.js', 'geo/tracts-wa.js']) require(path.join(SITE, f));
 const { recognize: R, bundle: B, checklist: C, guide: G, zones: Z, emergencyTypes: T, emergencyRules: E,
   proximity: PX } = globalThis.WSDA;
 const EM = globalThis.WSDA.profiles.emergency, CVI = globalThis.WSDA.profiles.cvi;
@@ -573,11 +577,10 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     'the not-mapped line, by reason', E.notMappedLine(ag.dropped));
     const vb = E.valueBoxes(Object.assign({}, ag, { targets: E.targets(ag.positives, { statuses: ['Confirmed'] }, agWin) }), null, agWin);
     check(vb.positives.value === 5 && vb.positives.note === null && same(vb.positives.lines, [
-      '2 not mapped: 1 no coordinates, 1 latitude and longitude look swapped', '1 date not readable', '1 without a date',
-      'Animals at the current positives: 2 commercial, 3 backyard, 1.3M birds, 35 cattle; 1 without an inventory'])
+      '2 not mapped: 1 no coordinates, 1 latitude and longitude look swapped', '1 date not readable', '1 without a date'])
       && vb.past.value === 5 && vb.past.quarantined === 2 && vb.past.note === '2 still under quarantine'
       && vb.last.value === '2026-10-05' && vb.last.note === 'As of Oct 5, 2026',
-    'the boxes with a window (each count once): the current positives (never the past; "with zones" only when it differs), the past ones with those still under quarantine, the warnings and the animals, the as-of date', vb);
+    'the boxes with a window (each count once): the current positives (never the past; "with zones" only when it differs), the past ones with those still under quarantine, the warnings (the animals are the Overview\'s box since 2.3), the as-of date', vb);
     // Dates as Excel and ArcGIS export them, with a time; the dates still unreadable counted in one line.
     check(E.dateOf('10/15/2026 0:00') === '2026-10-15' && E.dateOf('10/15/2026 12:00:00 AM') === '2026-10-15'
       && E.dateOf('2026-10-15T00:00:00') === '2026-10-15' && E.dateOf('13/1/2026 0:00') === null && E.dateOf('Oct 15, 2026') === null
@@ -709,6 +712,36 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const one = CH.columns({ title: 't', series, columns: [cols[3]] }, { width: 320, height: 170 });
     check(one.includes('>Current</text>') && !one.includes('>Past</text>') && !one.includes('>Outside the window</text>'),
       'chart: the key shows only the series counted somewhere');
+    // The Overview's horizontal bars (CVI's hbars, copied): stacked end to end, the past hollow, the total after them.
+    const bseries = [{ key: 'current', label: 'current', name: 'Current', fill: '#a50f15' },
+      { key: 'past', label: 'past', name: 'Past', outline: true, stroke: '#a50f15' }];
+    const brows = [{ label: 'Yakima <x>', values: { current: 2, past: 1 } }, { label: 'Lewis', values: { current: 0, past: 1 } },
+      { label: 'Disposal Facilities', values: { current: 0, past: 0 } }];
+    const marksOf = m => [...m.matchAll(/<rect([^>]*)\/>/g)].map(x => Object.fromEntries([...x[1].matchAll(/ ([\w-]+)="([^"]*)"/g)].map(a => [a[1], a[2]])))
+      .filter(r => r.class === 'chart-mark');
+    const wide = CH.bars({ title: 'Positives by county', series: bseries, rows: brows }, { width: 500 }), wm = marksOf(wide);
+    check(same(wm.map(r => r['data-hover']), ['Yakima &lt;x&gt;: 2 current', 'Yakima &lt;x&gt;: 1 past', 'Lewis: 1 past'])
+      && wm.every(r => r.role === 'img' && r['aria-label'] === r['data-hover']) && /^<svg[^>]* role="group" aria-label="Positives by county"/.test(wide),
+    'bars: each bar\'s hover and screen-reader label ("Yakima: 2 current"), escaped; a row of zeros draws no bar; the chart labeled', wm.map(r => r['data-hover']));
+    const [c1, p1, p2] = wm.map(r => ({ x: num(r, 'x'), w: num(r, 'width'), fill: r.fill, stroke: r.stroke }));
+    check(c1.fill === '#a50f15' && p1.fill === '#ffffff' && p1.stroke === '#a50f15' && Math.abs(p1.x - 0.75 - (c1.x + c1.w)) < 0.02
+      && Math.abs(c1.w / 2 - (p1.w + 1.5)) < 0.02 && Math.abs((p2.w + 1.5) - (p1.w + 1.5)) < 0.02,
+    'bars: a row\'s past stacked after its current, hollow with its outline inside; lengths in proportion to the counts', [c1, p1, p2]);
+    check(['>3</text>', '>1</text>', '>0</text>', '>Current</text>', '>Past</text>', 'text-anchor="end">Yakima &lt;x&gt;</text>'].every(k => wide.includes(k)),
+      'bars: each row\'s total after its bars (0 for a row of zeros), the key, the labels at the left', wide.length);
+    const tot = CH.bars({ title: 't', series: bseries, rows: [{ label: 'Dairies', values: { current: 2, past: 2 }, total: 3 }] }, { width: 500 });
+    const valueLabels = m => [...m.matchAll(/fill="#37474f"[^>]*>([^<]*)<\/text>/g)].map(x => x[1]);
+    check(same(valueLabels(tot), ['3']) && same(valueLabels(wide), ['3', '1', '0']),
+      'bars: a row\'s own total shown when given (a zone file\'s overlapping zones), else the bars\' sum', valueLabels(tot));
+    const solo = CH.bars({ title: 't', series: bseries.slice(0, 1), rows: brows.slice(0, 1) }, { width: 500 });
+    const soloKey = CH.bars({ title: 't', series: bseries.slice(0, 1), rows: brows.slice(0, 1), key: true }, { width: 500 });
+    check(!solo.includes('>Current</text>') && soloKey.includes('>Current</text>'), 'bars: no key for a single series unless asked (a zone file\'s one zone named)');
+    const narrowSvg = CH.bars({ title: 't', series: bseries, rows: brows }, { width: 300 });
+    const firstX = Math.min(...marksOf(narrowSvg).map(r => num(r, 'x'))), zero = narrowSvg.match(/<text x="([\d.]+)"[^>]*>0<\/text>/);
+    check(narrowSvg.includes('<text x="0" y=') && narrowSvg.includes('>Yakima &lt;x&gt;</text>') && !narrowSvg.includes('text-anchor="end">Yakima')
+      && zero && Number(zero[1]) >= CH.textWidth('0', 12.8) / 2 - 0.01 && firstX < 10
+      && Number(narrowSvg.match(/height="(\d+)"/)[1]) > Number(wide.match(/height="(\d+)"/)[1]),
+    'bars: under 360 pixels each label above its bar at the left edge (none cut), the axis\'s 0 not cut, the rows taller', { firstX, zero: zero && zero[1] });
   }
   // Miles: rings of 2 and 6 miles around the current positives, the layer placed for them.
   const agTargets = E.targets(ag.positives, { statuses: ['Confirmed'] }, agWin);
@@ -974,6 +1007,153 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(same(conf, { statuses: ['A'], pastShown: false }), 'types: applyTo "confirmed" ticks the first status only', conf);
   }
 
+  // ---- 8c. The Overview (2.3): counties, the positives table, the boxes, the bars, the people inside the zones ----
+  const OV = FX.RULES.overview;
+  const ovRows = csvOf(OV.positives);
+  const ov = E.readPositives(ovRows[0], ovRows.slice(1), null);
+  const ovByLine = ov.positives.concat(ov.dropped).sort((a, b) => a.line - b.line);
+  const ovWin = E.windowOf(ov.positives);
+  const COUNTIES = globalThis.CVIWA_GEO.counties.features;
+  const TRACTS = globalThis.WSDA_TRACTS.tracts.map(t => ({ geoid: t.geoid, pop: t.pop,
+    coordinates: globalThis.WSDA.population.geometry(t).coordinates }));
+  const ovTargets = E.targets(ov.positives, { statuses: ['Confirmed'] }, ovWin);
+  const ovSites = E.ringSites(ovTargets, OV.rings, OV.unit);
+  // A stand-in when the rings give no estimate, so the checks below fail rather than stop the suite.
+  const ovPeople = E.peopleInside(ovSites, TRACTS, { year: 2020 }) || { total: -1, rounded: null, tracts: [] };
+  const holeZones = Z.readGeoJson(fs.readFileSync(path.join(FXD, OV.zoneFile), 'utf8'), OV.zoneFile).zones;
+  const holePeople = E.peopleInside(E.zoneSites(holeZones), TRACTS, { year: 2020 });
+  const ovCounties = E.countyRows(ov, ovWin, COUNTIES);
+  {
+    const byName = n => ovByLine.find(p => p.name === n);
+    check(same(ovWin, agWin) && same(names(ovTargets), ['Positive 4 (Kittitas)', 'Umatilla 01', 'Lewis 02', 'Skagit 01',
+      'Whatcom 01', 'Skagit 02', 'Idaho 01']), 'overview scenario: the agreed window; seven current positives with zones', names(ovTargets));
+    check(E.countyOf(byName('Skagit 02'), COUNTIES) === 'Skagit' && E.countyOf(byName('Idaho 01'), COUNTIES) === 'Outside Washington'
+      && E.countyOf(byName('Umatilla 01'), COUNTIES) === 'Umatilla (Oregon)' && E.countyOf(byName('Skagit 02'), []) === 'Outside Washington',
+    'county: the County column as written, else the county shape holding the positive, else "Outside Washington"');
+    check(same(ovCounties.map(r => [r.county, r.current, r.past, r.total]), [['Skagit', 2, 0, 2], ['Lewis', 1, 1, 2],
+      ['Kittitas', 1, 0, 1], ['Umatilla (Oregon)', 1, 0, 1], ['Whatcom', 1, 0, 1], ['Yakima', 0, 2, 2], ['Benton', 0, 1, 1],
+      ['Franklin', 0, 1, 1], ['Outside Washington', 1, 0, 1]]),
+    'counties table: by current, then total, then name; "Outside Washington" last', ovCounties.map(r => [r.county, r.current, r.past]));
+    check(same(ovCounties.map(r => r.animalsText), ['1.3M birds', '', '100 birds', '1,001 birds', '35 cattle', '', '', '', '30 birds'])
+      && ovCounties[1].missing === 1 && ovCounties.every((r, k) => k === 1 || r.missing === 0),
+    'counties table: the current positives\' animals by word (cattle apart); a blank inventory named, never zero', ovCounties.map(r => [r.animalsText, r.missing]));
+    const pr = E.positiveRows(ov, ovWin, COUNTIES);
+    check(same(pr.columns, ['Case ID', 'Detected', 'County', 'Flock size', 'Flock/Herd Type', 'Species', 'Current or past', 'Quarantine Release']),
+      'positives table: the columns the file has (no status column in the agreed table, so none shown)', pr.columns);
+    check(same(pr.rows.map(r => r[0]), ['Skagit 01', 'Skagit 02', 'Lewis 02', 'Idaho 01', 'Umatilla 01', 'Whatcom 01', 'Franklin 01',
+      'Benton 01', 'Yakima 02', 'Lewis 01', 'Yakima 01', 'Positive 4 (Kittitas)'])
+      && same(pr.rows[1], ['Skagit 02', 'Oct 3, 2026', 'Skagit', 'Large', 'Commercial', 'Chicken', 'Current', ''])
+      && same(pr.rows[6], ['Franklin 01', 'Mar 15, 2026', 'Franklin', 'Medium', 'Commercial', 'Turkey', 'Past', 'Jun 30, 2026']),
+    'positives table: newest first, the undated last; dates written out; the county from the location when blank', pr.rows.slice(0, 2));
+    check(!/MARKED-ADDRESS|Synthetic Town|Landfill/.test(JSON.stringify([ovCounties, pr])), 'overview: no Premises, Address, City or Disposal Method reaches a table');
+    const boxes = E.overviewBoxes(ov, ovWin, COUNTIES, ovPeople);
+    check(same(boxes.counties, { value: 5, reason: null, note: '8 counties since Nov 2024 · 1 outside Washington' }),
+      'counties box: the counties with a current positive; the note the counties since the first positive, and those outside Washington', boxes.counties);
+    check(same(boxes.animals, { value: '1.3M birds', reason: null, note: '35 cattle · 3 commercial, 4 backyard · 1 without a count' }),
+      'animals box: the birds at the current positives; the cattle, the flock types and the blank inventory in its note', boxes.animals);
+    check(boxes.people.value === ovPeople.rounded && boxes.people.note === 'Estimate from ' + ovPeople.tracts.length + ' Census tracts (2020)',
+      'people box: the estimate to three significant figures, from the tracts touched', boxes.people);
+    const early = E.overviewBoxes(ov, { start: ovWin.start, end: OV.earlierEnd }, COUNTIES, null);
+    check(early.counties.value === 2 && early.counties.note === '5 counties since Nov 2024' && early.animals.value === '1,100 birds'
+      && same(early.people, { value: null, reason: 'Not available: needs zones', note: null }),
+    'the play: an earlier end changes the counties and animals; without zones the people box is not available, never zero', early);
+    const noInv = E.readPositives(['Case ID', 'Latitude', 'Longitude'], [['A', '47.0', '-120.5']], hpai);
+    const nb = E.overviewBoxes(noInv, E.windowOf(noInv.positives), COUNTIES, null);
+    check(nb.animals.value === null && nb.animals.reason === 'Not available: needs Flock/Herd Inventory' && nb.counties.value === 1,
+      'animals box: a file without an inventory column says what it needs', nb);
+    const blank = E.readPositives(['Case ID', 'Latitude', 'Longitude', 'Flock/Herd Inventory'], [['A', '47.0', '-120.5', '']], hpai);
+    check(E.overviewBoxes(blank, E.windowOf(blank.positives), COUNTIES, null).animals.reason === 'Not available: no animal counts at the current positives',
+      'animals box: current positives that all lack a count give no number, never zero');
+    const bars = E.overviewBars(ovCounties, { layers: [{ label: 'Dairies', inside: 3, byZone: [{ label: 'Zone A', count: 2 }, { label: 'Zone B', count: 2 }] }] });
+    check(same(bars.counties[0], { label: 'Skagit', parts: [{ key: 'current', value: 2 }, { key: 'past', value: 0 }], total: 2 })
+      && same(bars.layers, [{ label: 'Dairies', parts: [{ key: 'Zone A', value: 2 }, { key: 'Zone B', value: 2 }], total: 3 }])
+      && same(E.overviewBars([], null).layers, []),
+    'bars: by county (current, past) and by layer (one part per zone); a layer\'s total its distinct sites (a site in two overlapping zones once)', bars);
+    // counties.csv: each animal word's exact total; blank where nothing is known, never zero for an unknown.
+    const ct = E.countyTable(ov, ovCounties), at = n => ct.rows.find(r => r[0] === n);
+    const birdsRow = ovCounties[0].animals.find(a => a[0] === 'birds'), birds = birdsRow ? birdsRow[1] : null;
+    check(same(ct.columns, ['County', 'Current', 'Past', 'Total', 'Birds at the current positives', 'Cattle at the current positives',
+      'Current positives without a count'])
+      && same(at('Skagit'), ['Skagit', 2, 0, 2, birds, 0, 0]) && birds > 1e6
+      && same(at('Whatcom'), ['Whatcom', 1, 0, 1, 0, 35, 0]) && same(at('Lewis'), ['Lewis', 1, 1, 2, null, null, 1])
+      && same(at('Yakima'), ['Yakima', 0, 2, 2, null, null, 0]) && ct.rows.length === ovCounties.length,
+    'counties.csv: the exact totals by word; a county whose current positives have no count, or with none current, blank (not zero)', ct);
+    const noInvTable = E.countyTable(noInv, E.countyRows(noInv, E.windowOf(noInv.positives), COUNTIES));
+    check(same(noInvTable.columns, ['County', 'Current', 'Past', 'Total']), 'counties.csv: no animal columns without an inventory column', noInvTable.columns);
+    // Each positive's county (2.3): one county written four ways is one county; a name
+    // not Washington's kept as written; a blank County by its location, the nearest county within 2 km off the shore.
+    const crRows = csvOf('em_rules_counties.csv'), cr = E.readPositives(crRows[0], crRows.slice(1), hpai);
+    const crNames = cr.positives.map(p => E.countyOf(p, COUNTIES));
+    check(same(crNames, ['Yakima', 'Yakima', 'Yakima', 'Yakima', 'Umatilla (Oregon)', 'Benton', 'Yakima', 'Mason', 'Island',
+      E.OUTSIDE_WA, E.OUTSIDE_WA, E.OUTSIDE_WA]),
+    'counties: "yakima" and "Yakima County" are Yakima; "Umatilla (Oregon)" as written; a blank County by its shape, else the nearest within 2 km, else outside Washington', crNames);
+    check(E.overviewBoxes(cr, E.windowOf(cr.positives), COUNTIES, null).counties.value === 5
+      && E.countyRows(cr, E.windowOf(cr.positives), COUNTIES).filter(r => r.county === 'Yakima').map(r => r.current)[0] === 5,
+    'counties box: the four ways of writing Yakima count one county (5: Yakima, Umatilla (Oregon), Benton, Mason, Island; Yakima\'s five positives in one row)');
+    // Washington's tracts only (2.3): a ring across the state line says so; one wholly outside is not available.
+    const ringAt = (lat, lon) => E.ringSites([{ index: 0, name: 'Ring', lat, lon }], [{ distance: 10 }], 'km');
+    const peopleAt = (lat, lon) => E.peopleInside(ringAt(lat, lon), TRACTS, { year: 2020, counties: COUNTIES });
+    const boxAt = (lat, lon) => E.overviewBoxes(cr, E.windowOf(cr.positives), COUNTIES, peopleAt(lat, lon)).people;
+    const hermiston = boxAt(45.84, -119.29), moscow = boxAt(46.73, -117.0), sound = boxAt(48.42, -122.33), coast = boxAt(46.97, -124.16);
+    check(same(hermiston, { value: null, reason: 'Not available: the zones are outside Washington', note: null })
+      && moscow.value > 0 && / · Washington only$/.test(moscow.note) && sound.value > 0 && !/Washington only/.test(sound.note)
+      && coast.value > 0 && !/Washington only/.test(coast.note),
+    'people: a ring wholly in Oregon is not available (never ~0); one into Idaho says "Washington only"; rings over Puget Sound or the ocean do not', [hermiston, moscow, sound, coast]);
+    check(E.reachesPastWashington(ringAt(48.99, -122.75), COUNTIES) && E.reachesPastWashington(ringAt(45.64, -122.66), COUNTIES)
+      && !E.reachesPastWashington(ringAt(46.6, -120.5), COUNTIES) && !E.reachesPastWashington(ringAt(46.21, -119.14), COUNTIES)
+      && E.reachesPastWashington(E.zoneSites([{ name: 'Across', point: [-117.1, 46.5], geometry: { type: 'Polygon',
+        coordinates: [[[-117.2, 46.4], [-116.9, 46.4], [-116.9, 46.6], [-117.2, 46.6], [-117.2, 46.4]]] } }]), COUNTIES),
+    'people: rings into British Columbia (Blaine) and Oregon (Vancouver) and a zone into Idaho reach past Washington; Yakima\'s and Kennewick\'s (over the Columbia, inside the state) do not');
+    check(E.roughly(12437) === 12400 && E.roughly(99.6) === 100 && E.roughly(144759.8) === 145000 && E.roughly(0) === 0 && E.roughly(1004) === 1000,
+      'the people estimate shown to three significant figures (whole people under 100)');
+    // The people estimate on hand-made tracts (a tract about 7.6 by 11.1 km, 10,000 people).
+    const square = (w, s0, e, n) => [[w, s0], [e, s0], [e, n], [w, n], [w, s0]];
+    const tract = { geoid: 'T1', pop: 10000, coordinates: [[square(-120.1, 47.0, -120.0, 47.1)]] };
+    const zone = (rings, name) => E.zoneSites([{ name, point: rings[0][0], geometry: { type: 'Polygon', coordinates: rings } }]);
+    const half = E.peopleInside(zone([square(-120.2, 46.9, -120.05, 47.2)], 'Half'), [tract], {});
+    check(Math.abs(half.tracts[0].share - 0.5) < 0.02 && Math.abs(half.total - 5000) < 200,
+      'people: a tract half inside a zone gives about half its people (the grid within 2 points)', half.tracts);
+    const holed = E.peopleInside(zone([square(-120.2, 46.9, -119.9, 47.2), square(-120.08, 47.02, -120.02, 47.08)], 'Holed'), [tract], {});
+    check(Math.abs(holed.tracts[0].share - (1 - 0.36)) < 0.02, 'people: a zone\'s hole is left out (36% of the tract)', holed.tracts);
+    const donut = { geoid: 'T3', pop: 6400, coordinates: [[square(-120.1, 47.0, -120.0, 47.1), square(-120.08, 47.02, -120.02, 47.08)]] };
+    const donutIn = E.peopleInside(zone([square(-120.2, 46.9, -119.9, 47.2)], 'All'), [donut], {});
+    // Edges along the grid's lines are its worst case (each row and column off alike), so 3 points here; counting the
+    // hole's area in would give about half.
+    check(Math.abs(donutIn.tracts[0].share - 1) < 0.03 && Math.abs(donutIn.total - 6400) < 192,
+      'people: a tract with a hole (a lake) wholly inside a zone counts all its people (its area without the hole)', donutIn.tracts);
+    const one = E.ringSites([{ index: 0, name: 'A', lat: 47.05, lon: -120.05 }], [{ distance: 3 }]);
+    const twice = E.ringSites([{ index: 0, name: 'A', lat: 47.05, lon: -120.05 }, { index: 1, name: 'B', lat: 47.05, lon: -120.05 }], [{ distance: 3 }]);
+    const p1 = E.peopleInside(one, [tract], {}), p2 = E.peopleInside(twice, [tract], {});
+    check(p1.total > 0 && same(p1, p2), 'people: two rings over the same ground are counted once', [p1.total, p2.total]);
+    const circle = Math.PI * 9 / (7.59 * 11.13);
+    check(Math.abs(p1.tracts[0].share - circle) < 0.02, 'people: a 3 km ring inside the tract holds its share of the area (pi r squared)', [p1.tracts[0].share, circle]);
+    check(E.peopleInside([], [tract], {}) === null && E.peopleInside(null, [tract], {}) === null, 'people: no zones, no estimate');
+    check(E.peopleInside(E.ringSites([{ index: 0, name: 'Far', lat: 46.0, lon: -121.0 }], [{ distance: 3 }]), [tract], {}).total === 0,
+      'people: zones outside every tract give no people');
+    const fewer = E.peopleInside(ovSites.slice(0, 3), TRACTS, { year: 2020 }) || { total: -1 };
+    check(same(E.peopleInside(ovSites, TRACTS, { year: 2020 }), ovPeople) && fewer.total < ovPeople.total,
+      'people: the same zones give the same answer again (each tract\'s box, area and cells kept with it); fewer zones, fewer people', [fewer.total, ovPeople.total]);
+    const tiny = { geoid: 'T2', pop: 1000, coordinates: [[square(-120.005, 47.0, -120.0, 47.005)]] };
+    const tinyIn = E.peopleInside(zone([square(-120.2, 46.9, -119.9, 47.2)], 'All'), [tiny], {});
+    const tinyHalf = E.peopleInside(zone([square(-120.2, 46.9, -120.0025, 47.2)], 'Half of a small one'), [tiny], {});
+    check(Math.abs(tinyIn.tracts[0].share - 1) < 0.01 && Math.abs(tinyHalf.tracts[0].share - 0.5) < 0.02,
+      'people: a small tract (0.2 km\u00b2) gets finer cells: wholly inside counts all its people, half inside about half', [tinyIn.tracts, tinyHalf.tracts]);
+    check(ovPeople.tracts.length > 20 && ovPeople.tracts.every(t => t.share > 0 && t.share <= 1) && holePeople.total > 0,
+      'people: the scenario\'s rings and the zone with a hole touch tracts, every share between 0 and 1', [ovPeople.tracts.length, holePeople.tracts.length]);
+    const sp = FX.RULES.speed, t0 = Date.now();
+    const spPeople = E.peopleInside(E.ringSites(sp.positives.map(([lat, lon], k) => ({ index: k, name: 'S' + k, lat, lon })), hpai.zones.rings), TRACTS, {});
+    const ms = Date.now() - t0;
+    console.log(`  people: ${sp.positives.length} positives with HPAI's rings: ${spPeople.tracts.length} tracts, ${ms} ms`);
+    check(ms < 3000, 'speed: the people inside the zones of 40 positives in under 3 seconds (then kept per zone)', ms);
+    // A city cluster (2.3): 40 positives within 15 km of downtown Seattle, where the tracts are small
+    // and many. The page works them out once the play or the slider stops, so this is the wait after it.
+    const city = Array.from({ length: 40 }, (x, k) => { const [lon, lat] = PX.destination(47.61, -122.33, 15 * ((k * 7) % 40) / 40, k * 137.5);
+      return { index: k, name: 'C' + k, lat, lon }; });
+    const t1 = Date.now(), cityPeople = E.peopleInside(E.ringSites(city, hpai.zones.rings), TRACTS, {}), cityMs = Date.now() - t1;
+    console.log(`  people: 40 positives around Seattle with HPAI's rings: ${cityPeople.tracts.length} tracts, ${cityMs} ms`);
+    check(cityMs < 3000 && cityPeople.tracts.length > 300, 'speed: the people inside the zones of 40 positives around Seattle in under 3 seconds', cityMs);
+  }
+
   // ---- 9. The rules against the R reference ------------------------------------------------------------------
   const ORACLE = path.join(ROOT, 'local-test-artifacts', 'em', 'oracle_em.json');
   if (!fs.existsSync(ORACLE)) check(false, 'R reference missing: run Rscript tests/oracle/em_oracle.R first');
@@ -1066,6 +1246,35 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       // Six decimals hold a position to about 0.1 m, so each vertex is within 1e-4 km of its ring's distance.
       const worstVertex = Math.max(...gc.filter(c => c.positive !== null).map(c => c.vertex_error_km));
       check(worstVertex < 1e-4, 'R reference: zones.geojson: every circle\'s vertices at the ring\'s distance from the positive, within 1e-4 km (six decimals)', worstVertex);
+    }
+    {   // The Overview's scenario against R.
+      const v = o.overview;
+      const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(SITE, 'geo', f))).digest('hex');
+      check(v && v.geo_sha.tracts === sha('tracts-wa.js') && v.geo_sha.counties === sha('wa-counties.js'),
+        'R reference: overview: written from these tract and county files (else run Rscript tests/oracle/em_oracle.R again)');
+      const mapped = ovByLine.map(p => p.index !== null);
+      check(same(v.names, names(ovByLine)) && same(v.county.filter((c, k) => mapped[k]), ovByLine.filter(p => p.index !== null).map(p => E.countyOf(p, COUNTIES)))
+        && same(v.targets, names(ovTargets)), 'R reference: overview: the same names, counties (sf and GEOS for the blank ones) and positives with zones', v.county);
+      const crAll = csvOf('em_rules_counties.csv'), crNames = E.readPositives(crAll[0], crAll.slice(1), hpai).positives.map(p => E.countyOf(p, COUNTIES));
+      check(same(v.countyRules, crNames), 'R reference: each positive\'s county from the county rules\' file (sf: the shapes, then the nearest within 2 km)', v.countyRules);
+      const mine = Object.fromEntries(ovCounties.map(r => [r.county, r]));
+      const word = (r, w) => { const x = r.animals.find(a => a[0] === w); return x ? x[1] : null; };
+      check(v.counties.length === ovCounties.length && v.counties.every(c => mine[c.county] && mine[c.county].current === c.current
+        && mine[c.county].past === c.past && word(mine[c.county], 'birds') === c.birds && word(mine[c.county], 'cattle') === c.cattle
+        && mine[c.county].missing === c.missing), 'R reference: overview: the same counties table (counts, birds, cattle, blank inventories)', v.counties);
+      check(same(v.positives, E.positiveRows(ov, ovWin, COUNTIES).rows), 'R reference: overview: the same positives table, row for row', v.positives.slice(0, 2));
+      // The page's grid against R's exact areas: the total within 1% (or 25 people), each tract's share within 2 points.
+      for (const [label, grid, exact] of [['rings', ovPeople, v.people.rings], ['zone with a hole', holePeople, v.people.zone]]) {
+        const diff = Math.abs(grid.total - exact.total);
+        check(diff <= Math.max(25, 0.01 * exact.total), 'R reference: people inside the ' + label + ': the grid within 1% of the exact total',
+          [grid.total, exact.total]);
+        const shares = new Map(exact.tracts.map(t => [t.geoid, t.share]));
+        grid.tracts.forEach(t => { if (!shares.has(t.geoid)) shares.set(t.geoid, 0); });
+        const gridShare = new Map(grid.tracts.map(t => [t.geoid, t.share]));
+        const worstShare = Math.max(...[...shares].map(([g, x]) => Math.abs((gridShare.get(g) || 0) - x)));
+        console.log(`  people inside the ${label}: grid ${grid.total.toFixed(1)}, exact ${exact.total.toFixed(1)} (${(100 * diff / exact.total).toFixed(2)}%), worst tract share ${(100 * worstShare).toFixed(2)} points`);
+        check(worstShare <= 0.02, 'R reference: people inside the ' + label + ': every tract\'s share within 2 points of the exact share', worstShare);
+      }
     }
   }
 

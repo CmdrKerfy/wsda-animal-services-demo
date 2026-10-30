@@ -48,7 +48,7 @@ const TABLES = path.join(ROOT, 'test-tables');
 const PAGE = process.env.EM_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'index.html')).href;
 const SITE = new URL('.', PAGE).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'speed'];
+const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'overview', 'speed'];
 const asked = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const PARTS = asked.length ? asked : ALL_PARTS;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -385,9 +385,9 @@ async function partPage(b) {
   check(st.useZones === false && st.data.zones === 12 && st.drawn.positives === 6 && st.drawn.inside > 0 && st.drawn.outside > 0,
     'page: HPAI\'s rings (two around each of six positives; the sample\'s zone file waits for its tick); six current positives (the past one hidden); sites inside highlighted and others faded', st);
   check(st.boxes[0] === '6Current positives' && st.boxes[1] === '1Past positivesnone under quarantine'
-    && st.lines === 'Animals at the current positives: 3 commercial, 3 backyard, 1.2M birds, 3,550 cattle'
+    && st.lines === null
     && st.boxes[2] === 'Oct 5, 2026Last positiveAs of Oct 5, 2026' && /^\d+Sites inside the zones/.test(st.boxes[3]),
-  'page: the value boxes, each count once (the current positives, "with zones" only when it differs; the past one, none under quarantine; the last positive as of the window\'s end, written "Oct 5, 2026"; sites inside) and the animals under them (the dairies\' cattle apart from the birds)', [st.boxes, st.lines]);
+  'page: the value boxes, each count once (the current positives, "with zones" only when it differs; the past one, none under quarantine; the last positive as of the window\'s end, written "Oct 5, 2026"; sites inside); no line under them (the animals are the Overview\'s box since 2.3)', [st.boxes, st.lines]);
   check(same(st.layers, ['poultry', 'premises', 'markets', 'fairgrounds', 'disposal', 'milkproducer', 'feedlots']),
     'page: the type\'s suggested layers ticked first (poultry and cattle positives; no milk processing file in the sample)', st.layers);
   check(same(st.sums, ['positives, 7 facility files and a zone file', '3\u00a0and\u00a010\u00a0km rings, past hidden', '7 layers']),
@@ -432,7 +432,7 @@ async function partPage(b) {
   // A short window, every fold open, scrolled down to the result tabs: the sidebar stays in view beside them.
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 700, deviceScaleFactor: 1, mobile: false }, p.sid);
   await p.eval(`['load-fold','positives-fold','layers-fold','options-fold'].forEach(id => document.getElementById(id).open = true);
-    document.querySelector('.tool-switch').scrollIntoView(); true`);
+    document.querySelector('.tool-switch[aria-label="Results"]').scrollIntoView(); true`);
   await sleep(300);
   const side = await p.eval(`(() => { const r = document.querySelector('.em-controls').getBoundingClientRect();
     return { scrolled: Math.round(scrollY), top: Math.round(r.top), bottom: Math.round(r.bottom) }; })()`);
@@ -535,9 +535,13 @@ async function partResults(b) {
   const listing = zipBytes.length ? await ZIPJS.open(new File([zipBytes], 'x.zip')) : { entries: [] };
   const files = {};
   for (const e of listing.entries) files[e.path.replace(/^[^/]+\//, '')] = new TextDecoder().decode(await e.read());
-  check(/^\d{4}-\d\d-\d\d_Emergency\.zip$/.test(d.name || '') && same(Object.keys(files).sort(), ['cvi_movements.csv',
+  check(/^\d{4}-\d\d-\d\d_Emergency\.zip$/.test(d.name || '') && same(Object.keys(files).sort(), ['counties.csv', 'cvi_movements.csv',
     'export_params.json', 'inside_the_zones.csv', 'layers.csv', 'left_out.csv', 'positives.csv', 'zones.csv', 'zones.geojson']),
-  'results: Export saves one ZIP with the eight files', [d, Object.keys(files)]);
+  'results: Export saves one ZIP with the nine files (counties.csv since 2.3)', [d, Object.keys(files)]);
+  const cl = (files['counties.csv'] || '').trim().split('\n');
+  check(cl.length === 7 && /^"?County"?,"?Current"?,"?Past"?,"?Total"?,"?Birds at the current positives"?,"?Cattle at the current positives"?,"?Current positives without a count"?$/.test(cl[0])
+    && /^"?Yakima"?,2,0,2,\d{7},0,0$/.test(cl[1]) && /^"?Snohomish"?,0,1,1,,,0$/.test(cl[6]),
+  'results: counties.csv: the Overview\'s counties table, the exact animal totals, blank where none is current', cl);
   let geo = null;
   try { geo = JSON.parse(files['zones.geojson'] || ''); } catch (e) { geo = null; }
   const feats = geo ? geo.features : [];
@@ -608,6 +612,16 @@ async function partResults(b) {
     'results: no marked address in any exported file, zones.geojson included');
   await shot2(b, 'results_inside');
 }
+
+// The Overview's animals box (2.3): its number and note, read with the Overview shown; then the Map again.
+async function overviewAnimals(p) {
+  await p.eval(`(document.getElementById('show-overview').click(), true)`);
+  await p.waitFor(`WSDA.emergency.state.view === 'overview'`, 5000, 'the Overview shown');
+  const a = await p.eval(`(() => { const c = document.getElementById('ov-box-animals');
+    return { value: c.querySelector('strong').textContent, note: c.querySelector('.card-note').textContent }; })()`);
+  await p.eval(`(document.getElementById('show-map').click(), true)`);
+  return a;
+}
 // E1b on the page: the groups, the window, the play, miles, the zone hover, the "Zones" list, the rows not mapped and
 // the switch between the HPAI sample and the synthetic screwworm outbreak.
 async function partE1b(b) {
@@ -673,10 +687,12 @@ async function partE1b(b) {
   'e1b: "Detected between" starts at the earliest and the latest detection in the file', v.window);
   await setDate('em-to', '2026-09-05');
   v = await view();
-  check(v.data.positives === 2 && v.positives === '2 Current positives' && v.lines === 'Animals at the current positives: 2 commercial, 1.2M birds, 2,400 cattle'
+  let animals = await overviewAnimals(p);
+  check(v.data.positives === 2 && v.positives === '2 Current positives' && v.lines === ''
+    && animals.value === '1.2M birds' && animals.note === '2,400 cattle · 2 commercial'
     && v.last === 'Sep 2, 2026 Last positive As of Sep 5, 2026'
     && /^1 Past positives /.test(v.past),
-  'e1b: a window ending Sep 5 shows the two positives current then; the last positive is the latest inside it, "As of" the end', v);
+  'e1b: a window ending Sep 5 shows the two positives current then (the Overview\'s animals theirs); the last positive is the latest inside it, "As of" the end', [v, animals]);
   await setDate('em-from', '2026-09-30');
   check(await p.eval(`!document.getElementById('em-window-msg').hidden && document.getElementById('em-from').value === '2026-07-15'`),
     'e1b: a first date after the second is refused, with a message');
@@ -827,8 +843,11 @@ async function partE1b(b) {
   for (const w of [320, 480]) {
     await b.send('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: true }, p.sid);
     await sleep(300);
-    fits.push(await p.eval(`(() => { const e = document.querySelector('#box-last strong');
-      return { text: e.textContent, fits: e.scrollWidth <= e.clientWidth + 1, size: getComputedStyle(e).fontSize }; })()`));
+    // The text's own right edge against the box's inside edge (the box clips what runs past it).
+    fits.push(await p.eval(`(() => { const e = document.querySelector('#box-last strong'), c = e.closest('.count-card'), r = document.createRange();
+      r.selectNodeContents(e);
+      const right = r.getBoundingClientRect().right, inside = c.getBoundingClientRect().right - parseFloat(getComputedStyle(c).paddingRight);
+      return { text: e.textContent, fits: right <= inside + 1, size: getComputedStyle(e).fontSize, right, inside }; })()`));
   }
   check(fits.every(f => f.text === 'Aug 21, 2026' && f.fits), 'e1b: at 320 and 480 pixels wide a wide date fits its "Last positive" box', fits);
   // On a phone the icons are plain, in their box's color; the past box, with one still under quarantine, in the warning color.
@@ -893,7 +912,9 @@ async function partE1b(b) {
     && two.items.some(it => it.head === 'Lewis 01' && it.lines[0] === 'Detected Jun 10, 2025' && it.lines[1] === 'Past')
     && two.items.some(it => it.head === 'Lewis 02' && it.lines[0] === 'Detected Sep 30, 2026'),
   'e1b: two positives at one spot: the hover lists both, each under its name, the past one marked past', two);
-  check(/1\.3M birds, 35 cattle; 1 without an inventory/.test(v.lines), 'e1b: the numbers line counts the herd\'s cattle apart from the birds', v.positives);
+  animals = await overviewAnimals(p);
+  check(animals.value === '1.3M birds' && /^35 cattle · .+ · 1 without a count$/.test(animals.note),
+    'e1b: the Overview\'s animals count the herd\'s cattle apart from the birds, and name the positive without a count', animals);
   await p.eval(`${S}.map.map.jumpTo({ center: [-122.45, 48.90], zoom: 11 }); true`);
   await sleep(500);
   const herd = await p.eval(`(() => { const pt = ${S}.map.map.project([-122.45, 48.90]); return ${S}.map.hoverAt([pt.x, pt.y]); })()`);
@@ -934,9 +955,9 @@ async function partE1b(b) {
   check(nws.type === 'nws' && nws.useZones && v.data.zones === 2 && nws.synthetic && same(nws.layers, ['markets', 'feedlots', 'fairgrounds']),
     'e1b: the screwworm bundle picks New World screwworm, uses its dispersal areas at once, ticks its livestock layers; marked synthetic', nws);
   check(v.positives === '8 Current positives zones from a file' && v.past === '2 Past positives 1 still under quarantine'
-    && v.lines === '1 not mapped: no coordinates · Animals at the current positives: 4 commercial, 4 backyard, 10,835 animals; 1 without an inventory'
-    && v.last === 'Oct 9, 2026 Last positive As of Oct 9, 2026',
-  'e1b: the screwworm boxes: eight current positives as of Oct 9, two past (one still under quarantine); under them the not-mapped line and the animals', [v.positives, v.past, v.lines, v.last]);
+    && v.lines === '1 not mapped: no coordinates' && v.last === 'Oct 9, 2026 Last positive As of Oct 9, 2026'
+    && (animals = await overviewAnimals(p)).value === '10,835 animals' && animals.note === '4 commercial, 4 backyard · 1 without a count',
+  'e1b: the screwworm boxes: eight current positives as of Oct 9, two past (one still under quarantine); under them the not-mapped line; the Overview\'s animals in screwworm\'s word', [v.positives, v.past, v.lines, v.last, animals]);
   check(same(nws.zones, [['Synthetic dispersal area: Yakima and Tri-Cities (made up)', 'Oct 2, 2026', '7 days'],
     ['Synthetic dispersal area: Klickitat (made up)', 'Aug 26, 2026', '44 days']]),
   'e1b: the "Zones" list for the dispersal areas, the longest-quiet last', nws.zones);
@@ -946,9 +967,10 @@ async function partE1b(b) {
   check(twoZones.some(t => /^[^:]+: \d+ in 2 zones$/.test(t)), 'e1b: with a zone file, a layer with sites in two zones reads "n in 2 zones"', twoZones);
   await p.eval(`(() => { const s = document.getElementById('em-type'); s.value = 'hpai'; s.dispatchEvent(new Event('change')); return true; })()`);
   v = await view();
-  check(/4 commercial, 4 backyard, 10,790 cattle, 45 other animals; 1 without an inventory/.test(v.lines)
+  animals = await overviewAnimals(p);
+  check(animals.value === '10,790 cattle' && animals.note === '45 other animals · 4 commercial, 4 backyard · 1 without a count'
     && await p.eval(`document.getElementById('em-type').value`) === 'hpai',
-  'e1b: switching the type picker to HPAI reads the same file as HPAI (its words: cattle and other animals, no birds)', v.lines);
+  'e1b: switching the type picker to HPAI reads the same file as HPAI (its words: cattle and other animals, no birds)', animals);
   // The bundle's zone file follows the type: HPAI draws its rings, screwworm the file's zones again.
   check(!await p.eval(`${S}.useZones`) && v.data.zones > 2, 'e1b: switched to HPAI, the bundle\'s zone file gives way to HPAI\'s rings', v.data);
   await p.eval(`(() => { const s = document.getElementById('em-type'); s.value = 'nws'; s.dispatchEvent(new Event('change')); return true; })()`);
@@ -983,21 +1005,21 @@ async function partE1b(b) {
   await tick('em-unit-km');
 }
 
-// The chart "Positives over time": its fold under the value boxes (hidden before a load, closed by default), one column
-// per step of the play with the file's dated, mapped positives counted once, a click and the keyboard moving the
+// The chart "Positives over time": in the Overview's "Over time" (2.3; no switch before a load, the Map shown after
+// each load, the chart drawn once the Overview shows), one column per step of the play with the file's dated, mapped positives counted once, a click and the keyboard moving the
 // window's end (as the slider), the hover box, the play moving the picked column, a start after the clicked step
-// going back to the earliest detection, the screwworm outbreak by week, 320 pixels wide. Pictures of the value boxes
-// and the chart in local-test-artifacts/em/chart/ for a look.
+// going back to the earliest detection, the screwworm outbreak by week, 320 pixels wide. Pictures of the chart's
+// panel in local-test-artifacts/em/chart/ for a look.
 async function partChart(b) {
   const p = b.page, S = 'WSDA.emergency.state', OUTC = path.join(OUT, 'chart');
   const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip'), nwsPath = path.join(TABLES, 'em_nws_synthetic.zip');
   fs.rmSync(OUTC, { recursive: true, force: true });
   fs.mkdirSync(OUTC, { recursive: true });
-  // The value boxes down to the chart's fold (with the hover box when shown), scrolled into view.
+  // The chart's panel (with the hover box when shown), scrolled into view.
   const shot = async name => {
     await sleep(300);
-    const r = await p.eval(`(() => { document.getElementById('em-boxes').scrollIntoView(); const a = document.getElementById('em-boxes').getBoundingClientRect(),
-      z = document.getElementById('em-chart-fold').getBoundingClientRect(), t = document.getElementById('em-chart-tip').getBoundingClientRect();
+    const r = await p.eval(`(() => { document.getElementById('ov-time').scrollIntoView(); const a = document.getElementById('ov-time').getBoundingClientRect(),
+      z = a, t = document.getElementById('em-chart-tip').getBoundingClientRect();
       const bottom = Math.max(z.bottom, document.getElementById('em-chart-tip').hidden ? 0 : t.bottom);
       return { x: 0, y: a.top + scrollY - 6, width: document.documentElement.clientWidth, height: bottom - a.top + 12 }; })()`);
     fs.writeFileSync(path.join(OUTC, name + '.png'), Buffer.from((await b.send('Page.captureScreenshot',
@@ -1005,7 +1027,8 @@ async function partChart(b) {
   };
   await p.goto(new URL('emergency/index.html', SITE).href);
   await p.waitFor(`window.WSDA && WSDA.emergency && ${S}.map.ready`, 20000, 'Emergency map ready');
-  check(await p.eval(`document.getElementById('em-chart-fold').hidden`), 'chart: no fold before a positives file is loaded');
+  check(await p.eval(`document.getElementById('em-view').hidden && document.getElementById('view-overview').hidden`),
+    'chart: no switch to the Overview before a positives file is loaded');
   const load = async files => {
     const v = await p.eval(`${S}.version`);
     await p.setFiles('#files-input', files);
@@ -1013,9 +1036,13 @@ async function partChart(b) {
     await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn');
   };
   await load([samplePath]);
-  const view = () => p.eval(`(() => { const s = ${S}, f = document.getElementById('em-chart-fold');
+  check(await p.eval(`${S}.view === 'map' && !document.getElementById('em-view').hidden && !document.querySelector('#em-chart .chart-col')`),
+    'chart: after the load the Map shows, the switch with it; the chart waits until the Overview shows');
+  const overview = () => p.eval(`(document.getElementById('show-overview').click(), true)`);
+  await overview();
+  const view = () => p.eval(`(() => { const s = ${S};
     const cols = Array.from(document.querySelectorAll('#em-chart .chart-col'));
-    return { hidden: f.hidden, open: f.open, sum: document.getElementById('em-chart-sum').textContent,
+    return { hidden: document.getElementById('ov-s-time').hidden, open: s.view === 'overview', sum: document.getElementById('em-chart-sum').textContent,
       note: document.getElementById('em-chart-note').hidden ? '' : document.getElementById('em-chart-note').textContent,
       steps: s.steps.steps.length, by: s.steps.by, stepAt: s.stepAt, window: s.window, to: document.getElementById('em-to').value,
       slider: document.getElementById('em-step').value, positives: document.getElementById('box-positives').querySelector('strong').textContent,
@@ -1029,22 +1056,27 @@ async function partChart(b) {
   await p.waitFor(`document.querySelectorAll('#em-chart .chart-col').length > 0`, 5000, 'chart drawn').catch(() => false);
   let v = await view();
   check(!v.hidden && v.open && v.cols > 0 && v.sum === (v.by === 'month' ? 'by month' : 'by week'),
-    'chart: after the load, the fold shows under the value boxes, open and drawn, its summary naming weeks or months', v);
+    'chart: on the Overview, "Over time" shows the chart drawn, its heading naming weeks or months', v);
   const d = await p.eval(DENSITY);
-  check(d.controls.length <= 6 && !d.controls.some(c => /chart/.test(c)), 'chart: the open chart adds no visible control (density)', d.controls);
-  // Closed by the user, it stays closed while the page works the results out again; a new set of files opens it.
-  await p.eval(`document.getElementById('em-chart-fold').open = false; document.getElementById('em-unit-mi').click(); true`);
+  const helps = d.controls.filter(c => c === 'button:?'), others = d.controls.filter(c => c !== 'button:?' && !/^show-(map|overview)$/.test(c));
+  check(others.length <= 6 && !d.controls.some(c => /chart/.test(c)) && helps.length === 7,
+    'chart: the Overview adds no control but the switch and its six "?" (the chart\'s columns one keyboard stop, below; density)', d.controls);
+  // The Overview stays shown while the page works the results out again; a new set of files opens on the Map.
+  await p.eval(`document.getElementById('em-unit-mi').click(); true`);
   await sleep(200);
-  check(!await p.eval(`document.getElementById('em-chart-fold').open`), 'chart: closed, it stays closed when a control changes');
+  check(await p.eval(`${S}.view === 'overview' && !document.getElementById('view-overview').hidden && document.getElementById('view-map').hidden`),
+    'chart: the Overview stays shown when a control changes');
   await load([samplePath]);
-  check(await p.eval(`document.getElementById('em-chart-fold').open`), 'chart: a new set of files opens it again');
-  await p.eval(`document.getElementById('em-unit-km').click(); document.getElementById('em-chart-fold').open = true; true`);
+  check(await p.eval(`${S}.view === 'map' && !document.getElementById('view-map').hidden && document.getElementById('view-overview').hidden
+    && document.getElementById('show-map').getAttribute('aria-pressed') === 'true' && document.getElementById('show-overview').getAttribute('aria-pressed') === 'false'`),
+  'chart: a new set of files opens on the Map (the switch says so)');
+  await p.eval(`document.getElementById('em-unit-km').click(); document.getElementById('show-overview').click(); true`);
   await p.waitFor(`document.querySelectorAll('#em-chart .chart-col').length > 0`, 5000, 'chart drawn again');
   v = await view();
   const total = v.counts.reduce((t, c) => t + c[0] + c[1] + c[2], 0);
   check(v.cols === v.steps && v.steps > 1 && total === v.dated && v.current === v.steps - 1 && same(v.stops, [v.steps - 1])
     && v.counts.every(c => c[2] === 0) && v.svgWidth === v.boxWidth,
-  'chart: opened, one column per step of the play, each dated mapped positive counted once, the last step picked and the one keyboard stop, nothing outside the window, as wide as its fold', v);
+  'chart: one column per step of the play, each dated mapped positive counted once, the last step picked and the one keyboard stop, nothing outside the window, as wide as its panel', v);
   await shot('chart_01_hpai_sample_open');
   check((v.dropped || v.mapped > v.dated) ? /^Not counted: /.test(v.note) : v.note === '', 'chart: the note names what is not counted, only when something is', v.note);
   // A click on an earlier column with positives: the window's end moves to that step's end, as the slider does.
@@ -1063,7 +1095,7 @@ async function partChart(b) {
   await p.eval(`(() => { const c = document.querySelector('#em-chart .chart-col[data-col="${at}"]'), r = c.getBoundingClientRect();
     c.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + 30 })); return true; })()`);
   v = await view();
-  check(v.tip === v.hovers[at] + 'Click to show the map as of ' + (await p.eval(`WSDA.emergencyRules.dayLabel('${step.end}')`)) && /: \d+ (current|past)/.test(v.tip),
+  check(v.tip === v.hovers[at] + 'Click to end the date window on ' + (await p.eval(`WSDA.emergencyRules.dayLabel('${step.end}')`)) && /: \d+ (current|past)/.test(v.tip),
     'chart: the pointer over a column shows its counts and what a click does', v.tip);
   await shot('chart_02_hpai_sample_clicked_hover');
   await p.eval(`document.getElementById('em-chart').dispatchEvent(new PointerEvent('pointerleave')); true`);
@@ -1071,7 +1103,7 @@ async function partChart(b) {
   await p.eval(`document.querySelector('#em-chart .chart-col[tabindex="0"]').focus(); true`);
   await p.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); true`);
   v = await view();
-  check(v.focus === String(at + 1) && same(v.stops, [at + 1]) && v.tip === v.hovers[at + 1] + 'Click to show the map as of '
+  check(v.focus === String(at + 1) && same(v.stops, [at + 1]) && v.tip === v.hovers[at + 1] + 'Click to end the date window on '
     + (await p.eval(`WSDA.emergencyRules.dayLabel(${S}.steps.steps[${at + 1}].end)`)) && v.stepAt === at,
   'chart: the right arrow moves the focus (and the hover box) to the next column without moving the window', v);
   await p.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); true`);
@@ -1095,6 +1127,7 @@ async function partChart(b) {
   // The screwworm outbreak: ten weeks.
   await p.eval(`document.activeElement.blur(); true`);
   await load([nwsPath]);
+  await overview();
   v = await view();
   check(v.open && v.by === 'week' && v.sum === 'by week' && v.cols === 10 && v.counts.reduce((t, c) => t + c[0] + c[1] + c[2], 0) === 10
     && v.note === 'Not counted: 1 not mapped' && /^Week of /.test(v.hovers[0]),
@@ -1104,7 +1137,7 @@ async function partChart(b) {
   await sleep(400);
   v = await view();
   check(await p.eval(`document.documentElement.scrollWidth <= 321`) && v.svgWidth === v.boxWidth && v.boxWidth <= 300,
-    'chart: at 320 pixels wide it is redrawn at the fold\'s width; nothing scrolls sideways', [v.svgWidth, v.boxWidth]);
+    'chart: at 320 pixels wide it is redrawn at its panel\'s width; nothing scrolls sideways', [v.svgWidth, v.boxWidth]);
   await shot('chart_04_screwworm_320px');
   await b.send('Emulation.clearDeviceMetricsOverride', {}, p.sid);
 }
@@ -1175,6 +1208,13 @@ async function partSpeed(b) {
   const alone = await play();
   check(alone.steps === set.steps && alone.max < 1000,
     'speed: every step of the play redraws in under one second at full size (40 positives against 30,000 points)', alone);
+  // The Overview shown: each step also works out the Overview, the people inside the zones among it.
+  await p.click(`document.getElementById('show-overview').click()`);
+  await p.waitFor(`${S}.overview && ${S}.overview.people`, 30000, 'the people worked out');
+  const onOverview = await play();
+  check(onOverview.steps === set.steps && onOverview.max < 1000,
+    'speed: with the Overview shown (the people inside the zones worked out again at each step), every step redraws in under one second', onOverview);
+  await p.click(`document.getElementById('show-map').click()`);
 
   await load([positivesFile, marketsFile, MASTER]);
   const masterRows = await p.eval(`${S}.master ? ${S}.master.physicalRows : 0`);
@@ -1190,7 +1230,7 @@ async function partSpeed(b) {
     'speed: with the CVI movements tab open, every step redraws in under one second; the query waits for the play to stop', onTab);
   const cviMs = await p.eval(`(() => { const t = performance.now(); ${S}.cviKey = null; document.getElementById('show-inside').click();
     document.getElementById('show-cvi').click(); return performance.now() - t; })()`);
-  console.log(`  speed: steps ${set.steps}; slowest step ${alone.max} ms alone, ${withMaster.max} ms with the master, ${onTab.max} ms on the CVI tab; the CVI query over 50,000 rows ${Math.round(cviMs)} ms`);
+  console.log(`  speed: steps ${set.steps}; slowest step ${alone.max} ms alone, ${onOverview.max} ms on the Overview, ${withMaster.max} ms with the master, ${onTab.max} ms on the CVI tab; the CVI query over 50,000 rows ${Math.round(cviMs)} ms`);
   await p.click(`document.getElementById('show-inside').click()`);
 }
 
@@ -1332,6 +1372,268 @@ async function partPng(b) {
   fs.rmSync(DL, { recursive: true, force: true });
 }
 
+// The Overview (2.3): the "Map | Overview" switch (none before a load, the Map after each load, the keyboard), the
+// three boxes (the people's "~" and what a screen reader hears) and the six "?" notes, the bars, the tables and the
+// bars' hover box, the window and the play changing every figure (the people once the slider stops), no zones, the
+// past rings adding no people and an added point's adding them, the Map shown again at its size; then the Overview's
+// scenario (test-tables/em_rules_overview.csv with the agreed rings, 2 and 6 miles) against R's
+// exact reference (local-test-artifacts/em/oracle_em.json): both tables cell for cell, the people inside the rings and
+// inside the zone with a hole within 1% (or 25 people), each touched tract counted, the Idaho ring's "Washington
+// only"; the fit made on the Map filling it; 320 pixels wide; the tracts' file failing to load. Pictures in
+// local-test-artifacts/em/overview/ for a look.
+async function partOverview(b) {
+  const p = b.page, S = 'WSDA.emergency.state', OUTO = path.join(OUT, 'overview');
+  const ORACLE = path.join(OUT, 'oracle_em.json');
+  if (!fs.existsSync(ORACLE)) {
+    check(false, 'overview: R reference missing: run Rscript tests/oracle/em_oracle.R first');
+    return;
+  }
+  const R = JSON.parse(fs.readFileSync(ORACLE, 'utf8')).overview;
+  const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip');
+  fs.rmSync(OUTO, { recursive: true, force: true });
+  fs.mkdirSync(OUTO, { recursive: true });
+  const shot = async name => fs.writeFileSync(path.join(OUTO, name + '.png'),
+    Buffer.from((await b.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false }, p.sid)).data, 'base64'));
+  const load = async files => {
+    const v = await p.eval(`${S}.version`);
+    await p.setFiles('#files-input', files);
+    await emReady(p, v);
+    await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn');
+  };
+  const show = v => p.eval(`(document.getElementById('show-${v}').click(), true)`);
+  // The people worked out (the tracts' file loads the first time the Overview shows).
+  const settled = () => p.waitFor(`${S}.view === 'overview' && ${S}.overview && !/Working out/.test(document.getElementById('ov-box-people').textContent)`,
+    20000, 'the Overview worked out');
+  const key = async (k, code) => {
+    for (const type of ['keyDown', 'keyUp']) {
+      await b.send('Input.dispatchKeyEvent', { type, key: k, code, windowsVirtualKeyCode: k === 'Enter' ? 13 : 32,
+        text: type === 'keyDown' && k === 'Enter' ? '\r' : undefined }, p.sid);
+    }
+  };
+  // The Overview as shown: each box's number, what a screen reader hears of it, and its note; the bars' hovers and
+  // totals; the two tables' cells.
+  const view = () => p.eval(`(() => { const s = ${S};
+    // What shows (without the text for screen readers only) and what a screen reader hears (without what is hidden from it).
+    const box = id => { const c = document.getElementById(id), st = c.querySelector('strong'), seen = st.cloneNode(true), heard = st.cloneNode(true);
+      seen.querySelectorAll('.sr-only').forEach(e => e.remove());
+      heard.querySelectorAll('[aria-hidden="true"]').forEach(e => e.remove());
+      return { shown: seen.textContent, heard: heard.textContent, note: c.querySelector('.card-note').textContent, na: c.classList.contains('na') }; };
+    const table = id => Array.from(document.querySelectorAll('#' + id + ' tr')).map(tr => Array.from(tr.children).map(c => c.textContent));
+    const bars = id => { const svg = document.querySelector('#' + id + ' svg');
+      return svg ? { width: Number(svg.getAttribute('width')), box: document.getElementById(id).clientWidth, text: svg.textContent,
+        marks: Array.from(svg.querySelectorAll('.chart-mark')).map(m => m.getAttribute('data-hover')),
+        totals: Array.from(svg.querySelectorAll('text[fill="#37474f"]')).map(t => t.textContent),
+        above: !svg.querySelector('text[text-anchor="end"]') } : { text: document.getElementById(id).textContent, marks: [], totals: [] }; };
+    const o = s.overview || {};
+    return { view: s.view, map: !document.getElementById('view-map').hidden, overview: !document.getElementById('view-overview').hidden,
+      pressed: ['map', 'overview'].map(v => document.getElementById('show-' + v).getAttribute('aria-pressed')),
+      counties: box('ov-box-counties'), animals: box('ov-box-animals'), people: box('ov-box-people'),
+      tilde: (document.querySelector('#ov-box-people strong [aria-hidden="true"]') || {}).textContent || null,
+      county: bars('ov-county-chart'), layer: bars('ov-layer-chart'), ct: table('ov-counties-table'), pt: table('ov-positives-table'),
+      total: o.people ? o.people.total : null, tracts: o.people ? o.people.tracts.length : null, window: s.window,
+      scroll: document.documentElement.scrollWidth }; })()`);
+  // The same figures worked out in the page by the rules alone, from its state: the people from the zones drawn.
+  const rules = () => p.eval(`(() => { const s = ${S}, E = WSDA.emergencyRules, C = CVIWA_GEO.counties.features, d = WSDA.population.loaded('density');
+    const tracts = d.tracts.map(t => ({ geoid: t.geoid, pop: t.pop, coordinates: WSDA.population.geometry(t).coordinates }));
+    const added = s.points.map((q, k) => ({ index: 'added-' + k, name: q.name, lat: q.lat, lon: q.lon }));
+    const sites = s.useZones && s.zoneFile ? E.zoneSites(s.zoneFile.zones) : E.ringSites(s.read.targets.concat(added), s.rings, s.unit);
+    const people = sites.length ? E.peopleInside(sites, tracts, { year: d.year, counties: C }) : null;
+    return { boxes: E.overviewBoxes(s.read, s.window, C, people), rows: E.countyRows(s.read, s.window, C).length,
+      positives: E.positiveRows(s.read, s.window, C).rows.length, total: people && people.total }; })()`);
+
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor(`window.WSDA && WSDA.emergency && ${S}.map.ready`, 20000, 'Emergency map ready');
+  check(await p.eval(`document.getElementById('em-view').hidden && document.getElementById('view-overview').hidden && !document.getElementById('view-map').hidden`),
+    'overview: before a load no switch; the page is the map');
+  await load([samplePath]);
+  let v = await view();
+  check(v.view === 'map' && v.map && !v.overview && same(v.pressed, ['true', 'false'])
+    && await p.eval(`(() => { const g = document.getElementById('em-view'); return !g.hidden && g.getAttribute('role') === 'group' && g.getAttribute('aria-label') === 'View'
+      && document.getElementById('show-overview').textContent === 'Overview'; })()`),
+  'overview: after the load the Map shows, the switch "Map | Overview" above it, Map pressed', v.pressed);
+  // The keyboard: Enter on "Overview" shows it; Space on "Map" goes back.
+  await p.eval(`(document.getElementById('show-overview').focus(), true)`);
+  await key('Enter', 'Enter');
+  await settled();
+  v = await view();
+  check(v.view === 'overview' && v.overview && !v.map && same(v.pressed, ['false', 'true']), 'overview: Enter on "Overview" shows the Overview, the Map hidden', v.pressed);
+  await p.eval(`(document.getElementById('show-map').focus(), true)`);
+  await key(' ', 'Space');
+  v = await view();
+  check(v.view === 'map' && v.map && !v.overview && same(v.pressed, ['true', 'false']), 'overview: Space on "Map" shows the Map again', v.pressed);
+  await show('overview');
+  await settled();
+  v = await view();
+  let r = await rules();
+  check(v.counties.shown === '5' && v.counties.note === '6 counties since Jul 2026' && v.animals.shown === '1.2M birds'
+    && v.animals.note === '3,550 cattle · 3 commercial, 3 backyard' && v.counties.shown === String(r.boxes.counties.value),
+  'overview: the sample\'s counties (5 with a current positive, 6 since Jul 2026) and animals (1.2M birds; the cattle and the flock types under it)', [v.counties, v.animals]);
+  const shownPeople = '~' + r.boxes.people.value.toLocaleString('en-US');
+  check(v.people.shown === shownPeople && v.tilde === '~' && v.people.heard === 'about ' + r.boxes.people.value.toLocaleString('en-US')
+    && v.people.note === 'Estimate from ' + v.tracts + ' Census tracts (2020)' && v.total === r.total && v.tracts > 0,
+  'overview: the people inside the zones as "~260,000" (the rules\' figure from the zones drawn), a screen reader hearing "about"; the note names the tracts and the year',
+  [v.people, v.tilde, v.total, r.total]);
+  // Each "?" opens its plain sentence and closes it again.
+  const helps = await p.eval(`(() => { const out = [];
+    for (const t of document.querySelectorAll('#view-overview button.tip')) {
+      const n = document.getElementById(t.getAttribute('aria-controls'));
+      t.click(); const open = !n.hidden && t.getAttribute('aria-expanded') === 'true' && n.textContent.length > 40 && t.title === n.textContent;
+      t.click(); out.push({ help: t.dataset.help, open, closed: n.hidden && t.getAttribute('aria-expanded') === 'false', text: n.textContent });
+    } return out; })()`);
+  check(same(helps.map(h => h.help), ['ov-counties', 'ov-animals', 'ov-people', 'ov-time', 'ov-county', 'ov-layer']) && helps.every(h => h.open && h.closed)
+    && /Department of Health/.test(helps[2].text) && /not a count of people exposed or sick/.test(helps[2].text),
+  'overview: a "?" on each of its three boxes and three charts opens its plain sentence (the same on hover) and closes it; the people\'s names the Department of Health', helps);
+  const sums = await p.eval(`${S}.result.layers.map(l => String(l.inside))`);
+  check(v.county.marks.includes('Yakima: 2 current') && v.county.marks.includes('Snohomish: 1 past') && same(v.county.totals, ['2', '1', '1', '1', '1', '1'])
+    && v.county.width === v.county.box && same(v.layer.totals, sums) && /Infection zone/.test(v.layer.text) && /Control zone/.test(v.layer.text)
+    && v.layer.marks.some(m => /^Commercial Poultry: \d+ in the Infection zone$/.test(m)),
+  'overview: the bars by county (current and past, a total per county, as wide as their panel) and by layer (each ring\'s count, the layer\'s total as "Inside the zones")', [v.county, v.layer]);
+  check(same(v.ct[0], ['County', 'Current', 'Past', 'Total', 'Animals (current)']) && same(v.ct[1], ['Yakima', '2', '0', '2', '1.2M birds'])
+    && v.ct.length === 7 && v.pt.length === 8 && v.pt[1][0] === 'SYN-HPAI-007' && v.pt[0][0] === 'Case ID',
+  'overview: the counties table (Yakima first, its 1.2M birds) and the positives table (every positive in the window, newest first)', [v.ct.slice(0, 2), v.pt.slice(0, 2)]);
+  await p.eval(`(() => { const m = document.querySelector('#ov-county-chart .chart-mark'), r = m.getBoundingClientRect();
+    m.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: r.left + 4, clientY: r.top + 4 })); return true; })()`);
+  const tip = await p.eval(`document.getElementById('em-chart-tip').hidden ? null : document.getElementById('em-chart-tip').textContent`);
+  check(tip === v.county.marks[0], 'overview: the pointer over a bar shows its count', tip);
+  await p.eval(`(document.getElementById('ov-county-chart').dispatchEvent(new PointerEvent('pointerleave')), true)`);
+  await shot('ov_01_sample_1280');
+  // The window: an earlier end changes every figure, as the rules give it.
+  const before = v;
+  await p.eval(`(() => { const i = document.getElementById('em-to'); i.value = '2026-09-05'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await settled();
+  v = await view();
+  r = await rules();
+  check(v.counties.shown === String(r.boxes.counties.value) && v.ct.length === r.rows + 1 && v.pt.length === r.positives + 1
+    && v.total === r.total && v.total !== before.total && v.pt.length < before.pt.length && v.animals.shown === r.boxes.animals.value,
+  'overview: a window ending Sep 5 changes the boxes, the people, the bars and both tables, as the rules give them', [v.counties, v.animals, v.total, r]);
+  // The play: each step's figures.
+  await p.click(`document.getElementById('em-play').click()`);
+  await p.waitFor(`${S}.stepAt >= 2`, 8000, 'two steps played');
+  await p.click(`document.getElementById('em-play').click()`);
+  await settled();
+  // The slider: while it moves the people wait ("Working out…"), then they are worked out for the step shown.
+  const sliding = await p.eval(`(() => { const i = document.getElementById('em-step'); i.value = '7'; i.dispatchEvent(new Event('input'));
+    return document.getElementById('ov-box-people').textContent; })()`);
+  await settled();
+  v = await view();
+  r = await rules();
+  check(/Working out/.test(sliding) && v.total === r.total && v.people.shown === '~' + r.boxes.people.value.toLocaleString('en-US'),
+    'overview: the slider moved: "Working out…" at once, then the people for the step shown, as the rules give them', [sliding, v.people, r.total]);
+  v = await view();
+  r = await rules();
+  check(v.ct.length === r.rows + 1 && v.pt.length === r.positives + 1 && v.total === r.total && v.counties.shown === String(r.boxes.counties.value),
+    'overview: the play\'s step shows its own figures', [v.window, r]);
+  // No zones: every status unticked; the people box says what it needs, never zero.
+  const statuses = await p.eval(`Array.from(document.querySelectorAll('#em-statuses input:checked')).map(i => (i.click(), i.value))`);
+  await settled();
+  v = await view();
+  check(statuses.length > 0 && v.people.na && v.people.shown === 'Not available: needs zones' && v.people.note === '',
+    'overview: no zones (every status unticked): "Not available: needs zones", never zero', [statuses, v.people]);
+  await p.eval(`(Array.from(document.querySelectorAll('#em-statuses input')).forEach(i => { if (!i.checked) i.click(); }), true)`);
+  await settled();
+  // The past positives' rings drawn add no people; an added point's rings add those inside them.
+  r = await rules();
+  const ringsOnly = r.total;
+  await p.eval(`document.getElementById('positives-fold').open = true; true`);
+  await p.click(`document.getElementById('em-past').click()`);
+  await p.click(`document.getElementById('em-past-rings').click()`);
+  await settled();
+  v = await view();
+  const pastRings = await p.eval(`${S}.zoneParts.pastSites.length`);
+  check(pastRings > 0 && v.total === ringsOnly, 'overview: the past positives\' rings drawn add no people', [pastRings, v.total, ringsOnly]);
+  // With the past rings still drawn, a point added: the people worked out again, the added point's rings counted and
+  // the past rings not.
+  await p.eval(`(${S}.points.push({ name: 'Call-in', lat: 47.61, lon: -122.33 }), WSDA.emergency.compute(), true)`);
+  await settled();
+  v = await view();
+  r = await rules();
+  check(v.total === r.total && v.total > ringsOnly + 1000,
+    'overview: an added point\'s rings add the people inside them, the past rings still not, as the rules count them', [v.total, r.total, ringsOnly]);
+  await p.eval(`(${S}.points.pop(), WSDA.emergency.compute(), true)`);
+  await p.click(`document.getElementById('em-past-rings').click()`);
+  await p.click(`document.getElementById('em-past').click()`);
+  await settled();
+  // The sample's zone file: its one zone named in the layer chart's key.
+  await p.click(`document.getElementById('em-use-zones').click()`);
+  await settled();
+  v = await view();
+  check(/^Synthetic control area/.test(v.layer.text) && same(v.layer.marks, ['Commercial Poultry: 1 in Synthetic control area', 'Premise PINs by Species: 1 in Synthetic control area']),
+    'overview: with the sample\'s zone file, the layer bars by its zone, named in the key', v.layer);
+  await p.click(`document.getElementById('em-use-zones').click()`);
+  await settled();
+  // The Map again, at its size.
+  await show('map');
+  check(await p.eval(`${S}.view === 'map' && ${S}.map.map.getCanvas().clientWidth > 300 && ${S}.map.map.getCanvas().clientHeight > 200`),
+    'overview: back on the Map, the map has its size again');
+
+  // The Overview's scenario against R.
+  await load([path.join(TABLES, 'em_rules_overview.csv'), path.join(TABLES, 'em_zone_hole.geojson')]);
+  check(await p.eval(`${S}.view`) === 'map', 'overview: a new set of files opens on the Map');
+  await p.click(`document.getElementById('em-unit-mi').click()`);
+  await p.eval(`(() => { [2, 6].forEach((d, k) => { const i = document.getElementById('em-ring-' + k); i.value = String(d); i.dispatchEvent(new Event('change')); }); return true; })()`);
+  await show('overview');
+  await settled();
+  v = await view();
+  const ring = await p.eval(`${S}.rings.map(x => x.distance).join(',') + ' ' + ${S}.unit`);
+  const names = await p.eval(`${S}.read.targets.map(x => x.name)`);
+  check(ring === '2,6 mi' && same(names, R.targets), 'overview: the scenario: rings of 2 and 6 miles around R\'s seven current positives', [ring, names]);
+  const want = await p.eval(`(() => { const E = WSDA.emergencyRules, R = ${JSON.stringify(R.counties)};
+    const text = c => [[c.birds, 'birds'], [c.cattle, 'cattle']].filter(x => x[0] !== null).map(x => E.bigNumber(x[0]) + ' ' + x[1]).join(', ');
+    return R.map(c => [c.county, String(c.current), String(c.past), String(c.current + c.past), text(c)]); })()`);
+  const byName = rows => rows.slice().sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  check(same(byName(v.ct.slice(1)), byName(want)), 'overview: the counties table equals R\'s, cell for cell (the blank County by its shape, Outside Washington, the cattle apart)',
+    [v.ct.slice(1), want]);
+  check(same(v.pt.slice(1), R.positives), 'overview: the positives table equals R\'s, cell for cell and in order', [v.pt.slice(1, 3), R.positives.slice(0, 2)]);
+  const near = (got, exact) => Math.abs(got - exact) <= Math.max(25, exact * 0.01);
+  check(near(v.total, R.people.rings.total) && v.tracts === R.people.rings.tracts.length
+    && v.people.shown === '~' + (await p.eval(`WSDA.emergencyRules.roughly(${v.total})`)).toLocaleString('en-US')
+    && v.people.note === 'Estimate from ' + v.tracts + ' Census tracts (2020) · Washington only',
+  'overview: the people inside the rings within 1% of R\'s exact areas, the same tracts touched; Idaho 01\'s ring makes it "Washington only"',
+  [v.total, R.people.rings.total, v.tracts, R.people.rings.tracts.length, v.people.note]);
+  // The zone file ticked while the Overview shows: the map's fit to the zone waits for the Map.
+  const zoomBefore = await p.eval(`${S}.map.map.getZoom()`);
+  await p.click(`document.getElementById('em-use-zones').click()`);
+  await settled();
+  v = await view();
+  check(near(v.total, R.people.zone.total) && v.tracts === R.people.zone.tracts.length && /^Not available: needs a facility layer$/.test(v.layer.text),
+    'overview: the people inside the zone with a hole within 1% of R\'s, the same tracts touched; no layer, no layer bars', [v.total, R.people.zone.total, v.tracts]);
+  await shot('ov_02_scenario_zone_1280');
+  const waiting = await p.eval(`${S}.fitNext`);
+  await show('map');
+  await sleep(300);
+  const fitted = await p.eval(`(() => { const s = ${S}, m = s.map.map, b = m.getBounds(), box = [180, 90, -180, -90];
+    const walk = a => (typeof a[0] === 'number' ? (box[0] = Math.min(box[0], a[0]), box[1] = Math.min(box[1], a[1]),
+      box[2] = Math.max(box[2], a[0]), box[3] = Math.max(box[3], a[1])) : a.forEach(walk));
+    s.zoneFile.zones.forEach(z => walk(z.geometry.coordinates));
+    const sw = m.project([box[0], box[1]]), ne = m.project([box[2], box[3]]), c = m.getCanvas();
+    return { fitNext: s.fitNext, zoom: m.getZoom(), inside: b.getWest() <= box[0] && b.getSouth() <= box[1] && b.getEast() >= box[2] && b.getNorth() >= box[3],
+      span: Math.max((ne.x - sw.x) / c.clientWidth, (sw.y - ne.y) / c.clientHeight) }; })()`);
+  check(waiting && !fitted.fitNext && fitted.inside && fitted.zoom > zoomBefore + 0.5 && fitted.span >= 0.5,
+    'overview: the zone file ticked on the Overview: the map\'s fit waits, then on the Map it fits the zone, filling at least half the map', [waiting, zoomBefore, fitted]);
+  await show('overview');
+  await settled();
+  // 320 pixels wide: one column, the boxes one to a row, the bars' labels above them, nothing scrolling sideways.
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 900, deviceScaleFactor: 1, mobile: true }, p.sid);
+  await sleep(500);
+  v = await view();
+  const boxes = await p.eval(`Array.from(document.querySelectorAll('#ov-boxes .count-card')).map(c => { const r = c.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top)]; })`);
+  check(v.scroll <= 321 && boxes.every(x => x[0] === boxes[0][0]) && boxes[1][1] > boxes[0][1] && boxes[2][1] > boxes[1][1]
+    && v.county.above && v.county.width === v.county.box && v.county.box <= 300,
+  'overview: at 320 pixels wide nothing scrolls sideways, the boxes one to a row, the bars\' labels above their bars at the panel\'s width', [v.scroll, boxes, v.county.width]);
+  await shot('ov_03_scenario_320');
+  await b.send('Emulation.clearDeviceMetricsOverride', {}, p.sid);
+  // The tracts' file failing to load (a fresh page, its load refused): the people box says so, never zero.
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor(`window.WSDA && WSDA.emergency && ${S}.map.ready`, 20000, 'Emergency map ready');
+  await load([samplePath]);
+  await p.eval(`(WSDA.population.load = () => Promise.reject(new Error('refused by the test')), true)`);
+  await show('overview');
+  await settled();
+  v = await view();
+  check(v.people.na && v.people.shown === 'Not available: the Census tracts could not be loaded' && v.people.note === ''
+    && v.counties.shown === '5', 'overview: the tracts\' file not loaded: the people box says so (never zero), the other boxes as before', [v.people, v.counties]);
+}
+
 async function shot2(b, name) {
   fs.mkdirSync(path.join(OUT, 'page'), { recursive: true });
   fs.writeFileSync(path.join(OUT, 'page', name + '.png'),
@@ -1355,6 +1657,7 @@ async function shot2(b, name) {
       else if (part === 'e1b') await partE1b(b);
       else if (part === 'png') await partPng(b);
       else if (part === 'chart') await partChart(b);
+      else if (part === 'overview') await partOverview(b);
       else if (part === 'speed') await partSpeed(b);
       else check(false, 'unknown part ' + part);
     }

@@ -67,11 +67,23 @@ backgrounds this document mentions.
   on the left edge, the name above the number, left-aligned, and a date written "Oct 5, 2026" (fitted to its box on a
   phone). Four boxes, each count said once: "Current positives", "Past positives" with
   those still under quarantine, "Last positive", "Sites inside the zones"; under them, in one line as Infrastructure's
-  line under its cards, the rows not mapped and the positives without a date (in the warning color) and the animals at
-  the current positives. Each box has an icon and a brand color on its edge and icon (current crimson, past eggplant,
+  line under its cards, the rows not mapped and the positives without a date (in the warning color). Since 2.3 the
+  animals at the current positives are the Overview's own box, and every box (the Overview's three too) has a larger
+  number (30 px) with its note under it, each row's numbers level (CSS subgrid). Each box has an icon and a brand color on its edge and icon (current crimson, past eggplant,
   last positive blue-green, sites inside evergreen; a past box with premises still under quarantine in the warning
   colors, its tile gold): a tile on wider screens, as CVI's own value boxes have, a plain icon before the label on a
   phone. CVI's and Infrastructure's count cards stay as they are until the final UI pass gives them the same.
+- **Emergency Response's Overview (2.3):** a "Map | Overview" switch under the value boxes (each new set of files
+  opens on the Map). The Overview's people inside the zones is an estimate from the 2020 Census tracts the population
+  density layer draws: each tract's people counted by the share of its area inside the zones, measured on small cells
+  (within about 1% of exact areas), shown as "~260,000" (a screen reader hears "about"); human cases are left to the
+  Department of Health. The tracts are Washington's only: a zone reaching into Oregon, Idaho or British Columbia
+  says "Washington only", and zones wholly outside the state are "Not available". A positive's county: a County
+  naming one of Washington's counties in any case, spacing or with "County" after it is that county (as CVI reads
+  " Yakima County"); a blank County is placed by the county shapes, else the nearest county within 2 km (a location
+  just off the shore), else "Outside Washington". Its two bar charts are CVI's horizontal bars with a row's bars stacked end to end (CVI sets a
+  row's bars side by side) and, on a phone, each name above its bar (CVI cuts a long name). Every Overview box and
+  chart has a "?" with its plain sentence. Not in CVI or Infrastructure.
 - **Emergency Response's map hover (version 2.1):** each positive's or site's name in bold on its own line; over the
   zones, each positive named once with one short line per ring ("Infection zone (3 km): 25 days") and one closing
   line, "Days since the last positive inside each zone, as of ..."; never wider than the screen. The text size and

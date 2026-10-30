@@ -3071,9 +3071,9 @@ async function runEM() {
         document.getElementById('em-export').click(); return true;`);
       const ex = await d.run(`return { download: window.__download || null, files: (WSDA.emergency.state.lastExport || []).filter(function(e){return !e.dir;}).map(function(e){return e.name.replace(/^[^/]+\\//,'');}).sort(),
         line: document.getElementById('em-export-result').textContent };`);
-      check(ex.files.join() === 'cvi_movements.csv,export_params.json,inside_the_zones.csv,layers.csv,left_out.csv,positives.csv,zones.csv,zones.geojson'
+      check(ex.files.join() === 'counties.csv,cvi_movements.csv,export_params.json,inside_the_zones.csv,layers.csv,left_out.csv,positives.csv,zones.csv,zones.geojson'
         && /^Exported \d{4}-\d\d-\d\d_Emergency\.zip/.test(ex.line) && ex.download && /_Emergency\.zip$/.test(ex.download.name)
-        && ex.download.size > 0, 'EM Safari: Export makes the eight files into one ZIP and says so', ex);
+        && ex.download.size > 0, 'EM Safari: Export makes the nine files (counties.csv since 2.3) into one ZIP and says so', ex);
       await d.click('#show-inside');
 
       // ---- E1b ----
@@ -3123,14 +3123,28 @@ async function runEM() {
       check(/^SYN-HPAI-002Infection zone \(3 km\): 25 days/.test(tip) && /Days since the last positive inside each zone, as of Oct 5, 2026$/.test(tip),
         'EM Safari: a real pointer move over a zone opens its hover: the rings under the pointer with their days since, as of the date shown', tip);
       await d.move(5, 5);
-      // "Positives over time": open after the load (v2.1), and a column picked by a real click.
-      check(await d.run(`return document.getElementById('em-chart-fold').open;`), 'EM Safari: the chart is open after the load');
+      // The Overview (2.3) by a real click on the switch: its boxes (the people from the Census tracts' file, loaded
+      // by Safari), then "Positives over time" with a column picked by a real click; the Map again by a real click.
+      await d.click('#show-overview');
+      await d.waitFor(`${S}.view === 'overview' && ${S}.overview && ${S}.overview.people`, 20000, 'the Overview worked out');
+      const ov = await d.run(`var b=function(id){return document.querySelector('#'+id+' strong').textContent;};
+        return { counties: b('ov-box-counties'), animals: b('ov-box-animals'), people: b('ov-box-people'),
+          note: document.querySelector('#ov-box-people .card-note').textContent, map: document.getElementById('view-map').hidden,
+          rows: document.querySelectorAll('#ov-positives-table tbody tr').length, bars: document.querySelectorAll('#ov-county-chart .chart-mark').length };`);
+      check(ov.counties === '5' && ov.animals === '1.2M birds' && /^~about \d{3},\d{3}$/.test(ov.people) && /^Estimate from \d+ Census tracts \(2020\)$/.test(ov.note)
+        && ov.map && ov.rows === 7 && ov.bars === 6,
+      'EM Safari: a real click on "Overview": its boxes (the people inside the zones from the Census tracts\' file), the bars and the positives table; the map hidden', ov);
       await d.click('.chart-col[data-col="7"]');
-      const chart = await d.run(`var s=${S};return { open: document.getElementById('em-chart-fold').open, at: s.stepAt, end: s.window.end,
-        columns: document.querySelectorAll('.chart-col').length };`);
-      check(chart.open && chart.columns === 13 && chart.at === 7 && chart.end === '2026-09-05',
-        'EM Safari: a real click on the chart\'s eighth column shows the map as of that week\'s Saturday', chart);
-      await d.run(`var i=document.getElementById('em-step');i.value=i.max;i.dispatchEvent(new Event('input'));document.getElementById('em-chart-fold').open=false;return true;`);
+      const chart = await d.run(`var s=${S};return { at: s.stepAt, end: s.window.end, columns: document.querySelectorAll('.chart-col').length };`);
+      check(chart.columns === 13 && chart.at === 7 && chart.end === '2026-09-05',
+        'EM Safari: a real click on the chart\'s eighth column moves the window\'s end to that week\'s Saturday', chart);
+      // The slider to its end, focused as a real drag focuses it (the picked column keeps no focus for the redraw to
+      // scroll back to); then the people worked out once it stops, before the click.
+      await d.run(`var i=document.getElementById('em-step');i.focus();i.value=i.max;i.dispatchEvent(new Event('input'));return true;`);
+      await d.waitFor(`/^~/.test(document.querySelector('#ov-box-people strong').textContent)`, 5000, 'the people worked out');
+      await d.click('#show-map');
+      const back = await d.run(`var s=${S};return { view: s.view, w: s.map.map.getCanvas().clientWidth, h: s.map.map.getCanvas().clientHeight };`);
+      check(back.view === 'map' && back.w > 300 && back.h > 200, 'EM Safari: a real click on "Map" shows the map again at its size', back);
       // The map picture: drawn and encoded by Safari; its blob read here, the save replaced (nothing goes to Downloads).
       await d.run(`window.__png=null;window.__download=null;var make=URL.createObjectURL;
         URL.createObjectURL=function(b){if(b&&b.type==='image/png')window.__png=b;return make.call(URL,b);};

@@ -28,6 +28,14 @@
 #     sf and tested with GEOS); and the page's zones.geojson read with sf: each polygon valid (st_is_valid), each
 #     circle 361 points with the first equal to the last and every vertex at its ring's distance from its positive,
 #     each exterior running counterclockwise.
+#   - the Overview's scenario (2.3; rules.json "overview": the agreed rows and two with a blank County): each
+#     positive's county (the County column, else the county shape holding it, read from site/geo/wa-counties.js and
+#     tested with GEOS, else "Outside Washington"); the counties table (current and past on the end date, the current
+#     positives' birds and cattle by county) and the positives table (newest first); the people inside the zones
+#     worked out exactly: the 2020 tracts read from site/geo/tracts-wa.js and decoded here, each zone a geodesic
+#     circle (720 points from geosphere's destPoint on the sphere of 6,378,137 m) or the zone file's polygon, the
+#     zones' union, and each tract's area inside it over its whole area, both in an equal-area projection (Lambert
+#     azimuthal, centered on Washington); the people the tract's people times that share.
 # The Node suite (tests/node/run_em_unit_tests.js) compares the row sets and distances within 1e-6, not counts alone.
 # RAD's and the fixtures' files are only read; nothing is installed.
 #
@@ -339,9 +347,128 @@ agreed_out <- list(
   mile_rows = mile_rows, ring_days = ring_days, zone_days = zone_days,
   geojson = list(features = nrow(gj), properties = I(gj_props), check = gj_check))
 
+# ── The Overview's scenario (2.3) ─────────────────────────────────────────────────────────────────
+ov <- rules$overview
+op <- read_fixture(ov$positives)
+read_site_js <- function(file, global) {
+  t <- paste(readLines(file.path(repo_root, "site", "geo", file), warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+  t <- sub(paste0("(?s)^.*?window\\.", global, " = "), "", t, perl = TRUE)
+  fromJSON(sub(";\\s*$", "", t), simplifyVector = FALSE)
+}
+o_lat <- num(trimws(op[["Latitude"]]))
+o_lon <- num(trimws(op[["Longitude"]]))
+o_mapped <- usable(o_lat, o_lon)
+o_id <- trimws(op[["Case ID"]])
+o_cty <- trimws(op[["County"]])
+o_names <- ifelse(nzchar(o_id), o_id, paste0(ifelse(o_mapped, paste0("Positive ", cumsum(o_mapped)),
+                                                    paste0("Line ", seq_along(o_id) + 1)),
+                                             ifelse(nzchar(o_cty), paste0(" (", o_cty, ")"), "")))
+o_conf <- trimws(op[["Confirmed Diagnosis"]])
+o_det <- as_day(ifelse(nzchar(o_conf), o_conf, trimws(op[["Date Reported"]])))
+o_closed <- as_day(op[["Close Date"]])
+o_flag <- tolower(trimws(op[["Status"]])) %in% c("closed", "yes", "y", "true", "1")
+o_release <- as_day(op[["Quarantine Release"]])
+o_inv_t <- trimws(op[["Flock/Herd Inventory"]])
+o_inv <- ifelse(grepl("^[0-9]+$", o_inv_t) | grepl("^[0-9]{1,3}(,[0-9]{3})+$", o_inv_t),
+                suppressWarnings(as.numeric(gsub(",", "", o_inv_t))), NA)
+o_size <- ifelse(is.na(o_inv), "", ifelse(o_inv < 100, "Small", ifelse(o_inv <= 1000, "Medium", "Large")))
+o_cattle <- grepl("(^|[^a-z0-9])(cattle|dairy|bovine|cow)", tolower(trimws(op[["Species"]])))
+o_end <- as.Date(ov$asOf)
+o_start <- min(o_det[o_mapped], na.rm = TRUE)
+o_inside <- o_mapped & (is.na(o_det) | (o_det >= o_start & o_det <= o_end))
+o_past <- ifelse(!is.na(o_closed), o_closed <= o_end, o_flag)
+o_group <- ifelse(o_past, "Past", "Current")
+# Counties: the County column (as the county's own name when it names one of Washington's, whatever its case,
+# spacing or a trailing "County"; else as written), else the county shape holding the positive, else the nearest
+# county within 2 km (measured in a Washington equal-area plane), else outside Washington.
+geo <- read_site_js("wa-counties.js", "CVIWA_GEO")
+county_sf <- st_set_crs(st_read(toJSON(geo$counties, auto_unbox = TRUE, digits = NA), quiet = TRUE), 4326)
+county_ea <- st_transform(county_sf, "+proj=laea +lat_0=47.3 +lon_0=-120.5 +datum=WGS84 +units=m +no_defs")
+county_key <- function(x) tolower(sub(" county$", "", gsub("\\s+", " ", trimws(x)), ignore.case = TRUE))
+county_of <- function(cty, lat, lon, near_km) {
+  written <- county_sf$name[match(county_key(cty), county_key(county_sf$name))]
+  pts <- st_as_sf(data.frame(x = ifelse(is.na(lon), 0, lon), y = ifelse(is.na(lat), 0, lat)), coords = c("x", "y"), crs = 4326)
+  hold <- suppressMessages(st_within(pts, county_sf))
+  d <- st_distance(st_transform(pts, st_crs(county_ea)), county_ea)
+  placed <- vapply(seq_along(hold), function(i) {
+    if (length(hold[[i]])) return(as.character(county_sf$name[hold[[i]][1]]))
+    k <- which.min(as.numeric(d[i, ]))
+    if (as.numeric(d[i, k]) <= near_km * 1000) as.character(county_sf$name[k]) else "Outside Washington"
+  }, character(1))
+  ifelse(nzchar(cty), ifelse(is.na(written), cty, written), placed)
+}
+o_county <- county_of(o_cty, ifelse(o_mapped, o_lat, NA), ifelse(o_mapped, o_lon, NA), rules$counties$nearKm)
+# The county rules' own file: one county written four ways, a name kept as written, blank Counties by location.
+cr <- read_fixture(rules$counties$positives)
+county_rules <- county_of(trimws(cr[["County"]]), num(trimws(cr[["Latitude"]])), num(trimws(cr[["Longitude"]])),
+                          rules$counties$nearKm)
+cat("counties:", paste(county_rules, collapse = ", "), "\n")
+listed <- which(o_inside)
+county_rows <- lapply(sort(unique(o_county[listed])), function(cn) {
+  k <- listed[o_county[listed] == cn]
+  cur <- k[o_group[k] == "Current"]
+  list(county = cn, current = sum(o_group[k] == "Current"), past = sum(o_group[k] == "Past"),
+       birds = if (any(!is.na(o_inv[cur]) & !o_cattle[cur])) sum(o_inv[cur][!o_cattle[cur]], na.rm = TRUE) else NA,
+       cattle = if (any(!is.na(o_inv[cur]) & o_cattle[cur])) sum(o_inv[cur][o_cattle[cur]], na.rm = TRUE) else NA,
+       missing = sum(is.na(o_inv[cur])))
+})
+day_label <- function(d) ifelse(is.na(d), "", paste0(month.abb[as.integer(format(d, "%m"))], " ",
+                                                     as.integer(format(d, "%d")), ", ", format(d, "%Y")))
+ord <- listed[order(is.na(o_det[listed]), -as.numeric(o_det[listed]), listed)]
+positive_rows <- lapply(ord, function(k) I(c(o_names[k], day_label(o_det[k]), o_county[k], o_size[k],
+                                             trimws(op[["Flock/Herd Type"]][k]), trimws(op[["Species"]][k]), o_group[k],
+                                             day_label(o_release[k]))))
+# People inside the zones, exactly.
+tr <- read_site_js("tracts-wa.js", "WSDA_TRACTS")
+decode <- function(ring) {
+  v <- unlist(ring)
+  m <- cbind(cumsum(v[c(TRUE, FALSE)]), cumsum(v[c(FALSE, TRUE)])) / 10000
+  if (any(m[1, ] != m[nrow(m), ])) m <- rbind(m, m[1, ])
+  m
+}
+ea <- "+proj=laea +lat_0=47.3 +lon_0=-120.5 +datum=WGS84 +units=m +no_defs"
+tract_sf <- st_transform(st_sf(geoid = vapply(tr$tracts, function(t) t$geoid, character(1)),
+                               pop = vapply(tr$tracts, function(t) as.numeric(t$pop), numeric(1)),
+                               geometry = st_sfc(lapply(tr$tracts, function(t) st_multipolygon(lapply(t$shape, function(pg)
+                                 lapply(pg, decode)))), crs = 4326)), ea)
+tract_sf <- st_make_valid(tract_sf)
+tract_area <- as.numeric(st_area(tract_sf))
+people_in <- function(zones) {
+  u <- st_union(st_make_valid(zones))
+  hit <- which(lengths(st_intersects(tract_sf, u)) > 0)
+  inside <- vapply(hit, function(k) {
+    x <- suppressWarnings(st_intersection(st_geometry(tract_sf)[k], u))
+    if (length(x)) sum(as.numeric(st_area(x))) else 0
+  }, numeric(1))
+  share <- pmin(1, inside / tract_area[hit])
+  keep <- share > 0
+  list(total = sum(tract_sf$pop[hit] * share),
+       tracts = lapply(which(keep), function(i) list(geoid = tract_sf$geoid[hit[i]], share = share[i],
+                                                     people = tract_sf$pop[hit[i]] * share[i])))
+}
+o_km <- max(vapply(ov$rings, function(r) as.numeric(r$distance), numeric(1))) * 1.609344
+o_target <- which(o_inside & o_group == "Current")
+circles <- st_sfc(lapply(o_target, function(k) {
+  v <- destPoint(c(o_lon[k], o_lat[k]), b = seq(0, 360, length.out = 721)[-721], d = o_km * 1000, a = 6378137, f = 0)
+  st_polygon(list(rbind(v, v[1, ])))
+}), crs = 4326)
+people_rings <- people_in(st_transform(circles, ea))
+hole <- st_transform(st_set_crs(st_zm(suppressWarnings(st_read(file.path(fx_dir, ov$zoneFile), quiet = TRUE))), 4326), ea)
+people_zone <- people_in(st_geometry(hole))
+cat(sprintf("overview: %d listed, %d counties, people inside the rings %.1f (%d tracts), inside the zone %.1f (%d tracts)\n",
+            length(listed), length(county_rows), people_rings$total, length(people_rings$tracts), people_zone$total,
+            length(people_zone$tracts)))
+overview_out <- list(
+  names = I(o_names), county = I(o_county), counties = county_rows, positives = positive_rows,
+  targets = I(o_names[o_target]), people = list(rings = people_rings, zone = people_zone),
+  countyRules = I(county_rules),
+  geo_sha = list(tracts = sha256(file.path(repo_root, "site", "geo", "tracts-wa.js")),
+                 counties = sha256(file.path(repo_root, "site", "geo", "wa-counties.js"))))
+
 # ── Written out ────────────────────────────────────────────────────────────────────────────────────
 inputs <- c("rules.json", rules$positives, cv$positives, cv$master, vapply(rules$layers, function(l) l$file, character(1)),
-            unlist(rules$zoneFiles), ag$positives, ag$layer$file, ag$zoneFile, ag$geojson)
+            unlist(rules$zoneFiles), ag$positives, ag$layer$file, ag$zoneFile, ag$geojson, ov$positives,
+            rules$counties$positives)
 out <- list(
   generated_by = "tests/oracle/em_oracle.R",
   r_version = R.version.string,
@@ -356,7 +483,8 @@ out <- list(
   zones = zone_out,
   speed = list(pairs = pairs, distinct = distinct, seconds = speed_s),
   cvi = cvi_out,
-  agreed = agreed_out
+  agreed = agreed_out,
+  overview = overview_out
 )
 dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)
 writeLines(toJSON(out, auto_unbox = TRUE, digits = NA, null = "null", na = "null", pretty = FALSE), out_file)

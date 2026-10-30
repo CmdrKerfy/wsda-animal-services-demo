@@ -11,7 +11,8 @@
 //   unit   site/emergency/rules.js, types.js, datasets.js, branded.js, chart.js and site/shared/recognize.js, against the Emergency unit
 //          suite (which also compares the rules with the R reference)
 //   page   site/emergency/app.js, map.js and index.html, against the Emergency Chrome suite's parts named with the
-//          mutant ("page" and "results" unless it names others; from E1b also "e1b", "png", "chart" and "speed")
+//          mutant ("page" and "results" unless it names others; from E1b also "e1b", "png", "chart" and "speed"; from 2.3
+//          "overview")
 //          (foreground only; about 40 seconds a mutant, so run a few numbers at a time to stay under 600 seconds)
 //
 // Usage (repository root): node tests/mutation/run_em_mutations.js unit|page [numbers ...]
@@ -90,13 +91,13 @@ const GROUPS = {
       "!/^\\d{1,3}(,\\d{3})+$/.test(s)) return s ? null : 0;"],
     ['inventory: thousands commas not read', RU, "if (!/^\\d+$/.test(s) && !/^\\d{1,3}(,\\d{3})+$/.test(s))",
       "if (!/^\\d+$/.test(s))"],
-    ['numbers: the past positives counted', RU, 'const numbers = numbersLine(read, g.current);',
-      'const numbers = numbersLine(read, g.current.concat(g.past));'],
+    ['animals box: the past positives counted', RU, 'const a = animalTotals(read, cur);',
+      'const a = animalTotals(read, cur.concat(g.past));'],
     ['numbers: cattle counted as birds', RU, 'const w = inventoryWordOf(read.type, p);', 'const w = read.type.inventoryWord;'],
     ['numbers: a cattle word matched anywhere in the species', RU,
       "type.countedApart.find(a => a.species.some(w => hasWord(species, w)))", "type.countedApart.find(a => a.species.some(w => species.includes(w)))"],
-    ['numbers: "0 cattle" written when no herd has an inventory', RU, "if (n !== null) parts.push(bigNumber(n) + ' ' + w);",
-      "parts.push(bigNumber(n || 0) + ' ' + w);"],
+    ['numbers: "0 cattle" written when no herd has an inventory', RU, 'return { totals: [...totals].filter(([, n]) => n !== null), missing };',
+      'return { totals: [...totals].map(([w, n]) => [w, n || 0]), missing };'],
     ['types: countedApart not checked', TY, 'species: words(a && a.species, `countedApart[${i}].species`, fail),',
       'species: (a && a.species) || [],'],
     ['zones.csv: not ordered by days since', RU, 'const rows = byQuiet(days).map(', 'const rows = days.map('],
@@ -158,7 +159,51 @@ const GROUPS = {
     ['dates: an unreadable release date not counted', RU, '      if (releaseText && !release) badReleaseDates++;\n', ''],
     ['the boxes: the unreadable dates never said', RU, "      if (bad) lines.push(", "      if (false) lines.push("],
     ['the boxes: without a window the closed positives counted as current', RU,
-      'read.positives.filter(p => !isPast(p, null));', 'read.positives;']
+      'read.positives.filter(p => !isPast(p, null));', 'read.positives;'],
+    // Version 2.3, the Overview's rules
+    ['county: the County column ignored', RU, 'let name = written ? c.names.get(countyKey(written)) || written : null;',
+      'let name = null;'],
+    ['county: a positive outside every county given a made-up name', RU,
+      '    name = name || OUTSIDE_WA;\n', "    name = name || 'Unknown';\n"],
+    ['counties table: "Outside Washington" sorted with the others', RU,
+      'out.sort((a, b) => (a.county === OUTSIDE_WA) - (b.county === OUTSIDE_WA) || b.current', 'out.sort((a, b) => b.current'],
+    ['counties table: past positives counted as current', RU,
+      'for (const p of g.past) row(countyOf(p, counties)).past++;', 'for (const p of g.past) row(countyOf(p, counties)).current++;'],
+    ['positives table: oldest first', RU, "(b.detected || '').localeCompare(a.detected || '') || a.line - b.line",
+      "(a.detected || '').localeCompare(b.detected || '') || a.line - b.line"],
+    ['positives table: columns the file lacks kept', RU, "      [c.quarantine, p => day(p.quarantine), !!c.quarantine]].filter(col => col[2]);",
+      "      [c.quarantine, p => day(p.quarantine), !!c.quarantine]];"],
+    ['people: a small tract measured with 250 m cells', RU, 'cell: Math.min(CELL_KM, Math.sqrt(area / TRACT_CELLS)),', 'cell: CELL_KM,'],
+    ['people: overlapping zones counted twice', RU, '            if (seen.has(at)) continue;\n', ''],
+    ['people: the zone edge drawn 10% short', RU, 'return km !== null && km <= sites[k].bufferKm;',
+      'return km !== null && km <= sites[k].bufferKm * 0.9;'],
+    ['people: a tract\'s holes added to its area', RU, 'area += (k === 0 ? 1 : -1) * Math.abs(twice) / 2;', 'area += Math.abs(twice) / 2;'],
+    ['people: the estimate to two significant figures', RU, 'Math.pow(10, Math.floor(Math.log10(n)) - 2)',
+      'Math.pow(10, Math.floor(Math.log10(n)) - 1)'],
+    ['animals box: the positives without a count not said', RU, "a.missing ? a.missing + ' without a count' : ''", "''"],
+    ['counties box: "Outside Washington" counted as a county', RU, '      set.delete(OUTSIDE_WA);\n', ''],
+    ['people box: no zones shown as zero people', RU, "!people ? { value: null, reason: 'Not available: needs zones', note: null }",
+      '!people ? { value: 0, reason: null, note: null }'],
+    ['bars: the past part drawn with the current count', RU, "{ key: 'past', value: r.past }", "{ key: 'past', value: r.current }"],
+    ['animals: a blank inventory counted as zero', RU, '      if (p.inventory === null) {\n        missing++;', '      if (false) {\n        missing++;'],
+    // 2.3, the Overview's page step: counties.csv and the horizontal bars (91 onward)
+    ['counties.csv: an unknown count written as zero', RU, 'return hit ? hit[1] : counted ? 0 : null;', 'return hit ? hit[1] : 0;'],
+    ['bars: a layer\'s total as its zones\' sum (a site in two zone-file zones twice)', RU, '        total: l.inside }))', '        total: undefined }))'],
+    ['bars: stacked bars all drawn from zero', CHT, 'const x0 = r.stack ? X(at) :', 'const x0 = r.stack ? X(0) :'],
+    ['bars: the past drawn filled', CHT, 'const shape = b.outline ?', 'const shape = false ?'],
+    ['bars: on a phone the labels beside the bars, cut', CHT, 'const NARROW = 360,', 'const NARROW = 0,'],
+    ['bars: a row\'s own total ignored', CHT, 'const total = r.total === undefined ?', 'const total = true ?'],
+    ['bars: on a phone the axis\'s 0 cut in half', CHT, "(labelsAbove ? textWidth(ax.labels[0] || '', fsAxis) / 2 : g.px(g.pt.gap))",
+      '(labelsAbove ? 0 : g.px(g.pt.gap))'],
+    // 2.3, the review's fixes: each positive's county and the people outside Washington.
+    ['counties: a written County matched with its case', RU, ".replace(/ county$/i, '').toLowerCase();", ".replace(/ county$/i, '');"],
+    ['counties: a trailing "County" kept', RU, "text(name).replace(/\\s+/g, ' ').replace(/ county$/i, '')", "text(name).replace(/\\s+/g, ' ')"],
+    ['counties: no nearest county off the shore', RU, 'let best = NEAR_KM;', 'let best = 0;'],
+    ['people: past Washington without the county shapes', RU, '&& !counties.some(f => P().inZone(lon, lat, f.geometry));', ';'],
+    ['people: zones wholly outside Washington shown as ~0', RU, 'people.beyond && !people.tracts.length ?', 'false ?'],
+    ['people: "Washington only" not said', RU, "(people.beyond ? ' · Washington only' : '')", "''"],
+    ['people: a zone file\'s zone never past Washington', RU, 'return polys.some(poly => poly[0].some(q => past(q[0], q[1])));',
+      'return false;']
   ],
   page: [
     ['the loader stays open after a clean load', AP, "if (ready && !failed && !notes.length) $('load-fold').open = false;",
@@ -193,8 +238,8 @@ const GROUPS = {
     ['the play loops instead of stopping at the end', AP,
       'if (state.stepAt >= state.steps.steps.length - 1) { stopPlay(); return; }',
       'if (state.stepAt >= state.steps.steps.length - 1) state.stepAt = -1;', ['e1b']],
-    ['the slider leaves the play running', AP, "    const i = Number($('em-step').value);\n    stopPlay();\n",
-      "    const i = Number($('em-step').value);\n", ['e1b']],
+    ['the slider leaves the play running', AP, "    slidAt = Date.now();\n    stopPlay();\n",
+      "    slidAt = Date.now();\n", ['e1b']],
     ['the CVI movements worked out during the play', AP,
       "    if (state.playing) {\n      out.append(el('p', 'muted', 'The CVI movements are worked out when the play stops.'));",
       "    if (false) {\n      out.append(el('p', 'muted', 'The CVI movements are worked out when the play stops.'));", ['e1b', 'speed']],
@@ -212,7 +257,7 @@ const GROUPS = {
       '    window: state.fileWindow, current: E.groups(read, state.fileWindow).current.length,', ['png']],
     // E1b's UI pass: the value boxes and the hovers
     ['the line under the boxes never shown', AP, '    strip.hidden = !lines.length;', '    strip.hidden = true;', ['e1b']],
-    ['the rows not mapped not in the warning color', AP, "strip.append(el('span', /^Animals /.test(l) ? '' : 'warn', l));",
+    ['the rows not mapped not in the warning color', AP, "strip.append(el('span', 'warn', l));",
       "strip.append(el('span', '', l));", ['e1b']],
     ['the last positive\'s date left as written in the file', AP, "set('box-last', v.last.value === null ? null : E.dayLabel(v.last.value),",
       "set('box-last', v.last.value,", ['e1b']],
@@ -247,12 +292,13 @@ const GROUPS = {
     ['the population key left out of the legend', AP, 'const pc = PN.legendEntries(pcDrawn(), PN.DEFAULT_RAMP);', 'const pc = [];', ['e1b']],
     ['the zone hover without the population lines', MP, '    if (context.length) out.context = context;\n', '', ['e1b']],
     // Version 2.1: the chart opened with each new set of files; "Export & Preview" in the sidebar
-    ['the chart left closed after a load', AP, "    $('em-chart-fold').open = ready;\n", '', ['chart']],
+    ['a new set of files keeps the Overview shown (2.3: the Map after each load)', AP, "    state.view = 'map';\n", '', ['chart', 'overview']],
     ['"Export & Preview" open from the start', HT, '<details class="section" id="export-fold" data-section="export">',
       '<details class="section" id="export-fold" data-section="export" open>', ['png']],
     // Version 2.1: each count once; the past box's quarantine in the warning color; the date fitted
     ['the past box\'s quarantine not in the warning color', AP, "    $('box-past').classList.toggle('quar', !!v.past.quarantined);\n", '', ['e1b']],
-    ['a wide date cut off its box on a phone again', HT, '  #box-last:not(.na) strong { font-size: clamp(15px, 13.5cqi, 22px); }\n', '', ['e1b']],
+    ['a wide date cut off its box on a phone again', HT,
+      '  #box-last:not(.na) strong { font-size: clamp(15px, calc(((100cqi - 0.5rem) / 2 - 1.15rem - 2px) * 0.135), 30px); }\n', '', ['e1b']],
     ['the sidebar summary counts the positives again', AP, "zonesMode ? 'zones from a file' : !state.rings", "zonesMode ? 'zones from a file' : targets.length ? targets.length + ' with zones' : !state.rings", ['page']],
     // The boxes' icons in brand colors; the map picture's box named as the page's
     ['the current positives\' box without its brand color', HT, '  #box-positives { --box: var(--wsda-crimson); }\n', '', ['e1b']],
@@ -270,7 +316,31 @@ const GROUPS = {
     ['the "?" silent on positives closed by their status alone', AP,
       "const said = EXAMPLES + (byStatusOnly ? ' ' + NO_CLOSE_DATE : '');", 'const said = EXAMPLES;', ['e1b']],
     ['a type change keeps the bundle\'s zone file as it was', AP,
-      "    if (state.zoneFile && state.zoneFile.source !== 'page') state.useZones = state.type.zones.source === 'file';\n", '', ['e1b']]
+      "    if (state.zoneFile && state.zoneFile.source !== 'page') state.useZones = state.type.zones.source === 'file';\n", '', ['e1b']],
+    // 2.3, the Overview (62 onward)
+    ['the switch shown before a load', AP, "    $('em-view').hidden = !read;", "    $('em-view').hidden = false;", ['overview']],
+    ['the Overview not drawn again when the window changes', AP, "    $('em-view').hidden = !read;\n    renderView();\n",
+      "    $('em-view').hidden = !read;\n", ['overview']],
+    ['the people not worked out again when the zones change', AP,
+      'if (peopleMemo.zoneFile !== zoneFile || peopleMemo.key !== key) {', 'if (peopleMemo.key === null) {', ['overview']],
+    ['the people\'s "~" read aloud', AP, "    tilde.setAttribute('aria-hidden', 'true');\n", '', ['overview']],
+    ['the people\'s "?" silent on human cases', HT, " Human cases are the Department of Health's.</p>", '</p>', ['overview']],
+    ['the county bars without the past', AP, "        { key: 'past', label: 'past', name: 'Past', outline: true, stroke: color }] }",
+      '] }', ['overview']],
+    ['counties.csv left out of the Export', AP,
+      "    add('counties.csv', csvOf(E.countyTable(state.read, E.countyRows(state.read, state.window, root.CVIWA_GEO.counties.features))));\n", '',
+      ['results']],
+    ['on a phone the Overview\'s boxes two to a row', HT, '#ov-boxes { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));',
+      '#ov-boxes { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));', ['overview']],
+    ['a fit asked for on the Overview never made on the Map', AP, "    if (v === 'map' && state.fitNext) {", '    if (false) {', ['overview']],
+    ['a zone file\'s one zone not named in the layer chart', AP, "series, key: true, rows: bars.layers.map(valuesOf) }", 'series, rows: bars.layers.map(valuesOf) }', ['overview']],
+    ['the bars\' hover box never shown', AP, '      if (m) showTip(m, e.clientX, e.clientY); else', '      if (false) showTip(m, e.clientX, e.clientY); else', ['overview']],
+    // 2.3, the review's fixes.
+    ['the people worked out at every step of the slider', AP, '      if (moving()) { peopleLater(); return { value: null, waiting: true }; }\n', '', ['overview']],
+    ['a waiting fit made before the map has its size', AP, '      if (state.map.map) state.map.map.resize();\n', '', ['overview']],
+    ['the past positives\' rings add people', AP, 'E.peopleInside(zp.sites, t.list,', 'E.peopleInside(zp.sites.concat(zp.pastSites), t.list,', ['overview']],
+    ['the tracts\' failed load not said', AP, '    else if (tracts.failed) boxes.people =', '    else if (false) boxes.people =', ['overview']],
+    ['the people never "Washington only"', AP, '{ year: t.year, counties: root.CVIWA_GEO.counties.features }', '{ year: t.year }', ['overview']]
   ]
 };
 

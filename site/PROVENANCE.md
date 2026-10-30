@@ -258,7 +258,7 @@ guide's values.
   decimals, empty parts dropped; places kept as name, land area (CVI's label priority) and the planar center of each
   place's polygon. Output SHA-256 `55e94f2921d56f5767ab8a54b8b6651a815c8fe08498b3d9cd749e30f8270cad`, 2.8 MB.
 
-## Population context (`geo/citylimits-wa.js`, `geo/places-wa.js`, `geo/tracts-wa.js`, PC; loaded only when a layer's switch is turned on)
+## Population context (`geo/citylimits-wa.js`, `geo/places-wa.js`, `geo/tracts-wa.js`, PC; loaded only when a layer's switch is turned on, and `tracts-wa.js` also when Emergency Response's Overview first works out the people inside the zones)
 
 - Sources (downloaded 2026-10-13; kept outside the repository, their folder given to the build script):
   - U.S. Census Bureau, 2020 cartographic boundary files `cb_2020_53_place_500k.zip` (SHA-256
@@ -274,7 +274,8 @@ guide's values.
     <https://webgis.dor.wa.gov/arcgis/rest/services/Ref/Cities/FeatureServer/0>, all 299 records as GeoJSON in
     EPSG:4326 (`a05caf3590f962dcc4280e26e4dc7177054350398d5916b39f12e71670697cb8`); it changes every quarter.
 - Terms: the Census files are public domain, and the Census Bureau asks for acknowledgment as the source ("Population:
-  U.S. Census Bureau, 2020 Census" on the map when a layer using it is drawn). The Department of Revenue's layer is
+  U.S. Census Bureau, 2020 Census" on the map when a layer using it is drawn; on Emergency Response's Overview the
+  people box's note names the source, "Estimate from 57 Census tracts (2020)"). The Department of Revenue's layer is
   freely available for use, public copies included; credited as "City limits: WA Department of Revenue".
 - Derivation: `build/derive_population.R` checks the Census files' SHA-256 values, merges each city's pieces by Census
   place code, trims the city limits to land with `geo/wa-counties.js`, joins the 2020 population by GEOID ("53" + the

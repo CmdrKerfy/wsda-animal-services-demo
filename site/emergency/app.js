@@ -1,10 +1,13 @@
 /* Emergency Response: the page. Files are chosen here or sent by the landing page in memory (the per-click hand-off);
  * the shared checklist says what each file is (datasets.js). The positives, the facility layers and a zone file are
- * then read into the rules (rules.js), and the page draws what the rules give: the map (map.js), the value boxes, the
- * chart "Positives over time" under them (chart.js, in a fold closed by default), the legend and the results tabs ("Inside the zones": one fold per layer, the "nearest" line, the left-out list; "CVI
+ * then read into the rules (rules.js), and the page draws what the rules give: the value boxes, then under the "Map |
+ * Overview" switch either the map (map.js), the legend and the results tabs ("Inside the zones": one fold per layer, the "nearest" line, the left-out list; "CVI
  * movements": CVI's own Premise Lookup match, lookup.js query, loaded unchanged, over the zones), the Export (a
  * ZIP of CSV files written with CVI's CSV writer and its formula guard, exports.js, zones.geojson and
- * export_params.json) and the map picture (a branded PNG drawn by branded.js, its options under More options).
+ * export_params.json) and the map picture (a branded PNG drawn by branded.js, its options under More options); or
+ * the Overview (2.3): five titled sections, its three value boxes (counties, animals, the people inside the zones),
+ * the chart "Positives over time" (chart.js), the bars by county and by layer, the counties and positives tables.
+ * Each new set of files opens on the Map.
  *
  * The sidebar has five folds: Load your data; Positives and zones (the type picker and its "?" in the fold's header,
  * the status tick boxes when the file has a status column, "Show past positives" with its folded "Past zones" ("Draw
@@ -39,7 +42,7 @@
     zoneFile: null, useZones: false, points: [], pointsAdded: 0, picking: false,
     prepared: null, layers: Object.create(null), selectedLayers: [], includeCoarse: false, result: null,
     basemap: '', neighbors: Object.create(null), population: { on: { cities: false, places: false, density: false }, missing: {} },
-    tab: 'inside', fitNext: false,
+    tab: 'inside', view: 'map', fitNext: false,
     master: null, masterReason: '', cvi: { years: [], quarters: QUARTERS.slice(), species: [] }, cviRes: null, cviKey: null
   };
   let pendingReply = null;
@@ -175,8 +178,8 @@
     // A clean load folds the loader away; its summary says what is loaded.
     setSum('load-summary', ready ? what : '');
     if (ready && !failed && !notes.length) $('load-fold').open = false;
-    // The chart opens with each new set of files (it answers "when?" at a glance); closed, it stays closed.
-    $('em-chart-fold').open = ready;
+    // Each new set of files opens on the Map, as CVI opens on its maps: the zones and layers chosen there feed the Overview.
+    state.view = 'map';
     renderAsOf();
     state.fitNext = true;
     syncControls();
@@ -569,6 +572,7 @@
   // The slider's value is read before the play stops (stopping redraws the slider at the step shown).
   $('em-step').addEventListener('input', () => {
     const i = Number($('em-step').value);
+    slidAt = Date.now();
     stopPlay();
     goStep(i);
   });
@@ -816,7 +820,7 @@
     state.zoneParts = { zonesMode, sites, pastSites, counted };   // for zones.geojson and the map picture
     drawMap(sites, pastSites, zonesMode, targets, layers);
     renderBoxes();
-    renderChart();
+    if (!read || state.view !== 'overview') renderChart();   // on the Overview it is drawn with the rest (renderView)
     legendArgs = [zonesMode, g, pastSites.length > 0];
     renderLegend(...legendArgs);
     renderTabs();
@@ -835,6 +839,9 @@
     setSum('positives-sum', sum.join(', '));
     setSum('layers-sum', layers.length ? plural(layers.length, 'layer', 'layers') : '');
     $('em-zero').hidden = !!read;
+    // The switch shows once a positives file is read; without one the page is the map.
+    $('em-view').hidden = !read;
+    renderView();
     state.computeMs = root.performance.now() - started;   // test hook: one redraw's time
   }
 
@@ -910,16 +917,18 @@
       .forEach(poly => poly[0].forEach(([lon, lat]) => grow(lon, lat))));
     if (!bounds) positives.forEach(p => grow(p.lon, p.lat));
     const tipFoot = days.asOf ? 'Days since the last positive inside each zone, as of ' + E.dayLabel(days.asOf) : '';
-    EM.draw(state.map, { zones, pastZones, zoneTips: tips, tipFoot, positives, inside, outside, bounds }, state.fitNext);
-    state.fitNext = false;
+    // The map is hidden while the Overview shows: a fit then waits until the Map is shown again.
+    const fit = state.fitNext && state.view === 'map';
+    EM.draw(state.map, { zones, pastZones, zoneTips: tips, tipFoot, positives, inside, outside, bounds }, fit);
+    if (fit) state.fitNext = false;
     state.mapData = { zones: zones.length, pastZones: pastZones.length, positives: positives.length,
       past: positives.filter(p => p.past).length, inside: inside.length, outside: outside.length };   // test hook
   }
 
   // The four value boxes; a value that cannot be given says what it needs, never zero. "Current positives" counts the
   // current positives in the window, "Past positives" the past ones with those still under quarantine; the other lines
-  // (the rows not mapped, the unreadable dates, the positives without a date, the report's numbers) go in one line
-  // under the boxes, all but the numbers in the warning color. The "Last positive"
+  // (the rows not mapped, the unreadable dates, the positives without a date) go in one line under the boxes, in the
+  // warning color (the animals are the Overview's box since 2.3). The "Last positive"
   // box gives the date as the page writes dates ("Oct 2, 2026"), its note the window's end ("As of Oct 5, 2026").
   function renderBoxes() {
     const v = E.valueBoxes(state.read, state.result && state.result.layers.length ? state.result : null, state.window);
@@ -941,11 +950,10 @@
     set('box-last', v.last.value === null ? null : E.dayLabel(v.last.value), v.last.value === null ? v.last.reason : v.last.note || '');
     set('box-inside', v.inside.value, v.inside.reason);
     const strip = $('em-box-lines'), lines = v.positives.value === null ? [] : v.positives.lines;
-    // The rows not mapped and the positives without a date in the warning color; the animals line as it is.
     strip.replaceChildren();
     lines.forEach((l, i) => {
       if (i) strip.append(el('span', 'sep', ' · '));
-      strip.append(el('span', /^Animals /.test(l) ? '' : 'warn', l));
+      strip.append(el('span', 'warn', l));
     });
     strip.hidden = !lines.length;
   }
@@ -953,14 +961,15 @@
   // ---- The chart "Positives over time" (chart.js) ---------------------------------------------------------------
   // The file's positives by the week or month they were detected in (the play's steps; rules.js overTime): current
   // in the type's first status color, past hollow and faded as on the map, those outside the window gray. A click on a
-  // column, or Enter on it, moves the window's end to that step's end, as the slider does. In a fold under the value
-  // boxes, opened with each new set of files, drawn at the fold's width while it is open.
+  // column, or Enter on it, moves the window's end to that step's end, as the slider does. In the Overview's "Over
+  // time" (2.3), drawn at its panel's width while the Overview shows; the section is hidden without a readable date.
   const CH = W.emergencyChart;
-  const OUTSIDE = '#d9d9d9', CHART_HEIGHT = 170;
+  const OUTSIDE = '#d9d9d9', CHART_HEIGHT = { narrow: 260, wide: 300 };
   function renderChart() {
-    const fold = $('em-chart-fold'), box = $('em-chart'), tip = $('em-chart-tip');
-    fold.hidden = !state.read || !state.steps.steps.length;
-    state.chart = fold.hidden ? null : E.overTime(state.read, state.window, state.steps);   // test hook
+    const box = $('em-chart'), tip = $('em-chart-tip');
+    const none = !state.read || !state.steps.steps.length;
+    $('ov-s-time').hidden = none;
+    state.chart = none ? null : E.overTime(state.read, state.window, state.steps);   // test hook
     tip.hidden = true;
     if (!state.chart) { box.replaceChildren(); return; }
     const t = state.chart, notCounted = [];
@@ -969,17 +978,18 @@
     if (t.undated) notCounted.push(t.undated.toLocaleString('en-US') + ' without a date');
     $('em-chart-note').hidden = !notCounted.length;
     $('em-chart-note').textContent = notCounted.length ? 'Not counted: ' + notCounted.join(', ') : '';
-    if (!fold.open) return;
+    if (state.view !== 'overview') return;
     const color = state.type.statuses[0].color;
     const series = [{ key: 'current', label: 'current', name: 'Current', fill: color },
       { key: 'past', label: 'past', name: 'Past', outline: true, stroke: color, opacity: 0.55 },
       { key: 'outside', label: 'outside the window', name: 'Outside the window', fill: OUTSIDE }];
     const tick = c => (t.by === 'month' ? c.label.replace(/^Month of /, '') : c.label.replace(/^Week of /, '').replace(/, \d{4}$/, ''));
     const columns = t.columns.map((c, i) => ({ label: c.label, tick: tick(c), picked: i === state.stepAt,
-      values: { current: c.current, past: c.past, outside: c.outside }, click: 'Click to show the map as of ' + E.dayLabel(c.end) }));
+      values: { current: c.current, past: c.past, outside: c.outside }, click: 'Click to end the date window on ' + E.dayLabel(c.end) }));
     const focused = box.contains(document.activeElement);
     box.innerHTML = CH.columns({ title: 'Positives over time, ' + (t.by === 'month' ? 'by month' : 'by week'),
-      none: 'no positives', series, columns }, { width: box.clientWidth, height: CHART_HEIGHT });
+      none: 'no positives', series, columns }, { width: box.clientWidth,
+      height: box.clientWidth < 600 ? CHART_HEIGHT.narrow : CHART_HEIGHT.wide });
     if (focused) box.querySelector('.chart-col[tabindex="0"]').focus();
   }
   // The hover box beside the pointer, or beside a focused column (copied from site/cvi/app/ui.js, v2.0, showTip).
@@ -998,7 +1008,6 @@
     goStep(i);
   }
   const chartBox = $('em-chart'), colOf = e => e.target.closest && e.target.closest('.chart-col');
-  $('em-chart-fold').addEventListener('toggle', renderChart);
   chartBox.addEventListener('click', e => { const c = colOf(e); if (c) pickColumn(Number(c.getAttribute('data-col'))); });
   chartBox.addEventListener('pointermove', e => { const c = colOf(e); if (c) showTip(c, e.clientX, e.clientY); else $('em-chart-tip').hidden = true; });
   chartBox.addEventListener('pointerleave', () => { $('em-chart-tip').hidden = true; });
@@ -1025,12 +1034,146 @@
     all[to].setAttribute('tabindex', '0');
     all[to].focus();
   });
+  // The bars' hover box: a bar's count.
+  for (const id of ['ov-county-chart', 'ov-layer-chart']) {
+    $(id).addEventListener('pointermove', e => {
+      const m = e.target.closest && e.target.closest('.chart-mark');
+      if (m) showTip(m, e.clientX, e.clientY); else $('em-chart-tip').hidden = true;
+    });
+    $(id).addEventListener('pointerleave', () => { $('em-chart-tip').hidden = true; });
+  }
+  // The Overview's charts drawn again at their new widths.
   let chartFrame = 0;
   root.addEventListener('resize', () => {
-    if (!$('em-chart-fold').open) return;
+    if (state.view !== 'overview') return;
     root.cancelAnimationFrame(chartFrame);
-    chartFrame = root.requestAnimationFrame(renderChart);
+    chartFrame = root.requestAnimationFrame(renderOverview);
   });
+
+  // ---- The Map | Overview switch and the Overview (2.3) ------------------------------------------------------------
+  function renderView() {
+    if (!state.read) state.view = 'map';
+    for (const v of ['map', 'overview']) {
+      $('show-' + v).setAttribute('aria-pressed', String(state.view === v));
+      $('view-' + v).hidden = state.view !== v;
+    }
+    if (state.view === 'overview') renderOverview();
+  }
+  function showView(v) {
+    if (v === state.view) return;
+    state.view = v;
+    renderView();
+    // The map was hidden: MapLibre takes its size again by itself (it watches its frame, a moment later); a fit asked
+    // for meanwhile is made now, at the map's own size.
+    if (v === 'map' && state.fitNext) {
+      if (state.map.map) state.map.map.resize();
+      compute();
+    }
+  }
+  document.querySelectorAll('#em-view [data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+
+  // The 2020 Census tracts for the people estimate: the population density layer's file (shared/population.js),
+  // loaded the first time the Overview needs it and decoded once. While it loads the people box says so.
+  const tracts = { list: null, year: null, loading: false, failed: false };
+  function tractsData(data) {
+    tracts.list = data.tracts.map(t => ({ geoid: t.geoid, pop: t.pop, coordinates: PN.geometry(t).coordinates }));
+    tracts.year = data.year || null;
+  }
+  function overviewTracts() {
+    if (tracts.list || tracts.loading || tracts.failed) return tracts;
+    const have = PN.loaded('density');
+    if (have) { tractsData(have); return tracts; }
+    tracts.loading = true;
+    PN.load('density', { base: '../' }).then(data => {
+      tracts.loading = false;
+      tractsData(data);
+      if (state.view === 'overview') renderOverview();
+    }, () => {
+      tracts.loading = false;
+      tracts.failed = true;
+      if (state.view === 'overview') renderOverview();
+    });
+    return tracts;
+  }
+  // The people inside the zones drawn on the map (the current positives' and added points' rings, or the zone
+  // file's zones; never the past zones), worked out again only when the zones change. While the play runs or the
+  // slider moves, the zones change at every step: the people are worked out once it stops (PEOPLE_IDLE_MS after the
+  // last move), "Working out…" meanwhile, so a step never waits on them.
+  const PEOPLE_IDLE_MS = 250;
+  let peopleMemo = { zoneFile: null, key: null, value: null }, peopleTimer = null, slidAt = 0;
+  const moving = () => state.playing || Date.now() - slidAt < PEOPLE_IDLE_MS;
+  function peopleLater() {
+    root.clearTimeout(peopleTimer);
+    peopleTimer = root.setTimeout(() => { peopleTimer = null; if (state.view === 'overview') renderOverview(); }, PEOPLE_IDLE_MS);
+  }
+  function peopleNow() {
+    const zp = state.zoneParts, t = overviewTracts();
+    if (!t.list) return { value: null, waiting: t.loading };
+    const zoneFile = zp.zonesMode ? state.zoneFile : null;
+    const key = zp.sites.map(x => x.lat + ',' + x.lon + ',' + x.bufferKm).join(';');
+    if (peopleMemo.zoneFile !== zoneFile || peopleMemo.key !== key) {
+      if (moving()) { peopleLater(); return { value: null, waiting: true }; }
+      peopleMemo = { zoneFile, key, value: E.peopleInside(zp.sites, t.list, { year: t.year, counties: root.CVIWA_GEO.counties.features }) };
+    }
+    return { value: peopleMemo.value };
+  }
+
+  // A value box of the Overview: its number (or what it needs) and its note.
+  function setOverviewBox(id, b, number) {
+    const card = $(id), strong = card.querySelector('strong');
+    card.classList.toggle('na', b.value === null);
+    if (b.value === null) strong.textContent = b.reason;
+    else if (number) strong.replaceChildren(...number);
+    else strong.textContent = typeof b.value === 'number' ? b.value.toLocaleString('en-US') : b.value;
+    card.querySelector('.card-note').textContent = b.value === null ? '' : b.note || '';
+  }
+  // The colors of a zone file's zones in the layer bars (the map draws them all in one red).
+  const ZONE_COLORS = ['#cb181d', '#fd8d3c', '#6a51a3', '#2171b5', '#238b45', '#737373'];
+  function renderOverview() {
+    if (!state.read || state.view !== 'overview') return;
+    const read = state.read, win = state.window, counties = root.CVIWA_GEO.counties.features;
+    const people = peopleNow();
+    const rows = E.countyRows(read, win, counties);
+    const boxes = E.overviewBoxes(read, win, counties, people.value);
+    if (people.waiting) boxes.people = { value: null, reason: 'Working out…', note: null };
+    else if (tracts.failed) boxes.people = { value: null, reason: 'Not available: the Census tracts could not be loaded', note: null };
+    const bars = E.overviewBars(rows, state.result), positives = E.positiveRows(read, win, counties);
+    state.overview = { boxes, people: people.value, rows, bars, positives };   // test hook
+    setOverviewBox('ov-box-counties', boxes.counties);
+    setOverviewBox('ov-box-animals', boxes.animals);
+    // "~" for "about": the "~" hidden from screen readers, which hear "about".
+    const tilde = el('span', null, '~');
+    tilde.setAttribute('aria-hidden', 'true');
+    setOverviewBox('ov-box-people', boxes.people, boxes.people.value === null ? null
+      : [tilde, el('span', 'sr-only', 'about '), document.createTextNode(boxes.people.value.toLocaleString('en-US'))]);
+    renderChart();
+    // The bars by county: current solid in the type's first status color, past hollow, as in the time chart.
+    const color = state.type.statuses[0].color, countyBox = $('ov-county-chart'), layerBox = $('ov-layer-chart');
+    const valuesOf = r => ({ label: r.label, values: Object.fromEntries(r.parts.map(x => [x.key, x.value])), total: r.total });
+    if (!rows.length) countyBox.replaceChildren(el('p', 'muted', 'No positives in the date window.'));
+    else {
+      countyBox.innerHTML = CH.bars({ title: 'Positives by county', rows: bars.counties.map(valuesOf),
+        series: [{ key: 'current', label: 'current', name: 'Current', fill: color },
+          { key: 'past', label: 'past', name: 'Past', outline: true, stroke: color }] }, { width: countyBox.clientWidth });
+    }
+    // The bars by layer: one part per ring (in its color) or per zone of a zone file.
+    if (!bars.layers.length) layerBox.replaceChildren(el('p', 'muted', 'Not available: needs a facility layer'));
+    else {
+      const zonesMode = state.useZones && !!state.zoneFile;
+      const series = bars.layers[0].parts.map((x, i) => ({ key: x.key, name: x.key, label: 'in ' + (zonesMode ? '' : 'the ') + x.key,
+        fill: zonesMode ? ZONE_COLORS[i % ZONE_COLORS.length] : (state.rings[i] && state.rings[i].color) || ZONE_COLORS[0] }));
+      // The key always, so a zone file's one zone is named too.
+      layerBox.innerHTML = CH.bars({ title: 'Sites inside the zones by layer', series, key: true, rows: bars.layers.map(valuesOf) },
+        { width: layerBox.clientWidth });
+    }
+    // The two tables; the animals' text under its heading at the right, as the numbers are.
+    const none = () => [el('p', 'muted', 'No positives in the date window.')];
+    const ct = tableOf(['County', 'Current', 'Past', 'Total', 'Animals (current)'],
+      rows.map(r => [r.county, r.current, r.past, r.total, r.animalsText]));
+    ct[0].querySelectorAll('tr').forEach(tr => { if (tr.children.length === 5) tr.lastChild.classList.add('num'); });
+    $('ov-counties-table').replaceChildren(...(rows.length ? ct : none()));
+    $('ov-positives-table').replaceChildren(...(positives.rows.length ? tableOf(positives.columns, positives.rows) : none()));
+  }
 
   // The legend: the positives by status, the past positives and their rings when shown, the rings or zones, the
   // ticked layers, then the population layers drawn (as Infrastructure's legend shows them). Its last arguments are
@@ -1322,7 +1465,8 @@
   }
 
   // ---- Export ----------------------------------------------------------------------------------------------------
-  // One ZIP: positives.csv, inside_the_zones.csv, layers.csv, left_out.csv, zones.csv (the "Zones" list),
+  // One ZIP: positives.csv, counties.csv (the Overview's counties table, 2.3), inside_the_zones.csv, layers.csv,
+  // left_out.csv, zones.csv (the "Zones" list),
   // zones.geojson (every zone drawn, rules.js zonesGeoJson), cvi_movements.csv (with a master; CVI's matched rows
   // without any column whose name holds address, location, street or premise) and export_params.json; text columns
   // with CVI's formula guard. The folder and the ZIP are named YYYY-MM-DD_Emergency.
@@ -1352,6 +1496,7 @@
     const entries = [{ name: folder + '/', dir: true }], written = [];
     const add = (name, text) => { entries.push({ name: folder + '/' + name, data: text }); written.push(name); };
     add('positives.csv', csvOf(t.positives));
+    add('counties.csv', csvOf(E.countyTable(state.read, E.countyRows(state.read, state.window, root.CVIWA_GEO.counties.features))));
     add('inside_the_zones.csv', csvOf(t.inside));
     add('layers.csv', csvOf(t.layers));
     add('left_out.csv', csvOf(t.leftOut));

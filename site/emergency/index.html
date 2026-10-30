@@ -78,16 +78,16 @@
   /* The sidebar stays in view while the page scrolls down to the results; it scrolls on its own only when it is
      taller than the window. */
   .em-controls { position: sticky; top: 0.5rem; align-self: start; max-height: calc(100vh - 2rem); overflow: auto; padding-right: 0.5rem; }
-  .count-cards { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-  .count-card { flex: 1 1 140px; border: 1px solid var(--border); padding: .5rem; text-align: center; }
-  .count-card strong { display: block; font-size: 22px; }
+  .count-cards { display: grid; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .count-card { border: 1px solid var(--border); padding: .5rem; text-align: center; }
+  .count-card strong { display: block; font-size: 30px; }
   .count-card .card-note { display: block; font-size: 0.8rem; color: var(--muted); }
   .count-card.na strong { font-size: 0.9rem; font-weight: 400; color: var(--muted); padding: 0.35rem 0; }
   /* The value boxes as the M1 demo's cards (version 2.1): a dark-teal block on the left edge, the
      name above the number, left-aligned; the "Positives" box's other lines in one line under the boxes, as
      Infrastructure's line under its cards. CVI and Infrastructure follow in the plan's final UI pass
      (docs/DELIBERATE_DIFFERENCES.md). */
-  .count-card { position: relative; display: flex; flex-direction: column; text-align: left; padding: 0.45rem 0.4rem 0.45rem 0.75rem; border-radius: 4px; overflow: hidden; }
+  .count-card { position: relative; text-align: left; padding: 0.45rem 0.4rem 0.45rem 0.75rem; border-radius: 4px; overflow: hidden; }
   .count-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--box, var(--heading)); }
   /* Each box's brand color on its edge and its icon (version 2.1): a tile on wider screens, a
      plain icon before the label on a phone. Every white icon keeps at least 3:1 on its tile. */
@@ -102,17 +102,33 @@
       align-items: center; justify-content: center; font-size: 1rem; color: #ffffff; background: var(--box); }
     .count-card.quar .card-ic { color: var(--wsda-dark-brown); background: var(--wsda-gold); }
   }
-  .count-card .card-label { order: -1; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
-  .count-card strong { white-space: nowrap; }
+  /* Every value box alike (2.3): the name, the number (30 px), the note under it.
+     Each row of boxes shares three lines (CSS subgrid), so the numbers sit level whatever a name or note does, and
+     the notes too. The four boxes above the map are four to a row on wider screens, two on a phone; the
+     Overview's three as many as fit, one to a row on a phone. */
+  #em-boxes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #ov-boxes { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 0; }
+  @media (min-width: 768px) { #em-boxes { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .count-card { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0.15rem; align-content: start; }
+  .count-card .card-label { grid-row: 1; font-size: 0.9rem; font-weight: 600; color: var(--muted); }
+  /* The numbers sit at the bottom of their shared line, one font size tall, so a smaller one (a long date) stays
+     within about a pixel of the others' baseline. */
+  .count-card strong { grid-row: 2; align-self: end; line-height: 1; margin: 0.3rem 0 0.2rem; white-space: nowrap; }
+  .count-card .card-note { grid-row: 3; }
   .count-card.na strong { padding: 0.2rem 0; white-space: normal; }
   /* Past positives still under quarantine: the number in the note, the box's edge and its icon in the warning colors
      (on a wider screen a gold tile with a dark-brown icon, as the page's warning notices); the rest of the note plain. */
   .count-card.quar::before { background: var(--notice-text); }
   .count-card.quar .card-ic { color: var(--notice-text); }
   .count-card.quar .card-note b { color: var(--notice-text); font-weight: 600; }
-  /* The date fitted to its box: a wide one ("Aug 21, 2026") is never cut on a narrow screen. */
-  #box-last { container-type: inline-size; }
-  #box-last:not(.na) strong { font-size: clamp(15px, 13.5cqi, 22px); }
+  /* The date fitted to its box: a wide one ("Aug 21, 2026") is never cut on a narrow screen. A box that sizes its
+     text by its own width cannot share its row's lines, so "Last positive" sizes its date by the row's width (13.5%
+     of the box's inside width, 15 to 30 px), four boxes to the row on wider screens, two on a phone. */
+  #em-boxes { container-type: inline-size; }
+  #box-last:not(.na) strong { font-size: clamp(15px, calc(((100cqi - 0.5rem) / 2 - 1.15rem - 2px) * 0.135), 30px); }
+  @media (min-width: 768px) {
+    #box-last:not(.na) strong { font-size: clamp(15px, calc(((100cqi - 1.5rem) / 4 - 3.35rem - 2px) * 0.135), 30px); }
+  }
   .box-lines { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--text); }
   .box-lines[hidden] { display: none; }
   .box-lines .warn { color: var(--notice-text); font-weight: 600; }
@@ -192,12 +208,7 @@
   .em-points .muted { flex-basis: 100%; }
   .em-points button { font-size: 0.85rem; }
   .tab-panel { min-height: 4rem; }
-  /* The chart "Positives over time" (chart.js); the hover box copied from site/cvi/index.html, v2.0 (.chart-tip). */
-  #em-chart-fold { margin: 0 0 0.5rem; }
-  #em-chart { min-height: 170px; }
-  #em-chart svg { display: block; }
-  #em-chart .chart-col { cursor: pointer; outline: none; }
-  #em-chart .chart-col:focus-visible { stroke: var(--primary); stroke-width: 2; }
+  /* The charts' hover box, copied from site/cvi/index.html, v2.0 (.chart-tip). */
   .chart-tip { position: fixed; z-index: 20; max-width: 280px; background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.8rem; color: var(--text); box-shadow: 0 2px 6px rgba(0,0,0,0.15); pointer-events: none; }
   .chart-tip .hint { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 0.15rem; }
   /* The results: one fold per layer (its count line as the header), the left-out list, the CVI movements. */
@@ -215,6 +226,43 @@
   .em-results th.num { text-align: right; }
   .em-results .more { font-size: 0.85rem; color: var(--muted); margin: 0 0 0.3rem; }
   .cvi-filters { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.5rem; }
+  /* The Map | Overview switch under the value boxes, and the Overview (2.3): five titled
+     sections, each with a one-line note; one or two panels per row. */
+  #em-view { margin: 1rem 0 1.5rem; }
+  #em-view[hidden] { display: none; }
+  #ov-box-counties { --box: var(--wsda-dark-blue); }
+  #ov-box-animals { --box: var(--wsda-dark-teal); }
+  #ov-box-people { --box: var(--wsda-dark-brown); }
+  .count-card .card-label .tip { margin-left: 0.3rem; }
+  /* A box's "?" stays with the last word of its name. */
+  .card-label .nowrap { white-space: nowrap; }
+  .ov-help { margin: 0.5rem 0 0; font-size: 0.8rem; }
+  /* Text for screen readers only: the people box's "about" (its "~" is hidden from them). */
+  .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+  .ov-section { margin-bottom: 2.5rem; }
+  .ov-section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 1rem; border-bottom: 2px solid var(--heading);
+    padding-bottom: 0.4rem; margin-bottom: 1.1rem; }
+  .ov-section-head h2 { margin: 0; font-size: 1.2rem; color: var(--heading); }
+  .ov-section-head p { margin: 0; font-size: 0.875rem; color: var(--muted); }
+  .ov-panel { border: 1px solid var(--border); border-radius: 4px; padding: 1.3rem 1.5rem 1.4rem; background: #fff; min-width: 0; }
+  .ov-panel h3 { margin: 0 0 1rem; font-size: 1.05rem; }
+  .ov-panel .help-note { margin: -0.6rem 0 0.8rem; font-size: 0.8rem; }
+  .ov-panel svg { display: block; max-width: 100%; }
+  .ov-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  /* A bar chart on a row of its own is kept to a readable width rather than stretched across the page. */
+  #ov-layer-chart { max-width: 880px; }
+  #em-chart { min-height: 260px; }
+  #em-chart svg { display: block; }
+  #em-chart .chart-col { cursor: pointer; outline: none; }
+  #em-chart .chart-col:focus-visible { stroke: var(--primary); stroke-width: 2; }
+  .ov-table table { margin: 0; width: auto; max-width: 100%; }
+  .ov-table th.num { text-align: right; }
+  .ov-table td { white-space: nowrap; }
+  .ov-table th, .ov-table td { padding: 0.6rem 1.5rem 0.6rem 0; }
+  /* The Positives table has nine columns: a narrower gap keeps it inside its box at 1280 px. */
+  #ov-positives th, #ov-positives td { padding-right: 1rem; }
+  .ov-table th:last-child, .ov-table td:last-child { padding-right: 0; }
+  .ov-table .more { font-size: 0.85rem; color: var(--muted); margin: 0.6rem 0 0; }
   .cvi-filters fieldset { flex: 1 1 160px; max-height: 120px; }
   .cvi-filters legend { font-weight: 600; font-size: 0.85rem; color: var(--heading); padding: 0 0.2rem; }
   @media (max-width: 767px) { .explore { grid-template-columns: minmax(0, 1fr); } .em-controls { position: static; max-height: none; } .map-frame { height: 55vh; } }
@@ -232,6 +280,9 @@
     .stack-narrow td:first-child { flex: 1 1 100%; font-weight: 600; }
     .stack-narrow td[data-label]::before { content: attr(data-label) ' '; color: var(--muted); }
     .narrow-only { display: inline; }
+    .ov-pair { grid-template-columns: minmax(0, 1fr); }
+    .ov-panel { padding: 1.1rem 0.9rem 1.2rem; }
+    .ov-table th, .ov-table td { padding-right: 1.1rem; }
   }
 </style>
 </head><body>
@@ -327,9 +378,11 @@
 <div class="count-card" id="box-inside"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="bullseye" aria-hidden="true"></span>Sites inside the zones</span><span class="card-note"></span></div>
 </div>
 <p class="box-lines" id="em-box-lines" hidden></p></div>
-<details class="refine" id="em-chart-fold" hidden><summary>Positives over time<span class="fold-sum" id="em-chart-sum"></span></summary>
-<div id="em-chart"></div><div class="muted" id="em-chart-note" hidden></div>
-<div class="chart-tip" id="em-chart-tip" role="tooltip" hidden></div></details>
+<div class="tool-switch" id="em-view" role="group" aria-label="View" hidden>
+<button type="button" class="btn" id="show-map" data-view="map" aria-pressed="true" aria-controls="view-map"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Map</button>
+<button type="button" class="btn" id="show-overview" data-view="overview" aria-pressed="false" aria-controls="view-overview"><span class="btn-icon" data-icon="bar-chart" aria-hidden="true"></span>Overview</button>
+</div>
+<div id="view-map">
 <div class="map-frame"><div id="em-map" role="region" aria-label="Emergency map" aria-describedby="em-map-alt"></div><div id="basemap-status" class="status warn" hidden><span></span> <button id="offline-back" type="button" class="btn"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div><details id="em-legend" open><summary>Legend</summary><div id="em-legend-content"></div></details></div>
 <div class="live" role="status" aria-live="polite"><div id="screenshot-status" class="status info" hidden></div></div>
 <div id="em-zero" class="status warn" role="status">Load a positives file to see the positives and their zones.</div>
@@ -351,10 +404,36 @@
 </div>
 </section>
 </div>
+<div id="view-overview" hidden>
+<section class="ov-section" id="ov-s-glance" aria-labelledby="ov-h-glance"><div class="ov-section-head"><h2 id="ov-h-glance">At a glance</h2><p>The counties, animals and people of the current positives and their zones.</p></div>
+<div class="count-cards" id="ov-boxes">
+<div class="count-card" id="ov-box-counties"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="map" aria-hidden="true"></span>Counties with a current <span class="nowrap">positive<button type="button" class="tip" aria-expanded="false" data-help="ov-counties" aria-controls="help-ov-counties" aria-label="About counties with a current positive" title="How many counties have at least one current positive (not yet closed) in the date window. Under it: how many counties had any positive in the window, since its first. A positive whose County is blank takes the county where it is mapped.">?</button></span></span><span class="card-note"></span></div>
+<div class="count-card" id="ov-box-animals"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="clipboard-data" aria-hidden="true"></span>Animals at the current <span class="nowrap">positives<button type="button" class="tip" aria-expanded="false" data-help="ov-animals" aria-controls="help-ov-animals" aria-label="About animals at the current positives" title="The animals at the current positives, added up from the file's inventory column. Under it: the animals counted apart, how many current positives are of each flock type, and any positive without a count (left out, never counted as zero).">?</button></span></span><span class="card-note"></span></div>
+<div class="count-card" id="ov-box-people"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="buildings" aria-hidden="true"></span>People inside the <span class="nowrap">zones<button type="button" class="tip" aria-expanded="false" data-help="ov-people" aria-controls="help-ov-people" aria-label="About people inside the zones" title="An estimate of how many people live inside the zones, from the 2020 Census: each Census tract's people are counted by how much of the tract lies inside a zone (a tract half inside counts half its people), and zones that overlap are counted once. Only Washington's tracts are used, so people who live outside Washington are not counted. It is where people live, not a count of people exposed or sick. Human cases are the Department of Health's.">?</button></span></span><span class="card-note"></span></div>
+</div>
+<p class="help-note ov-help" id="help-ov-counties" hidden>How many counties have at least one current positive (not yet closed) in the date window. Under it: how many counties had any positive in the window, since its first. A positive whose County is blank takes the county where it is mapped.</p>
+<p class="help-note ov-help" id="help-ov-animals" hidden>The animals at the current positives, added up from the file's inventory column. Under it: the animals counted apart, how many current positives are of each flock type, and any positive without a count (left out, never counted as zero).</p>
+<p class="help-note ov-help" id="help-ov-people" hidden>An estimate of how many people live inside the zones, from the 2020 Census: each Census tract's people are counted by how much of the tract lies inside a zone (a tract half inside counts half its people), and zones that overlap are counted once. Only Washington's tracts are used, so people who live outside Washington are not counted. It is where people live, not a count of people exposed or sick. Human cases are the Department of Health's.</p>
+</section>
+<section class="ov-section" id="ov-s-time" aria-labelledby="ov-h-time"><div class="ov-section-head"><h2 id="ov-h-time">Over time</h2><p>One column per step of the play. Click a column to end the window there.</p></div>
+<div class="ov-panel" id="ov-time"><h3>Positives over time<span class="fold-sum" id="em-chart-sum"></span><button type="button" class="tip" aria-expanded="false" data-help="ov-time" aria-controls="help-ov-time" aria-label="About positives over time" title="One column per week (or per month for a long outbreak): solid for current positives, outlined for past ones, gray outside the date window. Click a column to end the date window there.">?</button></h3><p class="help-note" id="help-ov-time" hidden>One column per week (or per month for a long outbreak): solid for current positives, outlined for past ones, gray outside the date window. Click a column to end the date window there.</p><div id="em-chart"></div><div class="muted" id="em-chart-note" hidden></div></div>
+</section>
+<section class="ov-section" id="ov-s-county" aria-labelledby="ov-h-county"><div class="ov-section-head"><h2 id="ov-h-county">By county</h2><p>Where the positives are, current and past.</p></div>
+<div class="ov-pair"><div class="ov-panel" id="ov-county"><h3>Positives by county<button type="button" class="tip" aria-expanded="false" data-help="ov-county" aria-controls="help-ov-county" aria-label="About positives by county" title="The positives in the date window by county: the solid bar current, the outlined bar past. A positive whose County is blank takes the county where it is mapped.">?</button></h3><p class="help-note" id="help-ov-county" hidden>The positives in the date window by county: the solid bar current, the outlined bar past. A positive whose County is blank takes the county where it is mapped.</p><div id="ov-county-chart"></div></div><div class="ov-panel ov-table" id="ov-counties"><h3>Counties</h3><div id="ov-counties-table"></div></div></div>
+</section>
+<section class="ov-section" id="ov-s-zones" aria-labelledby="ov-h-zones"><div class="ov-section-head"><h2 id="ov-h-zones">Inside the zones</h2><p>The sites of each ticked layer, by zone.</p></div>
+<div class="ov-panel" id="ov-layer"><h3>Sites inside the zones by layer<button type="button" class="tip" aria-expanded="false" data-help="ov-layer" aria-controls="help-ov-layer" aria-label="About sites inside the zones by layer" title="How many sites of each ticked layer lie inside the zones, by zone: with rings, each site in the smallest ring that holds it; with a zone file, in each zone that holds it.">?</button></h3><p class="help-note" id="help-ov-layer" hidden>How many sites of each ticked layer lie inside the zones, by zone: with rings, each site in the smallest ring that holds it; with a zone file, in each zone that holds it.</p><div id="ov-layer-chart"></div></div>
+</section>
+<section class="ov-section" id="ov-s-list" aria-labelledby="ov-h-list"><div class="ov-section-head"><h2 id="ov-h-list">Every positive</h2><p>Newest first.</p></div>
+<div class="ov-panel ov-table" id="ov-positives"><h3>Positives</h3><div id="ov-positives-table"></div></div>
+</section>
+<div class="chart-tip" id="em-chart-tip" role="tooltip" hidden></div>
+</div>
+</div>
 </section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.2 (2026-10-28)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.3 (2026-10-29)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="../shared/release.js"></script>
 <script src="../shared/zip.js"></script>

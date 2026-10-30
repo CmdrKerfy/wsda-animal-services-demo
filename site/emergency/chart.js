@@ -1,5 +1,6 @@
-/* The Emergency page's charts, drawn as SVG markup by pure functions (the Node unit suite calls them). One form for
- * now, stacked columns over time ("Positives over time"); E2's chart view is meant to add its forms here.
+/* The Emergency page's charts, drawn as SVG markup by pure functions (the Node unit suite calls them). Two forms:
+ * stacked columns over time ("Positives over time") and horizontal bars (the Overview's "Positives by county" and
+ * "Sites inside the zones by layer", 2.3); E2's chart view is meant to add its forms here.
  *
  * Copied from site/cvi/app/chartsvg.js, v2.0: esc, Arial's text widths (WIDTHS, textWidth) and ggplot2's axis
  * breaks (labeling::extended with its scores, and valueAxis's expanded range), unchanged so a fix there can be carried
@@ -15,7 +16,15 @@
  * Each column is one target over its whole height (so a thin column is easy to point at): data-col (its place),
  * data-hover ("Week of Oct 4, 2026: 3 current, 1 past"), data-click (its click's hint) and, as a keyboard button,
  * role button and an aria-label with both. The picked column has a bar under it and is the one keyboard stop
- * (tabindex 0; the page moves it with the arrow keys). */
+ * (tabindex 0; the page moves it with the arrow keys).
+ *
+ * bars(chart, opts) -> SVG markup
+ *   chart: { title (the text alternative), series: [{ key, label (in the hover: "2 current"), name (in the key),
+ *     fill, stroke, outline (drawn hollow) }] (left to right; the key shows the series counted somewhere, when there
+ *     is more than one or key is true), key, rows: [{ label ("Yakima"), values: { key: count }, total }] (top to bottom) }
+ *   opts: { width } in pixels; the height follows from the rows. Each row's bars are stacked end to end, its total
+ *   after them (the row's own total when given, else the bars' sum). Under 360 pixels each label sits above its bar, so no name is cut. Each bar carries data-hover and,
+ *   for screen readers, role img with an aria-label ("Yakima: 2 current"). */
 (function (root) {
   'use strict';
 
@@ -211,6 +220,122 @@
       role: 'group', 'aria-label': chart.title, 'font-family': FONT }) + '>' + out.join('') + '</svg>';
   }
 
+  // ── Copied from site/cvi/app/chartsvg.js, v2.2: fit, labelStep, the drawing context (the page's sizes only: 12 pt
+  // text at 96 dpi) and hbars, without the picking. The changes are marked "Emergency:": a row's bars stacked end to
+  // end, a hollow bar, the labels above their bars on a narrow screen. ──────────────────────────────────────────
+  const PT = { axis: 9.6, value: 9.1, gap: 2.2 }, SCREEN_DPI = 96;
+  const HINK = { axis: '#4d4d4d', value: '#37474f', grid: '#ebebeb' };
+  // A label cut to fit a width, ending in "…".
+  function fit(s, px, max) {
+    if (textWidth(s, px) <= max) return s;
+    let t = String(s);
+    while (t.length > 1 && textWidth(t + '…', px) > max) t = t.slice(0, -1);
+    return t + '…';
+  }
+  // A drawing context: pixels per point, the parts written so far, and helpers that write SVG elements.
+  function context() {
+    const k = SCREEN_DPI / 72, parts = [];
+    return {
+      k, pt: PT, px: points => points * k, parts, attrs,
+      add: s => parts.push(s),
+      rect: a => parts.push('<rect' + attrs(a) + '/>'),
+      line: a => parts.push('<line' + attrs(a) + '/>'),
+      text: (s, a) => parts.push('<text' + attrs(a) + '>' + esc(s) + '</text>')
+    };
+  }
+  // A mark's hover text and its screen-reader text.
+  const markAttrs = hover => ({ 'data-hover': hover, role: 'img', 'aria-label': hover });
+  // Every how many breaks a value-axis label is written: 1, or 2 when side by side they would touch.
+  function labelStep(ax, px, spacing) {
+    const widest = Math.max(0, ...ax.labels.map(l => textWidth(l, px)));
+    return spacing > 0 && widest + px * 0.6 > spacing ? 2 : 1;
+  }
+  // Horizontal bars (ggplot2's coord_flip): one row per place, top to bottom as listed; rows hold one or more bars.
+  // rows: [{ label, bars: [{ value, color, hover, outline }], valueLabel, stack, width }]. ax: the value axis.
+  function hbars(g, rows, box, ax, labelsAbove) {
+    const fsAxis = g.px(g.pt.axis), fsValue = g.px(g.pt.value);
+    // Emergency: with the labels above their bars, the bars start at the left edge, in by half the first axis label
+    // so it is not cut.
+    const labelW = labelsAbove ? 0 : Math.min(box.w * 0.42, Math.max(0, ...rows.map(r => textWidth(r.label, fsAxis))));
+    const left = box.x + labelW + (labelsAbove ? textWidth(ax.labels[0] || '', fsAxis) / 2 : g.px(g.pt.gap));
+    // Value labels sit after their bars (ggplot2's clip = "off"); where the axis' room above the largest bar is too
+    // small for them, the plot is made narrower so they stay inside the picture.
+    const valueOffset = g.px(g.pt.value) * 0.34;
+    const valueW = Math.max(0, ...rows.filter(r => r.valueLabel).map(r => textWidth(r.valueLabel, fsValue) + valueOffset));
+    // Emergency: a row's stacked bars reach their sum.
+    const reach = r => (r.stack ? r.bars.reduce((t, b) => t + b.value, 0) : Math.max(...r.bars.map(b => b.value)));
+    const vmax = Math.max(0, ...rows.map(reach));
+    const share = (vmax - ax.from) / (ax.to - ax.from);
+    const room = box.w - (left - box.x);
+    let plotW = valueW && share > 0 ? Math.min(room, (room - valueW) / share) : room;
+    // The axis labels are centered on their lines; the plot is made narrower where the last ones would run past the
+    // picture's right edge, so no label is cut off (ggplot2 lets them run out).
+    ax.breaks.forEach((b, i) => {
+      const at = (b - ax.from) / (ax.to - ax.from), half = textWidth(ax.labels[i], fsAxis) / 2;
+      if (at > 0) plotW = Math.min(plotW, (room - half) / at);
+    });
+    const axisH = fsAxis * 1.3 + g.px(g.pt.gap);
+    const plotH = box.h - axisH;
+    const X = v => left + ((v - ax.from) / (ax.to - ax.from)) * plotW;
+    const n = rows.length, unit = plotH / (n + 1.2);   // discrete axis: 0.6 units of room at each end
+    const every = labelStep(ax, fsAxis, Math.abs(X(ax.breaks[1] || 0) - X(ax.breaks[0] || 0)));
+    ax.breaks.forEach((b, i) => {
+      g.line({ x1: X(b), y1: box.y, x2: X(b), y2: box.y + plotH, stroke: HINK.grid, 'stroke-width': g.px(0.53) });
+      if (i % every) return;
+      g.text(ax.labels[i], { x: X(b), y: box.y + plotH + g.px(g.pt.gap) + fsAxis * 0.9, fill: HINK.axis,
+        'font-size': fsAxis, 'text-anchor': 'middle' });
+    });
+    rows.forEach((r, t) => {
+      const cy = box.y + unit * (t + 1.1);   // the row's center (row 0 at the top)
+      const band = unit * (r.width || 0.72), nb = r.stack ? 1 : r.slots || r.bars.length, slot = band / nb;
+      let at = 0;
+      r.bars.forEach((b, i) => {
+        const y0 = cy - band / 2 + (r.stack ? 0 : slot * i + (nb > 1 ? slot * 0.05 : 0));
+        const h = nb > 1 ? slot * 0.9 : band;
+        // Emergency: a stacked bar starts where the one before it ends; an empty one is not drawn.
+        const x0 = r.stack ? X(at) : X(Math.min(0, b.value)), x1 = r.stack ? X(at + b.value) : X(Math.max(0, b.value));
+        at += b.value;
+        if (r.stack && !b.value) return;
+        // Emergency: a hollow bar keeps its outline inside its box, as the time chart's.
+        const shape = b.outline ? swatch({ outline: true, stroke: b.color }, x0, y0, Math.max(0, x1 - x0), h)
+          : { x: x0, y: y0, width: Math.max(0, x1 - x0), height: h, fill: b.color };
+        g.rect(Object.assign(shape, { class: 'chart-mark' }, markAttrs(b.hover)));
+      });
+      // Emergency: on a narrow screen the label sits above its bar, at the left edge.
+      if (labelsAbove) {
+        g.text(fit(r.label, fsAxis, box.w), { x: box.x, y: cy - band / 2 - fsAxis * 0.35, fill: HINK.axis, 'font-size': fsAxis });
+      } else {
+        g.text(fit(r.label, fsAxis, labelW), { x: left - g.px(g.pt.gap), y: cy + fsAxis * 0.35, fill: HINK.axis,
+          'font-size': fsAxis, 'text-anchor': 'end' });
+      }
+      if (r.valueLabel) {
+        g.text(r.valueLabel, { x: X(reach(r)) + valueOffset, y: cy + fsValue * 0.35, fill: HINK.value,
+          'font-size': fsValue });
+      }
+    });
+  }
+
+  // ── This file's own: the bars' rows, key and size ─────────────────────────────────────────────────────────
+  const NARROW = 360, ROW = { side: 34, above: 50 };
+  function bars(chart, opts) {
+    const width = Math.max(120, Math.round(opts.width)), g = context(), above = width < NARROW;
+    const shown = chart.series.filter(s => chart.rows.some(r => r.values[s.key] > 0));
+    const keyH = (chart.series.length > 1 || chart.key) && shown.length ? key(g.parts, shown, width) : 0;
+    const rows = chart.rows.map(r => {
+      const list = chart.series.map(s => ({ value: r.values[s.key] || 0, color: s.outline ? s.stroke : s.fill,
+        outline: !!s.outline, hover: r.label + ': ' + (r.values[s.key] || 0).toLocaleString('en-US') + ' ' + s.label }));
+      const total = r.total === undefined ? list.reduce((t, b) => t + b.value, 0) : r.total;
+      return { label: r.label, bars: list, stack: true, width: above ? 0.5 : 0.72, valueLabel: total.toLocaleString('en-US') };
+    });
+    const vmax = Math.max(1, ...rows.map(r => r.bars.reduce((t, b) => t + b.value, 0)));
+    const ax = valueAxis(0, vmax, 0, 0.05);
+    const unit = above ? ROW.above : ROW.side, axisH = g.px(PT.axis) * 1.3 + g.px(PT.gap);
+    const top = keyH + 2, height = Math.round(top + unit * (rows.length + 1.2) + axisH);
+    hbars(g, rows, { x: 0, y: top, w: width, h: height - top }, ax, above);
+    return '<svg xmlns="http://www.w3.org/2000/svg"' + attrs({ width, height, viewBox: '0 0 ' + width + ' ' + height,
+      role: 'group', 'aria-label': chart.title, 'font-family': FONT }) + '>' + g.parts.join('') + '</svg>';
+  }
+
   root.WSDA = root.WSDA || {};
-  root.WSDA.emergencyChart = { columns, hoverOf, textWidth, extended, valueAxis };
+  root.WSDA.emergencyChart = { columns, bars, hoverOf, textWidth, extended, valueAxis };
 })(typeof window !== 'undefined' ? window : globalThis);

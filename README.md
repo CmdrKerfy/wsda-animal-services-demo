@@ -8,7 +8,8 @@ show them on maps, charts and branded pictures. Nothing is installed or uploaded
 - **Infrastructure**: facility layers with filters, details, optional CVI activity and a branded PNG.
 - **Emergency Response (preview)**: positives of an animal disease emergency (HPAI, with New World screwworm as a
   second example) with their zones, the sites inside them and the CVI movements that touch them; current and past
-  positives, a date window with a week-by-week play, a chart, km or miles, CSV and GeoJSON exports and a branded PNG.
+  positives, a date window with a play by week or month, an Overview (counties, animals, the people inside the zones,
+  positives over time, bars and tables), km or miles, CSV and GeoJSON exports and a branded PNG.
 
 The repository holds synthetic (made-up) test data only. It is internal WSDA work, not licensed for reuse until WSDA
 decides; third-party materials keep their own terms (`site/PROVENANCE.md`).

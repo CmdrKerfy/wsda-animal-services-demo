@@ -65,6 +65,17 @@
 //   em_rules_zone_two.geojson a zone holding two positives, written clockwise (the page writes it counterclockwise)
 //   em_rules_zones_out.geojson  the page's own zones.geojson for this scenario (site/emergency/rules.js zonesGeoJson:
 //                             the current and past positives' rings in miles, and the zone), read by the R reference
+// The Overview's scenario (2.3), checked by the unit suite and the R reference in the same way:
+//   em_rules_overview.csv     the agreed scenario's twelve rows and two more, both with a blank County: Skagit 02,
+//                             3 miles from Skagit 01 (so their rings overlap, and its county comes from its location),
+//                             and Idaho 01, in Idaho (outside Washington; its 6-mile ring reaches into Whitman
+//                             County); with Skagit 01's ring over Puget Sound, the people inside the zones are worked
+//                             out against the 2020 Census tracts (site/geo/tracts-wa.js), and against
+//                             em_zone_hole.geojson (a zone with a hole)
+//   em_rules_counties.csv     each positive's county (2.3): one county written four ways ("yakima", "Yakima County"),
+//                             a name kept as written ("Umatilla (Oregon)"), and blank Counties placed by their
+//                             location: inside a county, just off the shore (the nearest county within 2 km), out in
+//                             the ocean and in Idaho ("Outside Washington")
 // The made-up third type is tests/synthetic/em_made_up_type.js (not generated).
 // Deterministic: no clock, no random numbers (the speed set's generator has a fixed seed).
 //
@@ -296,6 +307,26 @@ const quoted = v => (/[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
 RULES_FILES['em_rules_agreed.csv'] = csv([AGREED_HEAD].concat(AGREED.map((r, k) => [r[0], r[1], r[2], r[3], r[4],
   address(100 + 2 * k), address(101 + 2 * k), 'Synthetic Town', r[5], r[6], r[7], r[8], 'H5N1 2.3.4.4b', r[9], r[10], r[11],
   r[12], r[12], '1', 'Landfill'].map(quoted))));
+// The Overview's scenario: the agreed rows and two with a blank County (from 2.3).
+const OVERVIEW_EXTRA = [
+  ['Skagit 02', '10/2/2026', '', '10/3/2026', '', '', '48.4619', '-122.3048', 'Active', 'Commercial',
+    'Commercial Broiler', 'Chicken', '5,000'],
+  ['Idaho 01', '9/24/2026', '', '9/25/2026', '', '', '46.7300', '-116.9500', 'Active', 'Backyard', 'WOAH Non-Poultry',
+    'Duck', '30']
+];
+RULES_FILES['em_rules_overview.csv'] = csv([AGREED_HEAD].concat(AGREED.concat(OVERVIEW_EXTRA).map((r, k) => [r[0], r[1],
+  r[2], r[3], r[4], address(100 + 2 * k), address(101 + 2 * k), 'Synthetic Town', r[5], r[6], r[7], r[8], 'H5N1 2.3.4.4b',
+  r[9], r[10], r[11], r[12], r[12], '1', 'Landfill'].map(quoted))));
+// Each positive's county: written ways, and blank ones by location (the R reference places them with sf).
+const COUNTY_ROWS = [
+  ['County 01', 'Yakima', '46.6000', '-120.5000'], ['County 02', 'yakima', '46.6100', '-120.5100'],
+  ['County 03', ' Yakima  County ', '46.6200', '-120.5200'], ['County 04', 'YAKIMA COUNTY', '46.6300', '-120.5300'],
+  ['County 05', 'Umatilla (Oregon)', '45.8400', '-119.2900'], ['County 06', 'Benton County', '46.2500', '-119.3000'],
+  ['County 07', '', '46.6400', '-120.5400'], ['County 08', '', '47.2100', '-122.8300'],
+  ['County 09', '', '48.2000', '-122.6000'], ['County 10', '', '47.0000', '-125.5000'],
+  ['County 11', '', '46.7300', '-116.9500'], ['County 12', '', '47.0000', '-124.2500']
+];
+RULES_FILES['em_rules_counties.csv'] = csv([['Case ID', 'County', 'Latitude', 'Longitude']].concat(COUNTY_ROWS).map(r => r.map(quoted)));
 const AGREED_AT = id => AGREED.find(r => r[0] === id);
 const fromAgreed = (id, km, bearing) => {
   const r = AGREED_AT(id), [lon, lat] = PX.destination(Number(r[6]), Number(r[7]), km, bearing);
@@ -320,6 +351,9 @@ const AGREED_RULES = { positives: 'em_rules_agreed.csv', unit: 'mi',
   zoneFile: 'em_rules_zone_two.geojson', geojson: 'em_rules_zones_out.geojson',
   // The window's end (the latest detection) and an earlier end that changes the groups.
   asOf: '2026-10-05', earlierEnd: '2026-04-30' };
+// The Overview's scenario: the agreed scenario's rings, window ends and the zone with a hole.
+const OVERVIEW_RULES = { positives: 'em_rules_overview.csv', unit: 'mi', rings: AGREED_RULES.rings,
+  zoneFile: 'em_zone_hole.geojson', asOf: AGREED_RULES.asOf, earlierEnd: AGREED_RULES.earlierEnd };
 
 // The page's zones.geojson for the scenario, as zonesGeoJson writes it, for the R reference to read with sf.
 for (const f of ['site/shared/zones.js', 'site/emergency/types.js', 'site/emergency/types/hpai.js',
@@ -371,7 +405,9 @@ const RULES = {
   layers: LAYERS.map(l => ({ key: l.key, label: l.label, file: 'em_rules_' + l.key + '.csv' })),
   zoneFiles: ['em_zone_hole.geojson', 'em_zone.geojson'],
   speed: speedSet(),
-  agreed: AGREED_RULES
+  agreed: AGREED_RULES,
+  overview: OVERVIEW_RULES,
+  counties: { positives: 'em_rules_counties.csv', nearKm: 2 }
 };
 
 // ---- A CVI master for the sample's positives ------------------------------------------------------------------

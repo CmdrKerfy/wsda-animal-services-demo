@@ -10,7 +10,7 @@ online background map. The data comes from the files you load; the site itself h
 |---|---|
 | `index.html` | The starting page. Load your files (a ZIP, several files or a folder), see which dashboard each file is for and whether each dashboard is ready, then open a dashboard in its own tab. "What data does this need?" lists every dataset each dashboard reads, and offers a sample bundle to try. |
 | `cvi/index.html` | **CVI Traceability**: animal movements from certificates of veterinary inspection. Four views (WA State county map, National Flow between Washington and other states, County Focus on picked counties, and Premise Lookup with buffers around sites), charts, previews, a ZIP export, branded PNG maps and time-series GIFs. |
-| `emergency/index.html` | **Emergency Response (preview)**: positives of an animal disease emergency (HPAI first) on a map with their zones (rings around each positive, or a zone file), the facility and premises sites inside the zones and the nearest one for a layer with nothing inside, the CVI movements that left from or arrived inside the zones. Current and past positives (those still under quarantine counted), the rows that cannot be mapped listed, a date window with a play by week or month, a chart of positives over time, km or miles, the results as CSV files and `zones.geojson` in one ZIP, and a branded map picture (PNG). New World screwworm is a second type, as an example of adding one. |
+| `emergency/index.html` | **Emergency Response (preview)**: positives of an animal disease emergency (HPAI first) on a map with their zones (rings around each positive, or a zone file), the facility and premises sites inside the zones and the nearest one for a layer with nothing inside, the CVI movements that left from or arrived inside the zones. Current and past positives (those still under quarantine counted), the rows that cannot be mapped listed, a date window with a play by week or month, km or miles, an Overview beside the map (the counties and animals at the current positives, the people who live inside the zones, positives over time, bars by county and by layer, the counties and positives tables), the results as CSV files and `zones.geojson` in one ZIP, and a branded map picture (PNG). New World screwworm is a second type, as an example of adding one. |
 | `infrastructure/index.html` | **Infrastructure**: facility layers (packing plants, markets, feedlots, fairgrounds and more) on a map with filters and details, optional CVI activity, and a branded PNG. No CVI master table needed. |
 
 ## Open it
@@ -117,6 +117,12 @@ Where a later change is planned, the entry number in `docs/FUTURE_ENHANCEMENTS.m
   facility's `geo_source` of `google_city` (a town's center) or `none` (not placed), and, when a file carries them,
   a `geocode_precision` other than rooftop or street, a `match_status` other than Matched or a `premises_type` other
   than Street. "More options", "Include locations known only roughly", takes them in.
+- **The people inside the zones count Washington only.** The Overview's estimate uses Washington's 2020 Census tracts:
+  people who live in Oregon, Idaho or British Columbia are not counted. When a zone reaches past the state the note
+  says "Washington only"; zones wholly outside it read "Not available". It is where people live, not a count of
+  people exposed or sick.
+- **The Overview's tables show 50 rows.** The counties and positives tables show their first 50 rows; the CSV ZIP
+  (`counties.csv`, `positives.csv`) holds them all.
 - **CVI movements need the master's premises coordinates** (`Origin.Lat`, `Origin.Long`, `Dest.Lat`, `Dest.Long`).
 - **No address is shown or exported.** A column whose name holds address, location, street or premise is never read
   from the positives file, and the CVI movements' CSV leaves such columns of the master out.

@@ -101,7 +101,7 @@ over `file://` and `http`, and keeps the CSP unchanged):
 | `cvi/app/focusmap.js` | `FOCUS_FILES` in `cvi/app/ui.js` | the County Focus view is first chosen |
 | `cvi/app/lookupmap.js` | `cvi/app/lookup.js` (through the page's `loadScript`) | the first Premise Lookup result |
 | `geo/streets-wa.js` | `cvi/app/ui.js` and `cvi/app/lookup.js` | the "Streets (vector)" PNG background is first used |
-| `geo/citylimits-wa.js`, `geo/places-wa.js`, `geo/tracts-wa.js` | `WSDA.population.load()` (`shared/population.js`) | a population layer is first switched on |
+| `geo/citylimits-wa.js`, `geo/places-wa.js`, `geo/tracts-wa.js` | `WSDA.population.load()` (`shared/population.js`) | a population layer is first switched on (`tracts-wa.js` also when Emergency Response's Overview first works out the people inside the zones) |
 | `geo/regions/<id>.js` | `WSDA.regions.load()` (`shared/regions.js`) | a neighboring region is first switched on |
 | `geo/wa-counties.js` on the landing page | `needGeo()` in `landing.js` | the all-in-one sample is first downloaded |
 
@@ -233,11 +233,11 @@ small page part (named in the line). "Data" means it only holds values.
 
 | File | Kind | What it does |
 |---|---|---|
-| `index.html` | Page | The Emergency page: five sidebar folds (Load your data, Positives and zones, Layers to check, More options, Export & Preview with Export and "Map picture (PNG)"), the value boxes, the chart's fold, the map, the two result tabs. |
-| `app.js` | Page | All page wiring: loading, reading the files into the rules, the folds' controls, "Show past positives", the "Detected between" window and the play, km \| miles, the map's data, the boxes, the chart, the legend, the tabs, CVI movements (CVI's `lookup.js` `query`, waiting while the play runs), the ZIP with `zones.csv` and `zones.geojson`, the map picture's input (`WSDA.emergency`). |
+| `index.html` | Page | The Emergency page: five sidebar folds (Load your data, Positives and zones, Layers to check, More options, Export & Preview with Export and "Map picture (PNG)"), the value boxes, the "Map \| Overview" switch, the map with its two result tabs, and the Overview (its three boxes, "Positives over time", the bars by county and by layer, the counties and positives tables, a "?" on each box and chart). |
+| `app.js` | Page | All page wiring: loading, reading the files into the rules, the folds' controls, "Show past positives", the "Detected between" window and the play, km \| miles, the map's data, the boxes, the Map \| Overview switch (each new set of files opens on the Map; a fit asked for on the Overview waits for the Map), the Overview (the 2020 Census tracts loaded the first time it needs them; the people worked out again only when the zones change, and once the play or the slider stops), the chart, the legend, the tabs, CVI movements (CVI's `lookup.js` `query`, waiting while the play runs), the ZIP with `zones.csv`, `zones.geojson` and `counties.csv`, the map picture's input (`WSDA.emergency`). |
 | `map.js` | Page | The Emergency map kind of CVI's map adapter: zones (rings or a zone file's polygons), past positives and their rings, the sites inside and the faded others, the positives, the zone hover with days since, the picked spot (`WSDA.emergencyMap`). |
-| `rules.js` | Pure | The positives read by the type's column names and their names, the rows not mapped, current and past positives, the window and the play's weeks or months, which positives get zones, still under quarantine, the numbers line, the locations too coarse for zone results, what lies inside, the "nearest" line, days since, miles, the value boxes, the chart's counts (`overTime`), the export rows and `zones.geojson` (`WSDA.emergencyRules`). |
-| `chart.js` | Pure | The chart "Positives over time" as SVG text: stacked columns, axis, key, one keyboard stop (`WSDA.emergencyChart`); reusable for E2's chart view. |
+| `rules.js` | Pure | The positives read by the type's column names and their names, the rows not mapped, current and past positives, the window and the play's weeks or months, which positives get zones, still under quarantine, the numbers line, the locations too coarse for zone results, what lies inside, the "nearest" line, days since, miles, the value boxes, the chart's counts (`overTime`), the Overview's rules (each positive's county, the counties and positives tables, its three boxes, the bars' rows, the people inside the zones from Washington's 2020 Census tracts, `counties.csv`), the export rows and `zones.geojson` (`WSDA.emergencyRules`). |
+| `chart.js` | Pure | The charts as SVG text: "Positives over time" (stacked columns, axis, key, one keyboard stop) and the Overview's horizontal bars (CVI's `chartsvg.js` hbars, copied, stacked) (`WSDA.emergencyChart`). |
 | `branded.js` | Pure | The map picture (PNG), a copy of Premise Lookup's branded page (`site/cvi/app/brandedmaps.js`): its model (title, boxes, rings in both units, key, the POSITIVES panel, the CVI premises in a zone) and its SVG (`WSDA.emergencyBranded`). |
 | `types.js` | Pure | The emergency types' list: checks each type file's fields, picks the type for a positives file (`WSDA.emergencyTypes`). |
 | `types/hpai.js` | Data | The HPAI type; its top comment explains every field. |
@@ -397,11 +397,11 @@ The Emergency Response dashboard names no emergency in its code: each emergency 
    - `columns`: the column names the page reads for each role, any case, the first name the file has winning: `id`
      (the positive's name), `detected` (the detection date, in order of preference; a row whose first date is blank
      takes the next), `disease`, `status`, `quarantine` (the quarantine release date), `flockType` (Commercial,
-     Backyard; counted in the numbers line under the value boxes), `inventory` (the number of animals, thousands commas
-     allowed; added up in that line and giving the flock size class) and `shown` (further columns for the hover and
+     Backyard; counted in the Overview's animals box), `inventory` (the number of animals, thousands commas
+     allowed; added up in that box and giving the flock size class) and `shown` (further columns for the hover and
      the export). A renamed column in the agency's table is one edit here. A name holding address, location, street
      or premise is refused: those columns are never read;
-   - `inventoryWord`: the word after the animals' total in the numbers line ("4.1M birds"; "animals" when left out);
+   - `inventoryWord`: the word after the animals' total in the Overview's animals box ("4.1M birds"; "animals" when left out);
    - `countedApart`: animals added up apart from `inventoryWord`, each entry's species words and the word they are
      counted under (HPAI: "3,550 cattle, 45 other animals"); a positive counts under the first entry with a word in
      its species;
