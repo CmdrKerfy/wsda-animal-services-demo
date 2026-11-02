@@ -101,6 +101,8 @@
     .count-card .card-ic { position: absolute; top: 0.45rem; right: 0.45rem; width: 1.8rem; height: 1.8rem; margin: 0; border-radius: 4px;
       align-items: center; justify-content: center; font-size: 1rem; color: #ffffff; background: var(--box); }
     .count-card.quar .card-ic { color: var(--wsda-dark-brown); background: var(--wsda-gold); }
+    .count-card.unk:not(.quar) .card-ic { color: var(--wsda-dark-brown);
+      background: repeating-linear-gradient(135deg, var(--wsda-gold) 0 4px, var(--gold-20) 4px 8px); box-shadow: inset 0 0 0 1px var(--wsda-gold); }
   }
   /* Every value box alike (2.3): the name, the number (30 px), the note under it.
      Each row of boxes shares three lines (CSS subgrid), so the numbers sit level whatever a name or note does, and
@@ -159,6 +161,7 @@
   #em-legend .lg-dot { display: inline-block; flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; margin: 0.05em 5px 0 0; border: 2px solid; }
   #em-legend .lg-ring { display: inline-block; flex: 0 0 14px; width: 14px; height: 10px; margin: 0.15em 5px 0 0; border: 2px solid; }
   #em-legend .facility-mark-box { margin: 0 5px 0 0; }
+  #em-legend .lg-animal { display: inline-flex; flex: 0 0 14px; margin: 0.05em 5px 0 0; }
   .lg-pc-line { display: inline-block; flex: 0 0 18px; width: 18px; height: 0; border-top: 1.5px solid #737373; margin: 0.55em 5px 0 0; }
   .lg-pc-line.dashed { border-top-style: dashed; }
   .lg-pc-swatch { display: inline-block; flex: 0 0 12px; width: 12px; height: 9px; margin: 0.15em 5px 0 0; border: 1px solid rgba(0, 0, 0, 0.15); }
@@ -214,6 +217,23 @@
   /* The results: one fold per layer (its count line as the header), the left-out list, the CVI movements. */
   /* "Export & Preview" at the sidebar's end, as CVI's and Infrastructure's: the buttons full width, one under the other. */
   .em-export .export-warning { margin: 0.5rem 0 0; font-size: 0.85rem; }
+  .em-export #em-preview { margin-top: 0.5rem; }
+  /* 2.4: the map picture's Preview window (CVI's, cvi/app/previews.js), its CSS copied from site/cvi/index.html. */
+  .preview-dialog { border: none; border-radius: 6px; padding: 0; box-shadow: 0 6px 24px rgba(0,0,0,0.3); max-height: 90vh; color: var(--text); }
+  .preview-dialog.size-xl { width: min(1140px, 95vw); }
+  .preview-dialog.size-l { width: min(800px, 95vw); }
+  .preview-dialog[open] { display: flex; flex-direction: column; }
+  .preview-dialog::backdrop { background: rgba(0,0,0,0.5); }
+  .preview-head { display: flex; align-items: center; justify-content: space-between; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); }
+  .preview-title { margin: 0; font-size: 1.15rem; font-weight: 600; }
+  .preview-x { border: none; background: none; font-size: 1.5rem; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 0.25rem; }
+  .preview-body { padding: 1rem; overflow: auto; flex: 1 1 auto; }
+  .preview-foot { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; border-top: 1px solid var(--border); }
+  .preview-note { color: var(--muted); font-size: 0.8rem; margin-right: auto; }
+  .chart-previews hr { margin: 0.75rem 0; border: none; border-top: 1px solid var(--border); }
+  .chart-preview { margin: 0; }
+  .chart-preview img { display: block; width: 100%; height: auto; }
+  .chart-preview figcaption { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
   details.em-layer, details.em-leftout { border-bottom: 1px solid var(--border); padding: 0.35rem 0; }
   details.em-layer > summary, details.em-leftout > summary { cursor: pointer; font-size: 0.9rem; color: var(--text); }
   details.em-layer > summary strong, details.em-leftout > summary strong { color: var(--heading); }
@@ -316,6 +336,7 @@
 <div class="field" id="em-window-field"><span class="ctl" id="em-window-label">Detected between</span>
 <div class="date-row" role="group" aria-labelledby="em-window-label"><span>From</span><input type="date" id="em-from" aria-label="Detected from"><span>To</span><input type="date" id="em-to" aria-label="Detected until"></div>
 <p class="status err" id="em-window-msg" role="alert" hidden></p>
+<p class="status warn" id="em-window-empty" role="status" hidden></p>
 <div class="play-row"><button type="button" class="btn" id="em-play" aria-pressed="false">Play by week</button>
 <input type="range" id="em-step" min="0" max="0" value="0" aria-label="Week of"><output id="em-step-label" for="em-step"></output></div></div>
 <div class="field" id="em-rings-field"><div class="ctl-row"><span class="ctl">Rings</span><span class="unit-switch" role="group" aria-label="Distance unit"><button type="button" class="btn" id="em-unit-km" data-unit="km" aria-pressed="true">km</button><button type="button" class="btn" id="em-unit-mi" data-unit="mi" aria-pressed="false">miles</button></span></div><div id="em-rings"></div><p class="status err" id="em-rings-msg" role="alert" hidden></p></div>
@@ -347,11 +368,12 @@
 </div></details>
 <details class="section" id="export-fold" data-section="export"><summary>Export &amp; Preview</summary><div class="section-body">
 <div class="field"><label class="ctl" for="em-png-background">Map picture background</label>
-<select id="em-png-background" class="export-input" title="The background of the map picture. Default needs no network. Satellite, Shaded Relief and Hillshade come from Esri's servers; if one cannot be loaded, Default is used and a notice says so.">
+<select id="em-png-background" class="export-input" title="The background of the map picture. Default needs no network. Satellite, Shaded Relief and Hillshade come from Esri's servers; if one cannot be loaded, Default is used and a notice says so. Streets (vector) draws roads, water and place names from bundled Census data, with no network.">
 <option value="standard" selected>Default</option>
 <option value="raster:esri_satellite">Satellite</option>
 <option value="raster:esri_relief">Shaded Relief</option>
 <option value="raster:esri_hillshade">Hillshade</option>
+<option value="vector:streets">Streets (vector)</option>
 </select>
 <p class="muted" id="em-png-provider" hidden></p></div>
 <div class="field" id="em-png-quality-field" hidden><label class="ctl" for="em-png-quality">Background quality</label>
@@ -364,7 +386,16 @@
 <option value="standard" selected>Standard (200 dpi)</option>
 <option value="high">High (300 dpi)</option>
 </select></div>
+<details class="refine" id="em-names" open><summary title="Pick whose names print on the map picture: the positives (and points added on the map), and each checked layer's sites inside the zones. Names are kept clear of the marks, with a thin line back to the mark when one has to move. Many names crowd the map: pick the one or two layers that matter. The picture only, not the live map.">Name markers in PNG</summary>
+<div class="ctl-row"><span class="ctl">Layers</span><span class="links"><button type="button" id="em-names-all">All</button> &middot; <button type="button" id="em-names-clear">Clear</button></span></div>
+<fieldset class="checklist" id="em-name-list" aria-label="Name markers in PNG"></fieldset></details>
+<div class="field"><label class="ctl" for="em-png-label">Optional Filename</label>
+<input type="text" class="export-input" id="em-png-label" placeholder="Auto-named if blank" title="A name for the map picture and for the CSV ZIP and the folder inside it, after the date. Leave blank for the automatic names: YYYY-MM-DD_Emergency.zip and, for HPAI, emergency_hpai_YYYY-MM-DD.png. If a file of that name exists, your browser adds a number.">
+<p class="muted name-note">Do not type a person's name or a case number here: it is saved in the PNG and export_params.json.</p></div>
+<div class="field"><label class="ctl" for="em-png-title">Optional Map Title</label>
+<input type="text" class="export-input" id="em-png-title" placeholder="Auto-titled if blank" title="Your own header text for the map picture, up to 80 characters. Leave blank for the type's title (for example HPAI RESPONSE MAP)."></div>
 <div class="em-export"><button type="button" class="btn full export-btn" id="em-export" title="Writes the results as CSV files and export_params.json into one ZIP file, handed to your browser to save."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Export (CSV ZIP)</button>
+<button type="button" class="btn full" id="em-preview" title="Draws the map picture the Map picture (PNG) button saves and shows it in a window, so you can check it before saving."><span class="btn-icon" data-icon="eye" aria-hidden="true"></span>Preview Map</button>
 <button type="button" class="btn full export-btn" id="em-png" title="Draws the map as shown on an 11 x 8.5 in branded page and hands the PNG to your browser to save. Its background and resolution are set above it."><span class="btn-icon" data-icon="download" aria-hidden="true"></span>Map picture (PNG)</button>
 <p class="muted export-warning"><span aria-hidden="true">&#9888;</span> Exports and maps contain positive premises' coordinates and facility names and locations: handle as sensitive data and share only with authorized responders.</p>
 <div class="live" role="status" aria-live="polite"><div class="status" id="em-export-result" hidden></div></div></div>
@@ -373,7 +404,7 @@
 <div class="em-main">
 <div role="status"><div id="em-boxes" class="count-cards">
 <div class="count-card" id="box-positives"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="geo-alt-fill" aria-hidden="true"></span>Current positives</span><span class="card-note"></span></div>
-<div class="count-card" id="box-past"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="clock-history" aria-hidden="true"></span>Past positives</span><span class="card-note"></span></div>
+<div class="count-card" id="box-past" title="Positives whose surveillance ended by the end of the date window. Still under quarantine: a Quarantine Release after that date; with none, a Quarantine Status of Under quarantine; with neither, not known (in a table without a Quarantine Status column, still under quarantine). The status describes today, so for an earlier end date a Released row without a release date counts as released."><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="clock-history" aria-hidden="true"></span>Past positives</span><span class="card-note"></span></div>
 <div class="count-card" id="box-last"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="calendar-event" aria-hidden="true"></span>Last positive</span><span class="card-note"></span></div>
 <div class="count-card" id="box-inside"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="bullseye" aria-hidden="true"></span>Sites inside the zones</span><span class="card-note"></span></div>
 </div>
@@ -415,8 +446,8 @@
 <p class="help-note ov-help" id="help-ov-animals" hidden>The animals at the current positives, added up from the file's inventory column. Under it: the animals counted apart, how many current positives are of each flock type, and any positive without a count (left out, never counted as zero).</p>
 <p class="help-note ov-help" id="help-ov-people" hidden>An estimate of how many people live inside the zones, from the 2020 Census: each Census tract's people are counted by how much of the tract lies inside a zone (a tract half inside counts half its people), and zones that overlap are counted once. Only Washington's tracts are used, so people who live outside Washington are not counted. It is where people live, not a count of people exposed or sick. Human cases are the Department of Health's.</p>
 </section>
-<section class="ov-section" id="ov-s-time" aria-labelledby="ov-h-time"><div class="ov-section-head"><h2 id="ov-h-time">Over time</h2><p>One column per step of the play. Click a column to end the window there.</p></div>
-<div class="ov-panel" id="ov-time"><h3>Positives over time<span class="fold-sum" id="em-chart-sum"></span><button type="button" class="tip" aria-expanded="false" data-help="ov-time" aria-controls="help-ov-time" aria-label="About positives over time" title="One column per week (or per month for a long outbreak): solid for current positives, outlined for past ones, gray outside the date window. Click a column to end the date window there.">?</button></h3><p class="help-note" id="help-ov-time" hidden>One column per week (or per month for a long outbreak): solid for current positives, outlined for past ones, gray outside the date window. Click a column to end the date window there.</p><div id="em-chart"></div><div class="muted" id="em-chart-note" hidden></div></div>
+<section class="ov-section" id="ov-s-time" aria-labelledby="ov-h-time"><div class="ov-section-head"><h2 id="ov-h-time">Over time</h2><p>One column per step of the play. Click a column to end the window there; click it again for all dates.</p></div>
+<div class="ov-panel" id="ov-time"><h3>Positives over time<span class="fold-sum" id="em-chart-sum"></span><button type="button" class="tip" aria-expanded="false" data-help="ov-time" aria-controls="help-ov-time" aria-label="About positives over time" title="One column per week (or per month for a long outbreak): solid for current positives, outlined for past ones, gray outside the date window. Click a column to end the date window there; click it again for all dates.">?</button></h3><p class="help-note" id="help-ov-time" hidden>One column per week (or per month for a long outbreak): solid for current positives, outlined for past ones, gray outside the date window. Click a column to end the date window there; click it again for all dates.</p><div id="em-chart"></div><div class="muted" id="em-chart-note" hidden></div></div>
 </section>
 <section class="ov-section" id="ov-s-county" aria-labelledby="ov-h-county"><div class="ov-section-head"><h2 id="ov-h-county">By county</h2><p>Where the positives are, current and past.</p></div>
 <div class="ov-pair"><div class="ov-panel" id="ov-county"><h3>Positives by county<button type="button" class="tip" aria-expanded="false" data-help="ov-county" aria-controls="help-ov-county" aria-label="About positives by county" title="The positives in the date window by county: the solid bar current, the outlined bar past. A positive whose County is blank takes the county where it is mapped.">?</button></h3><p class="help-note" id="help-ov-county" hidden>The positives in the date window by county: the solid bar current, the outlined bar past. A positive whose County is blank takes the county where it is mapped.</p><div id="ov-county-chart"></div></div><div class="ov-panel ov-table" id="ov-counties"><h3>Counties</h3><div id="ov-counties-table"></div></div></div>
@@ -433,7 +464,7 @@
 </section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.3 (2026-10-29)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.4 (2026-10-30)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="../shared/release.js"></script>
 <script src="../shared/zip.js"></script>
@@ -478,6 +509,7 @@
 <script src="types/nws.js"></script>
 <script src="rules.js"></script>
 <script src="map.js"></script>
+<script src="../cvi/app/previews.js"></script>
 <script src="branded.js"></script>
 <script src="chart.js"></script>
 <script src="app.js"></script>

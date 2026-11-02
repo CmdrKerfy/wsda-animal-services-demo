@@ -245,7 +245,7 @@ guide's values.
 - Loaded by `shared/brand.css` (`@font-face`) from the site itself; each page's policy allows fonts from the site's own
   files only (`font-src 'self' file:`). Nothing is fetched from the network.
 
-## County Focus Streets background (`geo/streets-wa.js`, S9; loaded only when "Streets (vector)" is picked)
+## County Focus Streets background (`geo/streets-wa.js`, S9; loaded only when "Streets (vector)" is picked; also Emergency Response's map picture from version 2.4)
 
 - Source: CVI's own `reference/tiger_wa/` files, read by `build/derive_streets.R`, which CVI's branded County Focus PNG draws its Streets background from. As CVI's comments
   name them: U.S. Census Bureau TIGER/Line primary and secondary roads and places (`primary_wa.rds`
@@ -331,7 +331,9 @@ neighboring-region and population files and credits as the Infrastructure page; 
 data file. The types' reference pages (HPAI: USDA APHIS and CDC; New World screwworm: USDA APHIS and
 Screwworm.gov) are links only: nothing is fetched from them, and a click opens them in a new tab. The map picture
 (PNG) uses the shared branded page and the same tile backgrounds as the Infrastructure page's PNG (Default needs no
-network); the CVI premises it draws are the loaded CVI master's own matched rows, and `zones.geojson` is written on
+network), and from version 2.4 County Focus's Streets background (`geo/streets-wa.js`, the same file, loaded when
+first picked; no network) and CVI's preview window (`cvi/app/previews.js`, loaded unchanged, its CSS copied into
+the page); the CVI premises it draws are the loaded CVI master's own matched rows, and `zones.geojson` is written on
 the page from the zones drawn. The synthetic screwworm outbreak in `test-tables/` (its positives and its dispersal
 areas) is made up by `tests/synthetic/make_em_fixtures.js`; it is not an APHIS area. Its rule for locations too coarse for zone results follows RAD_Animal_Diseases'
 `premises_zone_eligible()` (another internal WSDA project); no code was copied, and the tests compare the page with

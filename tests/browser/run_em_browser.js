@@ -48,7 +48,7 @@ const TABLES = path.join(ROOT, 'test-tables');
 const PAGE = process.env.EM_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'index.html')).href;
 const SITE = new URL('.', PAGE).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'overview', 'speed'];
+const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'view', 'overview', 'speed'];
 const asked = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const PARTS = asked.length ? asked : ALL_PARTS;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -335,7 +335,8 @@ async function partLoad(b) {
 // The density limits, counted on the page as it shows: the visible controls outside folds (buttons, inputs, selects
 // and links not inside a closed fold's body and not the map's own buttons; a fold's header is the fold, but a control
 // inside a header counts), and per section the visible sentences of explanation (paragraphs and notes, not status
-// lines, help notes, labels or the checklist).
+// lines, help notes, labels or the checklist; nor, from 2.4, CVI's warning under "Optional Filename" not to type a
+// person's name or a case number, a warning shown as CVI shows it, board wp_06 PASS).
 const DENSITY = `(() => {
   const shown = e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
   const inClosedBody = e => { for (let d = e.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) {
@@ -347,7 +348,7 @@ const DENSITY = `(() => {
   document.querySelectorAll('[data-section], .em-main').forEach(sec => {
     const name = sec.getAttribute('data-section') || 'main';
     const prose = Array.from(sec.querySelectorAll('p, .em-note'))
-      .filter(p => shown(p) && !p.closest('.status, [role=status], [role=alert], .help-note, #load-results, #em-legend, .count-card, label, fieldset, .maplibregl-map, .em-results')
+      .filter(p => shown(p) && !p.closest('.status, [role=status], [role=alert], .help-note, .name-note, #load-results, #em-legend, .count-card, label, fieldset, .maplibregl-map, .em-results')
         && !p.classList.contains('status'))
       .map(p => p.textContent.trim()).filter(Boolean);
     const sentences = prose.flatMap(t => t.split(/(?<=[.!?])\s+(?=[A-Z])/));
@@ -646,8 +647,21 @@ async function partE1b(b) {
   const tick = id => p.click(`document.getElementById('${id}').click()`);
   const setDate = (id, v) => p.eval(`(() => { const i = document.getElementById('${id}'); i.value = '${v}'; i.dispatchEvent(new Event('change')); return true; })()`);
 
-  // ---- The HPAI sample: the agreed table, no status column, one past positive (released) ----
+  // ---- The quarantine status column (2.4): still under quarantine, not known, and a status not read ----
   await open();
+  await load([path.join(TABLES, 'em_rules_quarantine.csv')]);
+  await tick('em-past');
+  await p.waitFor(`${S}.mapData.past > 0`, 5000, 'past shown');
+  const qv = await view();
+  const qLabels = await p.eval(`${S}.map.em.positives.features.map(f => f.properties.label.split('\\n'))
+    .filter(l => /^(Yakima 02|Benton 01|Grant 01)$/.test(l[0])).map(l => l[0] + ': ' + l[2]).sort()`);
+  const qTitle = await p.eval(`document.getElementById('box-past').title`);
+  check(qv.past === '7 Past positives 1 still under quarantine, 2 not known' && qv.quar && /1 quarantine status not read/.test(qv.lines)
+    && same(qLabels, ['Benton 01: Past, quarantine not known', 'Grant 01: Past', 'Yakima 02: Past, still under quarantine'])
+    && /Quarantine Status/.test(qTitle) && /describes today/.test(qTitle),
+  'e1b: the quarantine status table (2.4): the past box "1 still under quarantine, 2 not known", the status not read named under the boxes, the hovers, the box\'s hover text', [qv.past, qv.lines, qLabels]);
+
+  // ---- The HPAI sample: the agreed table, no status column, one past positive (released) ----
   await load([samplePath]);
   await p.eval(`document.getElementById('positives-fold').open = true; true`);
   check(await p.eval(`document.getElementById('em-statuses-field').hidden`),
@@ -759,6 +773,18 @@ async function partE1b(b) {
   { km: [five.rows, five.far], mi: [fiveMi.rows, fiveMi.far] });
   await tick('em-unit-km');
   await setControl(10);
+  // The population layers are on after each load (2.4): ticked, drawn and in the legend. Turned off here, so the
+  // zone hover below reads without the tract, then density is ticked again on its own.
+  // A failed wait is a failed check (the part goes on), so a page without the default is caught, not stopped.
+  const pcDrawnAfterLoad = await p.waitFor(`['cities', 'places', 'density'].every(l => WSDA.population.loaded(l)) && ${S}.map.map.getLayer('pc-density')`,
+    15000, 'population drawn after the load').then(() => true, () => false);
+  const pcAfterLoad = await p.eval(`({ drawn: ${pcDrawnAfterLoad}, ticked: Array.from(document.querySelectorAll('#pc-block .pc-on')).filter(b => b.checked).map(b => b.dataset.layer),
+    legend: Array.from(document.querySelectorAll('#em-legend-content p')).map(e => e.textContent) })`);
+  check(pcAfterLoad.drawn && same(pcAfterLoad.ticked, ['cities', 'places', 'density']) && pcAfterLoad.legend.includes('Population context')
+    && pcAfterLoad.legend.includes('City limits (current)') && pcAfterLoad.legend.some(t => /people per/i.test(t)),
+  'e1b: after the load the three population layers are on (2.4): ticked, and named in the legend under "Population context"', pcAfterLoad);
+  for (const l of ['pc-cities', 'pc-places', 'pc-density']) if (await p.eval(`document.getElementById('${l}').checked`)) await tick(l);
+  await p.waitFor(`!document.querySelector('#pc-block .pc-on:checked')`, 5000, 'population off');
   // The "Zones" list and the zone hover.
   const zl = await p.eval(`({ sum: document.querySelector('#tab-inside .em-zones-list summary').textContent,
     rows: Array.from(document.querySelectorAll('#tab-inside .em-zones-list tbody tr')).map(r => Array.from(r.cells).map(c => c.textContent)) })`);
@@ -1074,9 +1100,9 @@ async function partChart(b) {
   await p.waitFor(`document.querySelectorAll('#em-chart .chart-col').length > 0`, 5000, 'chart drawn again');
   v = await view();
   const total = v.counts.reduce((t, c) => t + c[0] + c[1] + c[2], 0);
-  check(v.cols === v.steps && v.steps > 1 && total === v.dated && v.current === v.steps - 1 && same(v.stops, [v.steps - 1])
+  check(v.cols === v.steps && v.steps > 1 && total === v.dated && v.current === -1 && same(v.stops, [v.steps - 1])
     && v.counts.every(c => c[2] === 0) && v.svgWidth === v.boxWidth,
-  'chart: one column per step of the play, each dated mapped positive counted once, the last step picked and the one keyboard stop, nothing outside the window, as wide as its panel', v);
+  'chart: one column per step of the play, each dated mapped positive counted once, no column picked after a load (the last the one keyboard stop), nothing outside the window, as wide as its panel', v);
   await shot('chart_01_hpai_sample_open');
   check((v.dropped || v.mapped > v.dated) ? /^Not counted: /.test(v.note) : v.note === '', 'chart: the note names what is not counted, only when something is', v.note);
   // A click on an earlier column with positives: the window's end moves to that step's end, as the slider does.
@@ -1095,8 +1121,8 @@ async function partChart(b) {
   await p.eval(`(() => { const c = document.querySelector('#em-chart .chart-col[data-col="${at}"]'), r = c.getBoundingClientRect();
     c.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + 30 })); return true; })()`);
   v = await view();
-  check(v.tip === v.hovers[at] + 'Click to end the date window on ' + (await p.eval(`WSDA.emergencyRules.dayLabel('${step.end}')`)) && /: \d+ (current|past)/.test(v.tip),
-    'chart: the pointer over a column shows its counts and what a click does', v.tip);
+  check(v.tip === v.hovers[at] + 'Click again for all dates' && /: \d+ (current|past)/.test(v.tip),
+    'chart: the pointer over the picked column shows its counts and that a click again gives all dates', v.tip);
   await shot('chart_02_hpai_sample_clicked_hover');
   await p.eval(`document.getElementById('em-chart').dispatchEvent(new PointerEvent('pointerleave')); true`);
   // The keyboard: the picked column is the stop; the left arrow moves along, Enter picks.
@@ -1118,6 +1144,27 @@ async function partChart(b) {
   v = await view();
   check(v.window.start === fw.start && v.window.end === (await p.eval(`${S}.steps.steps[0].end`)),
     'chart: with the window starting after the clicked step, the start goes back to the earliest detection (never an empty window)', v.window);
+  // The picked column again (2.4): the whole file's dates, as after a load, and no column picked; Space too.
+  await p.click(`document.querySelector('#em-chart .chart-col[data-col="0"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === null`, 5000, 'chart unpick');
+  v = await view();
+  check(same(v.window, fw) && v.to === fw.end && v.current === -1 && same(v.stops, [v.steps - 1]) && v.stepAt === v.steps - 1
+    && v.counts.every(c => c[2] === 0) && v.positives === await p.eval(`String(WSDA.emergencyRules.groups(${S}.read, ${S}.fileWindow).current.length)`),
+  'chart: a click on the picked column gives back the whole file\'s dates, no column picked, nothing outside the window', v);
+  check(await p.eval(`document.querySelector('#ov-s-time .ov-section-head p').textContent === 'One column per step of the play. Click a column to end the window there; click it again for all dates.'
+    && /click it again for all dates\.$/.test(document.getElementById('help-ov-time').textContent)`),
+  'chart: the line over the chart and its "?" say a click again gives all dates');
+  await p.eval(`document.querySelector('#em-chart .chart-col[data-col="${at}"]').focus(); true`);
+  await p.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === ${at}`, 5000, 'chart Space');
+  await p.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === null`, 5000, 'chart Space again');
+  v = await view();
+  check(same(v.window, fw) && v.current === -1, 'chart: Space on a column picks it, Space again gives all dates back', v);
+  // The pick was made on the Overview: the map's fit waits for the Map.
+  check(await p.eval(`${S}.fitNext === true`), 'chart: a pick on the Overview leaves the map\'s fit waiting for the Map');
+  await p.click(`document.querySelector('#em-chart .chart-col[data-col="${at}"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === ${at}`, 5000, 'chart click again');
   // The play moves the picked column; Pause stops it.
   await p.click(`document.getElementById('em-play').click()`);
   await p.waitFor(`${S}.stepAt >= 1`, 5000, 'one step played');
@@ -1148,6 +1195,208 @@ async function partChart(b) {
 // 50,000-row synthetic CVI master (tests/synthetic/make_scale_master.js). Every step of a whole play is timed by the
 // page's own hook (state.computeMs, one redraw's work): without a master, with one, and with the CVI movements tab
 // open (the query waits for the play to stop). The CVI query after the play is timed too, for the record only.
+// The animals' shapes, the legend's Animals rows and the view (2.4): each positive in its animal's shape; the view
+// takes in what is shown, clear of the legend and the map's buttons, after each tick, date change, pick and stop of the play, and never
+// during the play; the home button fits the same.
+async function partView(b) {
+  const p = b.page, S = 'WSDA.emergency.state', OUTV = path.join(OUT, 'view');
+  const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip');
+  fs.rmSync(OUTV, { recursive: true, force: true });
+  fs.mkdirSync(OUTV, { recursive: true });
+  // The map, scrolled into view (a map picture is taken inside the window).
+  const shot = async name => {
+    await sleep(800);
+    const r = await p.eval(`(() => { const m = document.getElementById('em-map'); m.scrollIntoView(); const a = m.getBoundingClientRect();
+      return { x: a.left, y: a.top + scrollY, width: a.width, height: a.height }; })()`);
+    fs.writeFileSync(path.join(OUTV, name + '.png'), Buffer.from((await b.send('Page.captureScreenshot',
+      { format: 'png', captureBeyondViewport: false, clip: Object.assign(r, { scale: 1 }) }, p.sid)).data, 'base64'));
+  };
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor(`window.WSDA && WSDA.emergency && ${S}.map.ready`, 20000, 'Emergency map ready');
+  const load = async files => {
+    const v = await p.eval(`${S}.version`);
+    await p.setFiles('#files-input', files);
+    await emReady(p, v);
+    await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn');
+  };
+  const tick = id => p.click(`document.getElementById('${id}').click()`);
+  // Moves the map far off (the Olympic coast, zoomed in), so a fit afterwards shows.
+  const away = () => p.eval(`(${S}.map.map.jumpTo({ center: [-124.5, 47.9], zoom: 10 }), true)`);
+  // Where the view is, and whether every positive shown is inside it and clear of the legend and of the map's own
+  // buttons, scale and attribution (its mark's reach too: about 16 pixels from its middle, halo included).
+  const seen = () => p.eval(`(() => { const s = ${S}, m = s.map.map, c = m.getCanvas().getBoundingClientRect();
+    const lg = document.getElementById('em-legend').getBoundingClientRect(), R = 16;
+    const ctrls = Array.from(m.getContainer().querySelectorAll('.maplibregl-ctrl')).map(e => e.getBoundingClientRect())
+      .filter(r => r.width && r.height);
+    const pts = s.map.em.positives.features.map(f => m.project(f.geometry.coordinates));
+    const inView = pts.every(q => q.x >= R && q.y >= R && q.x <= c.width - R && q.y <= c.height - R);
+    const off = (q, r) => c.left + q.x + R < r.left || c.left + q.x - R > r.right || c.top + q.y + R < r.top || c.top + q.y - R > r.bottom;
+    const clear = pts.every(q => (c.left + q.x + R < lg.left || c.top + q.y + R < lg.top || c.top + q.y - R > lg.bottom)
+      && ctrls.every(r => off(q, r)));
+    const z = s.map.em.pastZones.features.flatMap(f => f.geometry.coordinates[0]).map(x => m.project(x));
+    return { n: pts.length, inView, clear, pastZonesIn: z.every(q => q.x >= 0 && q.y >= 0 && q.x <= c.width && q.y <= c.height),
+      center: m.getCenter().toArray().map(x => Math.round(x * 1e4) / 1e4), zoom: Math.round(m.getZoom() * 1e3) / 1e3, fitNext: s.fitNext,
+      pastZones: s.map.em.pastZones.features.length }; })()`);
+  await load([samplePath]);
+
+  // The shapes: each positive's mark from its animal, the picture made; past ones their own picture.
+  const marks = await p.eval(`(() => { const s = ${S}, E = WSDA.emergencyRules, m = s.map.map;
+    const byName = new Map(s.read.positives.map(x => [x.name, x]));
+    return s.map.em.positives.features.map(f => { const x = byName.get(f.properties.label.split('\\n')[0]);
+      return [f.properties.mark, E.animalShapeOf(s.read.type, x), m.hasImage(f.properties.mark)]; }); })()`);
+  check(marks.length === 6 && marks.every(([id, shape, has]) => id.indexOf('em-positive:' + shape + ':now:') === 0 && has)
+    && marks.filter(x => x[1] === 'square').length === 2 && marks.filter(x => x[1] === 'circle').length === 4
+    && await p.eval(`${S}.map.map.getLayer('em_positives').type === 'symbol'`),
+  'view: each positive in its animal\'s shape (the two dairies squares, the birds circles), its picture made', marks);
+  const legend = () => p.eval(`Array.from(document.querySelectorAll('#em-legend-content p')).map(e => {
+    const a = e.querySelector('.lg-animal'); return (a ? a.dataset.shape + ' ' : '') + e.textContent; })`);
+  let lg = await legend();
+  const head = lg.indexOf('Animals');
+  check(head > lg.findIndex(t => /^Control zone/.test(t)) && same(lg.slice(head + 1, head + 3), ['circle Birds', 'square Cattle'])
+    && !lg.some(t => /Other animals/.test(t)),
+  'view: the legend\'s "Animals" rows after the zones, one per kind drawn (birds a circle, cattle a square)', lg);
+  check(await p.eval(`(() => { const b = document.querySelector('#em-map .map-fit'); return b.title === 'Fit to the positives shown' && b.getAttribute('aria-label') === 'Fit to the positives shown'; })()`),
+    'view: the home button reads "Fit to the positives shown"');
+
+  // After the load: every positive in view and clear of the legend (the Franklin dairy sits at the bottom right).
+  let v = await seen();
+  check(v.n === 6 && v.inView && v.clear && !v.fitNext, 'view: after the load every positive shown is in view, clear of the legend and the map\'s buttons', v);
+  await shot('view_01_sample_open');
+  // "Show past positives" and "Draw their rings": the view takes them in when ticked.
+  await away();
+  await tick('em-past');
+  await p.waitFor(`${S}.mapData.past > 0`, 5000, 'past shown');
+  v = await seen();
+  check(v.n === 7 && v.inView && v.clear, 'view: ticking "Show past positives" fits the view to them too', v);
+  await p.eval(`document.getElementById('em-past-fold').open = true; true`);
+  await away();
+  await tick('em-past-rings');
+  await p.waitFor(`${S}.map.em.pastZones.features.length > 0`, 5000, 'past rings drawn');
+  v = await seen();
+  check(v.pastZones > 0 && v.pastZonesIn && v.inView, 'view: ticking "Draw their rings" fits the view to the past zones too', v);
+  lg = await legend();
+  check(lg.indexOf('Animals') > lg.indexOf('Past zones (dashed)'), 'view: the "Animals" rows after the past zones\' line', lg);
+  await shot('view_02_past_and_rings');
+  await away();
+  await tick('em-past-rings');
+  await tick('em-past');
+  await p.waitFor(`${S}.mapData.past === 0`, 5000, 'past hidden');
+  v = await seen();
+  check(v.n === 6 && v.inView && v.clear, 'view: unticking fits the view to what is still shown', v);
+  // A date box changed: the view fits what the new window shows.
+  await away();
+  await p.eval(`(() => { const i = document.getElementById('em-to'); i.value = '2026-09-10'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await p.waitFor(`${S}.window.end === '2026-09-10'`, 5000, 'date changed');
+  v = await seen();
+  check(v.n === 3 && v.inView && v.clear, 'view: a changed date box fits the view to the positives it shows', v);
+  // The home button: the same fit.
+  await away();
+  await p.click(`document.querySelector('#em-map .map-fit').click()`);
+  v = await seen();
+  check(v.n === 3 && v.inView && v.clear, 'view: the home button fits the positives shown', v);
+  // The play: the view stays still while it steps, then fits once when it stops.
+  await p.eval(`(() => { const i = document.getElementById('em-to'); i.value = ''; i.dispatchEvent(new Event('change')); return true; })()`);
+  await p.waitFor(`${S}.window.end === ${S}.fileWindow.end`, 5000, 'date cleared');
+  await away();
+  const before = await seen();
+  await p.click(`document.getElementById('em-play').click()`);
+  await p.waitFor(`${S}.playing && ${S}.stepAt >= 2`, 8000, 'two steps played');
+  const during = await seen();
+  await p.waitFor(`!${S}.playing`, 30000, 'the play ends');
+  v = await seen();
+  check(same(during.center, before.center) && during.zoom === before.zoom && !v.fitNext && v.n === 6 && v.inView && v.clear,
+    'view: still while the play steps (no jump each second), fitted once when it ends', [before, during, v]);
+  await away();
+  await p.click(`document.getElementById('em-play').click()`);
+  await p.waitFor(`${S}.playing && ${S}.stepAt >= 1`, 8000, 'one step played');
+  await p.click(`document.getElementById('em-play').click()`);
+  v = await seen();
+  check(!await p.eval(`${S}.playing`) && v.inView && v.clear && v.zoom !== 10, 'view: Pause fits the view to the step shown', v);
+  // A pick on the chart is made on the Overview: the map fits when it is shown again.
+  await away();
+  await p.click(`document.getElementById('show-overview').click()`);
+  await p.waitFor(`document.querySelectorAll('#em-chart .chart-col').length > 0`, 5000, 'chart drawn');
+  await p.click(`document.querySelector('#em-chart .chart-col[data-col="9"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === 9`, 5000, 'chart pick');
+  await p.click(`document.getElementById('show-map').click()`);
+  await sleep(300);
+  v = await seen();
+  check(!v.fitNext && v.inView && v.clear && v.n === await p.eval(`WSDA.emergencyRules.groups(${S}.read, ${S}.window).current.length`),
+    'view: a chart pick on the Overview fits the map when the Map is shown', v);
+  // A narrow window: the legend sits above the map, so no room is kept for it.
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: true }, p.sid);
+  await sleep(500);
+  check(await p.eval(`${S}.map.legendWidth() === 0`), 'view: on a phone the legend is above the map, so the fit keeps no room for it');
+  // A fresh page, 1280 by 1000 (the map fitted by its height, so the legend's room shows): the first load's fit keeps
+  // the open legend's full width clear (the legend was once made after the fit, so it had no room).
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor(`window.WSDA && WSDA.emergency && ${S}.map.ready`, 20000, 'Emergency map ready');
+  await load([samplePath]);
+  await sleep(300);
+  v = await seen();
+  const room = await p.eval(`(() => { const lg = document.getElementById('em-legend');
+    return [${S}.map.legendWidth(), parseFloat(getComputedStyle(lg).maxWidth) + 8, lg.open]; })()`);
+  check(v.n === 6 && v.inView && v.clear && room[2] && room[0] === room[1],
+    'view: on a fresh page after the first load every positive is clear of the legend, its full width kept', [v, room]);
+  // The window to Sep 5, then the past positive shown: it lies at the view's top left, where the map's buttons are
+  // (with an edge of 40 pixels its mark sat under them).
+  await p.eval(`(() => { const i = document.getElementById('em-to'); i.value = '2026-09-05'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await p.waitFor(`${S}.window.end === '2026-09-05'`, 5000, 'date changed');
+  await tick('em-past');
+  await p.waitFor(`${S}.mapData.past > 0`, 5000, 'past shown');
+  v = await seen();
+  check(v.n === 3 && v.inView && v.clear, 'view: a past positive at the view\'s edge is clear of the map\'s buttons', v);
+  // A one-day window with no positive (2.4): the boxes say why, and how to see a date's positives.
+  const setDate = (id, value) => p.eval(`(() => { const i = document.getElementById('${id}'); i.value = '${value}'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await setDate('em-from', '2026-09-05');
+  await p.waitFor(`${S}.window.start === '2026-09-05'`, 5000, 'one-day window');
+  const empty = await p.eval(`(() => { const e = document.getElementById('em-window-empty');
+    return [e.hidden, e.textContent, document.querySelector('#box-last strong').textContent, document.querySelector('#box-positives strong').textContent]; })()`);
+  check(!empty[0] && empty[1] === 'No positive was detected between these dates. To see the positives current on a date, keep the first date at Jul 15, 2026 and change only the second.'
+    && empty[2] === 'None between these dates' && empty[3] === '0',
+  'dates: a window with no positive says so under the dates, and "Last positive" reads "None between these dates"', empty);
+  await setDate('em-from', '2026-07-15');
+  await p.waitFor(`${S}.window.start === '2026-07-15'`, 5000, 'window back');
+  check(await p.eval(`document.getElementById('em-window-empty').hidden && document.querySelector('#box-last strong').textContent === 'Sep 2, 2026'`),
+    'dates: with a positive in the window again, the line goes and "Last positive" is its date');
+  // The population layers (2.4): on after a load of a positives file; turned off, they stay off when the same
+  // positives file comes again (as when a layer or a zone file is added), and a new positives file turns them on.
+  const pcTicked = () => p.eval(`Array.from(document.querySelectorAll('#pc-block .pc-on')).filter(b => b.checked).map(b => b.dataset.layer)`);
+  const pcFirst = await pcTicked();
+  await tick('pc-density');
+  await p.waitFor(`!document.getElementById('pc-density').checked`, 5000, 'density off');
+  await load([samplePath]);
+  await sleep(300);
+  const pcSame = await pcTicked();
+  await load([path.join(TABLES, 'em_rules_quarantine.csv')]);
+  await sleep(300);
+  const pcNew = await pcTicked();
+  check(same(pcFirst, ['cities', 'places', 'density']) && same(pcSame, ['cities', 'places'])
+    && same(pcNew, ['cities', 'places', 'density']),
+  'view: the population layers on after a load; density turned off stays off when the same positives file comes again; a new positives file turns it on',
+    { first: pcFirst, same: pcSame, new: pcNew });
+  // Quarantines not known (2.4): the Past positives icon striped gold when some are not known and none is under
+  // quarantine, solid gold when one is; "n not known" in bold either way. The file as it is (1 under, 2 not known),
+  // then a copy with Yakima 02 released (none under, 2 not known).
+  const pastBox = () => p.eval(`(() => { const box = document.getElementById('box-past'), ic = getComputedStyle(box.querySelector('.card-ic'));
+    return { quar: box.classList.contains('quar'), unk: box.classList.contains('unk'), striped: /repeating-linear-gradient/.test(ic.backgroundImage),
+      bold: Array.from(box.querySelectorAll('.card-note b')).map(e => e.textContent), note: box.querySelector('.card-note').textContent }; })()`);
+  const oneUnder = await pastBox();
+  const released = path.join(OUTV, 'quarantine_none_under.csv');
+  fs.writeFileSync(released, fs.readFileSync(path.join(TABLES, 'em_rules_quarantine.csv'), 'utf8').replace(/,Under quarantine(\r?\n)/, ',Released$1'));
+  await load([released]);
+  await sleep(300);
+  const noneUnder = await pastBox();
+  check(oneUnder.quar && oneUnder.unk && !oneUnder.striped && same(oneUnder.bold, ['1', '2 not known'])
+    && oneUnder.note === '1 still under quarantine, 2 not known'
+    && !noneUnder.quar && noneUnder.unk && noneUnder.striped && same(noneUnder.bold, ['2 not known'])
+    && noneUnder.note === 'none under quarantine, 2 not known',
+  'boxes: quarantines not known: the icon striped gold when none is under quarantine (solid gold when one is), "2 not known" in bold',
+    { oneUnder, noneUnder });
+  await b.send('Emulation.clearDeviceMetricsOverride', {}, p.sid);
+}
+
 async function partSpeed(b) {
   const p = b.page, S = 'WSDA.emergency.state', OUTS = path.join(OUT, 'speed');
   const MASTER = path.join(ROOT, 'local-test-artifacts', 'scale', 'cvi_master_50000.csv');
@@ -1286,6 +1535,8 @@ async function partPng(b) {
         panel: ((m.panel || {}).rows || []).map(r => (r.names || [r.name]).join(' ')), footer: m.footer, dpi: l.dpi, size: l.size, notices: l.notices,
         cvi: (m.cviPremises || []).map(q => q.end), keyMode: m.keyMode, keyFits: m.keyFits, keyShown: m.keyShown, panelH: m.panelH,
         layersIn: (m.facilities || []).length, keyCounts: (m.keyItems || []).map(i => i.label + (i.count ? ' ' + i.count : '')),
+        nameLayers: m.nameLayers, names: (m.names || []).length, facilityNames: (m.facilityNames || []).map(n => n.layer),
+        streetNames: (m.streetNames || []).length, background: m.background, source: m.source,
         line: document.getElementById('em-export-result').textContent }; })()`);
     return Object.assign(info, st);
   };
@@ -1297,7 +1548,7 @@ async function partPng(b) {
   await open();
   await load([samplePath]);
   const ctl = await p.eval(`(() => { const f = document.getElementById('export-fold');
-    return { button: document.getElementById('em-png').textContent.trim(), nextToExport: document.getElementById('em-png').previousElementSibling.id,
+    return { button: document.getElementById('em-png').textContent.trim(), nextToExport: document.getElementById('em-png').previousElementSibling.previousElementSibling.id,
       inOptions: !!f && f.contains(document.getElementById('em-png')) && f.contains(document.getElementById('em-png-background'))
         && f.parentElement.matches('aside') && !f.nextElementSibling && f.querySelector('summary').textContent === 'Export & Preview'
         && !document.querySelector('.em-main #em-export'), closed: !!f && !f.open,
@@ -1305,9 +1556,9 @@ async function partPng(b) {
       resolutions: Array.from(document.getElementById('em-png-resolution').options).map(o => o.textContent),
       quality: document.getElementById('em-png-quality-field').hidden, provider: document.getElementById('em-png-provider').hidden }; })()`);
   check(ctl.button === 'Map picture (PNG)' && ctl.nextToExport === 'em-export' && ctl.inOptions && ctl.closed
-    && same(ctl.backgrounds, ['Default', 'Satellite', 'Shaded Relief', 'Hillshade'])
+    && same(ctl.backgrounds, ['Default', 'Satellite', 'Shaded Relief', 'Hillshade', 'Streets (vector)'])
     && same(ctl.resolutions, ['Standard (200 dpi)', 'High (300 dpi)']) && ctl.quality && ctl.provider,
-  'png: "Map picture (PNG)" under Export, both with the picture\'s options in "Export & Preview", closed, the sidebar\'s last section (Default and the tile backgrounds, 200 or 300 dpi); quality and provider hidden for Default', ctl);
+  'png: "Map picture (PNG)" under Export and Preview Map, all with the picture\'s options in "Export & Preview", closed, the sidebar\'s last section (Default, the tile backgrounds and Streets, 200 or 300 dpi); quality and provider hidden for Default', ctl);
   await pick('em-png-background', 'raster:esri_satellite');
   const sat = await p.eval(`({ quality: document.getElementById('em-png-quality-field').hidden,
     provider: document.getElementById('em-png-provider').textContent })`);
@@ -1344,6 +1595,103 @@ async function partPng(b) {
   v = await picture();
   check(shown === '2026-09-05' && v.stats.left[0].value === 'Jul 15, 2026 and Sep 5, 2026' && v.meta.right.indexOf('As of Sep 5, 2026') === 0
     && same(v.boxes[0], ['Current positives', '2']), 'png: during a paused play the picture shows the week shown (Sep 5, two current positives)', [shown, v.stats, v.boxes]);
+
+  // 2.4: the controls in the approved order: the background, the resolution, "Name markers in PNG" (open: "Positives"
+  // ticked, then each checked layer not ticked, in the layers' order), "Optional Filename" with its note, "Optional Map
+  // Title", then Export, Preview Map and the PNG button.
+  await open();
+  await load([samplePath]);
+  const order = await p.eval(`(() => { const f = document.getElementById('export-fold').querySelector('.section-body');
+    const ids = Array.from(f.querySelectorAll('#em-png-background, #em-png-resolution, #em-names, #em-png-label, .name-note, #em-png-title, #em-export, #em-preview, #em-png'))
+      .map(e => e.id || e.className);
+    const boxes = Array.from(document.querySelectorAll('#em-name-list input'));
+    const checked = Array.from(document.querySelectorAll('#em-layers input:checked')).map(i => i.parentElement.textContent.replace(/ \\(\\d+\\)$/, ''));
+    return { ids, open: document.getElementById('em-names').open, names: boxes.map(i => i.parentElement.textContent.trim()),
+      ticked: boxes.filter(i => i.checked).map(i => i.value), checked,
+      note: document.querySelector('#export-fold .name-note').textContent,
+      holders: [document.getElementById('em-png-label').placeholder, document.getElementById('em-png-title').placeholder],
+      preview: document.getElementById('em-preview').textContent.trim() }; })()`);
+  check(same(order.ids, ['em-png-background', 'em-png-resolution', 'em-names', 'em-png-label', 'muted name-note', 'em-png-title', 'em-export', 'em-preview', 'em-png'])
+    && order.open && same(order.names, ['Positives'].concat(order.checked)) && order.checked.length >= 6 && same(order.ticked, ['positives'])
+    && /^Do not type a person's name or a case number here/.test(order.note) && same(order.holders, ['Auto-named if blank', 'Auto-titled if blank'])
+    && order.preview === 'Preview Map',
+  'png: "Name markers in PNG" ("Positives" ticked, each checked layer not), "Optional Filename" with its note and "Optional Map Title" above Export, Preview Map and the PNG button', order);
+  // Preview Map: the picture the button would save, in CVI's window, nothing downloaded; closed by its Close button.
+  const dlBefore = fs.readdirSync(DL).length;
+  await p.click(`document.getElementById('em-preview').click()`);
+  await p.waitFor(`document.getElementById('preview-dialog') && document.getElementById('preview-dialog').open
+    && document.querySelector('#preview-body img') && document.querySelector('#preview-body img').complete
+    && document.querySelector('#preview-body img').naturalWidth > 0`, 60000, 'preview shown');
+  const pv = await p.eval(`(() => { const d = document.getElementById('preview-dialog'), img = d.querySelector('#preview-body img');
+    return { title: d.querySelector('#preview-title').textContent, note: d.querySelector('#preview-note').textContent,
+      width: img.naturalWidth, height: img.naturalHeight, alt: img.alt, caption: d.querySelector('figcaption').textContent,
+      button: document.getElementById('em-preview').textContent.trim(), enabled: !document.getElementById('em-preview').disabled
+        && !document.getElementById('em-png').disabled, model: (${S}.lastPreview || {}).model.fileName }; })()`);
+  await p.click(`document.getElementById('preview-close').click()`);
+  const pvClosed = await p.eval(`!document.getElementById('preview-dialog').open`);
+  check(pv.title === 'Map preview' && pv.note === 'This is what the PNG will look like when exported.' && pv.width === 2200 && pv.height === 1700
+    && pv.alt === 'HPAI RESPONSE MAP' && pv.caption === 'emergency_hpai_' + today + '.png' && pv.model === pv.caption && pv.button === 'Preview Map'
+    && pv.enabled && pvClosed && fs.readdirSync(DL).length === dlBefore,
+  'png: Preview Map shows the picture the button saves in the "Map preview" window ("This is what the PNG will look like when exported."), saves nothing; Close closes it', [pv, pvClosed]);
+  // The name markers: All names every layer's sites inside, Clear names no one; a layer unchecked in "Layers to check"
+  // leaves the list, and comes back not ticked.
+  await p.click(`document.getElementById('em-names-all').click()`);
+  v = await picture('hpai_all_names_200dpi');
+  const allTicked = await p.eval(`Array.from(document.querySelectorAll('#em-name-list input')).every(i => i.checked)`);
+  check(allTicked && v.names === 6 && v.facilityNames.length > 0 && v.nameLayers.length === order.names.length,
+    'png: "All" ticks every name marker: the positives and every layer\'s sites inside named', [v.nameLayers, v.names, v.facilityNames.length]);
+  await p.click(`document.getElementById('em-names-clear').click()`);
+  v = await picture();
+  check(v.names === 0 && !v.facilityNames.length && same(v.nameLayers, []),
+    'png: "Clear" unticks them all: no names on the picture', [v.names, v.facilityNames]);
+  const firstLayer = await p.eval(`document.querySelector('#em-layers input:checked').value`);
+  await p.eval(`(() => { document.querySelector('#em-name-list input[value="${firstLayer}"]').click(); const i = document.querySelector('#em-layers input[value="${firstLayer}"]');
+    i.click(); return true; })()`);
+  const gone = await p.eval(`!document.querySelector('#em-name-list input[value="${firstLayer}"]')`);
+  await p.eval(`(() => { document.querySelector('#em-layers input[value="${firstLayer}"]').click(); return true; })()`);
+  const back = await p.eval(`(() => { const i = document.querySelector('#em-name-list input[value="${firstLayer}"]'); return i ? i.checked : null; })()`);
+  check(gone && back === false, 'png: a layer unchecked in "Layers to check" leaves the name markers; checked again it comes back not ticked', [firstLayer, gone, back]);
+  await p.eval(`(() => { const i = document.querySelector('#em-name-list input[value="positives"]'); i.click(); return true; })()`);
+  // The two fields: the title typed on the picture; the picture and the CSV ZIP named from the file name, which
+  // export_params.json records.
+  await p.eval(`(() => { document.getElementById('em-png-title').value = 'Briefing map'; document.getElementById('em-png-label').value = 'Briefing Oct/22';
+    return true; })()`);
+  v = await picture('hpai_title_filename_200dpi');
+  const exportsBefore = await p.eval(`${S}.exported || 0`);
+  await p.click(`document.getElementById('em-export').click()`);
+  await p.waitFor(`(${S}.exported || 0) > ${exportsBefore}`, 15000, 'export made');
+  const zipFolder = await p.eval(`${S}.lastExport[0].name`);
+  const params = await p.eval(`JSON.parse(${S}.lastExport.find(e => /export_params\\.json$/.test(e.name)).data)`);
+  check(v.name === today + '_Briefing_Oct_22.png' && v.title === 'Briefing map' && params.export_label === 'Briefing Oct/22'
+    && zipFolder === today + '_Briefing_Oct_22/',
+    'png: "Optional Map Title" on the picture; "Optional Filename" names the picture and the CSV ZIP (<date>_<name>), recorded in export_params.json', [v.name, v.title, params.export_label, zipFolder]);
+  await p.eval(`(() => { document.getElementById('em-png-title').value = ''; document.getElementById('em-png-label').value = ''; return true; })()`);
+  // Streets (vector): no network note or quality; the streets data loaded when first used; roads, water and place
+  // names drawn, the source line naming them.
+  await pick('em-png-background', 'vector:streets');
+  const stCtl = await p.eval(`({ quality: document.getElementById('em-png-quality-field').hidden, provider: document.getElementById('em-png-provider').hidden,
+    loaded: !!window.WSDA_STREETS })`);
+  v = await picture('hpai_streets_200dpi');
+  check(stCtl.quality && stCtl.provider && !stCtl.loaded && v.background === 'vector:streets' && v.streetNames > 3
+    && /Streets: U\.S\. Census Bureau TIGER\/Line/.test(v.source) && !v.notices.length && v.name === 'emergency_hpai_' + today + '.png',
+  'png: Streets (vector): no quality or provider line, its data loaded when first used, place names and the streets\' source on the picture', [stCtl, v.background, v.streetNames, v.source]);
+  await pick('em-png-background', 'standard');
+  // The Streets data failing to load (a fresh page, its script refused once by the test): the Default background and
+  // a notice; the next picture tries again and gets the streets.
+  await open();
+  await load([samplePath]);
+  await p.eval(`(() => { const add = document.head.appendChild.bind(document.head); window.refusedStreets = 0;
+    document.head.appendChild = n => { if (n.tagName === 'SCRIPT' && /streets-wa\\.js$/.test(n.src) && !window.refusedStreets++)
+      n.src = n.src.replace('streets-wa.js', 'refused-by-the-test.js'); return add(n); }; return true; })()`);
+  await pick('em-png-background', 'vector:streets');
+  const stFailed = await picture();
+  const stAgain = await picture();
+  check(stFailed.state === 'completed' && stFailed.background === 'standard'
+    && same(stFailed.notices, ['The Streets background could not be loaded, so the Default background was used.'])
+    && stAgain.background === 'vector:streets' && !stAgain.notices.length && stAgain.streetNames > 3,
+  'png: the Streets data not loaded: the picture on the Default background with a notice; the next picture tries again and has the streets',
+    [stFailed.background, stFailed.notices, stAgain.background, stAgain.notices]);
+  await pick('em-png-background', 'standard');
 
   // With the small CVI master: the CVI premises in a zone drawn and named in the key with the CVI tab's years.
   await open();
@@ -1605,11 +1953,13 @@ async function partOverview(b) {
     const walk = a => (typeof a[0] === 'number' ? (box[0] = Math.min(box[0], a[0]), box[1] = Math.min(box[1], a[1]),
       box[2] = Math.max(box[2], a[0]), box[3] = Math.max(box[3], a[1])) : a.forEach(walk));
     s.zoneFile.zones.forEach(z => walk(z.geometry.coordinates));
+    const zoneBox = box.slice();
+    WSDA.emergencyRules.groups(s.read, s.window).current.forEach(x => walk([x.lon, x.lat]));
     const sw = m.project([box[0], box[1]]), ne = m.project([box[2], box[3]]), c = m.getCanvas();
     return { fitNext: s.fitNext, zoom: m.getZoom(), inside: b.getWest() <= box[0] && b.getSouth() <= box[1] && b.getEast() >= box[2] && b.getNorth() >= box[3],
-      span: Math.max((ne.x - sw.x) / c.clientWidth, (sw.y - ne.y) / c.clientHeight) }; })()`);
-  check(waiting && !fitted.fitNext && fitted.inside && fitted.zoom > zoomBefore + 0.5 && fitted.span >= 0.5,
-    'overview: the zone file ticked on the Overview: the map\'s fit waits, then on the Map it fits the zone, filling at least half the map', [waiting, zoomBefore, fitted]);
+      span: Math.max((ne.x - sw.x) / c.clientWidth, (sw.y - ne.y) / c.clientHeight), wider: box[0] < zoneBox[0] || box[2] > zoneBox[2] }; })()`);
+  check(waiting && !fitted.fitNext && fitted.inside && fitted.span >= 0.5 && fitted.wider,
+    'overview: the zone file ticked on the Overview: the map\'s fit waits, then on the Map it fits the zone and the positives shown (2.4), filling at least half the map', [waiting, zoomBefore, fitted]);
   await show('overview');
   await settled();
   // 320 pixels wide: one column, the boxes one to a row, the bars' labels above them, nothing scrolling sideways.
@@ -1622,11 +1972,12 @@ async function partOverview(b) {
   'overview: at 320 pixels wide nothing scrolls sideways, the boxes one to a row, the bars\' labels above their bars at the panel\'s width', [v.scroll, boxes, v.county.width]);
   await shot('ov_03_scenario_320');
   await b.send('Emulation.clearDeviceMetricsOverride', {}, p.sid);
-  // The tracts' file failing to load (a fresh page, its load refused): the people box says so, never zero.
+  // The tracts' file failing to load (a fresh page, its load refused before the files, since the density layer is
+  // on after a load): the people box says so, never zero.
   await p.goto(new URL('emergency/index.html', SITE).href);
   await p.waitFor(`window.WSDA && WSDA.emergency && ${S}.map.ready`, 20000, 'Emergency map ready');
-  await load([samplePath]);
   await p.eval(`(WSDA.population.load = () => Promise.reject(new Error('refused by the test')), true)`);
+  await load([samplePath]);
   await show('overview');
   await settled();
   v = await view();
@@ -1657,6 +2008,7 @@ async function shot2(b, name) {
       else if (part === 'e1b') await partE1b(b);
       else if (part === 'png') await partPng(b);
       else if (part === 'chart') await partChart(b);
+      else if (part === 'view') await partView(b);
       else if (part === 'overview') await partOverview(b);
       else if (part === 'speed') await partSpeed(b);
       else check(false, 'unknown part ' + part);

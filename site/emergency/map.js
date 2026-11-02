@@ -7,20 +7,21 @@
  * What it draws (the page gives it, data below): the zones, as rings around the positives (each ring between its
  * distance and the one inside it, in its ring's color) or as a zone file's polygons; the past positives' rings, when
  * asked for, gray and dashed; the sites of the ticked layers outside the zones, small and faded; the sites inside the
- * zones, in their layer's mark; the positives on top, in their status color (a past positive hollow and faded, a
- * positive without zones smaller); the spot picked with "Add a point on the map" (a hollow ring). Hover, set as text
+ * zones, in their layer's mark; the positives on top, each in its animal's shape and its status color with a white
+ * halo and a dark outline (a past positive hollow and faded, a positive without zones smaller); the spot picked with "Add a point on the map" (a hollow ring). Hover, set as text
  * (file values are never read as HTML): every positive under the pointer (marks can share a spot); else the site on
  * top; each with its name in bold, then its other lines. Else every zone under the pointer, smallest ring first,
  * under its positive's name (named once, in bold), each with its days since the last positive; then the "as of"
- * line. Never wider than the screen. The view fits the zones (else the positives) after each new set of files or
- * zones.
+ * line. Never wider than the screen. The view fits what is drawn (the zones, the past zones and the positives shown),
+ * with the legend's width kept clear, when the page asks.
  *
  * create(container, geo, onReady, onError) -> the map's state (map.js create with this kind)
  * draw(st, data, fit) -> draws data: { zones and pastZones: [GeoJSON Feature with properties { color, label, zid }],
  *   zoneTips: for each zid, [{ km, head, text }] (the hover's lines for that zone, each under its heading head, the
- *   positive's name, or '' for none), tipFoot (the hover's last line, the "as of" date), positives: [{ lat, lon, label (lines split by "\n"), color, past, withZones }], inside and outside:
+ *   positive's name, or '' for none), tipFoot (the hover's last line, the "as of" date), positives: [{ lat, lon, label (lines split by "\n"), color, past, withZones, shape (rules.js animalShapeOf) }], inside and outside:
  *   [{ lat, lon, label (lines split by "\n"), shape, color }], bounds: [west, south, east, north] or null }; fit: true fits the view to the
  *   bounds
+ * viewBounds(zones, pastZones, positives) -> the bounds that take in all of them, or null
  * setPicking(st, on, onPick) -> while on, a click on the map calls onPick(lon, lat), with a crosshair cursor
  * setPick(st, [lon, lat] | null) -> marks the picked spot
  * hoverAt(st, point) (as st.hoverAt) -> the hover at a point of the screen, or null: { items: [{ head, lines }],
@@ -44,8 +45,42 @@
     properties: { label: p.label, mark: M().markId(p.shape || 'circle', p.color) } })) });
   const dots = list => ({ type: 'FeatureCollection', features: list.map((p, i) => ({ type: 'Feature', id: i + 1,
     geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-    properties: { label: p.label, color: p.color, fill: p.past ? '#ffffff' : p.color, radius: p.withZones ? 7 : 5,
-      opacity: p.past ? 0.55 : 1 } })) });
+    properties: { label: p.label, mark: positiveId(p), opacity: p.past ? 0.55 : 1 } })) });
+
+  // A positive's mark (2.4, the owner's look D): its animal's shape (rules.js animalShapeOf) filled in its status
+  // color, with a white halo and a near-black outline, half larger than the circle before (radius 7 with zones, else
+  // 5); a past one white inside with an edge in its status color, faded by the layer. Drawn at twice the size for
+  // sharp edges; made again when a basemap's new style asks for it.
+  const OUTLINE = '#1a1a1a', HALO = 2, LARGER = 1.5;
+  const positiveId = p => 'em-positive:' + (p.shape || 'circle') + ':' + (p.past ? 'past' : 'now') + ':' +
+    (p.withZones ? 'zones' : 'none') + ':' + p.color;
+  function positiveImage(shape, past, withZones, color) {
+    const k = 2, r = (withZones ? 7 : 5) * LARGER, half = Math.ceil(r + 5 + 2 * HALO);
+    const c = root.document.createElement('canvas');
+    c.width = c.height = 2 * half * k;
+    const g = c.getContext('2d');
+    g.scale(k, k);
+    g.lineJoin = 'round';
+    const path = new root.Path2D(root.WSDA.facilities.markPath(shape, half, half, r + 1.25));
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 1.6 + 2 * HALO;
+    g.stroke(path);
+    g.fillStyle = past ? '#ffffff' : color;
+    g.fill(path);
+    if (past) {
+      g.strokeStyle = color;
+      g.lineWidth = 3;
+      g.stroke(path);
+    }
+    g.strokeStyle = OUTLINE;
+    g.lineWidth = past ? 1 : 1.6;
+    g.stroke(path);
+    return g.getImageData(0, 0, c.width, c.height);
+  }
+  function addPositive(map, id) {
+    const m = /^em-positive:([a-z-]+):(past|now):(zones|none):(.+)$/.exec(id);
+    if (m && !map.hasImage(id)) map.addImage(id, positiveImage(m[1], m[2] === 'past', m[3] === 'zones', m[4]), { pixelRatio: 2 });
+  }
 
   const KIND = {
     isOwn: id => /^em_/.test(String(id)),
@@ -73,9 +108,7 @@
           paint: { 'line-color': PAST, 'line-width': 1.5, 'line-opacity': 0.8, 'line-dasharray': [3, 2] } },
         M().markLayer('em_outside', SRC.outside, ['get', 'mark'], { size: 0.7, opacity: 0.35 }),
         M().markLayer('em_inside', SRC.inside, ['get', 'mark'], { size: 1, opacity: 1 }),
-        { id: 'em_positives', type: 'circle', source: SRC.positives, paint: { 'circle-color': ['get', 'fill'],
-          'circle-radius': ['get', 'radius'], 'circle-stroke-color': ['get', 'color'], 'circle-stroke-width': 2.5,
-          'circle-opacity': ['get', 'opacity'], 'circle-stroke-opacity': ['get', 'opacity'] } },
+        M().markLayer('em_positives', SRC.positives, ['get', 'mark'], { size: 1, opacity: ['get', 'opacity'] }),
         { id: 'em_pick', type: 'circle', source: SRC.pick, paint: { 'circle-radius': 9, 'circle-color': '#ffffff',
           'circle-opacity': 0.35, 'circle-stroke-color': PICK, 'circle-stroke-width': 2.5 } }
       ]);
@@ -112,6 +145,7 @@
     };
     // The marks' pictures first, so the marks show as soon as the map has drawn.
     (d.outside || []).concat(d.inside || []).forEach(p => M().addMark(st.map, p.shape || 'circle', p.color));
+    (d.positives || []).forEach(p => addPositive(st.map, positiveId(p)));
     Object.keys(SRC).forEach(k => { if (st.map.getSource(SRC[k])) st.map.getSource(SRC[k]).setData(st.em[k]); });
     st.bounds = d.bounds || null;
     st.drawn = { zones: st.em.zones.features.length, pastZones: st.em.pastZones.features.length,
@@ -120,11 +154,29 @@
     if (fitView || st.fitPending) { st.fitPending = false; fit(st); }
   }
 
-  // The view: the zones and positives, else Washington.
+  // The view: what is drawn (viewBounds), else Washington. The legend's width is kept clear on the right (st.legendWidth,
+  // set by the page: 0 when the legend is not over the map), so no positive sits under it. The edge of 60 pixels keeps
+  // a mark at the edge (about 20 pixels from its middle to a square's corner) clear of the map's buttons (about 40).
+  const EDGE = 60;
   function fit(st) {
     if (!st.ready || st.failed) return;
-    if (st.bounds) st.map.fitBounds([[st.bounds[0], st.bounds[1]], [st.bounds[2], st.bounds[3]]], { padding: 40, maxZoom: 11, animate: false });
+    const right = EDGE + (st.legendWidth ? st.legendWidth() : 0);
+    if (st.bounds) st.map.fitBounds([[st.bounds[0], st.bounds[1]], [st.bounds[2], st.bounds[3]]],
+      { padding: { top: EDGE, bottom: EDGE, left: EDGE, right }, maxZoom: 11, animate: false });
     else M().fitView(st);
+  }
+
+  // The box the view takes in (2.4): every zone and past zone drawn and every positive shown, as [west, south, east,
+  // north], or null when nothing is.
+  function viewBounds(zones, pastZones, positives) {
+    let b = null;
+    const grow = (lon, lat) => {
+      b = b ? [Math.min(b[0], lon), Math.min(b[1], lat), Math.max(b[2], lon), Math.max(b[3], lat)] : [lon, lat, lon, lat];
+    };
+    zones.concat(pastZones).forEach(f => (f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates)
+      .forEach(poly => poly[0].forEach(([lon, lat]) => grow(lon, lat))));
+    positives.forEach(p => grow(p.lon, p.lat));
+    return b;
   }
 
   // ── Add a point on the map (Premise Lookup's Pick on map) ──
@@ -222,6 +274,7 @@
       tip.setLngLat(e.lngLat).setHTML(hoverHtml(hover)).addTo(map);
     });
     map.getCanvas().addEventListener('mouseleave', () => st.clearHover());
+    map.on('styleimagemissing', e => addPositive(map, e.id));
     map.on('click', e => {
       if (st.switching) return;
       if (st.picking && st.onPick) st.onPick(e.lngLat.lng, e.lngLat.lat);
@@ -247,5 +300,5 @@
   }
 
   root.WSDA = root.WSDA || {};
-  root.WSDA.emergencyMap = { create, draw, fit, setPicking, setPick, hoverAt, zoneFeatures, polygonFeatures, KIND, SRC };
+  root.WSDA.emergencyMap = { create, draw, fit, viewBounds, setPicking, setPick, hoverAt, zoneFeatures, polygonFeatures, KIND, SRC };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -19,6 +19,7 @@
       disease: ['Subtype', 'Disease Name'],
       status: ['Case Status'],
       quarantine: ['Quarantine Release'],
+      quarantineStatus: ['Quarantine Status'],
       flockType: ['Flock/Herd Type'],
       inventory: ['Flock/Herd Inventory'],
       shown: ['Production Type']

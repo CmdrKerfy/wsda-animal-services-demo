@@ -8,8 +8,8 @@
 //
 // Each mutant changes one exact piece of code in a temporary copy of the repository; the suite named for its group
 // must then report failed checks. A suite that stops early does not count as catching it.
-//   unit   site/emergency/rules.js, types.js, datasets.js, branded.js, chart.js and site/shared/recognize.js, against the Emergency unit
-//          suite (which also compares the rules with the R reference)
+//   unit   site/emergency/rules.js, types.js, datasets.js, branded.js, chart.js, map.js's viewBounds (2.4) and site/shared/recognize.js, against the Emergency unit
+//          suite (which also compares the rules with the R reference); from 2.4 also tools/work-pc/check_hpai_table.R
 //   page   site/emergency/app.js, map.js and index.html, against the Emergency Chrome suite's parts named with the
 //          mutant ("page" and "results" unless it names others; from E1b also "e1b", "png", "chart" and "speed"; from 2.3
 //          "overview")
@@ -32,6 +32,7 @@ const COPY = path.join(TEMP, 'platform');
 const RU = 'site/emergency/rules.js', TY = 'site/emergency/types.js', DS = 'site/emergency/datasets.js';
 const RE = 'site/shared/recognize.js', AP = 'site/emergency/app.js', HT = 'site/emergency/index.html';
 const BRD = 'site/emergency/branded.js', CHT = 'site/emergency/chart.js', MP = 'site/emergency/map.js';
+const TC = 'tools/work-pc/check_hpai_table.R';
 
 // [name, file, exact original text, replacement, the Chrome parts that must catch it (page mutants only; default
 // "page" and "results")]
@@ -67,8 +68,8 @@ const GROUPS = {
     ['columns: the type picked from the first disease column only', RU,
       'at.length ? at.flatMap(i => data.map(x => cell(x.r, i))) : null', 'at.length ? data.map(x => cell(x.r, at[0])) : null'],
     ['types: a status spelled in capitals not recognized', TY,
-      "const v = String(value == null ? '' : value).trim().toLowerCase();\n    if (!v) return null;",
-      "const v = String(value == null ? '' : value).trim();\n    if (!v) return null;"],
+      "const v = String(value == null ? '' : value).trim().toLowerCase();\n    if (!v) return null;\n    return type.statuses",
+      "const v = String(value == null ? '' : value).trim();\n    if (!v) return null;\n    return type.statuses"],
     ['types: a disease word matches inside a word', TY,
       'if (at === 0 || !/[a-z0-9]/.test(textLower[at - 1])) return true;', 'return true;'],
     ['types: an http link accepted', TY, "!/^https:\\/\\/[^\\s\"<>]+$/.test(url)", "!/^https?:\\/\\/[^\\s\"<>]+$/.test(url)"],
@@ -76,8 +77,8 @@ const GROUPS = {
       'if (p.closedDate) return true;'],
     ['past: Status Closed decides over the Close Date', RU,
       '    if (p.closedDate) return !end || p.closedDate <= end;\n    return p.closed;', '    return p.closed;'],
-    ['quarantine: a release after the end counts as released', RU, 'return !p.quarantine || (!!end && p.quarantine > end);',
-      'return !p.quarantine;'],
+    ['quarantine: a release after the end counts as released', RU, "if (p.quarantine) return end && p.quarantine > end ? 'under' : 'released';",
+      "if (p.quarantine) return 'released';"],
     ['window: a positive without a date hidden', RU, 'if (!win || !p.detected) return true;',
       'if (!win) return true;\n    if (!p.detected) return false;'],
     ['not mapped: a swapped pair called unreadable', RU, "      return 'latitude and longitude look swapped';",
@@ -171,8 +172,8 @@ const GROUPS = {
       'for (const p of g.past) row(countyOf(p, counties)).past++;', 'for (const p of g.past) row(countyOf(p, counties)).current++;'],
     ['positives table: oldest first', RU, "(b.detected || '').localeCompare(a.detected || '') || a.line - b.line",
       "(a.detected || '').localeCompare(b.detected || '') || a.line - b.line"],
-    ['positives table: columns the file lacks kept', RU, "      [c.quarantine, p => day(p.quarantine), !!c.quarantine]].filter(col => col[2]);",
-      "      [c.quarantine, p => day(p.quarantine), !!c.quarantine]];"],
+    ['positives table: columns the file lacks kept', RU, "      [c.quarantineStatus, p => text(p.quarantineStatusText), !!c.quarantineStatus]].filter(col => col[2]);",
+      "      [c.quarantineStatus, p => text(p.quarantineStatusText), !!c.quarantineStatus]];"],
     ['people: a small tract measured with 250 m cells', RU, 'cell: Math.min(CELL_KM, Math.sqrt(area / TRACT_CELLS)),', 'cell: CELL_KM,'],
     ['people: overlapping zones counted twice', RU, '            if (seen.has(at)) continue;\n', ''],
     ['people: the zone edge drawn 10% short', RU, 'return km !== null && km <= sites[k].bufferKm;',
@@ -203,7 +204,77 @@ const GROUPS = {
     ['people: zones wholly outside Washington shown as ~0', RU, 'people.beyond && !people.tracts.length ?', 'false ?'],
     ['people: "Washington only" not said', RU, "(people.beyond ? ' · Washington only' : '')", "''"],
     ['people: a zone file\'s zone never past Washington', RU, 'return polys.some(poly => poly[0].some(q => past(q[0], q[1])));',
-      'return false;']
+      'return false;'],
+    // 2.4: the Quarantine Status column.
+    ['quarantine: the status column ignored', RU, '    if (p.quarantineStatus) return p.quarantineStatus;\n', ''],
+    ['quarantine: both blank counted as still under quarantine', RU, "return read.columns.quarantineStatus ? 'unknown' : 'under';", "return 'under';"],
+    ['quarantine: the status before the release date', RU,
+      "    if (p.quarantine) return end && p.quarantine > end ? 'under' : 'released';\n    if (p.quarantineStatus) return p.quarantineStatus;",
+      "    if (p.quarantineStatus) return p.quarantineStatus;\n    if (p.quarantine) return end && p.quarantine > end ? 'under' : 'released';"],
+    ['quarantine: a file with only the status column has no quarantine', RU,
+      'if ((!read.columns.quarantine && !read.columns.quarantineStatus) || !isPast(p, end)) return null;',
+      'if (!read.columns.quarantine || !isPast(p, end)) return null;'],
+    ['groups: not known counted as still under quarantine', RU, "        else if (q === 'unknown') out.notKnown.push(p);",
+      "        else if (q === 'unknown') out.stillQuarantined.push(p);"],
+    ['the past box: not known left out of the note', RU, "            + (notKnown ? ', ' + notKnown.toLocaleString('en-US') + ' not known' : '') };", ' };'],
+    ['a quarantine status not read not named', RU, '      if (badQ) lines.push(', '      if (false) lines.push('],
+    ['positives.csv: no Quarantine Status column', RU, ".concat(status ? ['Quarantine Status'] : [], ['Detection Date'", ".concat([], ['Detection Date'"],
+    ['positives.csv: not known not noted', RU, "{ under: 'Still under quarantine', unknown: 'Quarantine not known' }", "{ under: 'Still under quarantine' }"],
+    ['types: "Released" never read', TY,
+      "return type.quarantineValues.under.includes(v) ? 'under' : type.quarantineValues.released.includes(v) ? 'released' : null;",
+      "return type.quarantineValues.under.includes(v) ? 'under' : null;"],
+    ['types: a value in both lists allowed', TY, '    if (both) fail(', '    if (false) fail('],
+    // 2.4: the animals' shapes, the legend's rows, the view's box, the picture's marks and key.
+    ['shapes: every positive a circle', RU, '    return shapeAt(animalWords(type).indexOf(inventoryWordOf(type, p)));', "    return 'circle';"],
+    ['shapes: a later animal word no triangle', RU, 'ANIMAL_SHAPES[Math.min(Math.max(i, 0), ANIMAL_SHAPES.length - 1)]',
+      "ANIMAL_SHAPES[Math.max(i, 0)] || 'circle'"],
+    ['legend: every animal of the type, drawn or not', RU, "shapeAt(i) === shape && drawn.has(w))", 'shapeAt(i) === shape)'],
+    ['view: the past zones left out', MP, '    zones.concat(pastZones).forEach(f =>', '    zones.forEach(f =>'],
+    ['view: the positives only when there are no zones', MP, '    positives.forEach(p => grow(p.lon, p.lat));\n    return b;',
+      '    if (!b) positives.forEach(p => grow(p.lon, p.lat));\n    return b;'],
+    ['picture: the animal\'s shape ignored', BRD, "    if (shape && shape !== 'circle') {", '    if (false) {'],
+    ['picture: the animals one to a row', BRD, '      if (row && wordEnd <= 0.8 * inner) {', '      if (false) {'],
+    ['picture: no animals in the key', BRD, '    animalRows(o.animals || []).forEach(', '    [].forEach('],
+    ['picture: the value boxes where they were', BRD, '    const x = Math.min(0.46, periodRight / BR.px(1) + 0.03);', '    const x = 0.46;'],
+    ['picture: a long box label never drawn smaller', BRD, '      const labelPt = Math.max(', '      const labelPt = basePt || Math.max('],
+    ['picture: a box label drawn smaller to fit is cut too', BRD, '<= room + 1e-6) return label;', '<= room) return label;'],
+    ['picture: the box label as close to its number as before', BRD, 'labelY = p.v(0.27);', 'labelY = p.v(0.4);'],
+    ['picture: the title typed ignored', BRD, 'const title = (type, typed) => BM().resolveTitle(typed, type.title);', 'const title = (type, typed) => type.title;'],
+    ['picture: the file name typed ignored', BRD, "return safeLabel(label) ? day + '_'", "return false ? day + '_'"],
+    ['picture: the file name typed kept as typed', BRD, ".replace(/[^A-Za-z0-9_-]/g, '_');", ".replace(/[^A-Za-z0-9_/ -]/g, '_');"],
+    ['picture: the positives always named', BRD, "const names = !named.has('positives') ? []", 'const names = false ? []'],
+    ['picture: a picked layer\'s sites not named', BRD, 'for (const l of facilities.filter(x => named.has(x.key))) {', 'for (const l of facilities.filter(x => false)) {'],
+    ['picture: the sites\' names over the positives\' names', BRD, 'area, namePtF, places.map(p => p.box));', 'area, namePtF, []);'],
+    ['picture: Streets never drawn', BRD, "const streets = input.background === 'vector:streets' && input.streets ? input.streets : null;", 'const streets = null;'],
+    ['picture: the place names on the marks', BRD, "[corrected.west, corrected.north], [corrected.west, corrected.south]]] } }], kept.slice(), area), kept, area);",
+      "[corrected.west, corrected.north], [corrected.west, corrected.south]]] } }], taken.slice(), area), kept, area);"],
+    ['picture: a river\'s name anywhere', BRD, '|| kept.some(o => boxesMeet(o, b))) return false;', ') return false;'],
+    ['picture: the streets\' source left out', BRD, "+ (streets ? ' · ' + STREETS_CREDIT : '');", "+ '';"],
+    // The work-PC table check (2.4), against the page's counts in the unit suite.
+    ['table check: a release date not deciding', TC, 'ifelse(!is.na(release), ifelse(', 'ifelse(FALSE, ifelse('],
+    ['table check: both blank as still under quarantine', TC, 'if (!is.na(col$quarantineStatus)) "unknown" else "under"', '"under"'],
+    ['table check: past by Status alone', TC, 'past <- ifelse(!is.na(closed_date), is.na(end) | closed_date <= end, closed)', 'past <- closed'],
+    ['table check: the last detection date column first', TC, 'if (length(f)) f[1] else ""', 'if (length(f)) f[length(f)] else ""'],
+    ['table check: M/D/YYYY read day first', TC, 'mo[mdy] <- as.integer(sub(MDY, "\\\\1", v[mdy], perl = TRUE))', 'mo[mdy] <- as.integer(sub(MDY, "\\\\2", v[mdy], perl = TRUE))'],
+    ['table check: a time after a date not allowed', TC, 'MDY <- "^([0-9]{1,2})/([0-9]{1,2})/([0-9]{4})([ T].*)?$"', 'MDY <- "^([0-9]{1,2})/([0-9]{1,2})/([0-9]{4})$"'],
+    ['table check: an unquoted NA kept', TC, 'if (cell == "" || cell == "NA") cell <- NA_character_', 'if (cell == "") cell <- NA_character_'],
+    ['table check: private columns counted', TC, 'private <- grepl(PRIVATE, header[i], ignore.case = TRUE)', 'private <- FALSE'],
+    ['table check: nothing looks swapped', TC, 'swapped <- !mapped & !none', 'swapped <- FALSE & !mapped & !none'],
+    ['table check: the empty row counted', TC, 'data <- data[!blank_row]', 'data <- data'],
+    ['table check: "Yakima County" not a county', TC, 'key <- tolower(sub(" county$", "", gsub("\\\\s+", " ", v), ignore.case = TRUE))', 'key <- tolower(v)'],
+    ['table check: a long value shown', TC, 'else if (nchar(x) > MAX_VALUE_CHARS) paste0(', 'else if (FALSE) paste0('],
+    ['table check: many values listed', TC, 'if (length(t) > MAX_VALUES) {', 'if (FALSE) {'],
+    ['table check: an unread date shown as written', TC, 's <- gsub("[A-Za-z]", "a", gsub("[0-9]", "9", clean(v)))', 's <- clean(v)'],
+    ['an empty window\'s last positive said to be unreadable', RU,
+      "reason: emptyWindow ? 'None between these dates' : 'Not available: no readable '", "reason: 'Not available: no readable '"],
+    ['table check: a value in one row shown as written', TC, '(as.integer(t[k]) < MIN_ROWS && ', '(FALSE && '],
+    ['table check: a category value with a date shown as written', TC, 'else if (looks_private(x) || (', 'else if (FALSE || ('],
+    ['table check: a column named with a date shown', TC, 'else if (looks_private(h)) paste("Column"', 'else if (FALSE) paste("Column"'],
+    ['table check: a one-letter name makes the first row a header', TC, 'names[nchar(names) >= 3]', 'names'],
+    ['table check: a Case ID typed in a category shown', TC, ' | v %in% ids\n', '\n'],
+    ['a quarantine status read with its capitals and spaces', TY,
+      "if (!v) return null;\n    return type.quarantineValues.under.includes(v)",
+      "if (!v) return null;\n    return type.quarantineValues.under.includes(String(value))"],
   ],
   page: [
     ['the loader stays open after a clean load', AP, "if (ready && !failed && !notes.length) $('load-fold').open = false;",
@@ -250,7 +321,7 @@ const GROUPS = {
     ['a new set of files keeps the type picked for the earlier ones', AP,
       "    state.typePicked = false;\n    say('load-status', 'info', 'Reading files…');", "    say('load-status', 'info', 'Reading files…');", ['e1b']],
     ['zones.geojson left out of the Export', AP, "    add('zones.geojson', JSON.stringify(zonesGeoJson()) + '\\n');\n", '', ['results']],
-    ['the chart\'s picked column not following the play', AP, 'picked: i === state.stepAt,', 'picked: false,', ['chart']],
+    ['the chart\'s picked column not following the play', AP, 'picked: i === state.picked,', 'picked: false,', ['chart']],
     ['the chart\'s note silent on the rows not mapped', AP,
       "    if (t.notMapped) notCounted.push(t.notMapped.toLocaleString('en-US') + ' not mapped');\n", '', ['chart']],
     ['the map picture ignores a paused play\'s date', AP, '    window: state.window, current: E.groups(read, state.window).current.length,',
@@ -306,7 +377,7 @@ const GROUPS = {
     ['the map picture\'s box named "Positives" again', BRD, "label: 'Current positives', value: S().comma(input.current || 0)", "label: 'Positives', value: S().comma(input.current || 0)", ['png']],
     // The quarantine note as the "As of" note, its number alone in bold and the warning color
     ['the whole quarantine note in bold and the warning color again', HT, '  .count-card.quar .card-note b {', '  .count-card.quar .card-note, .count-card.quar .card-note b {', ['e1b']],
-    ['the quarantine note\'s number not set apart', AP, "      note.replaceChildren(el('b', '', n), v.past.note.slice(n.length));\n", '', ['e1b']],
+    ['the quarantine note\'s number not set apart', AP, "        nodes.push(el('b', '', n));\n", "        nodes.push(n);\n", ['e1b']],
     // Version 2.1, before the publish: the "To" date to today, the label past the last step, the "?" sentence, the
     // bundle's zone file on a type change
     ['the "To" date stops at the latest detection again', AP, "      input.max = key === 'end' && today > fw.end ? today : fw.end;",
@@ -340,7 +411,56 @@ const GROUPS = {
     ['a waiting fit made before the map has its size', AP, '      if (state.map.map) state.map.map.resize();\n', '', ['overview']],
     ['the past positives\' rings add people', AP, 'E.peopleInside(zp.sites, t.list,', 'E.peopleInside(zp.sites.concat(zp.pastSites), t.list,', ['overview']],
     ['the tracts\' failed load not said', AP, '    else if (tracts.failed) boxes.people =', '    else if (false) boxes.people =', ['overview']],
-    ['the people never "Washington only"', AP, '{ year: t.year, counties: root.CVIWA_GEO.counties.features }', '{ year: t.year }', ['overview']]
+    ['the people never "Washington only"', AP, '{ year: t.year, counties: root.CVIWA_GEO.counties.features }', '{ year: t.year }', ['overview']],
+    // 2.4: the population layers on after a load; the hover's quarantine not known; the past box's hover text.
+    ['the population layers off after a load', AP, "    if (ready && positivesKey !== state.populationFor) {", "    if (false) {", ['e1b']],
+    ['the hover says only "Past" for a quarantine not known', AP, ", unknown: 'Past, quarantine not known' }", ' }', ['e1b']],
+    ['the past box without its hover text', HT, '<div class="count-card" id="box-past" title="', '<div class="count-card" id="box-past" data-title="', ['e1b']],
+    // 2.4: the shapes and the legend's rows; the view after each tick, date change, pick and stop of the play, still
+    // during the play, clear of the legend; the home button; the chart's unpick.
+    ['every live mark a circle', AP, '      shape: E.animalShapeOf(read.type, p) }))\n      .concat(state.points', '      }))\n      .concat(state.points', ['view']],
+    ['the legend without its Animals rows', AP, 'const kinds = state.read ? E.animalKeys(', 'const kinds = false ? E.animalKeys(', ['view']],
+    ['the home button keeps "Fit to Washington"', AP, '  if (home) { home.title =', '  if (false) { home.title =', ['view']],
+    ['"Show past positives" does not fit', AP, '    state.fitNext = true;   // the view takes them in, or lets them go\n', '', ['view']],
+    ['"Draw their rings" does not fit', AP, "    state.pastRings = $('em-past-rings').checked;\n    state.fitNext = true;\n",
+      "    state.pastRings = $('em-past-rings').checked;\n", ['view']],
+    ['a date box does not fit', AP, '    state.picked = state.stepAt;\n    state.fitNext = true;\n', '    state.picked = state.stepAt;\n', ['view']],
+    ['no fit when the play stops', AP, "    if (state.tab === 'cvi') renderCvi();\n    fitShown();\n", "    if (state.tab === 'cvi') renderCvi();\n", ['view']],
+    ['no room kept for the legend', MP, 'const right = EDGE + (st.legendWidth ? st.legendWidth() : 0);', 'const right = EDGE;', ['view']],
+    ['on a phone room kept for the legend above the map', AP, "if (lg.hidden || css.position !== 'absolute') return 0;",
+      'if (lg.hidden) return 0;', ['view']],
+    ['the picked column again does nothing', AP, '    if (i !== state.picked) { goStep(i); return; }', '    goStep(i);\n    return;', ['chart']],
+    ['a column marked after a load', AP, '    state.picked = null;   // no column is picked', '    state.picked = state.stepAt;   // no column is picked', ['chart']],
+    ['a chart pick leaves no fit waiting', AP, '    stopPlay();\n    state.fitNext = true;\n    if (i !== state.picked)', '    stopPlay();\n    if (i !== state.picked)', ['chart', 'view']],
+    ['the chart\'s line without the unpick', HT, 'end the window there; click it again for all dates.</p>', 'end the window there.</p>', ['chart']],
+    ['the picked column\'s hint unchanged', AP, "click: i === state.picked ? 'Click again for all dates' : ", 'click: ', ['chart']],
+    ['the play\'s and the slider\'s steps not marked on the chart', AP, '    state.picked = i;\n    // A start after', '    // A start after', ['chart']],
+    ['the name markers in the suggestions\' order', AP, "concat(Object.values(state.layers)\n", "concat(state.selectedLayers.map(k => state.layers[k]).filter(Boolean)\n", ['png']],
+    ['"Positives" not ticked at first', AP, "    nameLayers: ['positives'],", '    nameLayers: [],', ['png']],
+    ['a layer unchecked keeps its name marker', AP, "map(i => i.value);\n        renderNameMarkers();\n        compute();", 'map(i => i.value);\n        compute();', ['png']],
+    ['"All" ticks only the positives', AP, "state.nameLayers = [...$('em-name-list').querySelectorAll('input')].map(i => i.value);", "state.nameLayers = ['positives'];", ['png']],
+    ['Preview Map saves the picture too', AP, "    C.previews.showMap('Map preview'", "    savePng(made.model.fileName, made.blob);\n    C.previews.showMap('Map preview'", ['png']],
+    ['the preview\'s note not CVI\'s', AP, "'This is what the PNG will look like when exported.'", "'Preview.'", ['png']],
+    ['the title typed never reaches the picture', AP, "title: $('em-png-title').value,", "title: '',", ['png']],
+    ['the CSV ZIP not named from the file name', AP, "(EB.safeLabel($('em-png-label').value) || 'Emergency')", "'Emergency'", ['png']],
+    ['the file name typed not in export_params.json', AP, "      export_label: $('em-png-label').value.trim(),\n", '', ['png']],
+    ['the streets\' data never loaded', AP, '      streets = await loadStreets();', '      streets = null;', ['png']],
+    ['no Streets in the background list', HT, '<option value="vector:streets">Streets (vector)</option>\n', '', ['png']],
+    ['the legend made after the map\'s fit', AP,
+      '    renderLegend(...legendArgs);\n    drawMap(sites, pastSites, zonesMode, targets, layers);\n    renderBoxes();\n',
+      '    drawMap(sites, pastSites, zonesMode, targets, layers);\n    renderLegend(...legendArgs);\n    renderBoxes();\n', ['view']],
+    ['the legend\'s room its width now, not its full width', AP,
+      'return (lg.open ? Math.max(lg.offsetWidth, parseFloat(css.maxWidth) || 0) : lg.offsetWidth) + 8;',
+      'return lg.offsetWidth + 8;', ['view']],
+    ['the view\'s edge too narrow for a mark beside the map\'s buttons', MP, '  const EDGE = 60;', '  const EDGE = 40;', ['view']],
+    ['an empty window not explained under the dates', AP, '    empty.hidden = !v.emptyWindow;', '    empty.hidden = true;', ['view']],
+    ['the view fits at each step of the play', AP, "    $('em-window-msg').hidden = true;\n    renderWindow();\n    compute();\n  }\n  function advance() {",
+      "    $('em-window-msg').hidden = true;\n    renderWindow();\n    state.fitNext = true;\n    compute();\n  }\n  function advance() {", ['view']],
+    ['the population layers on again when any file is added', AP, '    if (ready && positivesKey !== state.populationFor) {', '    if (ready) {', ['view']],
+    ['the Streets data not tried again after a failed load', AP,
+      'return streetsLoading.then(d => { if (!d) streetsLoading = null; return d; });', 'return streetsLoading;', ['png']],
+    ['quarantines not known get no look of their own', AP, "    $('box-past').classList.toggle('unk', !!v.past.notKnown);", "    $('box-past').classList.toggle('unk', false);", ['view']],
+    ['"n not known" not in bold', AP, "        nodes.push(rest.slice(0, k), el('b', '', rest.slice(k)));", "        nodes.push(rest);", ['view']]
   ]
 };
 
@@ -389,7 +509,7 @@ const results = [];
 let caught = 0;
 let restored = true;
 try {
-  for (const d of ['site', 'tests']) fs.cpSync(path.join(ROOT, d), path.join(COPY, d), { recursive: true });
+  for (const d of ['site', 'tests', 'tools']) fs.cpSync(path.join(ROOT, d), path.join(COPY, d), { recursive: true });
   for (const a of ARTIFACTS) fs.cpSync(path.join(ROOT, a), path.join(COPY, a), { recursive: true });
   if (allParts.includes('speed')) fs.cpSync(path.join(ROOT, SCALE_MASTER), path.join(COPY, SCALE_MASTER));
   // The fixtures (and test-tables/ in the copy) for the suites.

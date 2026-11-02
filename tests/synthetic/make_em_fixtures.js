@@ -28,6 +28,8 @@
 //                             arriving inside their zones, in two years and two species groups, one far from every
 //                             zone, and a marked address column that no export may hold
 //   em_positives_no_date.csv  the sample's positives without Detection Date and Case Status (the boxes' "Not available")
+//   em_table_check_edge.csv   the work-PC table check's edge cases (dates, coordinates, County forms, quarantine
+//                             values, an unquoted NA, a quoted line break, a byte-order mark), every row synthetic
 //   emergency_synthetic.zip   (test-tables/ only) the Emergency sample, byte for byte as the page's button makes it
 //   em_bundle/                a folder bundle: bundle.json for Emergency, the tool-form positives, a feedlots file
 //                             and the GeoJSON zone (the landing page's hand-off with a zone file)
@@ -76,6 +78,12 @@
 //                             a name kept as written ("Umatilla (Oregon)"), and blank Counties placed by their
 //                             location: inside a county, just off the shore (the nearest county within 2 km), out in
 //                             the ocean and in Idaho ("Outside Washington")
+// The quarantine status scenario (2.4), checked by the unit suite and the R reference in the same way:
+//   em_rules_quarantine.csv   the agreed scenario's twelve rows and two more past ones (Grant 01, Okanogan 01), with
+//                             the "Quarantine Status" column the owner adds as the last: past positives released by
+//                             their release date, still under quarantine by a release date after an earlier end
+//                             (whatever the status says), under quarantine and released by the status alone (any
+//                             case, spaces around it), not known (both blank), and one status not read ("Pending")
 // The made-up third type is tests/synthetic/em_made_up_type.js (not generated).
 // Deterministic: no clock, no random numbers (the speed set's generator has a fixed seed).
 //
@@ -177,6 +185,43 @@ const FILES = {
       geometry: { type: 'Polygon', coordinates: [[[1650000, 380000], [1660000, 380000], [1660000, 390000],
         [1650000, 390000], [1650000, 380000]]] } }] }) + '\n'
 };
+
+// The table check's edge cases (tools/work-pc/check_hpai_table.R against the page): the agreed columns with Quarantine
+// Status, Case Status and a private "Location Notes"; a byte-order mark; dates written each way the page reads, with a
+// time, and three it does not; the first detection date unreadable with a second one written; coordinates swapped,
+// blank, half blank, unreadable and in Oregon; County in each form; closed by its date, by Status alone, and closed
+// after the end; release dates and statuses (one unread); an unquoted NA; a quoted line break; an empty row; a long
+// category value; inventories not read.
+const EDGE_HEAD = AGREED_HEAD.concat(['Quarantine Status', 'Case Status', 'Location Notes']);
+const edgeRow = (k, o) => {
+  const v = Object.assign({ 'Case ID': 'SYN-E-' + String(k).padStart(2, '0'), 'Confirmed Diagnosis': '9/10/2026',
+    Premises: address(200 + k), Address: address(300 + k), City: 'Synthetic Town', County: 'Yakima', Latitude: '46.5500',
+    Longitude: '-120.4700', Status: 'Active', Subtype: 'H5N1 2.3.4.4b', 'Flock/Herd Type': 'Commercial',
+    'Production Type': 'Commercial Table Egg Layer', Species: 'Chicken', 'Flock/Herd Inventory': '"1,200"',
+    'Case Status': 'Confirmed', 'Location Notes': address(400 + k) }, o);
+  return EDGE_HEAD.map(h => v[h] === undefined ? '' : v[h]);
+};
+FILES['em_table_check_edge.csv'] = '﻿' + csv([EDGE_HEAD,
+  edgeRow(1, { 'Confirmed Diagnosis': '2026-09-05', County: 'yakima', 'Depop Inventory': 'NA' }),
+  edgeRow(2, { 'Confirmed Diagnosis': '2026/9/7', County: 'Yakima County', 'Case Status': 'presumptive positive' }),
+  edgeRow(3, { 'Confirmed Diagnosis': '9.8.2026', 'Date Reported': '9/6/2026', County: 'BENTON', 'Case Status': 'Pending' }),
+  edgeRow(4, { 'Confirmed Diagnosis': '46270', 'Case Status': 'unknown', 'Flock/Herd Inventory': '1200.5' }),
+  edgeRow(5, { Latitude: '-120.5000', Longitude: '46.6000' }),
+  edgeRow(6, { Latitude: '', Longitude: '-120.1000' }),
+  edgeRow(7, { Latitude: '', Longitude: '' }),
+  edgeRow(8, { Latitude: 'n/a', Longitude: '-120.3000' }),
+  edgeRow(9, { Latitude: '45.8400', Longitude: '-119.2900', County: 'Umatilla (Oregon)' }),
+  edgeRow(10, { 'Close Date': '13/45/2026', Status: 'Closed', 'Quarantine Status': 'Lifted' }),
+  edgeRow(11, { 'Close Date': '9/1/2026', 'Quarantine Release': '2026-12-01', 'Quarantine Status': 'Released' }),
+  edgeRow(12, { 'Close Date': '9/1/2026', 'Quarantine Status': 'on hold' }),
+  edgeRow(13, { Status: 'Closed' }),
+  edgeRow(14, { 'Confirmed Diagnosis': '10/2/2026 14:30', 'Disposal Method': '"Landfill\nthen burial"' }),
+  EDGE_HEAD.map(() => ''),
+  edgeRow(15, { 'Production Type': 'Commercial Table Egg Layer and Pullet Grower Operation',
+    'Flock/Herd Inventory': '"12,00"' }),
+  edgeRow(16, { Status: 'Closed', 'Close Date': '9/20/2026', 'Quarantine Status': 'UNDER QUARANTINE' }),
+  edgeRow(17, { 'Close Date': '11/15/2026', 'Confirmed Diagnosis': '9/15/2026 0:00' })
+]);
 
 // ---- The rules' scenario ------------------------------------------------------------------------------------
 // The shared engine places the layer points, so a point "3 km from a positive" is 3 km by the page's own distance.
@@ -317,6 +362,20 @@ const OVERVIEW_EXTRA = [
 RULES_FILES['em_rules_overview.csv'] = csv([AGREED_HEAD].concat(AGREED.concat(OVERVIEW_EXTRA).map((r, k) => [r[0], r[1],
   r[2], r[3], r[4], address(100 + 2 * k), address(101 + 2 * k), 'Synthetic Town', r[5], r[6], r[7], r[8], 'H5N1 2.3.4.4b',
   r[9], r[10], r[11], r[12], r[12], '1', 'Landfill'].map(quoted))));
+// The quarantine status scenario (from 2.4): the agreed rows with a status each, and two more past positives.
+const QUARANTINE_STATUS = { 'Yakima 01': 'Released', 'Yakima 02': 'Under quarantine', 'Franklin 01': 'Released',
+  'Umatilla 01': 'In Quarantine', 'Lewis 01': '', 'Lewis 02': 'under quarantine', 'Lewis 03': 'Quarantined',
+  'Skagit 01': 'Under quarantine', 'Whatcom 01': 'Under quarantine', 'Benton 01': '' };
+const QUARANTINE_EXTRA = [
+  ['Grant 01', '4/30/2026', '6/1/2026', '5/1/2026', '', 'Grant', '47.1300', '-119.2800', 'Closed', 'Commercial', 'Dairy',
+    'Cattle', '900', ' released '],
+  ['Okanogan 01', '4/1/2026', '5/20/2026', '4/2/2026', '', 'Okanogan', '48.3600', '-119.5800', 'Closed', 'Backyard',
+    'WOAH Non-Poultry', 'Duck', '20', 'Pending']
+];
+RULES_FILES['em_rules_quarantine.csv'] = csv([AGREED_HEAD.concat(['Quarantine Status'])].concat(AGREED.map(r =>
+  r.concat([QUARANTINE_STATUS[r[0]] || ''])).concat(QUARANTINE_EXTRA).map((r, k) => [r[0], r[1], r[2], r[3], r[4],
+  address(300 + 2 * k), address(301 + 2 * k), 'Synthetic Town', r[5], r[6], r[7], r[8], 'H5N1 2.3.4.4b', r[9], r[10],
+  r[11], r[12], r[12], '1', 'Landfill', r[13]].map(quoted))));
 // Each positive's county: written ways, and blank ones by location (the R reference places them with sf).
 const COUNTY_ROWS = [
   ['County 01', 'Yakima', '46.6000', '-120.5000'], ['County 02', 'yakima', '46.6100', '-120.5100'],
@@ -354,6 +413,8 @@ const AGREED_RULES = { positives: 'em_rules_agreed.csv', unit: 'mi',
 // The Overview's scenario: the agreed scenario's rings, window ends and the zone with a hole.
 const OVERVIEW_RULES = { positives: 'em_rules_overview.csv', unit: 'mi', rings: AGREED_RULES.rings,
   zoneFile: 'em_zone_hole.geojson', asOf: AGREED_RULES.asOf, earlierEnd: AGREED_RULES.earlierEnd };
+// The quarantine status scenario: the latest detection, and an end between Franklin 01's close and its release.
+const QUARANTINE_RULES = { positives: 'em_rules_quarantine.csv', asOf: AGREED_RULES.asOf, earlierEnd: '2026-06-01' };
 
 // The page's zones.geojson for the scenario, as zonesGeoJson writes it, for the R reference to read with sf.
 for (const f of ['site/shared/zones.js', 'site/emergency/types.js', 'site/emergency/types/hpai.js',
@@ -407,6 +468,7 @@ const RULES = {
   speed: speedSet(),
   agreed: AGREED_RULES,
   overview: OVERVIEW_RULES,
+  quarantine: QUARANTINE_RULES,
   counties: { positives: 'em_rules_counties.csv', nearKm: 2 }
 };
 

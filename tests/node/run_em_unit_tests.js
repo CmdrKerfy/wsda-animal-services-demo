@@ -5,8 +5,9 @@
 // type and the made-up third type in tests/synthetic/em_made_up_type.js), the dataset list (site/emergency/datasets.js)
 // and its recognition through the shared recognize.js (positives by their marker columns, the collision cases, the
 // zone kind and the shapefile reason), the Emergency sample, bundle.json's shared entries, the guide's Emergency
-// part and the chart (site/emergency/chart.js, its copied text widths and axis breaks against CVI's chartsvg.js). The
-// page's own files run unchanged in Node.
+// part and the chart (site/emergency/chart.js, its copied text widths and axis breaks against CVI's chartsvg.js), and
+// the work-PC table check (tools/work-pc/check_hpai_table.R, run with Rscript) against the page's counts. The page's
+// own files run unchanged in Node.
 // Usage (repository root): node tests/node/run_em_unit_tests.js   (also writes the fixtures, make_em_fixtures.js)
 const fs = require('fs'), path = require('path'), crypto = require('crypto'), { execFileSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -67,8 +68,9 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
   'HPAI: closed by the agreed table\'s Status (Closed), else E1a\'s Surveillance Closed; surveillance ends on Close Date', hpai.closed);
   check(same(hpai.columns, { id: ['Case ID', 'AnimalDiseaseReportId'], detected: ['Confirmed Diagnosis', 'Date Reported', 'Detection Date'],
     disease: ['Subtype', 'Disease Name'], status: ['Case Status'], quarantine: ['Quarantine Release'],
-    flockType: ['Flock/Herd Type'], inventory: ['Flock/Herd Inventory'], shown: ['Production Type'] }),
-  'HPAI: the agreed table\'s column names first, E1a\'s after them; the flock type and inventory by their roles', hpai.columns);
+    quarantineStatus: ['Quarantine Status'], flockType: ['Flock/Herd Type'], inventory: ['Flock/Herd Inventory'],
+    shown: ['Production Type'] }),
+  'HPAI: the agreed table\'s column names first, E1a\'s after them; the flock type and inventory by their roles; the quarantine status column (2.4)', hpai.columns);
   check(hpai.inventoryWord === 'birds', 'HPAI: the numbers line counts birds', hpai.inventoryWord);
   check(same(hpai.countedApart.map(a => a.word), ['cattle', 'other animals']) && same(hpai.countedApart[0].species, hpai.layers.bySpecies[1].words)
     && ['goat', 'sheep', 'swine', 'horse', 'alpaca', 'mink', 'cat', 'dog'].every(w => hpai.countedApart[1].species.includes(w))
@@ -107,8 +109,10 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
   bad(t => { t.closed.column = ['Status', 'Premises']; }, /"closed\.column" should be column names the page may read \("Premises"/, 'a closed column naming premises');
   bad(t => { t.closed.dateColumn = 'Close Date'; }, /"closed\.dateColumn" should be a list of one or more words/, 'a closed date that is not a list');
   bad(t => { t.closed.dateColumn = ['Street Closed On']; }, /"closed\.dateColumn" should be column names the page may read/, 'a closed date naming a street');
+  bad(t => { t.quarantineValues = { under: ['held'], released: ['released', 'Held'] }; }, /"quarantineValues" should be different words for under quarantine and released \("held" is in both\)/, 'a quarantine value in both lists');
+  bad(t => { t.quarantineValues = { under: [], released: ['released'] }; }, /"quarantineValues\.under" should be a list of one or more words/, 'no quarantine values for under quarantine');
   bad(t => { t.columns = ['Case ID']; }, /"columns" should be the column names for each role, in \{ \}/, 'columns as a list');
-  bad(t => { t.columns.place = ['City']; }, /"columns" should be roles among id, detected, disease, status, quarantine, flockType, inventory, shown \(not "place"\)/, 'an unknown column role');
+  bad(t => { t.columns.place = ['City']; }, /"columns" should be roles among id, detected, disease, status, quarantine, quarantineStatus, flockType, inventory, shown \(not "place"\)/, 'an unknown column role');
   bad(t => { t.columns.inventory = ['Premises Inventory']; }, /"columns\.inventory" should be column names the page may read \("Premises Inventory" names/, 'an inventory column naming premises');
   bad(t => { t.columns.flockType = 'Flock/Herd Type'; }, /"columns\.flockType" should be a list of one or more words/, 'a flock type column that is not a list');
   bad(t => { t.inventoryWord = ''; }, /"inventoryWord" should be a text/, 'an empty inventory word');
@@ -135,7 +139,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     t.closed.column = 'Surveillance Closed'; t.zones.unit = 'mi';
     const c = T.check(t);
     check(same(c.columns, { id: ['AnimalDiseaseReportId'], detected: ['Detection Date'], disease: ['Disease Name'], status: [],
-      quarantine: [], flockType: [], inventory: [], shown: [] }) && same(c.closed.column, ['Surveillance Closed'])
+      quarantine: [], quarantineStatus: [], flockType: [], inventory: [], shown: [] }) && same(c.closed.column, ['Surveillance Closed'])
       && same(c.closed.dateColumn, []) && c.zones.unit === 'mi' && c.inventoryWord === 'animals' && same(c.countedApart, []) && c.title === 'HIGHLY PATHOGENIC AVIAN INFLUENZA (HPAI) RESPONSE MAP',
     'types: no columns field: E1a\'s names, no flock type or inventory; one closed column as text; no closed date; miles; "animals", none apart', c.columns);
   }
@@ -309,8 +313,8 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(b.found && same(b.info.profiles, ['emergency']) && b.info.synthetic === true && b.warnings.length === 0,
       'sample: bundle.json for Emergency, marked synthetic', b);
     const rows = R.parseCsv(sampleText['emergency_case_sites.csv']).filter(r => !(r.length === 1 && r[0] === ''));
-    check(same(rows[0], FX.AGREED_HEAD) && rows.slice(1).every(r => r.length === 20),
-      'sample: the positives in the agreed HPAI table\'s 20 columns, in its order', rows[0]);
+    check(same(rows[0], FX.AGREED_HEAD.concat(['Quarantine Status'])) && rows.slice(1).every(r => r.length === 21),
+      'sample: the positives in the agreed HPAI table\'s 20 columns, in its order, and the Quarantine Status column last (2.4)', rows[0]);
     const prem = rows[0].indexOf('Premises'), addr = rows[0].indexOf('Address');
     check(rows.slice(1).every(row => row[prem].startsWith('(synthetic) ') && row[addr].startsWith('(synthetic) ')),
       'sample: every Premises and Address value is marked "(synthetic)"');
@@ -476,7 +480,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(ar.type === hpai && same(ar.positives.map(p => p.name), ['SYN-A-01', 'SYN-A-02', 'SYN-A-03', 'SYN-A-04']),
       'agreed table: the Subtype "H5N1 2.3.4.4b" picks HPAI; each positive named by its Case ID', ar.positives.map(p => p.name));
     check(same(ar.columns, { lat: 'Latitude', lon: 'Longitude', county: 'County', species: 'Species', id: 'Case ID', status: null,
-      disease: 'Subtype', quarantine: 'Quarantine Release', closed: 'Status', closedDate: 'Close Date', flockType: 'Flock/Herd Type',
+      disease: 'Subtype', quarantine: 'Quarantine Release', quarantineStatus: null, closed: 'Status', closedDate: 'Close Date', flockType: 'Flock/Herd Type',
       inventory: 'Flock/Herd Inventory', detected: 'Confirmed Diagnosis', shown: ['Production Type'] }), 'agreed table: the columns read', ar.columns);
     check(ar.positives.every(p => p.status && p.status.label === 'Confirmed' && p.statusText === null)
       && same(E.statusChoices(hpai, ar.positives).map(c => c.key + ':' + c.count), ['Confirmed:4', 'Presumptive:0', 'Suspect:0']),
@@ -568,6 +572,24 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
         { flockType: 'Backyard', inventory: 30, species: 'Chicken' }, { flockType: 'Commercial', inventory: 400, species: 'Dairy' }])
         === '1 commercial, 2 backyard, 30 birds, 400 cattle, 12 other animals',
     'HPAI: other mammals counted apart from birds and cattle ("Racing Pigeon" stays a bird)');
+    // The marks' shapes (2.4): the animal the numbers count each positive under.
+    check(E.animalShapeOf(hpai, agAt('Skagit 01')) === 'circle' && E.animalShapeOf(hpai, agAt('Whatcom 01')) === 'square'
+      && E.animalShapeOf(hpai, { species: 'Meat Goat' }) === 'triangle' && E.animalShapeOf(hpai, { species: 'Racing Pigeon' }) === 'circle'
+      && E.animalShapeOf(hpai, { species: null }) === 'circle' && E.animalShapeOf(hpai, { species: 'Dairy Cow' }) === 'square'
+      && E.animalShapeOf(nws, { species: 'Cattle' }) === 'circle' && same(E.ANIMAL_SHAPES, ['circle', 'square', 'triangle']),
+    'the mark\'s shape: birds (a blank species too) a circle, cattle a square, other animals a triangle; screwworm\'s animals one circle');
+    check(same(E.animalKeys(hpai, ag.positives), [{ shape: 'circle', label: 'Birds' }, { shape: 'square', label: 'Cattle' }])
+      && same(E.animalKeys(hpai, [{ species: 'Goat' }, { species: 'Chicken' }]), [{ shape: 'circle', label: 'Birds' }, { shape: 'triangle', label: 'Other animals' }])
+      && same(E.animalKeys(hpai, [agAt('Whatcom 01')]), [{ shape: 'square', label: 'Cattle' }]) && same(E.animalKeys(hpai, []), [])
+      && same(E.animalKeys(nws, [{ species: 'Cattle' }]), [{ shape: 'circle', label: 'Animals' }]),
+    'the legend\'s animal rows: one per shape among the positives drawn, in the shapes\' order; none for none', E.animalKeys(hpai, ag.positives));
+    const fourRaw = JSON.parse(JSON.stringify(hpai));
+    fourRaw.id = 'test-four-animals';
+    fourRaw.countedApart = [{ species: ['cattle'], word: 'cattle' }, { species: ['goat'], word: 'goats' }, { species: ['sheep'], word: 'sheep' }];
+    const four = T.check(fourRaw), sheepGoat = [{ species: 'Sheep' }, { species: 'Goat' }];
+    check(E.animalShapeOf(four, { species: 'Sheep' }) === 'triangle' && E.animalShapeOf(four, { species: 'Goat' }) === 'triangle'
+      && same(E.animalKeys(four, sheepGoat), [{ shape: 'triangle', label: 'Goats, sheep' }]),
+    'a type with more animals than shapes: every later word a triangle, its row naming them all', E.animalKeys(four, sheepGoat));
     check(E.numbersLine(ag, early.current) === '1 commercial, 1 backyard, 1,100 birds' && E.numbersLine(ag, []) === null
       && E.numbersLine(read, read.positives) === null, 'the numbers line on an earlier end; none for no positives or a file without the columns');
     const nr = csvOf('em_positives_nws.csv'), nw = E.readPositives(nr[0], nr.slice(1), null);
@@ -605,6 +627,11 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const ndBox = E.valueBoxes(noDates, null, E.windowOf(noDates.positives));
     check(ndBox.positives.value === 1 && same(ndBox.positives.lines, ['2 dates not readable']) && ndBox.past.value === null,
     'no readable dates: the current positives leave out the closed ones (as the map does), and the unreadable dates are said', ndBox);
+    // A window with no positive (2.4): "None between these dates", never "no readable".
+    const emptyBox = E.valueBoxes(tm, null, { start: '2026-09-21', end: '2026-09-21' });
+    check(emptyBox.emptyWindow === true && emptyBox.last.value === null && emptyBox.last.reason === 'None between these dates'
+      && emptyBox.positives.value === 0 && tmBox.emptyWindow === false && ndBox.emptyWindow === false,
+    'a date window with no positive: "None between these dates" (the file\'s dates are read), not "no readable"', emptyBox);
     const vbFew = E.valueBoxes(Object.assign({}, ag, { targets: E.targets(ag.positives, { statuses: ['Confirmed'] }, agWin).slice(0, 3) }), null, agWin);
     check(vbFew.positives.note === '3 with zones', 'the boxes: "3 with zones" when fewer positives have zones than are current', vbFew.positives);
     const vbEarly = E.valueBoxes(ag, null, { start: agWin.start, end: AG.earlierEnd });
@@ -870,7 +897,8 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && same(m.stats.left, [{ prefix: 'Detected between', value: 'Nov 5, 2024 and Oct 5, 2026' }]),
     'map picture: the zones in both units (the unit shown first), "As of" the window\'s end, the period line "Detected between"', [m.meta, m.stats]);
     const periodEnd = BRW.px(0.01) + BRW.textWidth('Detected between', 13, true) + BRW.px(0.006) + BRW.textWidth(m.stats.left[0].value, 13);
-    check(periodEnd < BRW.px(0.46), 'map picture: the period line ends before the value boxes', [periodEnd, BRW.px(0.46)]);
+    check(periodEnd < m.boxLayout[0].x0 && m.boxLayout[0].x0 <= BRW.px(0.46) + 0.01,
+    'map picture: the period line ends before the value boxes, which start just after it (at most at 0.46)', [periodEnd, m.boxLayout[0].x0]);
     const insideKeys = new Set(agRes.rows.map(r => r.lat + ',' + r.lon + ',' + r.name));
     check(same(m.boxes.map(b => [b.label, b.value]), [['Current positives', '5'], ['Sites inside', String(agRes.total)]])
       && agRes.total === insideKeys.size && agRes.total > 0,
@@ -946,6 +974,25 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const cvSvg = BRW.svg(cvBuilt.parts, BRW.pixelSize(200));
     check(same(cv.boxes.map(b => [b.label, b.value]), [['Current positives', '5'], ['Sites inside', String(agRes.total)], ['CVIs in or out', '12'], ['Animals moved', '3,400']])
       && /CVI records/.test(cv.source) && !/CVI records/.test(m.source), 'map picture: with a CVI master, the CVIs to or from the zones and the animals moved in the boxes', cv.boxes);
+    // The four boxes: each label whole and inside its box, set clearly below its number; wider than the shared copy's.
+    const sharedW = BRW.px(0.77 - 0.46) * (1 - 0.035 * 3) / 4;
+    check(cv.boxLayout.length === 4 && cv.boxLayout.every((b, i) => b.label === cv.boxes[i].label
+      && b.labelWidth <= b.x1 - b.x0 - 8 + 1e-6 && b.labelTop - b.valueBottom >= 4 && b.x1 - b.x0 > sharedW),
+    'map picture: four value boxes: each label whole, inside its box and well below its number; wider than before',
+      cv.boxLayout.map(b => [b.label, Math.round(b.x1 - b.x0), Math.round(b.labelWidth), +b.labelPt.toFixed(2), +(b.labelTop - b.valueBottom).toFixed(1)]));
+    const longRow = EB.valueBoxes(['Current positives', 'Sites inside', 'A label far too long for any box at all', 'Animals moved']
+      .map(label => ({ label, value: '1', color: '#245566' })), { prefix: 'Detected between', value: 'September 30, 2024 and December 31, 2026' }).boxes;
+    check(Math.abs(longRow[0].x0 - BRW.px(0.46)) < 0.01 && longRow[0].labelPt < BRW.textPt(2.7) && longRow[0].label === 'Current positives'
+      && longRow[1].labelPt === BRW.textPt(2.7) && longRow[2].labelPt === BRW.textPt(2.7) * 0.7 && /…$/.test(longRow[2].label)
+      && longRow.every(b => b.labelWidth <= b.x1 - b.x0 - 8 + 1e-6),
+    'map picture: the value boxes after a long period line start at 0.46 at the latest; a long label drawn smaller, one too long even then cut with "…"',
+      longRow.map(b => [b.label, +b.labelPt.toFixed(2)]));
+    // A label drawn smaller to fit its box exactly is never cut as well (at any period line's length).
+    const fourLabels = ['Current positives', 'Sites inside', 'CVIs in or out', 'Animals moved'];
+    const shrunk = ['Jul 15, 2026 and Oct 5, 2026', 'Sep 30, 2024 and Dec 31, 2026', 'September 30, 2024 and December 31, 2026']
+      .map(value => EB.valueBoxes(fourLabels.map(label => ({ label, value: '1', color: '#245566' })), { prefix: 'Detected between', value }).boxes);
+    check(shrunk.every(row => row.every((b, i) => b.label === fourLabels[i])) && shrunk.some(row => row.some(b => b.labelPt < BRW.textPt(2.7))),
+    'map picture: the boxes\' labels whole after any period line, a label drawn smaller to fit never cut too', shrunk.map(row => row.map(b => b.label)));
     const cvKey = cv.keyItems.map(i => i.label + (i.count ? ' ' + i.count : ''));
     check(same(cv.cviPremises.map(q => [q.end, q.lat, q.lon]), [['origin', 46.6, -120.5], ['destination', 46.2, -119.1]])
       && cvKey.includes('CVI PREMISES, 2025–2026') && cvKey.includes('Origin in a zone 1') && cvKey.includes('Destination in a zone 1')
@@ -962,6 +1009,119 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const km = EB.page(base({ rings: hpai.zones.rings, unit: 'km', sites: E.ringSites(agTargets, hpai.zones.rings, 'km') })).model;
     check(km.meta.left === 'Zones: Infection zone 3 km (1.9 mi), Control zone 10 km (6.2 mi)' && km.keyItems.some(i => i.label === 'Control zone (10 km / 6.2 mi)'),
       'map picture: in km first, HPAI\'s 3 and 10 km rings with their miles', km.meta.left);
+    // The animals' shapes (2.4): each positive in its shape, a middle mark only when current; the key's ANIMALS rows.
+    const animalsShown = agGroups.current.concat(agGroups.past).map(p => Object.assign(shownOf([p])[0], { shape: E.animalShapeOf(hpai, p) }));
+    const anBuilt = EB.page(base({ positives: animalsShown, animals: E.animalKeys(hpai, agGroups.current.concat(agGroups.past)) }));
+    const an = anBuilt.model, anSvg = BRW.svg(anBuilt.parts, BRW.pixelSize(200)), anKey = an.keyItems.map(i => i.label);
+    const squares = an.positives.filter(q => q.shape === 'square');
+    const anRow = an.keyItems.find(i => i.label === 'Birds') || {};
+    // The squares drawn on the map and in the inset: a white path with the status color's edge.
+    const squarePaths = (anSvg.match(/<path d="M[^"]*" fill="#ffffff" stroke="(?!#444444)#[0-9a-f]{6}" stroke-width="[^"]*" stroke-linejoin="round"/g) || []).length;
+    check(squares.length === animalsShown.filter(q => q.shape === 'square').length && squares.length > 0
+      && an.positives.filter(q => q.shape === 'circle').length === animalsShown.length - squares.length
+      && same(anKey.slice(1, 4), ['Confirmed positive', 'Past positive', 'Birds']) && anRow.glyph.shape === 'animals'
+      && same(anRow.glyph.marks.map(k => k.mark), ['circle', 'square']) && same(anRow.glyph.words.map(w => w.label), ['Cattle'])
+      && anRow.glyph.words[0].dx > anRow.glyph.marks[1].dx && !m.keyItems.some(i => i.glyph && /^animal/.test(i.glyph.shape))
+      && (anSvg.match(/<path d="M[^"]*" fill="#ffffff" stroke="#444444"/g) || []).length === 2 && anSvg.includes('>Cattle</text>')
+      && squarePaths === 2 * squares.length,
+    'map picture: the cattle squares and the birds circles; the key\'s animals on one row under the positives\' rows, each shape before its word; none without them', [squares.length, squarePaths, anKey]);
+    const three = EB.keyItems({ statuses: [], pastColors: [], rings: [], facilities: [], animals: [{ shape: 'circle', label: 'Birds' },
+      { shape: 'square', label: 'Cattle' }, { shape: 'triangle', label: 'Other animals' }] });
+    const long = EB.keyItems({ statuses: [], pastColors: [], rings: [], facilities: [], animals: [{ shape: 'circle', label: 'Birds' },
+      { shape: 'square', label: 'Cattle' }, { shape: 'triangle', label: 'Goats, sheep, alpacas and llamas' }] });
+    const rowsOf = k => k.slice(1).map(i => i.glyph.marks.map(x => x.mark).join(' '));
+    check(same(rowsOf(three), ['circle square', 'triangle']) && same(rowsOf(long), ['circle square', 'triangle'])
+      && same(rowsOf(EB.keyItems({ statuses: [], pastColors: [], rings: [], facilities: [], animals: [{ shape: 'square', label: 'Cattle' }] })), ['square']),
+    'map picture: the animals as many on a row as fit (three kinds on two rows); one kind on its own row', [rowsOf(three), rowsOf(long)]);
+    // "Optional Map Title" and "Optional Filename" (2.4): the typed title (at most 80 characters) or the type's; the
+    // file named YYYY-MM-DD_<name>.png, every character other than letters, digits, "_" and "-" made "_".
+    const typed = EB.page(base({ title: '  Briefing map  ', label: ' Briefing Oct/22 ' })).model;
+    const long80 = EB.title(hpai, 'x'.repeat(81));
+    check(typed.title === 'Briefing map' && typed.titleSize === BRW.titleSize('Briefing map') && EB.title(hpai, '   ') === 'HPAI RESPONSE MAP'
+      && EB.title(hpai, '') === 'HPAI RESPONSE MAP' && long80 === 'x'.repeat(79) + '…' && EB.title(hpai, 'y'.repeat(80)) === 'y'.repeat(80),
+    'map picture: the title typed in "Optional Map Title" (trimmed, at most 80 characters), else the type\'s', [typed.title, long80.length]);
+    check(typed.fileName === '2026-10-22_Briefing_Oct_22.png' && EB.fileName(hpai, DAY, '   ') === 'emergency_hpai_2026-10-22.png'
+      && EB.safeLabel(' a b.c ') === 'a_b_c' && EB.safeLabel(null) === '' && EB.fileName(nws, DAY, 'Week-3_map') === '2026-10-22_Week-3_map.png',
+    'map picture: the file named from "Optional Filename" (YYYY-MM-DD_<name>.png, CVI\'s rule), else emergency_<type>_<date>.png', typed.fileName);
+    // "Name markers in PNG" (2.4): the positives' names unless left out; each picked layer's sites inside named in the
+    // layer's darker color, clear of the marks and of the positives' names; a layer not drawn named by no one.
+    const meetBox = (a, b) => Math.min(a.x1, b.x1) > Math.max(a.x0, b.x0) && Math.min(a.y1, b.y1) > Math.max(a.y0, b.y0);
+    const noNames = EB.page(base({ nameLayers: [] })), nn = noNames.model;
+    const nnSvg = BRW.svg(noNames.parts, BRW.pixelSize(200)), mSvg = BRW.svg(built.parts, BRW.pixelSize(200));
+    check(same(m.nameLayers, ['positives']) && m.names.length === 5 && !m.facilityNames.length && !nn.names.length && !nn.facilityNames.length
+      && mSvg.includes('paint-order="stroke">Lewis 02</text>') && !nnSvg.includes('paint-order="stroke">Lewis 02</text>')
+      && nnSvg.includes('>Lewis 02</text>'),
+    'map picture: the positives named by default; none named on the map with "Positives" unticked (the panel keeps them)', [m.names.length, nn.names.length]);
+    const facNamed = EB.page(base({ nameLayers: ['positives', 'poultry', 'markets'] })).model;
+    const bm = ctx.window.CVIWA.brandedmaps;
+    const insideNames = [...new Set(agRes.rows.filter(r => r.layer === 'poultry').map(r => r.lat + ',' + r.lon + ',' + r.name))];
+    check(facNamed.facilityNames.length === insideNames.length && insideNames.length > 0
+      && facNamed.facilityNames.every(n => n.layer === 'poultry' && n.color === bm.facilityNameColor({ key: 'poultry', color: '#1f77b4' }))
+      && facNamed.facilityNames.every(n => facNamed.names.every(q => !meetBox(n.at.box, q.at.box)))
+      && facNamed.facilityNames.every(n => n.at.free) && facNamed.names.length === 5 && same(facNamed.names, m.names),
+    'map picture: a picked layer\'s sites inside named in its darker color, clear of the marks and the positives\' names; a layer not drawn named by no one',
+      facNamed.facilityNames.map(n => [n.lines.join(' '), n.at.free]));
+    // A site 190 m east of a positive: its name kept off the positive's (with the positive's name not given as taken,
+    // it lands on it).
+    const nearSites = E.ringSites([{ name: 'Synthetic positive A', lat: 46.6, lon: -120.5 }], hpai.zones.rings, 'km');
+    const near = EB.page(base({ positives: [{ name: 'Synthetic positive A', lat: 46.6, lon: -120.5, color: '#a50f15', status: 'Confirmed', past: false }],
+      sites: nearSites, rings: hpai.zones.rings, unit: 'km', days: [], current: 1, nameLayers: ['positives', 'poultry'],
+      result: { layers: [{ key: 'poultry', label: 'Commercial poultry', color: '#1f77b4' }], total: 1, leftOut: [],
+        rows: [{ layer: 'poultry', site: nearSites[0].id, lat: 46.6, lon: -120.4975, name: 'Synthetic Poultry Farm 12' }] } })).model;
+    check(near.facilityNames.length === 1 && near.names.length === 1 && !meetBox(near.facilityNames[0].at.box, near.names[0].at.box),
+      'map picture: a site\'s name beside a positive kept off the positive\'s name', near.facilityNames.map(n => n.at.box));
+    const facOnly = EB.page(base({ nameLayers: ['poultry'] })).model;
+    check(!facOnly.names.length && facOnly.facilityNames.length === insideNames.length,
+      'map picture: a layer\'s names without the positives\'', facOnly.names.length);
+    // Streets (2.4): geo/streets-wa.js's roads, water and place names (none meeting another name), the counties light gray
+    // under them with their lines over them, the source line naming the streets; Default without its data.
+    vm.runInContext(fs.readFileSync(path.join(SITE, 'geo/streets-wa.js'), 'utf8'), ctx, { filename: 'geo/streets-wa.js' });
+    const STREETS = ctx.window.WSDA_STREETS;
+    const stBuilt = EB.page(base({ background: 'vector:streets', streets: STREETS, nameLayers: ['positives', 'poultry'] }));
+    const st = stBuilt.model, stSvg = BRW.svg(stBuilt.parts, BRW.pixelSize(200));
+    const placeBoxes = st.streetNames.map(n => n.box);
+    const pane = st.mapPanel, inPane = q => q.x0 >= pane.left && q.x1 <= pane.left + pane.width && q.y0 >= pane.top && q.y1 <= pane.top + pane.height;
+    const markSq = st.positives.map(q => ({ x0: q.x - 1, x1: q.x + 1, y0: q.y - 1, y1: q.y + 1 }));
+    const otherBoxes = st.names.map(q => q.at.box).concat(st.facilityNames.map(q => q.at.box), markSq);
+    check(st.background === 'vector:streets' && st.underlay === null && /Streets: U\.S\. Census Bureau TIGER\/Line/.test(st.source)
+      && placeBoxes.length > 3 && placeBoxes.every(b => b && inPane(b) && otherBoxes.every(o => !meetBox(b, o)))
+      && placeBoxes.every((b, i) => placeBoxes.every((o, j) => i === j || !meetBox(b, o)))
+      && stSvg.includes('stroke="#ead7c2"') && stSvg.includes('fill="#f5f5f5"') && !stSvg.includes('fill="#e8e8e8"')
+      && !mSvg.includes('stroke="#ead7c2"') && !/Streets:/.test(m.source) && same(st.names, facNamed.names),
+    'map picture: Streets draws the roads, water and place and river names (each inside the map, on no other name or mark) over light gray counties and names its source',
+      [st.background, placeBoxes.length, st.source]);
+    // A positive on Yakima's own point, not named (its name would cover the mark): no place name on its mark.
+    const yak = STREETS.places.find(q => q.name === 'Yakima');
+    const onTown = EB.page(base({ background: 'vector:streets', streets: STREETS, positives: [{ name: 'Synthetic positive Y', lat: yak.lat, lon: yak.lon,
+      color: '#a50f15', status: 'Confirmed', past: false }], sites: E.ringSites([{ name: 'Synthetic positive Y', lat: yak.lat, lon: yak.lon }], hpai.zones.rings, 'km'),
+    rings: hpai.zones.rings, unit: 'km', days: [], current: 1, result: null, nameLayers: [] })).model;
+    const yq = onTown.positives[0], yMark = { x0: yq.x - 9, x1: yq.x + 9, y0: yq.y - 9, y1: yq.y + 9 };
+    check(onTown.streetNames.length > 3 && onTown.streetNames.every(n => !meetBox(n.box, yMark)) && !onTown.streetNames.some(n => n.name === 'Yakima'),
+      'map picture: under Streets no place name on a positive\'s mark (one on Yakima\'s own point leaves Yakima unnamed)', onTown.streetNames.map(n => n.name).slice(0, 8));
+    // A river's name kept only inside the map and off every other name and mark.
+    const keptBoxes = [{ x0: 55, x1: 58, y0: 49, y1: 51 }];
+    const rivers = EB.clearRiverNames([{ kind: 'place', name: 'Town', box: { x0: 10, x1: 30, y0: 10, y1: 16 } },
+      { kind: 'river', name: 'Snake', x: 20, y: 13 }, { kind: 'river', name: 'Columbia', x: 99, y: 50 },
+      { kind: 'river', name: 'Yakima', x: 50, y: 50 }, { kind: 'river', name: 'Spokane', x: 50, y: 80 }], keptBoxes, { x0: 0, x1: 100, y0: 0, y1: 100 });
+    check(same(rivers.map(n => n.name), ['Town', 'Spokane']) && keptBoxes.length === 3 && rivers[1].box && rivers[1].box.y0 < 80 && rivers[1].box.y1 > 80,
+      'map picture: a river\'s name dropped on a place name, past the map\'s edge or on a mark; kept where clear', rivers.map(n => n.name));
+    const noData = EB.page(base({ background: 'vector:streets', streets: null })).model;
+    check(noData.background === 'standard' && !/Streets:/.test(noData.source) && !noData.streetNames.length,
+      'map picture: Streets without its data drawn on the Default background', noData.background);
+  }
+
+  {   // The view (map.js viewBounds, 2.4): the zones, the past zones and the positives shown, all of them.
+    globalThis.CVIWA = globalThis.CVIWA || {};
+    require(path.join(SITE, 'emergency/map.js'));
+    const VB = globalThis.WSDA.emergencyMap.viewBounds;
+    const square = (lon, lat, d) => ({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[lon - d, lat - d], [lon + d, lat - d],
+      [lon + d, lat + d], [lon - d, lat + d], [lon - d, lat - d]]] } });
+    const multi = { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: [square(-117, 47, 0.1).geometry.coordinates] } };
+    const zone = square(-120, 46, 0.2), pastZone = square(-122, 48, 0.1), far = { lon: -124, lat: 45.5 };
+    check(same(VB([zone], [], []), [-120.2, 45.8, -119.8, 46.2]) && same(VB([zone], [], [far]), [-124, 45.5, -119.8, 46.2])
+      && same(VB([zone], [pastZone], []), [-122.1, 45.8, -119.8, 48.1]) && same(VB([], [], [far, { lon: -121, lat: 47 }]), [-124, 45.5, -121, 47])
+      && same(VB([multi], [], []), [-117.1, 46.9, -116.9, 47.1]) && VB([], [], []) === null,
+    'the view: the zones, every positive shown (one far outside the zones too), the past zones drawn, a zone file\'s multipolygon; nothing, no box');
   }
 
   {   // Zones from a file (the polygon with a hole): inside its outline, not in its hole.
@@ -990,7 +1150,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     'third type: its own ID, detection dates (the second when the first is blank), quarantine and shown columns; E1a\'s columns in the file are not read',
     mr.positives.map(p => [p.name, p.detected, p.quarantine]));
     check(same(mr.columns, { lat: 'Case Lat', lon: 'Case Long', county: null, species: 'Species', id: 'Pox Ref', status: 'Pox Status',
-      disease: 'Pox Kind', quarantine: 'Freed On', closed: 'Released', closedDate: 'Released On', flockType: 'Herd Kind',
+      disease: 'Pox Kind', quarantine: 'Freed On', quarantineStatus: null, closed: 'Released', closedDate: 'Released On', flockType: 'Herd Kind',
       inventory: 'Herd Size', detected: 'Seen On', shown: ['Pen'] }),
     'third type: the columns read, by its own names (HPAI\'s Flock/Herd Type in the file is not read)', mr.columns);
     check(E.numbersLine(mr, mr.positives) === '2 range, 1 pen, 52 head; 1 without an inventory',
@@ -1154,6 +1314,62 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(cityMs < 3000 && cityPeople.tracts.length > 300, 'speed: the people inside the zones of 40 positives around Seattle in under 3 seconds', cityMs);
   }
 
+  // ---- 8d. The quarantine status column (2.4) -------------------------------------------------------------------
+  const QR = FX.RULES.quarantine;
+  const qRows = csvOf(QR.positives);
+  const qr = E.readPositives(qRows[0], qRows.slice(1), null);
+  const qByLine = qr.positives.concat(qr.dropped).sort((a, b) => a.line - b.line);
+  const qWin = E.windowOf(qr.positives);
+  const qOn = (read, list, end) => list.map(p => E.quarantineOf(read, p, end));
+  {
+    check(qr.type === hpai && qr.columns.quarantineStatus === 'Quarantine Status' && qr.badQuarantineStatus === 1
+      && same(qByLine.map(p => p.quarantineStatus), ['released', 'under', 'released', null, 'under', null, 'under', 'under', null,
+        'under', 'under', null, 'released', null])
+      && same(qByLine.slice(-2).map(p => p.quarantineStatusText), [' released '.trim(), 'Pending']),
+    'quarantine status: the column read by its name, any case, spaces trimmed; "Pending" is not one of its values (counted, read as blank)',
+    qByLine.map(p => [p.name, p.quarantineStatusText, p.quarantineStatus]));
+    check(same(qOn(qr, qByLine, qWin.end), ['released', 'under', 'released', null, null, 'released', null, null, null, null, null,
+      'unknown', 'released', 'unknown']),
+    'quarantine: on the latest detection, the release date decides, else the status, else not known; current positives have none',
+    qOn(qr, qByLine, qWin.end));
+    check(same(qOn(qr, qByLine, QR.earlierEnd), ['released', 'under', 'under', null, null, 'released', null, null, null, null, null,
+      'unknown', 'released', 'unknown']),
+    'quarantine: on an earlier end, Franklin 01\'s release date after it decides (still under quarantine though its status says Released)',
+    qOn(qr, qByLine, QR.earlierEnd));
+    const qg = E.groups(qr, qWin), qgEarly = E.groups(qr, { start: qWin.start, end: QR.earlierEnd });
+    check(same(names(qg.stillQuarantined), ['Yakima 02']) && same(names(qg.notKnown), ['Benton 01', 'Okanogan 01'])
+      && same(names(qgEarly.stillQuarantined), ['Yakima 02', 'Franklin 01']) && same(names(qgEarly.notKnown), ['Benton 01', 'Okanogan 01']),
+    'groups: still under quarantine and not known, on both end dates', [names(qg.stillQuarantined), names(qg.notKnown)]);
+    const qb = E.valueBoxes(qr, null, qWin), qbEarly = E.valueBoxes(qr, null, { start: qWin.start, end: QR.earlierEnd });
+    check(qb.past.value === 7 && qb.past.quarantined === 1 && qb.past.notKnown === 2 && qb.past.note === '1 still under quarantine, 2 not known'
+      && qbEarly.past.note === '2 still under quarantine, 2 not known' && qb.positives.lines.includes('1 quarantine status not read'),
+    'the "Past positives" box: "1 still under quarantine, 2 not known"; the line under the boxes names the status not read', [qb.past, qb.positives.lines]);
+    // Without a release date column the status alone decides; with neither column there is no quarantine at all.
+    const keep = (row, drop) => row.filter((v, i) => !drop.includes(i));
+    const relAt = qRows[0].indexOf('Quarantine Release'), qsAt = qRows[0].indexOf('Quarantine Status');
+    const onlyStatus = E.readPositives(keep(qRows[0], [relAt]), qRows.slice(1).map(r => keep(r, [relAt])), hpai);
+    const neither = E.readPositives(keep(qRows[0], [relAt, qsAt]), qRows.slice(1).map(r => keep(r, [relAt, qsAt])), hpai);
+    const byLine = read => read.positives.concat(read.dropped).sort((a, b) => a.line - b.line);
+    check(same(qOn(onlyStatus, byLine(onlyStatus), QR.earlierEnd), ['released', 'under', 'released', null, null, 'unknown', null, null, null,
+      null, null, 'unknown', 'released', 'unknown']) && byLine(neither).every(p => E.quarantineOf(neither, p, QR.earlierEnd) === null)
+      && E.valueBoxes(neither, null, qWin).past.note === 'none under quarantine',
+    'quarantine: with the status column alone, the status decides (Lewis 01 has none: not known); with neither column, none at all');
+    const qEx = E.exportRows(qr, [], { rows: [], layers: [], leftOut: [] }, 'km', qWin);
+    const qCol = qEx.positives.columns, qRow = n => qEx.positives.rows.find(r => r[0] === n);
+    check(same(qCol.slice(4, 8), ['Close Date', 'Quarantine Release', 'Quarantine Status', 'Detection Date'])
+      && qRow('Okanogan 01')[6] === 'Pending' && qRow('Okanogan 01').slice(-1)[0] === 'Quarantine not known'
+      && qRow('Yakima 02').slice(-1)[0] === 'Still under quarantine' && qRow('Grant 01').slice(-1)[0] === ''
+      && !E.exportRows(ag, [], { rows: [], layers: [], leftOut: [] }, 'km', agWin).positives.columns.includes('Quarantine Status'),
+    'positives.csv: the Quarantine Status column as written (only when the file has it) and the notes', [qCol, qRow('Okanogan 01')]);
+    const qp = E.positiveRows(qr, qWin, globalThis.CVIWA_GEO.counties.features);
+    check(qp.columns.slice(-2).join() === 'Quarantine Release,Quarantine Status'
+      && qp.rows.find(r => r[0] === 'Grant 01').slice(-1)[0] === 'released',
+    'the Overview\'s positives table: the Quarantine Status column as written', qp.columns);
+    check(T.quarantineStatusOf(hpai, ' LIFTED ') === 'released' && T.quarantineStatusOf(hpai, 'In quarantine') === 'under'
+      && T.quarantineStatusOf(hpai, 'Pending') === null && T.quarantineStatusOf(hpai, '') === null && same(T.check(good()).quarantineValues, T.QUARANTINE_VALUES),
+    'types: the quarantine status values, any case, spaces trimmed; a type naming none gets "Under quarantine" and "Released"');
+  }
+
   // ---- 9. The rules against the R reference ------------------------------------------------------------------
   const ORACLE = path.join(ROOT, 'local-test-artifacts', 'em', 'oracle_em.json');
   if (!fs.existsSync(ORACLE)) check(false, 'R reference missing: run Rscript tests/oracle/em_oracle.R first');
@@ -1278,6 +1494,20 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     }
   }
 
+  {   // The quarantine status scenario against R (2.4).
+    const o = fs.existsSync(ORACLE) ? JSON.parse(fs.readFileSync(ORACLE, 'utf8')) : {};
+    const q = o.quarantine;
+    const groupRow = (read, list, win) => { const g = E.groups(read, win);
+      return list.map(p => p.index === null ? 'Not mapped' : g.outside.includes(p) ? 'Outside' : E.groupOf(p, win.end)); };
+    const quarRow = (read, list, win) => { const g = E.groups(read, win);
+      return list.map(p => p.index === null || g.outside.includes(p) ? null : E.quarantineOf(read, p, win.end)); };
+    const early = { start: qWin.start, end: QR.earlierEnd };
+    check(q && q.bad_status === qr.badQuarantineStatus && same(q.asOf.group, groupRow(qr, qByLine, qWin))
+      && same(q.earlier.group, groupRow(qr, qByLine, early)) && same(q.asOf.quarantine, quarRow(qr, qByLine, qWin))
+      && same(q.earlier.quarantine, quarRow(qr, qByLine, early)),
+    'R reference: quarantine status scenario: each row\'s group and quarantine on both end dates, and the statuses not read', q);
+  }
+
   {   // The synthetic screwworm outbreak (test-tables/, for trying the switch between outbreaks): the type, the groups,
     // the dispersal areas and the bundle.
     const nr = csvOf('em_nws_synthetic_positives.csv'), nw = E.readPositives(nr[0], nr.slice(1), null);
@@ -1298,6 +1528,271 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(bj.synthetic === true && same(bj.profiles, ['emergency']) && fs.existsSync(path.join(ROOT, 'test-tables', 'em_nws_synthetic.zip'))
       && !Object.values(FX.NWS_FILES).some(t => /(?<!\(synthetic\) )MARKED-ADDRESS/.test(t)),
     'screwworm outbreak: the bundle is marked synthetic for Emergency; its ZIP is in test-tables/; every address is marked "(synthetic)"', bj);
+  }
+
+  {   // The work-PC table check (tools/work-pc/check_hpai_table.R, base R, 2.4) against the page: its settings equal the
+    // HPAI type's and rules.js's, and its report's counts equal the page's reading of each synthetic HPAI table. The
+    // reports also hold no Case ID, address, coordinate, county name or full date from the table.
+    const SCRIPT = path.join(ROOT, 'tools', 'work-pc', 'check_hpai_table.R');
+    const OUTD = path.join(ROOT, 'local-test-artifacts', 'em', 'table-check');
+    fs.rmSync(OUTD, { recursive: true, force: true });
+    fs.mkdirSync(OUTD, { recursive: true });
+    const rSource = fs.readFileSync(SCRIPT, 'utf8');
+    const rList = (name, from) => { const m = new RegExp(name + ' = c\\(([^)]*)\\)').exec(from || rSource);
+      return m ? [...m[1].matchAll(/"([^"]*)"/g)].map(x => x[1]) : null; };
+    const roleBlock = (/ROLE_NAMES <- list\(([\s\S]*?)\)\)\n/.exec(rSource) || [])[1] + ')';
+    const qv = hpai.quarantineValues;
+    check(['id', 'detected', 'disease', 'status', 'quarantine', 'quarantineStatus', 'flockType', 'inventory', 'shown']
+      .every(k => same(rList(k, roleBlock), hpai.columns[k])) && same(rList('closed', roleBlock), hpai.closed.column)
+      && same(rList('closedDate', roleBlock), hpai.closed.dateColumn)
+      && ['lat', 'lon', 'county', 'species'].every(k => same(rList(k, roleBlock), E.COLUMNS[k]))
+      && same(rList('Confirmed'), hpai.statuses[0].words) && same(rList('Presumptive'), hpai.statuses[1].words)
+      && same(rList('Suspect'), hpai.statuses[2].words) && same(/^CLOSED_VALUES <- c\(([^)]*)\)/m.exec(rSource)[1],
+      hpai.closed.values.map(v => '"' + v + '"').join(', '))
+      && same(/^QUARANTINE_UNDER <- c\(([^)]*)\)/m.exec(rSource)[1], qv.under.map(v => '"' + v + '"').join(', '))
+      && same(/^QUARANTINE_RELEASED <- c\(([^)]*)\)/m.exec(rSource)[1], qv.released.map(v => '"' + v + '"').join(', '))
+      && /^PRIVATE <- "address\|location\|street\|premise"$/m.test(rSource) && E.PRIVATE.source === 'address|location|street|premise',
+    'table check: its column names, statuses, closed and quarantine words and private columns are the HPAI type\'s and rules.js\'s');
+    const waBox = /const WA = \{ south: ([\d.-]+), north: ([\d.-]+), west: ([\d.-]+), east: ([\d.-]+) \}/
+      .exec(fs.readFileSync(path.join(SITE, 'emergency', 'rules.js'), 'utf8')).slice(1).map(Number);
+    const countyNames = globalThis.CVIWA_GEO.counties.features.map(f => f.properties.name).sort();
+    const rCounties = [.../^WA_COUNTIES <- c\(([^)]*)\)/m.exec(rSource.replace(/\n\s+/g, ' '))[1].matchAll(/"([^"]*)"/g)]
+      .map(x => x[1]);
+    check(same(/^WA <- c\(south = ([\d.-]+), north = ([\d.-]+), west = ([\d.-]+), east = ([\d.-]+)\)$/m.exec(rSource)
+      .slice(1).map(Number), waBox) && same(rCounties.slice().sort(), countyNames) && rCounties.length === 39,
+    'table check: Washington\'s box is rules.js\'s and its 39 county names are the map\'s', rCounties.length);
+
+    // The report's parts, read back.
+    const reportOf = text => {
+      const lines = text.split('\r\n'), at = re => lines.findIndex(l => re.test(l));
+      const block = re => { const i = at(re); const out = []; for (let k = i + 1; i >= 0 && k < lines.length && lines[k]; k++) out.push(lines[k]); return out; };
+      const num = (re, k) => { const m = re.exec(text); return m ? Number(m[k || 1]) : null; };
+      const columns = block(/^Column\s+Read by the page as/).map(l => l.split(/\s{2,}/));
+      const dates = {};
+      for (const l of block(/^Dates \(/)) {
+        const m = /^ {2}(\S.*?)\s+(\d+) read, (\d+) not read,\s+(\d+) blank(?:; years (\d+) to (\d+))?/.exec(l);
+        if (m) dates[m[1]] = [+m[2], +m[3], +m[4], m[5] ? +m[5] : null, m[6] ? +m[6] : null];
+      }
+      const categories = {};
+      for (const l of block(/^Category values/)) {
+        const m = /^ {2}(\S.*?)\s{2,}(.*)$/.exec(l);
+        categories[m[1]] = /different values/.test(m[2]) ? m[2] : m[2].split(', ').map(e => {
+          const x = /^(.*): (\d+)(?: \((.+)\))?$/.exec(e); return [x[1], +x[2], x[3] || '']; });
+      }
+      const animals = /^Animals \((.+)\): (\d+) read, (\d+) not read, (\d+) blank$/m.exec(text);
+      const county = /^ {2}"Yakima" (\d+), "yakima" (\d+), "Yakima County" (\d+), not a Washington county (\d+), blank (\d+)$/m.exec(text);
+      const coords = /^Coordinates: mapped (\d+) \(outside the box around Washington (\d+)\), not mapped (\d+)\r\n {2}not mapped because: no coordinates (\d+), no latitude (\d+), no longitude (\d+), not readable (\d+), look swapped (\d+)$/m.exec(text);
+      const groupsLine = /^ {2}current (\d+), past (\d+) \(still under quarantine (\d+), not known (\d+)\), not mapped (\d+)$/m.exec(text);
+      return { rows: num(/^Rows below the header: (\d+)/m), ncol: num(/^Columns: (\d+)/m), columns, dates, categories,
+        missing: block(/^Not found \(/).map(l => l.trim().split(/\s{2,}/)[0]),
+        animals: animals ? animals.slice(1).map((v, k) => k ? +v : v) : null,
+        county: county ? county.slice(1).map(Number) : null, coords: coords ? coords.slice(1).map(Number) : null,
+        groups: groupsLine ? groupsLine.slice(1).map(Number) : null, undated: num(/without a readable detection date: (\d+)$/m),
+        end: (/^What the page would show on the last detection date \((\w+ \d{4})\):$/m.exec(text) || [])[1] || null };
+    };
+    const runCheck = file => {
+      const out = path.join(OUTD, path.basename(file).replace(/\.csv$/, '') + '.txt');
+      const hash = () => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'), before = hash();
+      try { execFileSync('Rscript', ['--vanilla', SCRIPT, file, out], { stdio: 'pipe' }); }
+      catch (e) { return { failed: String(e.stderr || e.message).slice(0, 300) }; }
+      if (hash() !== before) return { failed: 'the table changed' };
+      return { text: fs.readFileSync(out, 'utf8') };
+    };
+
+    // The page's own reading of a table, in the report's terms.
+    const ORD = ['1st', '2nd', '3rd'];
+    const ROLE_WORDS = { id: "the positive's ID", disease: 'the disease', status: 'testing status',
+      quarantine: 'quarantine released', quarantineStatus: 'quarantine status', closed: 'closed or not',
+      closedDate: 'surveillance ended', flockType: 'flock type', inventory: 'animals', shown: 'shown in the hover',
+      lat: 'latitude', lon: 'longitude', county: 'county', species: 'animal kind' };
+    const ROLE_ORDER = ['id', 'disease', 'status', 'quarantine', 'quarantineStatus', 'closed', 'closedDate', 'flockType',
+      'inventory', 'lat', 'lon', 'county', 'species'];
+    const ALL_ROLES = ['id', 'detected', 'disease', 'status', 'quarantine', 'quarantineStatus', 'closed', 'closedDate',
+      'flockType', 'inventory', 'shown', 'lat', 'lon', 'county', 'species'];
+    const txt = v => (v === null || v === undefined ? '' : String(v).trim());
+    const ckey = n => txt(n).replace(/\s+/g, ' ').replace(/ county$/i, '').toLowerCase();
+    const mapNames = new Set(countyNames), mapKeys = new Set(countyNames.map(ckey));
+    const KNOWN_WORDS = hpai.statuses.flatMap(s => s.words).concat(hpai.closed.values, ['open', 'no', 'n', 'false', '0'],
+      qv.under, qv.released);
+    const shapeOf = v => { const s = txt(v).replace(/[0-9]/g, '9').replace(/[A-Za-z]/g, 'a');
+      return s.length > 24 ? s.slice(0, 24) + '...' : s; };
+    const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
+      'November', 'December'];
+    const pageOf = file => {
+      const parsed = globalThis.CVIWA.csv.parse(fs.readFileSync(file, 'utf8'));
+      const header = parsed.header, read = E.readPositives(header, parsed.rows, null);
+      const rows = parsed.rows.filter(r => !r.every(v => txt(v) === '')).map(r => header.map((h, k) => txt(r[k])));
+      const at = name => (name === null ? -1 : header.indexOf(name));
+      const idx = names => [...new Set(names.map(n => header.findIndex(h => txt(h).toLowerCase() === n.toLowerCase()
+        && !E.PRIVATE.test(h))).filter(i => i >= 0))];
+      const detectedAt = idx(hpai.columns.detected), shownAt = idx(hpai.columns.shown);
+      const roles = header.map((h, i) => {
+        if (E.PRIVATE.test(h)) return 'never read (private)';
+        const r = ROLE_ORDER.filter(k => at(read.columns[k]) === i).map(k => ROLE_WORDS[k]);
+        if (detectedAt.includes(i)) r.push('detection date (' + ORD[detectedAt.indexOf(i)] + ')');
+        if (shownAt.includes(i)) r.push(ROLE_WORDS.shown);
+        return r.length ? r.join(', ') : 'not used';
+      });
+      // A cell that could be from a record is never shown as written (the script's looks_private): a date, a number
+      // like a coordinate, a county's name or one of the table's Case IDs.
+      const idAt = at(read.columns.id), ids = idAt < 0 ? [] : rows.map(r => r[idAt]).filter(Boolean);
+      const countyWord = new RegExp('\\b(' + countyNames.join('|') + ')\\b', 'i');
+      const looksPrivate = v => /\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}|(^|[^0-9.])-?\d{1,3}\.\d{3,}/.test(v)
+        || countyWord.test(v) || ids.includes(v);
+      const columns = header.map((h, i) => [txt(h) && looksPrivate(txt(h)) ? 'Column ' + (i + 1) + ' (name not shown)' : txt(h),
+        roles[i], E.PRIVATE.test(h) ? '-' : String(rows.filter(r => r[i] === '').length)]);
+      const missing = ALL_ROLES.filter(k => (k === 'detected' ? !detectedAt.length : k === 'shown' ? !shownAt.length
+        : !read.columns[k])).map(k => k === 'detected' ? 'detection date' : ROLE_WORDS[k]);
+      const dates = {};
+      for (const i of [...new Set(detectedAt.concat([at(read.columns.closedDate), at(read.columns.quarantine)]).filter(i => i >= 0))]) {
+        const v = rows.map(r => r[i]), ok = v.map(E.dateOf).filter(Boolean), years = ok.map(d => +d.slice(0, 4));
+        dates[header[i]] = [ok.length, v.filter(x => x && !E.dateOf(x)).length, v.filter(x => !x).length,
+          years.length ? Math.min(...years) : null, years.length ? Math.max(...years) : null];
+      }
+      const inv = at(read.columns.inventory), invV = inv < 0 ? [] : rows.map(r => r[inv]);
+      const animals = inv < 0 ? null : [header[inv], invV.filter(v => E.inventoryOf(v) !== null).length,
+        invV.filter(v => v && E.inventoryOf(v) === null).length, invV.filter(v => !v).length];
+      const mark = (i, v) => {
+        if (i === at(read.columns.status)) return v ? (T.statusOf(hpai, v) || { label: 'no status' }).label : 'no status';
+        if (i === at(read.columns.closed)) return T.isClosed(hpai, v) ? 'closed' : '';
+        if (i === at(read.columns.quarantineStatus)) return v ? T.quarantineStatusOf(hpai, v) || 'not read' : '';
+        return '';
+      };
+      const catCols = [...new Set(['status', 'closed', 'disease', 'flockType', 'species', 'quarantineStatus']
+        .map(k => at(read.columns[k])).concat(shownAt).filter(i => i >= 0))].sort((a, b) => a - b);
+      const categories = {};
+      if (rows.length) {
+        for (const i of catCols) {
+          const counts = new Map();
+          rows.forEach(r => counts.set(r[i], (counts.get(r[i]) || 0) + 1));
+          // A value in fewer than 2 rows (but the known words) or one that looks private, by its shape; values shown
+          // the same are added up.
+          const shown = (v, n) => v === '' ? '(blank)' : v.length > 40 ? '(a value of ' + v.length + ' characters)'
+            : looksPrivate(v) || (n < 2 && !KNOWN_WORDS.includes(v.toLowerCase())) ? '"' + shapeOf(v) + '"'
+            : v.replace(/[\x00-\x1f\x7f]/g, ' ');
+          const added = new Map();
+          for (const [v, n] of counts) {
+            const s = shown(v, n), m = mark(i, v), k = s + ': ' + m;
+            if (added.has(k)) added.get(k)[1] += n; else added.set(k, [s, n, m]);
+          }
+          categories[header[i]] = counts.size > 25 ? counts.size + ' different values: too many to be category words, so not listed'
+            : [...added.values()];
+        }
+      }
+      const cc = at(read.columns.county), cv = cc < 0 ? [] : rows.map(r => r[cc]);
+      const known = v => v && mapKeys.has(ckey(v));
+      const county = cc < 0 ? null : [cv.filter(v => known(v) && mapNames.has(v)).length,
+        cv.filter(v => known(v) && !mapNames.has(v) && !/ county$/i.test(v.replace(/\s+/g, ' '))).length,
+        cv.filter(v => known(v) && !mapNames.has(v) && / county$/i.test(v.replace(/\s+/g, ' '))).length,
+        cv.filter(v => v && !known(v)).length, cv.filter(v => !v).length];
+      const reasons = r => read.dropped.filter(d => d.reason === r).length;
+      const inBox = p => p.lat >= waBox[0] && p.lat <= waBox[1] && p.lon >= waBox[2] && p.lon <= waBox[3];
+      const coords = [read.positives.length, read.positives.filter(p => !inBox(p)).length, read.dropped.length,
+        reasons('no coordinates'), reasons('no latitude'), reasons('no longitude'), reasons('coordinates not readable'),
+        reasons('latitude and longitude look swapped')];
+      const win = E.windowOf(read.positives), g = E.groups(read, win);
+      return { read, header, rows, ncol: header.length, columns, missing, dates, animals, categories, county, coords,
+        groups: [g.current.length, g.past.length, g.stillQuarantined.length, g.notKnown.length, g.notMapped.length],
+        undated: g.undated.length, end: win ? MONTH[+win.end.slice(5, 7) - 1] + ' ' + win.end.slice(0, 4) : null };
+    };
+    // Nothing from the table but its shape: no Case ID, address, coordinate, county name or full date.
+    const leaks = (text, page) => {
+      const body = text.split('\r\n').filter(l => !/^Made \d{4}-\d\d-\d\d\./.test(l)).join('\n')
+        .replace(/"Yakima" \d+, "yakima" \d+, "Yakima County" \d+/, '');
+      const ids = page.read.positives.concat(page.read.dropped).map(p => p.id).filter(Boolean);
+      const latLon = ['lat', 'lon'].map(k => page.header.indexOf(page.read.columns[k])).filter(i => i >= 0)
+        .flatMap(i => page.rows.map(r => r[i])).filter(v => /\d\.\d/.test(v));
+      return ids.filter(v => body.includes(v)).concat(latLon.filter(v => body.includes(v)),
+        countyNames.filter(n => new RegExp('\\b' + n + '\\b', 'i').test(body)),
+        (body.match(/MARKED-ADDRESS|\b\d{1,2}\/\d{1,2}\/\d{4}\b|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/g) || [])
+          .filter(m => !/^[9/-]+$/.test(m)));   // an unread date's shape (each digit a 9) is not a date
+    };
+
+    const TABLES = ['em_positives_agreed.csv', 'em_positives_times.csv', 'em_positives_agreed_header.csv',
+      'em_positives_tool.csv', 'em_positives_demo.csv', 'em_positives_one_marker.csv', 'em_positives_no_date.csv',
+      'em_sample_positives.csv', 'em_rules_positives.csv', 'em_rules_agreed.csv', 'em_rules_overview.csv',
+      'em_rules_quarantine.csv', 'em_table_check_edge.csv'];
+    for (const name of TABLES) {
+      const file = path.join(FXD, name), page = pageOf(file), run = runCheck(file);
+      check(!run.failed, 'table check: ' + name + ': R ran and the table is unchanged', run.failed);
+      if (run.failed) continue;
+      const r = reportOf(run.text);
+      check(page.read.type.id === 'hpai' && r.rows === page.rows.length && r.ncol === page.ncol && same(r.columns, page.columns)
+        && same(r.missing, page.missing), 'table check: ' + name + ': the rows, each column\'s role and blank cells, the columns not found',
+      { r: [r.rows, r.ncol, r.columns.filter((c, i) => !same(c, page.columns[i])), r.missing], page: [page.rows.length, page.missing] });
+      check(same(r.dates, page.dates) && same(r.animals, page.animals), 'table check: ' + name + ': each date column read, not read and blank, its years; the animals read',
+        { r: [r.dates, r.animals], page: [page.dates, page.animals] });
+      const sortCats = c => Object.fromEntries(Object.entries(c).map(([k, v]) => [k, typeof v === 'string' ? v
+        : v.slice().sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))]));
+      check(same(sortCats(r.categories), sortCats(page.categories)), 'table check: ' + name + ': each category value, its rows and how the page reads it',
+        { r: r.categories, page: page.categories });
+      check(same(r.county, page.county) && same(r.coords, page.coords), 'table check: ' + name + ': the County forms; the coordinates mapped and why not',
+        { r: [r.county, r.coords], page: [page.county, page.coords] });
+      check(same(r.groups, page.groups) && r.undated === page.undated && r.end === page.end,
+        'table check: ' + name + ': current, past, still under quarantine, not known and not mapped on the last detection date (as the page)',
+        { r: [r.groups, r.undated, r.end], page: [page.groups, page.undated, page.end] });
+      check(!leaks(run.text, page).length && !/[^\r]\n/.test(run.text), 'table check: ' + name + ': no Case ID, address, coordinate, county name or full date; Windows line ends',
+        leaks(run.text, page));
+    }
+    // The edge table, as written in the fixture: each case named.
+    const edge = reportOf(runCheck(path.join(FXD, 'em_table_check_edge.csv')).text || '');
+    check(edge.rows === 17 && same(edge.groups, [8, 5, 2, 2, 4]) && edge.undated === 2 && same(edge.coords, [13, 0, 4, 1, 1, 0, 1, 1])
+      && same(edge.county, [13, 2, 1, 1, 0]) && same(edge.dates['Confirmed Diagnosis'], [15, 2, 0, 2026, 2026])
+      && same(edge.dates['Close Date'], [4, 1, 12, 2026, 2026]) && same(edge.animals, ['Flock/Herd Inventory', 15, 2, 0])
+      && edge.columns[0].length === 3 && edge.columns.find(c => c[0] === 'Location Notes')[1] === 'never read (private)'
+      && edge.columns.find(c => c[0] === 'Depop Inventory')[2] === '17',
+    'table check: the edge table: 17 rows (the empty one not counted), 8 current, 5 past (2 still under quarantine, 2 not known), 4 not mapped, 2 without a date; an unquoted NA blank',
+    edge);
+    const edgeText = fs.readFileSync(path.join(OUTD, 'em_table_check_edge.txt'), 'utf8');
+    check(/not read, written as: "9\.9\.9999" 1, "99999" 1/.test(edgeText) && /not read, written as: "99\/99\/9999" 1/.test(edgeText)
+      && /written M\/D\/YYYY 11, M\/D\/YYYY with a time 2, YYYY-MM-DD 1, YYYY\/M\/D 1/.test(edgeText)
+      && /"aa aaaa": 1 \(not read\)/.test(edgeText) && !/on hold/.test(edgeText) && /\(a value of 54 characters\): 1/.test(edgeText)
+      && /Rows below the header: 17 \(1 empty row not counted, as the page skips them\)/.test(edgeText),
+    'table check: the edge table: unread dates by their shape only, the forms read, an unread quarantine status in one row by its shape, a long value counted not shown', edgeText.slice(0, 300));
+
+    // Made here: a column of 30 different values (counted, not listed) and a table without its header row.
+    const many = path.join(OUTD, 'many_values.csv');
+    fs.writeFileSync(many, ['Case ID,Confirmed Diagnosis,Latitude,Longitude,Production Type']
+      .concat(Array.from({ length: 30 }, (x, k) => `SYN-M-${k},9/${k % 28 + 1}/2026,46.5,-120.4,Kind ${k}`)).join('\n') + '\n');
+    const manyText = runCheck(many).text || '';
+    check(/^ {2}Production Type\s+30 different values: too many to be category words, so not listed$/m.test(manyText)
+      && !/Kind \d/.test(manyText), 'table check: a column of 30 different values is counted, its values not listed', manyText.slice(-600));
+    const headless = path.join(OUTD, 'no_header.csv');
+    fs.writeFileSync(headless, 'SYN-H-01,9/3/2026,46.5520,-120.4700,Yakima\nSYN-H-02,9/4/2026,46.4010,-120.3150,Benton\n');
+    const headlessText = runCheck(headless).text || '';
+    check(/The first row does not look like the header/.test(headlessText) && /^Column 1\s+not used/m.test(headlessText)
+      && !/SYN-H|46\.5520|Yakima\b(?!" \d)|Benton|9\/3\/2026/.test(headlessText.replace(/"Yakima" \d+, "yakima" \d+, "Yakima County" \d+/, '')),
+    'table check: a table without its header row: the columns by their place only, no cell shown', headlessText.slice(0, 600));
+    // A table without its header row whose first row ends in a Yes/No cell: "Y" is a latitude's name, but a one-letter
+    // name alone does not make the row a header.
+    const headlessY = path.join(OUTD, 'no_header_y.csv');
+    fs.writeFileSync(headlessY, 'SYN-H-01,9/3/2026,46.5520,-120.4700,Yakima,Y\n');
+    const headlessYText = runCheck(headlessY).text || '';
+    check(/The first row does not look like the header/.test(headlessYText) && /^Column 6\s/m.test(headlessYText)
+      && !/SYN-H|46\.5520|120\.4700|Yakima\b(?!" \d)|9\/3\/2026/.test(headlessYText.replace(/"Yakima" \d+, "yakima" \d+, "Yakima County" \d+/, '')),
+    'table check: a table without its header row and a "Y" in its first row: still by place only, no cell shown', headlessYText.slice(0, 600));
+    // Words typed into the category columns that are not category words: a name in one row, a date beside a status
+    // word, a county's name in two rows, a coordinate, a Case ID in two rows; a column named with a date. Each by its shape (the
+    // column by its place); the common words as written.
+    const typed = path.join(OUTD, 'typed_categories.csv');
+    fs.writeFileSync(typed, ['Case ID,Confirmed Diagnosis,Latitude,Longitude,County,Status,Production Type,Flock/Herd Type,Species,Quarantine Status,Note 9/3/2026',
+      'SYN-T-01,9/3/2026,46.55,-120.47,Yakima,Closed 10/1/2026,Smith Farm backyard,Commercial,Chicken,Released 10/2/2026,',
+      'SYN-T-02,9/5/2026,46.60,-120.50,Yakima,Open,Benton line,46.6012,Chicken,,',
+      'SYN-T-03,9/6/2026,46.61,-120.51,Yakima,Open,Benton line,Commercial,SYN-T-01,Pending,',
+      'SYN-T-04,9/7/2026,46.62,-120.52,Yakima,Closed,Commercial,Commercial,SYN-T-01,Pending,'].join('\n') + '\n');
+    const typedPage = pageOf(typed), typedRun = runCheck(typed), typedText = typedRun.text || '';
+    const typedR = typedRun.text ? reportOf(typedText) : {};
+    check(!typedRun.failed && !leaks(typedText, typedPage).length && !/Smith|Farm|Released 10|Closed 10|46\.6012/.test(typedText)
+      && /"aaaaa aaaa aaaaaaaa": 1/.test(typedText) && /^ {2}Status\s+Open: 2, Closed: 1 \(closed\), "aaaaaa 99\/9\/9999": 1$/m.test(typedText)
+      && /"aaaaaaaa 99\/9\/9999": 1 \(not read\)/.test(typedText) && /Pending: 2 \(not read\)/.test(typedText)
+      && /"aaa-a-99": 2/.test(typedText) && /"99\.9999": 1/.test(typedText) && /"aaaaaa aaaa": 2/.test(typedText)
+      && /^Column 11 \(name not shown\)\s+not used/m.test(typedText)
+      && same(typedR.columns, typedPage.columns),
+    'table check: words typed into the category columns (a name, a date, a county, a coordinate, a Case ID) by their shape only; the common words as written',
+      typedText.split('\r\n').filter(l => /^ {2}(Status|Production|Flock|Species|Quarantine)/.test(l)));
+    check(same(Object.fromEntries(Object.entries(typedR.categories || {}).map(([k, v]) => [k, v.slice().sort()])),
+      Object.fromEntries(Object.entries(typedPage.categories).map(([k, v]) => [k, v.slice().sort()]))),
+    'table check: words typed into the category columns: the values as shown equal the page model\'s', [typedR.categories, typedPage.categories]);
   }
 
   console.log(`Emergency unit tests: ${pass} passed, ${fail} failed`);

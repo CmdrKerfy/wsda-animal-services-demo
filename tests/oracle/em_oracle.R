@@ -36,6 +36,9 @@
 #     circle (720 points from geosphere's destPoint on the sphere of 6,378,137 m) or the zone file's polygon, the
 #     zones' union, and each tract's area inside it over its whole area, both in an equal-area projection (Lambert
 #     azimuthal, centered on Washington); the people the tract's people times that share.
+#   - the quarantine status scenario (2.4; rules.json "quarantine"): each row's group and its quarantine on two end
+#     dates (still under quarantine, released or not known) from the release date, else the Quarantine Status column,
+#     and the statuses not read.
 # The Node suite (tests/node/run_em_unit_tests.js) compares the row sets and distances within 1e-6, not counts alone.
 # RAD's and the fixtures' files are only read; nothing is installed.
 #
@@ -469,6 +472,42 @@ overview_out <- list(
 inputs <- c("rules.json", rules$positives, cv$positives, cv$master, vapply(rules$layers, function(l) l$file, character(1)),
             unlist(rules$zoneFiles), ag$positives, ag$layer$file, ag$zoneFile, ag$geojson, ov$positives,
             rules$counties$positives)
+# ── The quarantine status scenario (2.4) ───────────────────────────────────────────────────────────────
+# Each row's group and quarantine on two end dates, from the scope's rule: a past positive's readable Quarantine
+# Release decides (after the end: still under quarantine; else released); without one, its Quarantine Status
+# ("Under quarantine", "Quarantined", "In quarantine" or "Released", "Lifted", any case, spaces trimmed); with
+# neither, not known. A status outside those words is counted as not read and taken as blank.
+qr <- rules$quarantine
+qp <- read_fixture(qr$positives)
+q_lat <- num(trimws(qp[["Latitude"]]))
+q_lon <- num(trimws(qp[["Longitude"]]))
+q_mapped <- usable(q_lat, q_lon)
+q_conf <- trimws(qp[["Confirmed Diagnosis"]])
+q_detected <- as_day(ifelse(nzchar(q_conf), q_conf, trimws(qp[["Date Reported"]])))
+q_closed <- as_day(qp[["Close Date"]])
+q_closed_flag <- tolower(trimws(qp[["Status"]])) %in% c("closed", "yes", "y", "true", "1")
+q_release <- as_day(qp[["Quarantine Release"]])
+q_status_t <- tolower(trimws(qp[["Quarantine Status"]]))
+q_status <- ifelse(q_status_t %in% c("under quarantine", "quarantined", "in quarantine"), "under",
+            ifelse(q_status_t %in% c("released", "lifted"), "released", NA))
+q_bad <- sum(nzchar(q_status_t) & is.na(q_status))
+q_start <- min(q_detected[q_mapped], na.rm = TRUE)
+q_on <- function(end) {
+  end <- as.Date(end)
+  past <- ifelse(!is.na(q_closed), q_closed <= end, q_closed_flag)
+  inside <- is.na(q_detected) | (q_detected >= q_start & q_detected <= end)
+  group <- ifelse(!q_mapped, "Not mapped", ifelse(!inside, "Outside", ifelse(past, "Past", "Current")))
+  quar <- ifelse(group != "Past", NA,
+          ifelse(!is.na(q_release), ifelse(q_release > end, "under", "released"),
+          ifelse(!is.na(q_status), q_status, "unknown")))
+  list(group = I(group), quarantine = I(quar),
+       under = sum(quar == "under", na.rm = TRUE), unknown = sum(quar == "unknown", na.rm = TRUE))
+}
+quarantine_out <- list(bad_status = q_bad, asOf = q_on(qr$asOf), earlier = q_on(qr$earlierEnd))
+cat(sprintf("quarantine: %d rows; on %s %d under, %d not known; on %s %d under, %d not known; %d status not read\n",
+            nrow(qp), qr$asOf, quarantine_out$asOf$under, quarantine_out$asOf$unknown, qr$earlierEnd,
+            quarantine_out$earlier$under, quarantine_out$earlier$unknown, q_bad))
+
 out <- list(
   generated_by = "tests/oracle/em_oracle.R",
   r_version = R.version.string,
@@ -484,7 +523,8 @@ out <- list(
   speed = list(pairs = pairs, distinct = distinct, seconds = speed_s),
   cvi = cvi_out,
   agreed = agreed_out,
-  overview = overview_out
+  overview = overview_out,
+  quarantine = quarantine_out
 )
 dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)
 writeLines(toJSON(out, auto_unbox = TRUE, digits = NA, null = "null", na = "null", pretty = FALSE), out_file)

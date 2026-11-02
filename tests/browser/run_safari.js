@@ -3052,6 +3052,14 @@ async function runEM() {
       check(page.drawn.positives === 6 && page.zones === 12 && page.drawn.inside > 0 && page.drawn.outside > 0 && page.folds.every(function (x) { return !x; })
         && page.boxes[0] === '6' && page.boxes[1] === 'Oct 5, 2026' && Number(page.boxes[2]) > 0,
       'EM Safari: the sample: six current positives (the past one hidden), twelve rings, sites inside and faded, every fold closed, the boxes', page);
+      // The animals' shapes (2.4): each mark's picture drawn by Safari's canvas; the legend's Animals rows; the home button.
+      const shapes = await d.run(`var s=WSDA.emergency.state,m=s.map.map;return { marks: s.map.em.positives.features.map(function(f){
+          var id=f.properties.mark;return id.split(':')[1]+(m.hasImage(id)?'':' missing');}).sort(),
+        legend: Array.from(document.querySelectorAll('#em-legend-content .lg-animal')).map(function(a){return a.dataset.shape+' '+a.parentNode.textContent;}),
+        home: document.querySelector('#em-map .map-fit').title };`);
+      check(shapes.marks.join() === 'circle,circle,circle,circle,square,square' && shapes.legend.join() === 'circle Birds,square Cattle'
+        && shapes.home === 'Fit to the positives shown',
+      'EM Safari: the birds circles and the dairies squares, their pictures drawn by Safari; the legend\'s Animals rows; the home button "Fit to the positives shown"', shapes);
       await d.click('button.tip[data-help="em-type"]');
       const help = await d.run(`return { open: document.getElementById('positives-fold').open, note: !document.getElementById('help-em-type').hidden,
         links: Array.from(document.querySelectorAll('#em-type-links a')).map(function(a){return a.target+' '+a.rel;}) };`);
@@ -3079,11 +3087,21 @@ async function runEM() {
       // ---- E1b ----
       const S = 'WSDA.emergency.state';
       await d.run(`document.getElementById('positives-fold').open = true; return true;`);
+      // The view takes in what is shown (2.4): moved far off first, so the fit after the click shows.
+      const inView = `var s=WSDA.emergency.state,m=s.map.map,c=m.getCanvas();return s.map.em.positives.features.every(function(f){
+        var q=m.project(f.geometry.coordinates);return q.x>=0&&q.y>=0&&q.x<=c.clientWidth&&q.y<=c.clientHeight;});`;
+      await d.run(`WSDA.emergency.state.map.map.jumpTo({ center: [-124.5, 47.9], zoom: 10 });return true;`);
       await d.click('#em-past');
+      const fitted = await d.run(inView);
       const past = await d.run(`var s=${S};return { positives: s.mapData.positives, past: s.mapData.past, box: document.querySelector('#box-positives strong').textContent };`);
       check(past.positives === 7 && past.past === 1 && past.box === '6',
         'EM Safari: a real click on "Show past positives" draws the past one; the "Positives" box still counts six', past);
+      check(fitted, 'EM Safari: the view fits the positives shown after the click on "Show past positives"');
       await d.click('#em-past');
+      await d.run(`var m=WSDA.emergency.state.map.map;m.getCanvas().scrollIntoView({block:'center'});m.jumpTo({ center: [-124.5, 47.9], zoom: 10 });return true;`);
+      await sleep(300);
+      await d.click('#em-map .map-fit');
+      check(await d.run(inView), 'EM Safari: a real click on the home button fits the positives shown');
       // "Detected between": Safari's own date box, set as a picker sets it.
       const win = await d.run(`var i=document.getElementById('em-to');i.value='2026-09-05';i.dispatchEvent(new Event('change'));
         var s=${S};return { type: i.type, end: s.window.end, positives: s.mapData.positives, last: document.querySelector('#box-last strong').textContent };`);
@@ -3120,8 +3138,10 @@ async function runEM() {
       await d.move(at[0], at[1]);
       await sleep(500);
       const tip = await d.run(`return (document.querySelector('.maplibregl-popup')||{}).textContent||'';`);
-      check(/^SYN-HPAI-002Infection zone \(3 km\): 25 days/.test(tip) && /Days since the last positive inside each zone, as of Oct 5, 2026$/.test(tip),
-        'EM Safari: a real pointer move over a zone opens its hover: the rings under the pointer with their days since, as of the date shown', tip);
+      // The population layers are on after the load (2.4), so the tract under the pointer follows the "as of" line.
+      check(/^SYN-HPAI-002Infection zone \(3 km\): 25 days/.test(tip)
+        && /Days since the last positive inside each zone, as of Oct 5, 2026Census tract, 2020[\d,]+ people per sq mi of land2020 population [\d,]+$/.test(tip),
+        'EM Safari: a real pointer move over a zone opens its hover: the rings under the pointer with their days since, as of the date shown, then the tract (the population layers on after the load)', tip);
       await d.move(5, 5);
       // The Overview (2.3) by a real click on the switch: its boxes (the people from the Census tracts' file, loaded
       // by Safari), then "Positives over time" with a column picked by a real click; the Map again by a real click.
@@ -3138,6 +3158,10 @@ async function runEM() {
       const chart = await d.run(`var s=${S};return { at: s.stepAt, end: s.window.end, columns: document.querySelectorAll('.chart-col').length };`);
       check(chart.columns === 13 && chart.at === 7 && chart.end === '2026-09-05',
         'EM Safari: a real click on the chart\'s eighth column moves the window\'s end to that week\'s Saturday', chart);
+      await d.click('.chart-col[data-col="7"]');
+      const unpicked = await d.run(`var s=${S};return { picked: s.picked, window: s.window, file: s.fileWindow, marked: document.querySelectorAll('.chart-col[aria-current="true"]').length };`);
+      check(unpicked.picked === null && unpicked.window.start === unpicked.file.start && unpicked.window.end === unpicked.file.end && unpicked.marked === 0,
+        'EM Safari: a real click on the picked column again gives back all the dates, no column picked (2.4)', unpicked);
       // The slider to its end, focused as a real drag focuses it (the picked column keeps no focus for the redraw to
       // scroll back to); then the people worked out once it stops, before the click.
       await d.run(`var i=document.getElementById('em-step');i.focus();i.value=i.max;i.dispatchEvent(new Event('input'));return true;`);
@@ -3158,6 +3182,34 @@ async function runEM() {
       check(png.sig === 'PNG' && png.width === 2200 && png.height === 1700 && png.ppm === 7874 && /^emergency_hpai_\d{4}-\d\d-\d\d\.png$/.test(png.name)
         && /^Saved emergency_hpai_/.test(png.line),
       'EM Safari: a real click on "Map picture (PNG)": Safari draws and encodes the 2200 x 1700 picture at 200 dpi, named for the type and the day', png);
+      // 2.4: a real click on "Preview Map": the picture in CVI's window, saved nowhere; a real Escape closes it.
+      await d.run(`window.__download=null;return true;`);
+      await d.click('#em-preview');
+      await d.waitFor(`document.getElementById('preview-dialog') && document.getElementById('preview-dialog').open && document.querySelector('#preview-body img')
+        && document.querySelector('#preview-body img').complete && document.querySelector('#preview-body img').naturalWidth > 0
+        && !document.getElementById('em-preview').disabled`, 60000, 'preview shown');
+      const pv = await d.run(`var dl=document.getElementById('preview-dialog'),img=dl.querySelector('#preview-body img');
+        return { title: dl.querySelector('#preview-title').textContent, note: dl.querySelector('#preview-note').textContent, width: img.naturalWidth,
+          caption: dl.querySelector('figcaption').textContent, saved: window.__download };`);
+      await d.key('');
+      await d.waitFor(`!document.getElementById('preview-dialog').open`, 5000, 'preview closed by Escape');
+      check(pv.title === 'Map preview' && pv.note === 'This is what the PNG will look like when exported.' && pv.width === 2200
+        && /^emergency_hpai_\d{4}-\d\d-\d\d\.png$/.test(pv.caption) && pv.saved === null,
+      'EM Safari: a real click on "Preview Map" shows the picture in the "Map preview" window, saving nothing; a real Escape closes it', pv);
+      // Streets, "All" name markers and the two fields: the picture with the streets, every name, the title and file name.
+      await d.click('#em-names-all');
+      await d.run(`var s=document.getElementById('em-png-background');s.value='vector:streets';s.dispatchEvent(new Event('change'));
+        document.getElementById('em-png-title').value='Briefing map';document.getElementById('em-png-label').value='Briefing 22';window.__png=null;return true;`);
+      await d.click('#em-png');
+      await d.waitFor(`window.__png && !document.getElementById('em-png').disabled`, 60000, 'streets picture drawn');
+      const named = await d.run(`var l=${S}.lastPng,m=l.model;return { bg: m.background, streets: m.streetNames.length, fac: m.facilityNames.length,
+        names: m.names.length, title: m.title, name: (window.__download||{}).name, notices: l.notices, ticked: document.querySelectorAll('#em-name-list input:checked').length,
+        boxes: document.querySelectorAll('#em-name-list input').length };`);
+      check(named.bg === 'vector:streets' && named.streets > 3 && named.fac > 0 && named.names === 6 && named.title === 'Briefing map'
+        && /^\d{4}-\d\d-\d\d_Briefing_22\.png$/.test(named.name) && !named.notices.length && named.ticked === named.boxes && named.boxes > 1,
+      'EM Safari: Streets (vector), "All" name markers and the two fields: the streets and place names, every name, the title typed and the file named from it', named);
+      await d.run(`var s=document.getElementById('em-png-background');s.value='standard';s.dispatchEvent(new Event('change'));
+        document.getElementById('em-png-title').value='';document.getElementById('em-png-label').value='';return true;`);
       // The synthetic screwworm outbreak: its type and its dispersal areas as the zones.
       v0 = await d.run(`return ${S}.version;`);
       await d.run(SET_FILES, '#files-input', [b64(path.join(tables, 'em_nws_synthetic.zip'))]);

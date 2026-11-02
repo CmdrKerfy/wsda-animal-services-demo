@@ -4,7 +4,8 @@
  * Overview" switch either the map (map.js), the legend and the results tabs ("Inside the zones": one fold per layer, the "nearest" line, the left-out list; "CVI
  * movements": CVI's own Premise Lookup match, lookup.js query, loaded unchanged, over the zones), the Export (a
  * ZIP of CSV files written with CVI's CSV writer and its formula guard, exports.js, zones.geojson and
- * export_params.json) and the map picture (a branded PNG drawn by branded.js, its options under More options); or
+ * export_params.json) and the map picture (a branded PNG drawn by branded.js; 2.4: its Preview in CVI's window,
+ * previews.js, loaded unchanged, its "Name markers in PNG" and the two optional fields, a title and a file name); or
  * the Overview (2.3): five titled sections, its three value boxes (counties, animals, the people inside the zones),
  * the chart "Positives over time" (chart.js), the bars by county and by layer, the counties and positives tables.
  * Each new set of files opens on the Map.
@@ -37,11 +38,13 @@
     synthetic: false, handoffFiles: null, bundle: null,
     type: T.list()[0], typePicked: false, positivesFile: null, read: null, ticks: null, rings: null,
     unit: 'km', unitPicked: false, ringBase: null, pastRings: false,
-    fileWindow: null, window: null, steps: { by: null, steps: [] }, stepAt: 0, playing: false, playTimer: null,
+    fileWindow: null, window: null, steps: { by: null, steps: [] }, stepAt: 0, picked: null, playing: false, playTimer: null,
     days: null,
     zoneFile: null, useZones: false, points: [], pointsAdded: 0, picking: false,
     prepared: null, layers: Object.create(null), selectedLayers: [], includeCoarse: false, result: null,
+    nameLayers: ['positives'],   // 2.4: the names on the map picture ("Name markers in PNG"), the positives' by default
     basemap: '', neighbors: Object.create(null), population: { on: { cities: false, places: false, density: false }, missing: {} },
+    populationFor: null,   // the positives file the population layers were last turned on for (its path, name and size)
     tab: 'inside', view: 'map', fitNext: false,
     master: null, masterReason: '', cvi: { years: [], quarters: QUARTERS.slice(), species: [] }, cviRes: null, cviKey: null
   };
@@ -117,6 +120,7 @@
   function clearLoaded(op, message, hubMessage) {
     if (op !== state.op) return;
     state.datasets = Object.create(null);
+    state.populationFor = null;
     state.version++;
     $('load-fold').open = true;
     $('load-summary').textContent = '';
@@ -182,6 +186,14 @@
     state.view = 'map';
     renderAsOf();
     state.fitNext = true;
+    // The population layers are on after each load of a positives file, so a lone positive does not open on empty
+    // gray land (2.4). Only a new positives file turns them on: adding a facility layer or a zone file to the same one
+    // keeps the layers as the user left them.
+    const positivesKey = ready ? [datasets.positives.path || '', datasets.positives.name, datasets.positives.file.size].join('|') : null;
+    if (ready && positivesKey !== state.populationFor) {
+      ['cities', 'places', 'density'].forEach(l => { if (!state.population.missing[l]) pcSet(l, true); });
+    }
+    state.populationFor = positivesKey;
     syncControls();
     compute();
     answerHub(ready, ready ? '' : 'No positives file could be loaded.');
@@ -273,6 +285,7 @@
     state.window = state.fileWindow ? Object.assign({}, state.fileWindow) : null;
     state.steps = E.playSteps(state.fileWindow);
     state.stepAt = Math.max(0, state.steps.steps.length - 1);
+    state.picked = null;   // no column is picked: the window is the whole file's
   }
 
   // The "as of" lines: the bundle's label and date, then one line per loaded file.
@@ -458,10 +471,12 @@
     if (!state.ticks) return;
     state.ticks.pastShown = $('em-past').checked;
     $('em-past-fold').hidden = !state.ticks.pastShown;
+    state.fitNext = true;   // the view takes them in, or lets them go
     compute();
   });
   $('em-past-rings').addEventListener('change', () => {
     state.pastRings = $('em-past-rings').checked;
+    state.fitNext = true;
     compute();
   });
 
@@ -500,6 +515,8 @@
     msg.hidden = true;
     state.window = next;
     syncStep();
+    state.picked = state.stepAt;
+    state.fitNext = true;
     renderWindow();
     compute();
   }
@@ -509,7 +526,8 @@
   // The play: the file's detections step by step (rules.js playSteps: epi weeks, or calendar months over more than
   // 26 weeks), one step a second; each step's end becomes the window's end, the last step the latest detection. It
   // starts the window at the earliest detection, stops at the end (no loop), and pauses on Pause, on the slider or on
-  // a date box. While it plays, the CVI movements wait.
+  // a date box. While it plays, the CVI movements wait and the view stays still (the map would jump each second); it
+  // fits once when the play stops.
   const PLAY_MS = 1000;
   function renderPlay() {
     const s = state.steps, n = s.steps.length;
@@ -539,6 +557,7 @@
     const step = state.steps.steps[i];
     if (!step) return;
     state.stepAt = i;
+    state.picked = i;
     // A start after the step's end goes back to the earliest detection, so the window is never empty.
     state.window = { start: state.window.start <= step.end ? state.window.start : state.fileWindow.start, end: step.end };
     $('em-window-msg').hidden = true;
@@ -567,6 +586,14 @@
     state.playTimer = null;
     renderPlay();
     if (state.tab === 'cvi') renderCvi();
+    fitShown();
+  }
+  // Fits the view to what is drawn now, or when the Map is next shown.
+  function fitShown() {
+    state.fitNext = true;
+    if (state.view !== 'map' || !state.map || !state.map.ready || state.map.failed) return;
+    EM.fit(state.map);
+    state.fitNext = false;
   }
   $('em-play').addEventListener('click', () => (state.playing ? stopPlay() : startPlay()));
   // The slider's value is read before the play stops (stopping redraws the slider at the step shown).
@@ -742,6 +769,7 @@
       input.type = 'checkbox'; input.value = l.key; input.checked = state.selectedLayers.includes(l.key);
       input.addEventListener('change', () => {
         state.selectedLayers = Array.from(box.querySelectorAll('input:checked')).map(i => i.value);
+        renderNameMarkers();
         compute();
       });
       label.append(input, F.markElement(l.layer, 16), document.createTextNode(l.label + ' (' + l.points.length + ')'));
@@ -754,6 +782,7 @@
       label.textContent = l.liveLabel + ': ' + l.reason;
       box.append(label);
     }
+    renderNameMarkers();
   }
   $('em-layers-all').addEventListener('click', () => {
     state.selectedLayers = Object.keys(state.layers);
@@ -818,11 +847,12 @@
     state.days = { zonesMode, asOf: windowEnd(), sites: E.daysSince(sites, counted, windowEnd()),
       past: E.daysSince(pastSites, counted, windowEnd()) };
     state.zoneParts = { zonesMode, sites, pastSites, counted };   // for zones.geojson and the map picture
+    // The legend before the map: the map's fit keeps the legend's width clear, so it must be shown first.
+    legendArgs = [zonesMode, g, pastSites.length > 0];
+    renderLegend(...legendArgs);
     drawMap(sites, pastSites, zonesMode, targets, layers);
     renderBoxes();
     if (!read || state.view !== 'overview') renderChart();   // on the Overview it is drawn with the rest (renderView)
-    legendArgs = [zonesMode, g, pastSites.length > 0];
-    renderLegend(...legendArgs);
     renderTabs();
     renderInside();
     state.cviKey = null;   // the zones or files changed: the CVI movements are worked out again when shown
@@ -857,7 +887,9 @@
     second.push(p.detected ? 'detected ' + E.dayLabel(p.detected) : 'no detection date');
     const line = second.join(' · ');
     const lines = [p.name, line.charAt(0).toUpperCase() + line.slice(1)];
-    if (E.isPast(p, end)) lines.push(E.stillQuarantined(read, p, end) ? 'Past, still under quarantine' : 'Past');
+    if (E.isPast(p, end)) {
+      lines.push({ under: 'Past, still under quarantine', unknown: 'Past, quarantine not known' }[E.quarantineOf(read, p, end)] || 'Past');
+    }
     const more = E.details(read, p).filter(d => d[1]).map(([column, value]) => column === read.columns.inventory
       ? value + ' ' + E.inventoryWordOf(read.type, p) : column === 'Flock size' ? 'flock size ' + value : value);
     return lines.concat(more.length ? [more.join(' · ')] : []).join('\n');
@@ -886,7 +918,8 @@
     const withZones = new Set(targets.map(p => p.index)), read = state.read, end = windowEnd();
     const shown = read ? read.positives.filter(p => E.inWindow(p, state.window) && (state.ticks.pastShown || !E.isPast(p, end))) : [];
     const positives = shown.map(p => ({ lat: p.lat, lon: p.lon, label: positiveLabel(p),
-      color: p.status ? p.status.color : NO_STATUS, past: E.isPast(p, end), withZones: withZones.has(p.index) }))
+      color: p.status ? p.status.color : NO_STATUS, past: E.isPast(p, end), withZones: withZones.has(p.index),
+      shape: E.animalShapeOf(read.type, p) }))
       .concat(state.points.map(p => ({ lat: p.lat, lon: p.lon, label: p.name, color: NO_STATUS, past: false, withZones: true })));
     const r = state.result, insideKeys = new Set(), inside = [], outside = [];
     if (r) {
@@ -907,17 +940,11 @@
         outside.push({ lat: p.lat, lon: p.lon, shape: l.shape, color: l.color, label: name + '\n' + l.label });
       }
     }
-    // The view: the zones' box (the rings, or the file's polygons); the positives' box when there are no zones.
-    let bounds = null;
-    const grow = (lon, lat) => {
-      if (!bounds) bounds = [lon, lat, lon, lat];
-      bounds = [Math.min(bounds[0], lon), Math.min(bounds[1], lat), Math.max(bounds[2], lon), Math.max(bounds[3], lat)];
-    };
-    zones.forEach(f => (f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates)
-      .forEach(poly => poly[0].forEach(([lon, lat]) => grow(lon, lat))));
-    if (!bounds) positives.forEach(p => grow(p.lon, p.lat));
+    // The view (2.4): the zones, the past zones drawn and every positive shown (the past ones when shown).
+    const bounds = EM.viewBounds(zones, pastZones, positives);
     const tipFoot = days.asOf ? 'Days since the last positive inside each zone, as of ' + E.dayLabel(days.asOf) : '';
-    // The map is hidden while the Overview shows: a fit then waits until the Map is shown again.
+    // The map is hidden while the Overview shows: a fit then waits until the Map is shown again. The play's steps ask
+    // for no fit, so the view stays still while it plays; it fits once when the play stops (stopPlay).
     const fit = state.fitNext && state.view === 'map';
     EM.draw(state.map, { zones, pastZones, zoneTips: tips, tipFoot, positives, inside, outside, bounds }, fit);
     if (fit) state.fitNext = false;
@@ -942,13 +969,34 @@
     set('box-positives', v.positives.value, v.positives.value !== null && fromFile ? 'zones from a file' : v.positives.note);
     set('box-past', v.past.value, v.past.value === null ? v.past.reason : v.past.note);
     $('box-past').classList.toggle('quar', !!v.past.quarantined);
-    // The number still under quarantine in bold and the warning color; the rest of the note as the other boxes' notes.
-    if (v.past.quarantined) {
-      const note = $('box-past').querySelector('.card-note'), n = v.past.note.match(/^[\d,]+/)[0];
-      note.replaceChildren(el('b', '', n), v.past.note.slice(n.length));
+    // Some quarantines not known (2.4): the icon striped gold, half the cue of the solid gold for still under quarantine.
+    $('box-past').classList.toggle('unk', !!v.past.notKnown);
+    // The number still under quarantine in bold and the warning color, and "n not known" in bold; the rest of the note
+    // as the other boxes' notes.
+    if (v.past.quarantined || v.past.notKnown) {
+      const nodes = [];
+      let rest = v.past.note;
+      if (v.past.quarantined) {
+        const n = rest.match(/^[\d,]+/)[0];
+        nodes.push(el('b', '', n));
+        rest = rest.slice(n.length);
+      }
+      if (v.past.notKnown) {
+        const k = rest.lastIndexOf(', ') + 2;
+        nodes.push(rest.slice(0, k), el('b', '', rest.slice(k)));
+      } else nodes.push(rest);
+      $('box-past').querySelector('.card-note').replaceChildren(...nodes);
     }
     set('box-last', v.last.value === null ? null : E.dayLabel(v.last.value), v.last.value === null ? v.last.reason : v.last.note || '');
     set('box-inside', v.inside.value, v.inside.reason);
+    // A window with no positive (two dates typed close together): why the boxes are empty, and how to see the
+    // positives current on a date.
+    const empty = $('em-window-empty');
+    empty.hidden = !v.emptyWindow;
+    if (v.emptyWindow) {
+      empty.textContent = 'No positive was detected between these dates. To see the positives current on a date, keep ' +
+        'the first date at ' + E.dayLabel(state.fileWindow.start) + ' and change only the second.';
+    }
     const strip = $('em-box-lines'), lines = v.positives.value === null ? [] : v.positives.lines;
     strip.replaceChildren();
     lines.forEach((l, i) => {
@@ -984,8 +1032,9 @@
       { key: 'past', label: 'past', name: 'Past', outline: true, stroke: color, opacity: 0.55 },
       { key: 'outside', label: 'outside the window', name: 'Outside the window', fill: OUTSIDE }];
     const tick = c => (t.by === 'month' ? c.label.replace(/^Month of /, '') : c.label.replace(/^Week of /, '').replace(/, \d{4}$/, ''));
-    const columns = t.columns.map((c, i) => ({ label: c.label, tick: tick(c), picked: i === state.stepAt,
-      values: { current: c.current, past: c.past, outside: c.outside }, click: 'Click to end the date window on ' + E.dayLabel(c.end) }));
+    const columns = t.columns.map((c, i) => ({ label: c.label, tick: tick(c), picked: i === state.picked,
+      values: { current: c.current, past: c.past, outside: c.outside },
+      click: i === state.picked ? 'Click again for all dates' : 'Click to end the date window on ' + E.dayLabel(c.end) }));
     const focused = box.contains(document.activeElement);
     box.innerHTML = CH.columns({ title: 'Positives over time, ' + (t.by === 'month' ? 'by month' : 'by week'),
       none: 'no positives', series, columns }, { width: box.clientWidth,
@@ -1003,9 +1052,18 @@
     tip.style.left = Math.max(4, Math.min(x + 12, root.innerWidth - w - 8)) + 'px';
     tip.style.top = (y + 16 + h > root.innerHeight ? y - h - 10 : y + 16) + 'px';
   }
+  // A column ends the window there; the picked column again gives back the whole file's dates, as after a load, with
+  // no column picked. The view follows (on the Overview, when the Map is next shown).
   function pickColumn(i) {
     stopPlay();
-    goStep(i);
+    state.fitNext = true;
+    if (i !== state.picked) { goStep(i); return; }
+    state.picked = null;
+    state.window = Object.assign({}, state.fileWindow);
+    $('em-window-msg').hidden = true;
+    syncStep();
+    renderWindow();
+    compute();
   }
   const chartBox = $('em-chart'), colOf = e => e.target.closest && e.target.closest('.chart-col');
   chartBox.addEventListener('click', e => { const c = colOf(e); if (c) pickColumn(Number(c.getAttribute('data-col'))); });
@@ -1179,6 +1237,14 @@
   // ticked layers, then the population layers drawn (as Infrastructure's legend shows them). Its last arguments are
   // kept, so a population switch redraws it without working the results out again.
   let legendArgs = null;
+  // A shape of the animals' rows: white inside, a gray edge, the size of a legend dot.
+  function animalMark(shape) {
+    const s = el('span', 'lg-animal');
+    s.dataset.shape = shape;
+    s.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="' + F.markPath(shape, 7, 7, 5.5) +
+      '" fill="#ffffff" stroke="#444444" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+    return s;
+  }
   function renderLegend(zonesMode, g, pastRings) {
     const box = $('em-legend-content'), lines = [];
     const line = (mark, text) => { const p = document.createElement('p'); p.append(mark, document.createTextNode(text)); lines.push(p); };
@@ -1202,6 +1268,14 @@
       state.rings.forEach(r => line(swatch('lg-ring', r.color, 'transparent'), r.label + ' (' + ringDistance(r) + ')'));
     }
     if (pastRings) line(el('span', 'lg-past-ring'), 'Past zones (dashed)');
+    // The animals by the marks' shapes (2.4), for the kinds among the positives drawn.
+    const kinds = state.read ? E.animalKeys(state.type, g.current.concat(state.ticks.pastShown ? g.past : [])) : [];
+    if (kinds.length) {
+      const head = el('p', 'lg-pc-head');
+      head.append(el('strong', '', 'Animals'));
+      lines.push(head);
+    }
+    for (const k of kinds) line(animalMark(k.shape), k.label);
     for (const k of state.selectedLayers) {
       const l = state.layers[k];
       if (l) line(F.markElement(l.layer, 14), l.label);
@@ -1469,7 +1543,8 @@
   // left_out.csv, zones.csv (the "Zones" list),
   // zones.geojson (every zone drawn, rules.js zonesGeoJson), cvi_movements.csv (with a master; CVI's matched rows
   // without any column whose name holds address, location, street or premise) and export_params.json; text columns
-  // with CVI's formula guard. The folder and the ZIP are named YYYY-MM-DD_Emergency.
+  // with CVI's formula guard. The folder and the ZIP are named YYYY-MM-DD_Emergency, or YYYY-MM-DD_<name> with an
+  // "Optional Filename" (2.4, CVI's rule).
   function csvOf(table) {
     const types = {};
     table.columns.forEach((c, j) => {
@@ -1489,7 +1564,7 @@
     return E.zonesGeoJson(parts, { rings: state.rings || [], unit: state.unit, asOf: windowEnd(), positives: zp.counted });
   }
   $('em-export').addEventListener('click', () => {
-    const now = new Date(), folder = X.localDate(now) + '_Emergency';
+    const now = new Date(), folder = X.localDate(now) + '_' + (EB.safeLabel($('em-png-label').value) || 'Emergency');
     if (!state.read) { say('em-export-result', 'warn', 'Load a positives file before exporting.'); return; }
     const r = state.result || { rows: [], layers: [], leftOut: [] };
     const t = E.exportRows(state.read, state.read.targets || [], r, state.unit, state.window);
@@ -1529,6 +1604,7 @@
       positives: state.read.positives.length,
       sites_inside: r.total || 0,
       distances: (state.unit === 'mi' ? 'miles (1 mile = 1.609344 km)' : 'km') + ', on a sphere of 6,378,137 m (CVI\'s rule)',
+      export_label: $('em-png-label').value.trim(),
       exported_at: X.localTime(now)
     };
     if (state.synthetic) params.data_note = X.SYNTHETIC_NOTE;
@@ -1546,9 +1622,11 @@
 
   // ---- The map picture (PNG) -------------------------------------------------------------------------------------
   // The branded page of the map as shown (branded.js, a copy of Premise Lookup's): 11 x 8.5 in, downloaded alone as
-  // emergency_<type>_YYYY-MM-DD.png. Its options are in "Map picture" under More options: the background (Default, or
-  // a tile background loaded from its provider, with Default and a notice when it cannot be), the tiles' quality and
-  // the resolution (200 or 300 dpi). While the play runs, the picture shows the date shown.
+  // emergency_<type>_YYYY-MM-DD.png. Its options are in "Export & Preview": the background (Default, a tile background
+  // loaded from its provider, or Streets from geo/streets-wa.js, loaded the first time it is used; with Default and a
+  // notice when one cannot be), the tiles' quality, the resolution (200 or 300 dpi), and (2.4) "Name markers in PNG",
+  // "Optional Filename" and "Optional Map Title". "Preview Map" shows the picture the button would save in CVI's
+  // window. While the play runs, the picture shows the date shown.
   const EB = W.emergencyBranded, BR = W.branded;
   // A public copy offers only the PNG backgrounds cleared for public use (shared/release.js).
   root.WSDA.tiles.prunePickers([$('em-png-background')]);
@@ -1561,8 +1639,53 @@
   }
   $('em-png-background').addEventListener('change', syncPngControls);
   syncPngControls();
-  // The page's input: the positives shown, the zones drawn and the sites inside, as on the map.
-  function pngInput(background, now) {
+  // "Name markers in PNG": "Positives" (ticked by default), then each checked layer (not ticked by default), in the
+  // layers' order; the picks kept by key while layers change (as CVI's), a layer no longer checked dropped.
+  function renderNameMarkers() {
+    const shown = [{ key: 'positives', label: 'Positives' }].concat(Object.values(state.layers)
+      .filter(l => state.selectedLayers.includes(l.key)).map(l => ({ key: l.key, label: l.label })));
+    state.nameLayers = state.nameLayers.filter(k => shown.some(x => x.key === k));
+    $('em-name-list').replaceChildren(...shown.map(x => {
+      const label = document.createElement('label'), box = document.createElement('input');
+      box.type = 'checkbox'; box.value = x.key; box.checked = state.nameLayers.includes(x.key);
+      label.append(box, document.createTextNode(' ' + x.label));
+      return label;
+    }));
+  }
+  $('em-name-list').addEventListener('change', () => {
+    state.nameLayers = [...$('em-name-list').querySelectorAll('input:checked')].map(i => i.value);
+  });
+  $('em-names-all').addEventListener('click', () => {
+    state.nameLayers = [...$('em-name-list').querySelectorAll('input')].map(i => i.value);
+    renderNameMarkers();
+  });
+  $('em-names-clear').addEventListener('click', () => { state.nameLayers = []; renderNameMarkers(); });
+  renderNameMarkers();
+  // The choices at the click.
+  function pngChoices() {
+    return { background: $('em-png-background').value, quality: $('em-png-quality').value,
+      resolution: $('em-png-resolution').value, nameLayers: state.nameLayers.slice(), title: $('em-png-title').value,
+      label: $('em-png-label').value };
+  }
+  // Copied from site/cvi/app/ui.js (lines 1197 to 1204, v2.3) and lookup.js (lines 1957 to 1963): a script loaded
+  // when first needed; the Streets data loaded once (a failed load is tried again next time), resolving to the data
+  // or null.
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.onload = () => { s.remove(); resolve(); };
+      s.onerror = () => { s.remove(); reject(new Error(src.replace(/^\.\.\//, ''))); };
+      s.src = src; document.head.appendChild(s);
+    });
+  }
+  let streetsLoading = null;
+  function loadStreets() {
+    if (root.WSDA_STREETS) return Promise.resolve(root.WSDA_STREETS);
+    if (!streetsLoading) streetsLoading = loadScript('../geo/streets-wa.js').then(() => root.WSDA_STREETS || null, () => null);
+    return streetsLoading.then(d => { if (!d) streetsLoading = null; return d; });
+  }
+  // The page's input: the positives shown, the zones drawn and the sites inside, as on the map; ch the choices.
+  function pngInput(ch, background, streets, now) {
     const read = state.read, end = windowEnd(), zp = state.zoneParts;
     const shown = read.positives.filter(p => E.inWindow(p, state.window) && (state.ticks.pastShown || !E.isPast(p, end)));
     if (state.master && state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }
@@ -1577,20 +1700,29 @@
       if (l) layers[k] = { label: l.label, pngLabel: l.layer && l.layer.label, color: l.color, shape: l.shape };
     });
     return { type: state.type, positives: shown.map(p => ({ name: p.name, lat: p.lat, lon: p.lon,
-      color: p.status ? p.status.color : NO_STATUS, status: p.status ? p.status.label : 'No status', past: E.isPast(p, end) })),
+      color: p.status ? p.status.color : NO_STATUS, status: p.status ? p.status.label : 'No status', past: E.isPast(p, end),
+      shape: E.animalShapeOf(read.type, p) })), animals: E.animalKeys(read.type, shown),
     added: state.points.map(p => ({ name: p.name, lat: p.lat, lon: p.lon })), sites: zp.sites,
     pastSites: zp.pastSites, zonesMode: zp.zonesMode, zoneName: zp.zonesMode ? state.zoneFile.name : null,
     rings: state.rings || [], unit: state.unit, result: state.result, layers, days: state.days.sites,
     window: state.window, current: E.groups(read, state.window).current.length,
     cvi: res ? { cvis: res.summary.cvis, animals: res.summary.animals, matched: res.matched || [], years: yearsText } : null, counties: root.CVIWA_GEO.counties.features, date: now,
-    background, synthetic: !!state.synthetic };
+    background, streets, nameLayers: ch.nameLayers, title: ch.title, label: ch.label, synthetic: !!state.synthetic };
   }
-  // The picture: a tile background loaded first when one is picked; when it cannot be, the Default background and a
-  // notice (as Infrastructure's).
+  // The picture: a tile background or Streets loaded first when one is picked; when it cannot be, the Default
+  // background and a notice (as Infrastructure's and Premise Lookup's).
   async function pngPicture(ch, now) {
     const dpi = BR.DPI[ch.resolution] || BR.DPI.standard;
-    let built = EB.page(pngInput(ch.background, now));
     const notices = [];
+    let background = ch.background, streets = null;
+    if (background === 'vector:streets') {
+      streets = await loadStreets();
+      if (!streets) {
+        notices.push('The Streets background could not be loaded, so the Default background was used.');
+        background = 'standard';
+      }
+    }
+    let built = EB.page(pngInput(ch, background, streets, now));
     const size = BR.pixelSize(dpi);
     let under = null;
     const u = built.model.underlay;
@@ -1601,7 +1733,7 @@
       else {
         notices.push('The ' + root.WSDA.tiles.BACKGROUNDS[ch.background].label + ' background could not be loaded, so ' +
           'the Default background was used.');
-        built = EB.page(pngInput('standard', now));
+        built = EB.page(pngInput(ch, 'standard', null, now));
       }
     }
     const markup = BR.svg(built.parts, size, { transparent: !!under });
@@ -1615,32 +1747,42 @@
     document.body.appendChild(a); a.click(); a.remove();
     root.setTimeout(() => root.URL.revokeObjectURL(url), 60000);
   }
+  // "Map picture (PNG)" saves the picture, "Preview Map" shows it in CVI's window ("Map preview"); while one is drawn
+  // both are grayed and the one clicked reads "Drawing…".
   let drawingPng = false;
-  $('em-png').addEventListener('click', async () => {
+  async function drawPicture(button, done) {
     if (drawingPng) return;
     if (!state.read) { say('em-export-result', 'warn', 'Load a positives file before making a map picture.'); return; }
-    const ch = { background: $('em-png-background').value, quality: $('em-png-quality').value,
-      resolution: $('em-png-resolution').value };
-    const button = $('em-png'), label = button.lastChild.textContent;
+    const ch = pngChoices();
+    const label = button.lastChild.textContent;
     drawingPng = true;
-    button.disabled = true;
+    $('em-png').disabled = $('em-preview').disabled = true;
     button.lastChild.textContent = 'Drawing…';
     try {
-      const made = await pngPicture(ch, new Date());
-      savePng(made.model.fileName, made.blob);
-      state.lastPng = { model: made.model, dpi: made.dpi, size: made.size, notices: made.notices, underlay: made.underlay,
-        bytes: made.blob.size };   // test hook
-      say('em-export-result', made.notices.length ? 'warn' : 'ok',
-        'Saved ' + made.model.fileName + ': handed to your browser to save, usually your Downloads folder. If no file ' +
-        'appears, your browser or IT policy blocked the download.' + (made.notices.length ? ' ' + made.notices.join(' ') : ''));
+      done(await pngPicture(ch, new Date()));
     } catch (e) {
       say('em-export-result', 'err', 'The map picture could not be made: ' + ((e && e.message) || e));
     } finally {
       drawingPng = false;
-      button.disabled = false;
+      $('em-png').disabled = $('em-preview').disabled = false;
       button.lastChild.textContent = label;
     }
-  });
+  }
+  $('em-png').addEventListener('click', () => drawPicture($('em-png'), made => {
+    savePng(made.model.fileName, made.blob);
+    state.lastPng = { model: made.model, dpi: made.dpi, size: made.size, notices: made.notices, underlay: made.underlay,
+      bytes: made.blob.size };   // test hook
+    say('em-export-result', made.notices.length ? 'warn' : 'ok',
+      'Saved ' + made.model.fileName + ': handed to your browser to save, usually your Downloads folder. If no file ' +
+      'appears, your browser or IT policy blocked the download.' + (made.notices.length ? ' ' + made.notices.join(' ') : ''));
+  }));
+  $('em-preview').addEventListener('click', () => drawPicture($('em-preview'), made => {
+    state.lastPreview = { model: made.model, dpi: made.dpi, notices: made.notices, bytes: made.blob.size };   // test hook
+    if (made.notices.length) say('em-export-result', 'warn', made.notices.join(' '));
+    else $('em-export-result').hidden = true;
+    C.previews.showMap('Map preview', [{ name: made.model.fileName, blob: made.blob, alt: made.model.title }],
+      'This is what the PNG will look like when exported.');
+  }));
 
   // ---- The map and More options (copied from Infrastructure) -----------------------------------------------------
   state.prepared = F.prepare(Object.create(null), null, root.CVIWA_GEO.counties, 0);
@@ -1648,6 +1790,16 @@
     () => say('em-zero', 'err', 'The map could not be drawn. Reload the page to try again.'));
   state.map.notify = msg => say('screenshot-status', 'info', msg);
   state.map.shotName = 'Emergency';   // the camera picture's name
+  // The fit keeps the legend clear when it is over the map (on a phone it sits above it). Open, at its full width: the
+  // population layers' rows come in after the fit and would widen it.
+  state.map.legendWidth = () => {
+    const lg = $('em-legend'), css = root.getComputedStyle(lg);
+    if (lg.hidden || css.position !== 'absolute') return 0;
+    return (lg.open ? Math.max(lg.offsetWidth, parseFloat(css.maxWidth) || 0) : lg.offsetWidth) + 8;
+  };
+  // The home button fits what is shown (the shared button keeps its own name elsewhere).
+  const home = $('em-map').querySelector('.map-fit');
+  if (home) { home.title = 'Fit to the positives shown'; home.setAttribute('aria-label', 'Fit to the positives shown'); }
   // After a basemap change: redraw, and say so when the basemap failed and the offline map is shown.
   function basemapChanged() {
     compute();
@@ -1726,8 +1878,9 @@
     });
   });
 
-  // Population context (shared/population.js): three switches, all off when the page opens; a layer's file loads the
-  // first time its switch is turned on, and a file that cannot be loaded leaves its switch grayed with the message.
+  // Population context (shared/population.js): three switches, off when the page opens and turned on after each load
+  // of files (2.4); a layer's file loads the first time its switch is turned on, and a file that cannot be loaded
+  // leaves its switch grayed with the message.
   // The population layers switched on whose files have loaded: the ones drawn (and in the legend).
   function pcDrawn() {
     const on = state.population.on;

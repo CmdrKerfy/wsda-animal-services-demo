@@ -17,6 +17,8 @@
  *                 positive's name; detected: the detection date, in order of preference (a row whose first date is
  *                 blank takes the next); disease: picks the type; status: the testing status (a file without a status
  *                 column gives every positive the first status below); quarantine: the quarantine release date;
+ *                 quarantineStatus: the quarantine status ("Under quarantine", "Released"; see quarantineValues),
+ *                 which decides for a past positive whose release date is blank;
  *                 flockType: the kind of flock or herd (Commercial, Backyard), counted in the numbers line
  *                 under the value boxes; inventory: the number of animals (thousands commas allowed), added up
  *                 in that line and giving the flock size class; shown: further columns shown in the hover and
@@ -30,7 +32,14 @@
  *                 word they are counted under ("3 commercial, 3 backyard, 1.2M birds, 3,550 cattle, 45 other
  *                 animals"). A positive
  *                 counts under the first entry with a word in its species, else under inventoryWord; its flock type
- *                 is counted as before. Empty or left out: every animal under inventoryWord
+ *                 is counted as before. Empty or left out: every animal under inventoryWord. The order gives the
+ *                 map's marks their shape: inventoryWord a circle, the first entry a square, later entries a triangle
+ *   quarantineValues  the quarantine status column's values (any case): under, those meaning still under
+ *                 quarantine, and released. A past positive is still under quarantine on the window's end date when
+ *                 its release date is after it; with no release date, when its status is an under value; with
+ *                 neither, its quarantine is "not known" (in a file with a quarantine status column) or, in a file
+ *                 with only the release date column, still under quarantine. Left out: "under quarantine",
+ *                 "quarantined", "in quarantine" and "released", "lifted"
  *   statuses      each status a positive can have: its label on the page, the spellings a file may use for it (any
  *                 case) and its color on the map (#rrggbb)
  *   closed        column: the column (or columns, first found wins) that marks a positive closed, and values: the
@@ -66,6 +75,7 @@
       disease: ['Subtype', 'Disease Name'],
       status: ['Case Status'],
       quarantine: ['Quarantine Release'],
+      quarantineStatus: ['Quarantine Status'],
       flockType: ['Flock/Herd Type'],
       inventory: ['Flock/Herd Inventory'],
       shown: ['Production Type']

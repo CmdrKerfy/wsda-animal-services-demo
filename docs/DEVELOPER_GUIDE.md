@@ -100,7 +100,7 @@ over `file://` and `http`, and keeps the CSP unchanged):
 | `geo/us-states.js`, `geo/state-centers.js`, `geo/us-insets.js`, `cvi/app/flowmap.js` | `FLOW_FILES` and `loadScript()` in `cvi/app/ui.js` | the National Flow view is first chosen |
 | `cvi/app/focusmap.js` | `FOCUS_FILES` in `cvi/app/ui.js` | the County Focus view is first chosen |
 | `cvi/app/lookupmap.js` | `cvi/app/lookup.js` (through the page's `loadScript`) | the first Premise Lookup result |
-| `geo/streets-wa.js` | `cvi/app/ui.js` and `cvi/app/lookup.js` | the "Streets (vector)" PNG background is first used |
+| `geo/streets-wa.js` | `cvi/app/ui.js`, `cvi/app/lookup.js` and `emergency/app.js` | the "Streets (vector)" PNG background is first used |
 | `geo/citylimits-wa.js`, `geo/places-wa.js`, `geo/tracts-wa.js` | `WSDA.population.load()` (`shared/population.js`) | a population layer is first switched on (`tracts-wa.js` also when Emergency Response's Overview first works out the people inside the zones) |
 | `geo/regions/<id>.js` | `WSDA.regions.load()` (`shared/regions.js`) | a neighboring region is first switched on |
 | `geo/wa-counties.js` on the landing page | `needGeo()` in `landing.js` | the all-in-one sample is first downloaded |
@@ -233,12 +233,12 @@ small page part (named in the line). "Data" means it only holds values.
 
 | File | Kind | What it does |
 |---|---|---|
-| `index.html` | Page | The Emergency page: five sidebar folds (Load your data, Positives and zones, Layers to check, More options, Export & Preview with Export and "Map picture (PNG)"), the value boxes, the "Map \| Overview" switch, the map with its two result tabs, and the Overview (its three boxes, "Positives over time", the bars by county and by layer, the counties and positives tables, a "?" on each box and chart). |
-| `app.js` | Page | All page wiring: loading, reading the files into the rules, the folds' controls, "Show past positives", the "Detected between" window and the play, km \| miles, the map's data, the boxes, the Map \| Overview switch (each new set of files opens on the Map; a fit asked for on the Overview waits for the Map), the Overview (the 2020 Census tracts loaded the first time it needs them; the people worked out again only when the zones change, and once the play or the slider stops), the chart, the legend, the tabs, CVI movements (CVI's `lookup.js` `query`, waiting while the play runs), the ZIP with `zones.csv`, `zones.geojson` and `counties.csv`, the map picture's input (`WSDA.emergency`). |
-| `map.js` | Page | The Emergency map kind of CVI's map adapter: zones (rings or a zone file's polygons), past positives and their rings, the sites inside and the faded others, the positives, the zone hover with days since, the picked spot (`WSDA.emergencyMap`). |
+| `index.html` | Page | The Emergency page: five sidebar folds (Load your data, Positives and zones, Layers to check, More options, Export & Preview with the map picture's background, resolution, "Name markers in PNG", "Optional Filename" and "Optional Map Title", Export, "Preview Map" and "Map picture (PNG)"), the value boxes, the "Map \| Overview" switch, the map with its two result tabs, and the Overview (its three boxes, "Positives over time", the bars by county and by layer, the counties and positives tables, a "?" on each box and chart). |
+| `app.js` | Page | All page wiring: loading, reading the files into the rules, the folds' controls, "Show past positives", the "Detected between" window and the play, km \| miles, the map's data, the boxes, the Map \| Overview switch (each new set of files opens on the Map; a fit asked for on the Overview waits for the Map), the Overview (the 2020 Census tracts loaded the first time it needs them; the people worked out again only when the zones change, and once the play or the slider stops), the chart, the legend, the tabs, CVI movements (CVI's `lookup.js` `query`, waiting while the play runs), the ZIP with `zones.csv`, `zones.geojson` and `counties.csv`, the map picture's input and its Preview in CVI's window (`previews.js`), the Streets data loaded when first used (tried again after a failed load), the population layers turned on for each new positives file (`WSDA.emergency`). |
+| `map.js` | Page | The Emergency map kind of CVI's map adapter: zones (rings or a zone file's polygons), past positives and their rings, the sites inside and the faded others, the positives in their animal's shape (2.4: birds a circle, cattle a square, other animals a triangle; a white halo, a dark outline), the zone hover with days since, the picked spot, and the view's fit (`viewBounds`: the zones, every positive shown, the past positives and zones; a 60-pixel edge, the open legend's full width kept clear; the home button "Fit to the positives shown") (`WSDA.emergencyMap`). |
 | `rules.js` | Pure | The positives read by the type's column names and their names, the rows not mapped, current and past positives, the window and the play's weeks or months, which positives get zones, still under quarantine, the numbers line, the locations too coarse for zone results, what lies inside, the "nearest" line, days since, miles, the value boxes, the chart's counts (`overTime`), the Overview's rules (each positive's county, the counties and positives tables, its three boxes, the bars' rows, the people inside the zones from Washington's 2020 Census tracts, `counties.csv`), the export rows and `zones.geojson` (`WSDA.emergencyRules`). |
 | `chart.js` | Pure | The charts as SVG text: "Positives over time" (stacked columns, axis, key, one keyboard stop) and the Overview's horizontal bars (CVI's `chartsvg.js` hbars, copied, stacked) (`WSDA.emergencyChart`). |
-| `branded.js` | Pure | The map picture (PNG), a copy of Premise Lookup's branded page (`site/cvi/app/brandedmaps.js`): its model (title, boxes, rings in both units, key, the POSITIVES panel, the CVI premises in a zone) and its SVG (`WSDA.emergencyBranded`). |
+| `branded.js` | Pure | The map picture (PNG), a copy of Premise Lookup's branded page (`site/cvi/app/brandedmaps.js`): its model (title, boxes, rings in both units, key, the POSITIVES panel, the CVI premises in a zone, the names picked, Streets) and its SVG (`WSDA.emergencyBranded`). |
 | `types.js` | Pure | The emergency types' list: checks each type file's fields, picks the type for a positives file (`WSDA.emergencyTypes`). |
 | `types/hpai.js` | Data | The HPAI type; its top comment explains every field. |
 | `types/nws.js` | Data | The New World screwworm type: zones from a dispersal-area file, its own layers and words. |
@@ -257,7 +257,7 @@ Every generated file here starts with "Generated by ... Do not edit." Change the
 | `us-states.js` | `WSDA_US_STATES` | `derive_states.R` | Outlines of the 48 contiguous states and DC. |
 | `state-centers.js` | `WSDA_STATE_CENTERS` | `derive_states.R` | CVI's state centers, copied exactly. |
 | `us-insets.js` | `WSDA_US_INSETS` | `derive_insets.R` | Alaska and Hawaii outlines for the inset boxes. |
-| `streets-wa.js` | `WSDA_STREETS` | `derive_streets.R` | Roads, water and places for the County Focus "Streets" PNG background. |
+| `streets-wa.js` | `WSDA_STREETS` | `derive_streets.R` | Roads, water and places for the "Streets" PNG background (County Focus, Premise Lookup, Emergency). |
 | `citylimits-wa.js` | `WSDA_CITYLIMITS` | `derive_population.R` | City limits with 2020 populations. |
 | `places-wa.js` | `WSDA_PLACES` | `derive_population.R` | 2020 Census places with populations. |
 | `tracts-wa.js` | `WSDA_TRACTS` | `derive_population.R` | 2020 Census tracts with density classes. |
@@ -277,6 +277,22 @@ SHA-256 of its source files where they are pinned, runs its own checks and stops
 | `derive_regions.R` | `geo/regions/<id>.js` | the same Census file; Statistics Canada 2021 census divisions (pinned in `SOURCES`) |
 | `derive_population.R` | the three population files | Census 2020 places, tracts and PL 94-171 (pinned); WA Department of Revenue city boundaries (needs `--dor-date` for a new download) |
 | `derive_streets.R` | `geo/streets-wa.js` | CVI's `reference/tiger_wa/` files (SHA-256 printed and written into the output) |
+
+### The work-PC table check (`tools/work-pc/`)
+
+A small tool for the agency's own computer, outside the pages: it shows the shape and the counts of an HPAI positives
+table as the Emergency page reads it, so a difference between the table and the page can be found without sending
+the table. It goes to the work PC as its own ZIP, `WSDA_HPAI_table_check.zip`, attached to the Release
+(`tests/release/make_table_check_zip.js`).
+
+| File | What it does |
+|---|---|
+| `CHECK_HPAI_TABLE.bat` | Double-clicked: finds Rscript as the CVI tools do (`CVI_RSCRIPT` first), asks for the table in a Windows file window, runs the R check and saves its report beside itself (`hpai_table_check_YYYY-MM-DD.txt`). Windows line ends, plain ASCII. |
+| `check_hpai_table.R` | The check, base R only: the page's CSV reader, column names, dates, coordinates and groups written again (from `site/cvi/app/csv.js`, `site/emergency/rules.js`, `types.js` and `types/hpai.js`). The report holds counts only, never a Case ID, an address, a coordinate, a county's name or a full date: a category value found in one row only (other than a status, closed or quarantine word), or one holding a date, a coordinate, a county's name or a Case ID, is shown by its shape (each letter an a, each digit a 9), and a first row is taken as the header only when it holds a needed column's name of three letters or more. The Emergency unit suite runs it on the synthetic HPAI tables and compares every count with the page's, and checks that its column names and words are the HPAI type's. |
+| `README.txt` | The note for staff: how to run it, what the report holds and never holds. |
+
+A change to the HPAI type's column names or words, or to how `rules.js` reads a table, needs the same change in
+`check_hpai_table.R`; the unit suite fails until both agree.
 
 ### Vendored library (`site/vendor/`)
 
@@ -396,7 +412,8 @@ The Emergency Response dashboard names no emergency in its code: each emergency 
      loaded;
    - `columns`: the column names the page reads for each role, any case, the first name the file has winning: `id`
      (the positive's name), `detected` (the detection date, in order of preference; a row whose first date is blank
-     takes the next), `disease`, `status`, `quarantine` (the quarantine release date), `flockType` (Commercial,
+     takes the next), `disease`, `status`, `quarantine` (the quarantine release date), `quarantineStatus` (the
+     quarantine status, "Under quarantine" or "Released", read for a past positive without a release date; 2.4), `flockType` (Commercial,
      Backyard; counted in the Overview's animals box), `inventory` (the number of animals, thousands commas
      allowed; added up in that box and giving the flock size class) and `shown` (further columns for the hover and
      the export). A renamed column in the agency's table is one edit here. A name holding address, location, street
@@ -404,7 +421,13 @@ The Emergency Response dashboard names no emergency in its code: each emergency 
    - `inventoryWord`: the word after the animals' total in the Overview's animals box ("4.1M birds"; "animals" when left out);
    - `countedApart`: animals added up apart from `inventoryWord`, each entry's species words and the word they are
      counted under (HPAI: "3,550 cattle, 45 other animals"); a positive counts under the first entry with a word in
-     its species;
+     its species. The order also gives the map's marks their shape (2.4): `inventoryWord` a circle, the first entry a
+     square, every later entry a triangle, with one row per shape in the legend and the picture's key;
+   - `quarantineValues`: the quarantine status column's values, `under` (still under quarantine) and `released`
+     (any case; left out: "under quarantine", "quarantined", "in quarantine" and "released", "lifted"). A past
+     positive is still under quarantine when its release date is after the window's end; with no release date, when
+     its status is an `under` value; with neither, its quarantine is "not known" (or, in a file with only the release
+     date column, still under quarantine, as before 2.4);
    - `statuses`: each status's label, the spellings a file may use for it, and its map color (`#rrggbb`);
    - `closed`: `column` (the column or columns that mark a positive closed), `values` (the values that do) and
      `dateColumn` (the date surveillance ended, when the file has one). A positive is past on the window's end date
@@ -485,6 +508,9 @@ The code follows these conventions. Keep to them in new code.
 - **Comments over non-obvious functions,** saying what goes in and what comes out, and why when the reason is not
   plain. Long files are divided by section comments (`// ── Name ──` or `// ---- name ----`).
 - **Line length:** most lines are under 120 characters. Generated data and base64 lines are the exception.
+- **Visual cues before text.** A state or a mode (a date view, a group, a pick) shows first by how it looks: a
+  control's shape, a line or a band on a chart, a badge, a solid or hollow mark. Text is a short label beside it.
+  When a design needs a sentence of explanation to be understood, look for a visual cue first.
 - **American spelling** in code, comments and page text. Quotes and proper names stay as written.
 - **No network.** No fetch, no CDN, no web font, no analytics. The only exception is the opt-in basemaps and PNG
   tile backgrounds, behind the request gate and the CSP. Pictures are `data:` or `blob:`.

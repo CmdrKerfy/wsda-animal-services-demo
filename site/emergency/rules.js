@@ -9,11 +9,12 @@
  *     emergency type (types.js); without one, the type is picked (types.pick) from the values of every disease
  *     column the loaded types name (their columns.disease) that the file has.
  *     The type names the columns read for the ID, the detection date, the disease, the status, the quarantine release,
- *     the flock type, the inventory and the columns shown (its columns field), and the closed column and closed date
+ *     the quarantine status, the flock type, the inventory and the columns shown (its columns field), and the closed column and closed date
  *     (its closed field); the latitude, longitude, county and species are read by the names in COLUMNS whatever the
  *     type.
  *     positives: [{ index (0, 1, ... among the usable rows), line (the file's line number, the header being line 1),
  *       id, name, county, lat, lon, status ({ label, color } or null), statusText, closed, closedDate, quarantine,
+ *       quarantineStatus ('under', 'released' or null), quarantineStatusText (as written, or null),
  *       detected (dates as YYYY-MM-DD or null), disease, species, flockType, inventoryText (as written), inventory
  *       (a number, or null when blank or unreadable), size (the flock size class), shown ([[column, value]] in the
  *       type's order) }].
@@ -25,10 +26,11 @@
  *       positive (index, lat and lon null; named by its ID, else "Line 9 (County)") and a reason: "no coordinates",
  *       "no latitude", "no longitude", "latitude and longitude look swapped" (unusable as written, in Washington the
  *       other way round; never swapped by the page) or "coordinates not readable".
- *     columns: the column found for each of lat, lon, id, status, closed, closedDate, quarantine, flockType,
+ *     columns: the column found for each of lat, lon, id, status, closed, closedDate, quarantine, quarantineStatus, flockType,
  *       inventory, detected (the first found), county, disease, species (or null), and shown (a list).
  *     badDates, badCloseDates, badReleaseDates: rows whose detection date, closed date or quarantine release date
  *       could not be read. A positive with an unreadable closed date is past by its closed column alone.
+ *     badQuarantineStatus: rows whose quarantine status is not one of the type's quarantineValues (read as blank).
  *     Names: the ID (Case ID, or AnimalDiseaseReportId in E1a's form) when the row has one, else "Positive 1
  *     (County)" in file order, or "Positive 1" without a county. A column whose name holds address, location, street
  *     or premise is never read, so no address can reach a name, a label or an export.
@@ -47,9 +49,12 @@
  *   inWindow(p, win) -> detected between start and end, both counting; a positive without a readable date is inside
  *     whatever the window.
  *   isPast(p, end) -> past on the end date: its closed date on or before it; without a readable closed date, its
- *     closed column says closed. stillQuarantined(read, p, end) -> past, in a file with a quarantine column, and its
- *     release blank or after the end date.
- *   groups(read, win) -> { current, past, stillQuarantined, undated, outside, notMapped }: the positives inside the
+ *     closed column says closed. quarantineOf(read, p, end) -> for a past positive in a file with a quarantine
+ *     release or status column: 'under' (still under quarantine on the end date) or 'released' by a readable release
+ *     date (after the end, or on or before it); without one, by its quarantine status; with neither, 'unknown' in a
+ *     file with a status column, 'under' in a file with only the release date (as before the status column). Else
+ *     null. stillQuarantined(read, p, end) -> quarantineOf is 'under'.
+ *   groups(read, win) -> { current, past, stillQuarantined, notKnown, undated, outside, notMapped }: the positives inside the
  *     window by group (undated: those of them without a readable date; outside: detected outside the window).
  *     groupOf(p, end) -> "Current", "Past" or "Not mapped".
  *   playSteps(win) -> { by: 'week' or 'month', steps: [{ start, end, label }] }: epi weeks (Sunday to Saturday,
@@ -67,6 +72,9 @@
  *     the type's inventoryWord, then its countedApart words: "1.2M birds, 3,550 cattle"; "; 2 without an inventory"
  *     when some are blank), or null. inventoryWordOf(type, p) -> the word p's animals are counted under. bigNumber(n) -> "4.1M",
  *     or "18,535" under a million.
+ *   animalShapeOf(type, p) -> the mark's shape: "circle" for the inventoryWord, "square" for the first countedApart
+ *     word, "triangle" for the others (ANIMAL_SHAPES). animalKeys(type, list) -> the legend's rows [{ shape, label }],
+ *     one per shape among list ("Birds", "Cattle", "Other animals").
  *   notMappedLine(dropped) -> "2 not mapped: no coordinates", or null.
  *   details(read, p) -> [[column, value]] shown in the hover and positives.csv: the flock type, the shown columns,
  *     the inventory as written and "Flock size".
@@ -114,19 +122,21 @@
  *     distance in the unit, km by default).
  *
  * The value boxes and the exports:
- *   valueBoxes(read, result, win?) -> { positives: { value, note, lines }, past: { value, reason, note, quarantined },
- *     last: { value, reason, note }, inside: { value, reason } }; a value that cannot be given is null with "Not
+ *   valueBoxes(read, result, win?) -> { positives: { value, note, lines }, past: { value, reason, note, quarantined, notKnown },
+ *     last: { value, reason, note }, inside: { value, reason }, emptyWindow }; a value that cannot be given is null with "Not
  *     available: needs ..." as its reason (never shown as zero). Each count is said once: the positives' value
  *     counts the current positives inside the window, its note "5 with zones" only when that differs; the past box
- *     counts the past positives inside it, its note "2 still under quarantine" (or "none under quarantine"); lines
- *     holds the not-mapped line, "2 dates not readable" (detection, closed and release dates together) and "1
- *     without a date", each when it applies (the animals are the Overview's box since 2.3); the last
- *     positive is the latest inside the window, its note "As of Oct 5, 2026" (the window's end). Without a window
+ *     counts the past positives inside it, its note "2 still under quarantine" (or "none under quarantine"), with ", 1
+ *     not known" when a quarantine is not known; lines holds the not-mapped line, "2 dates not readable" (detection,
+ *     closed and release dates together), "1 quarantine status not read" and "1 without a date", each when it applies (the animals are the Overview's box since 2.3); the last
+ *     positive is the latest inside the window, its note "As of Oct 5, 2026" (the window's end); a window with no
+ *     dated positive in a file whose dates are read gives emptyWindow true and "None between these dates". Without a window
  *     (no readable detection date) the current positives are those not past by their closed column, the past box is
  *     not available and only the not-mapped and unreadable-dates lines are added.
  *   exportRows(read, targets, result, unit?, win?) -> { positives, inside, layers, leftOut }: each { columns, rows }
  *     for the CSV files, with no address column; positives.csv lists the positives inside the window and the rows
- *     not mapped, each with its group, the details and a note ("Still under quarantine", or "Not mapped: ..."). The
+ *     not mapped, each with its group, the details and a note ("Still under quarantine", "Quarantine not known", or
+ *     "Not mapped: ..."); a "Quarantine Status" column (as written) when the file has one. The
  *     distances in the unit (km by default).
  *
  * The Overview (2.3), from the positives inside the window, current or past on its end date:
@@ -138,7 +148,7 @@
  *     animalsText ("1.3M birds"), missing (current positives without a count) }], by current, then total, then name,
  *     "Outside Washington" last.
  *   positiveRows(read, win, counties) -> { columns, rows }: the ID (or "Positive"), Detected, County, Flock size, the
- *     flock type, species, status, "Current or past" and quarantine release columns the file has; dates written out
+ *     flock type, species, status, "Current or past", quarantine release and quarantine status columns the file has; dates written out
  *     ("Oct 5, 2026"); newest first, the undated last. No address column.
  *   peopleInside(sites, tracts, opts) -> null without sites, else { total, rounded (three significant figures:
  *     roughly(n)), year, tracts: [{ geoid, pop, share, people }] (each tract touched), beyond (a zone reaches past
@@ -238,6 +248,7 @@
     const names = type.columns;
     Object.assign(col, { id: columnIndex(header, names.id), status: columnIndex(header, names.status),
       disease: columnIndex(header, names.disease), quarantine: columnIndex(header, names.quarantine),
+      quarantineStatus: columnIndex(header, names.quarantineStatus),
       closed: columnIndex(header, type.closed.column), closedDate: columnIndex(header, type.closed.dateColumn),
       flockType: columnIndex(header, names.flockType), inventory: columnIndex(header, names.inventory) });
     // Every detection-date column the file has, in the type's order of preference; and the columns shown.
@@ -245,7 +256,7 @@
     const detectedAt = each(names.detected), shownAt = each(names.shown);
     const firstStatus = type.statuses[0];
     const positives = [], dropped = [];
-    let badDates = 0, badCloseDates = 0, badReleaseDates = 0;
+    let badDates = 0, badCloseDates = 0, badReleaseDates = 0, badQuarantineStatus = 0;
     for (const { r, line } of data) {
       const latText = cell(r, col.lat), lonText = cell(r, col.lon);
       const lat = P().number(latText), lon = P().number(lonText);
@@ -259,11 +270,13 @@
       if (closedText && !closedDate) badCloseDates++;
       const releaseText = cell(r, col.quarantine), release = dateOf(releaseText);
       if (releaseText && !release) badReleaseDates++;
+      const qText = cell(r, col.quarantineStatus), qStatus = T().quarantineStatusOf(type, qText);
+      if (qText && !qStatus) badQuarantineStatus++;
       const inventoryText = cell(r, col.inventory), inventory = inventoryOf(inventoryText);
       const p = { index: null, line, id: id || null, name: null, county: county || null, lat: null, lon: null,
         status: status ? { label: status.label, color: status.color } : null,
         statusText: statusText || null, closed: col.closed >= 0 && T().isClosed(type, r[col.closed]),
-        closedDate, quarantine: release,
+        closedDate, quarantine: release, quarantineStatus: qStatus, quarantineStatusText: qText || null,
         detected, disease: cell(r, col.disease) || null, species: cell(r, col.species) || null,
         flockType: cell(r, col.flockType) || null, inventoryText: inventoryText || null, inventory,
         size: sizeClass(inventory), shown: shownAt.map(i => [header[i], cell(r, i)]) };
@@ -280,7 +293,7 @@
     for (const k of Object.keys(col)) columns[k] = col[k] < 0 ? null : header[col[k]];
     columns.detected = detectedAt.length ? header[detectedAt[0]] : null;
     columns.shown = shownAt.map(i => header[i]);
-    return { type, positives, dropped, columns, badDates, badCloseDates, badReleaseDates };
+    return { type, positives, dropped, columns, badDates, badCloseDates, badReleaseDates, badQuarantineStatus };
   }
 
   // Why a row could not be mapped. A pair that is unusable as written but would fall in Washington the other way
@@ -359,15 +372,21 @@
     return p.closed;
   }
 
-  // A past positive whose quarantine release is blank or after the end date, in a file with a quarantine column.
-  function stillQuarantined(read, p, end) {
-    if (!read.columns.quarantine || !isPast(p, end)) return false;
-    return !p.quarantine || (!!end && p.quarantine > end);
+  // A past positive's quarantine on the end date. A readable release date decides (it is exact for any end date);
+  // without one, the quarantine status (it describes today, whatever the end date); with neither, not known when the
+  // file has a status column, or still under quarantine when it has only the release date column (the rule before
+  // the status column). The agency's release dates are often filled in late, hence the status column (2.4).
+  function quarantineOf(read, p, end) {
+    if ((!read.columns.quarantine && !read.columns.quarantineStatus) || !isPast(p, end)) return null;
+    if (p.quarantine) return end && p.quarantine > end ? 'under' : 'released';
+    if (p.quarantineStatus) return p.quarantineStatus;
+    return read.columns.quarantineStatus ? 'unknown' : 'under';
   }
+  const stillQuarantined = (read, p, end) => quarantineOf(read, p, end) === 'under';
 
   function groups(read, win) {
     const end = win ? win.end : null;
-    const out = { current: [], past: [], stillQuarantined: [], undated: [], outside: [], notMapped: read.dropped };
+    const out = { current: [], past: [], stillQuarantined: [], notKnown: [], undated: [], outside: [], notMapped: read.dropped };
     for (const p of read.positives) {
       if (!inWindow(p, win)) {
         out.outside.push(p);
@@ -376,7 +395,9 @@
       if (!p.detected) out.undated.push(p);
       if (isPast(p, end)) {
         out.past.push(p);
-        if (stillQuarantined(read, p, end)) out.stillQuarantined.push(p);
+        const q = quarantineOf(read, p, end);
+        if (q === 'under') out.stillQuarantined.push(p);
+        else if (q === 'unknown') out.notKnown.push(p);
       } else out.current.push(p);
     }
     return out;
@@ -461,6 +482,28 @@
     const species = text(p.species).toLowerCase();
     const apart = species ? type.countedApart.find(a => a.species.some(w => hasWord(species, w))) : null;
     return apart ? apart.word : type.inventoryWord;
+  }
+
+  // The positive's mark tells its animal (2.4): the type's inventoryWord a circle ("birds"), its first countedApart
+  // word a square ("cattle"), every later one a triangle ("other animals"). The kind is inventoryWordOf's, so the map
+  // and the numbers agree.
+  const ANIMAL_SHAPES = ['circle', 'square', 'triangle'];
+  const animalWords = type => [type.inventoryWord].concat(type.countedApart.map(a => a.word));
+  const shapeAt = i => ANIMAL_SHAPES[Math.min(Math.max(i, 0), ANIMAL_SHAPES.length - 1)];
+  function animalShapeOf(type, p) {
+    return shapeAt(animalWords(type).indexOf(inventoryWordOf(type, p)));
+  }
+  // The legend's "Animals" rows for the positives drawn: one per shape among them, in the shapes' order, named by
+  // its words with a positive drawn ("Birds", "Cattle", "Other animals"; two words on the triangle "Goats, sheep").
+  function animalKeys(type, list) {
+    const words = animalWords(type), drawn = new Set(list.map(p => inventoryWordOf(type, p)));
+    return ANIMAL_SHAPES.map(shape => {
+      const named = words.filter((w, i) => shapeAt(i) === shape && drawn.has(w))
+        .filter((w, i, all) => all.indexOf(w) === i);
+      if (!named.length) return null;
+      const label = named.join(', ');
+      return { shape, label: label.charAt(0).toUpperCase() + label.slice(1) };
+    }).filter(Boolean);
   }
 
   // One line counting the positives by flock type and adding up their animals: "4 commercial, 67 backyard, 4.1M
@@ -756,9 +799,11 @@
     const withZones = read && read.targets ? read.targets.length : null;
     const counted = !read ? [] : g ? g.current.concat(g.past) : read.positives;
     const dates = counted.map(p => p.detected).filter(Boolean).sort();
+    // A window with no dated positive in a file whose dates are read (2.4): the box says so, and the page says why.
+    const emptyWindow = !!g && !dates.length && read.positives.some(p => p.detected);
     const last = !read ? { value: null, reason: 'Not available: needs the positives file' }
       : !read.columns.detected ? { value: null, reason: 'Not available: needs ' + read.type.columns.detected[0] }
-        : !dates.length ? { value: null, reason: 'Not available: no readable ' + read.columns.detected }
+        : !dates.length ? { value: null, reason: emptyWindow ? 'None between these dates' : 'Not available: no readable ' + read.columns.detected }
           : { value: dates[dates.length - 1], reason: null };
     if (g && last.value && win.end) last.note = 'As of ' + dayLabel(win.end);
     const insideBox = !result || !result.layers.length
@@ -769,20 +814,24 @@
       if (notMapped) lines.push(notMapped);
       const bad = (read.badDates || 0) + (read.badCloseDates || 0) + (read.badReleaseDates || 0);
       if (bad) lines.push(bad.toLocaleString('en-US') + (bad === 1 ? ' date' : ' dates') + ' not readable');
+      const badQ = read.badQuarantineStatus || 0;
+      if (badQ) lines.push(badQ.toLocaleString('en-US') + (badQ === 1 ? ' quarantine status' : ' quarantine statuses') + ' not read');
     }
     // The animals at the current positives are the Overview's own box (2.3), no longer a line here.
     if (g && g.undated.length) lines.push(g.undated.length.toLocaleString('en-US') + ' without a date');
-    const quarantined = g ? g.stillQuarantined.length : 0;
+    const quarantined = g ? g.stillQuarantined.length : 0, notKnown = g ? g.notKnown.length : 0;
     const past = !read ? { value: null, reason: 'Not available: needs the positives file' }
       : !g ? { value: null, reason: last.value === null ? last.reason : 'Not available: needs dates' }
-        : { value: g.past.length, reason: null, quarantined,
-          note: !g.past.length ? null : quarantined ? quarantined.toLocaleString('en-US') + ' still under quarantine' : 'none under quarantine' };
+        : { value: g.past.length, reason: null, quarantined, notKnown,
+          note: !g.past.length ? null : (quarantined ? quarantined.toLocaleString('en-US') + ' still under quarantine' : 'none under quarantine')
+            + (notKnown ? ', ' + notKnown.toLocaleString('en-US') + ' not known' : '') };
     return {
       positives: read ? { value: all.length, note: withZones === null || withZones === all.length ? null : withZones + ' with zones', lines }
         : { value: null, note: 'Not available: needs the positives file', lines },
       past,
       last,
-      inside: insideBox
+      inside: insideBox,
+      emptyWindow
     };
   }
 
@@ -796,13 +845,15 @@
     const listed = read.positives.filter(p => inWindow(p, win)).concat(read.dropped);
     const extra = listed.length ? details(read, listed[0]).map(pair => pair[0]) : [];
     const note = p => p.index === null ? 'Not mapped: ' + p.reason
-      : stillQuarantined(read, p, end) ? 'Still under quarantine' : '';
-    const positives = { columns: ['Positive', 'Group', 'Status', 'Closed', 'Close Date', 'Quarantine Release',
-      'Detection Date', 'County', 'Latitude', 'Longitude', 'Zones'].concat(extra, ['Note']),
+      : { under: 'Still under quarantine', unknown: 'Quarantine not known' }[quarantineOf(read, p, end)] || '';
+    const status = !!read.columns.quarantineStatus;
+    const positives = { columns: ['Positive', 'Group', 'Status', 'Closed', 'Close Date', 'Quarantine Release']
+      .concat(status ? ['Quarantine Status'] : [], ['Detection Date', 'County', 'Latitude', 'Longitude', 'Zones'], extra, ['Note']),
     rows: listed.map(p => [p.name, groupOf(p, end), p.status ? p.status.label : (p.statusText || ''),
-      p.closed ? 'Yes' : 'No', p.closedDate || '', p.quarantine || '', p.detected || '', p.county || '',
+      p.closed ? 'Yes' : 'No', p.closedDate || '', p.quarantine || ''].concat(status ? [p.quarantineStatusText || ''] : [], [
+      p.detected || '', p.county || '',
       p.lat === null ? '' : p.lat, p.lon === null ? '' : p.lon, withZones.has(p.index) ? 'Yes' : 'No']
-      .concat(details(read, p).map(pair => pair[1]), [note(p)])) };
+      .concat(details(read, p).map(pair => pair[1]), [note(p)]))) };
     const inside = { columns: ['Positive or zone', 'Layer', 'Site', 'Distance (' + UNITS[u].label + ')', 'Zone', 'County', 'Town'],
       rows: result.rows.map(r => [r.siteName, r.layerLabel, r.name, km(r.exactKm), r.zone, r.county || '', r.town || '']) };
     const zoneNames = result.layers.length ? result.layers[0].byZone.map(z => z.label) : [];
@@ -909,7 +960,8 @@
       [c.species, p => text(p.species), !!c.species],
       [c.status, p => (p.status ? p.status.label : text(p.statusText)), !!c.status],
       ['Current or past', p => groupOf(p, end), true],
-      [c.quarantine, p => day(p.quarantine), !!c.quarantine]].filter(col => col[2]);
+      [c.quarantine, p => day(p.quarantine), !!c.quarantine],
+      [c.quarantineStatus, p => text(p.quarantineStatusText), !!c.quarantineStatus]].filter(col => col[2]);
     const list = g.current.concat(g.past).sort((a, b) => (b.detected || '').localeCompare(a.detected || '') || a.line - b.line);
     return { columns: all.map(col => col[0]), rows: list.map(p => all.map(col => col[1](p))) };
   }
@@ -1097,8 +1149,8 @@
   root.WSDA.emergencyRules = { readPositives, statusChoices, defaultTicks, targets, suggestedLayers, ringSites,
     zoneSites, ringLabel,
     coarseReason, precisionRows, inside, countLine, valueBoxes, exportRows, round2, dateOf, PRIVATE, COLUMNS, UNITS,
-    PRECISION, toKm, fromKm, KM_PER_MILE, inventoryOf, sizeClass, windowOf, inWindow, isPast, stillQuarantined, groups,
-    groupOf, weekOf, dayLabel, playSteps, MAX_WEEKS, overTime, bigNumber, inventoryWordOf, numbersLine, notMappedLine, details, daysSince, byQuiet,
+    PRECISION, toKm, fromKm, KM_PER_MILE, inventoryOf, sizeClass, windowOf, inWindow, isPast, quarantineOf, stillQuarantined, groups,
+    groupOf, weekOf, dayLabel, playSteps, MAX_WEEKS, overTime, bigNumber, inventoryWordOf, ANIMAL_SHAPES, animalShapeOf, animalKeys, numbersLine, notMappedLine, details, daysSince, byQuiet,
     zoneRows,
     zonesGeoJson, flockKinds, animalTotals, animalsText, OUTSIDE_WA, NEAR_KM, countyOf, countyRows, positiveRows, CELL_KM,
     PLANE_LAT, TRACT_CELLS, peopleInside, reachesPastWashington, roughly, overviewBoxes, overviewBars, countyTable };

@@ -12,7 +12,8 @@
  *   - the panel "POSITIVES" in place of "QUERY SITES": one row per positive with zones (or per zone-file zone), its
  *     count the sites inside its zones, its lines the county and the days since the last positive (in place of CVI's
  *     matched origins and destinations);
- *   - each positive in its status color (CVI: one red bullseye), past ones hollow and faded (only when shown), added
+ *   - each positive in its status color and its animal's shape (CVI: one red bullseye), the shapes on one row of the
+ *     key under the positives' rows; past ones hollow and faded (only when shown), added
  *     points in the page's pick color; the rings in the type's colors (CVI: three ring colors by radius), past rings
  *     gray and dashed, a zone file's zones in the live map's zone color; the key's ring rows "Infection zone (3 km)"
  *     in both units (the page's first), the key's layer rows with their counts in a right-hand column under "SITES
@@ -20,21 +21,31 @@
  *     CVI's size, the days in italics, a zone's long name on up to three lines and no county line for a zone, a
  *     positive's long name drawn smaller before it is cut;
  *   - the boxes: the current positives and the sites inside, with a CVI master also the CVIs and animals matched
- *     (CVI's facilities-only page: sites, facilities and layers); the panel's footer one row, "Positives with a site
+ *     (CVI's facilities-only page: sites, facilities and layers), drawn here (valueBoxes): starting after the period line,
+ *     taller, a long label smaller so it fits; the panel's footer one row, "Positives with a site
  *     inside: 6 of 6" (CVI: three); with a master, the CVI premises with an origin or a destination in a zone drawn
  *     hollow (CVI: filled dots), under "CVI PREMISES" in the key with the CVI tab's years;
- *   - a facilities-only input (no CVI query fields); the backgrounds Default and the tile backgrounds (the Streets,
- *     population and county-page branches are left out); no facility names (no control asks for them);
- *   - the sensitive-data line above the source line; the file name emergency_<type>_YYYY-MM-DD.png.
+ *   - a facilities-only input (no CVI query fields); the backgrounds Default, the tile backgrounds and Streets (2.4;
+ *     the population and county-page branches are left out); under Streets the counties light gray (County Focus's
+ *     #f5f5f5) with their lines over the streets;
+ *   - the names picked under "Name markers in PNG" (2.4): the positives' (and the added points') when "Positives" is
+ *     picked, then each picked layer's sites inside, as CVI's "Show facility labels" names them, clear of the marks
+ *     and of the positives' names;
+ *   - the sensitive-data line above the source line; the title typed in "Optional Map Title" or the type's; the file
+ *     name from "Optional Filename" (YYYY-MM-DD_<name>.png) or emergency_<type>_YYYY-MM-DD.png.
  *
  * page(input, styleOpts?) -> { model, parts, style }. input: { type, positives: [{ name, lat, lon, color, status,
- * past }] (the positives shown), added: [{ name, lat, lon }] (points added on the map), sites (the prepared ring or
+ * past, shape }] (the positives shown, shape rules.js animalShapeOf), animals (rules.js animalKeys for them: the key's
+ * animals row), added: [{ name, lat, lon }] (points added on the map), sites (the prepared ring or
  * zone sites: the current positives with zones and the added points), pastSites (the past positives' rings, when
  * drawn), zonesMode, zoneName, rings, unit, result (rules.js inside()'s, or null), layers ({ key: { label, pngLabel,
  * color, shape } }), days (rules.js daysSince for sites), window ({ start, end }), current (the current positives'
- * count), cvi ({ cvis, animals, matched (the CVI query's matched rows, with hitOrigin and hitDest), years } or null), counties (GeoJSON features), date, background, synthetic }.
- * title(type) -> the page's title; fileName(type, date) -> "emergency_hpai_2026-10-22.png". Pure: branded.svg() and
- * branded.png() make the picture. */
+ * count), cvi ({ cvis, animals, matched (the CVI query's matched rows, with hitOrigin and hitDest), years } or null), counties (GeoJSON features), date, background, streets (geo/streets-wa.js's data, with the
+ * background 'vector:streets'), nameLayers (the keys named: 'positives' and layer keys; the positives when left
+ * out), title (typed, or blank), label (typed, or blank), synthetic }.
+ * title(type, typed) -> the page's title; fileName(type, date, label) -> "emergency_hpai_2026-10-22.png" or
+ * "2026-10-22_<label>.png"; safeLabel(label) -> the label as a file name. Pure: branded.svg() and branded.png() make
+ * the picture. */
 (function (root) {
   'use strict';
   const B = () => root.WSDA.branded;
@@ -58,13 +69,18 @@
   const SOURCE_CVI = 'Data: positives and facility layers as loaded, WSDA Animal Services CVI records · County ' +
     'boundaries: U.S. Census Bureau';
 
-  // "HPAI RESPONSE MAP": the type's title (types.js gives a type without one its name in capitals).
-  const title = type => type.title;
-  // emergency_hpai_2026-10-22.png, the local date.
-  function fileName(type, date) {
+  // "HPAI RESPONSE MAP": the type's title (types.js gives a type without one its name in capitals), or the title typed
+  // in "Optional Map Title" (CVI's rule: trimmed, at most 80 characters).
+  const title = (type, typed) => BM().resolveTitle(typed, type.title);
+  // An "Optional Filename" as a file name (CVI's rule, exports.js folderName): trimmed, every character other than
+  // letters, digits, "_" and "-" made "_"; '' when blank.
+  const safeLabel = label => String(label === null || label === undefined ? '' : label).trim().replace(/[^A-Za-z0-9_-]/g, '_');
+  // emergency_hpai_2026-10-22.png, or 2026-10-22_<label>.png with an "Optional Filename"; the local date.
+  function fileName(type, date, label) {
     const d = date || new Date();
     const two = n => String(n).padStart(2, '0');
-    return 'emergency_' + type.id + '_' + d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + '.png';
+    const day = d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate());
+    return safeLabel(label) ? day + '_' + safeLabel(label) + '.png' : 'emergency_' + type.id + '_' + day + '.png';
   }
   // A distance as the page writes it: "3 km", "1.86 mi".
   const distance = (d, unit) => String(Number(Number(d).toFixed(2))) + ' ' + E().UNITS[unit || 'km'].label;
@@ -90,14 +106,20 @@
   const shapeFs = (size, stroke) => size * B().textPt(1) + stroke * (96 / 25.4) / 2;
   const bullseyeR = (size, stroke) => 0.375 * shapeFs(size, stroke) * 1.1;
   const bullseyeReach = (size, stroke) => 1.16 * bullseyeR(size, stroke);
-  const shapeHeight = (shape, size, stroke) => (shape === 'bullseye' ? 2 * bullseyeReach(size, stroke)
+  const shapeHeight = (shape, size, stroke) => (shape === 'bullseye' || shape === 'animal' || shape === 'animals' ? 2 * bullseyeReach(size, stroke)
     : 0.375 * shapeFs(size, stroke) * (shape === 22 ? 2 * 0.886226925452758 : shape === 23 ? 2 * 1.2533141373155
       : shape === 24 ? 1.55512030155621 + 0.77756015077811 : 2));
   // A positive's bullseye in its status color (CVI's siteMark is always red); a past one hollow (no middle dot) and
-  // faded.
-  function positiveMark(x, y, size, stroke, color, past) {
+  // faded. In its animal's shape (2.4, rules.js animalShapeOf): a circle as before, else facilities.js markPath's
+  // square or triangle (sized to look as heavy as the circle), with a middle mark of the same shape.
+  function positiveMark(x, y, size, stroke, color, past, shape) {
     const BR = B(), r = bullseyeR(size, stroke);
     const fade = past ? ' opacity="' + PAST_OPACITY + '"' : '';
+    if (shape && shape !== 'circle') {
+      const path = rr => root.WSDA.facilities.markPath(shape, x, y, rr);
+      return '<path d="' + path(r) + '" fill="#ffffff" stroke="' + BR.esc(color) + '" stroke-width="' + BR.num(0.32 * r) +
+        '" stroke-linejoin="round"' + fade + '/>' + (past ? '' : '<path d="' + path(0.34 * r) + '" fill="' + BR.esc(color) + '"/>');
+    }
     return '<circle cx="' + BR.num(x) + '" cy="' + BR.num(y) + '" r="' + BR.num(r) + '" fill="#ffffff" stroke="' +
       BR.esc(color) + '" stroke-width="' + BR.num(0.32 * r) + '"' + fade + '/>' + (past ? '' : '<circle cx="' +
       BR.num(x) + '" cy="' + BR.num(y) + '" r="' + BR.num(0.34 * r) + '" fill="' + BR.esc(color) + '"/>');
@@ -271,6 +293,9 @@
     o.statuses.forEach(s => items.push({ type: 'row', glyph: bullseye(s.color), label: s.label + ' positive' }));
     o.pastColors.forEach(c => items.push({ type: 'row', glyph: bullseye(c, true), label: 'Past positive' }));
     if (o.added) items.push({ type: 'row', glyph: bullseye(PICK), label: 'Added point' });
+    // The animals by the marks' shapes (2.4), as the live legend's rows, under the positives' rows: side by side, each
+    // shape before its word, as many on a row as fit, so a crowded key keeps its layers.
+    animalRows(o.animals || []).forEach(row => items.push({ type: 'row', glyph: row, label: row.first }));
     const ring = (color, label, dashed) => items.push({ type: 'row', glyph: { shape: 22, size: 6, stroke: 0.9,
       fill: color, opacity: dashed ? 0.05 : RING_OPACITY, border: color }, label });
     if (o.zonesMode) ring(ZONE_COLOR, 'Zone (from file)');
@@ -300,10 +325,40 @@
     }
     return items;
   }
-  // A key row's mark as SVG: a circle, a positive's bullseye, or another ggplot2 shape.
+  // A key row's mark as SVG: a circle, a positive's bullseye, an animal's shape (white, a gray edge), the animals'
+  // row across, or another ggplot2 shape.
   const drawGlyph = (g, x, y) => (g.shape === 21 ? B().circle(x, y, g.size, g.stroke, g.fill, g.opacity, g.border, g.mark)
     : g.shape === 'bullseye' ? positiveMark(x, y, g.size, g.stroke, g.fill, g.past)
+    : g.shape === 'animal' ? animalGlyph(g, x, y)
+    : g.shape === 'animals' ? g.marks.map(m => animalGlyph({ size: g.size, stroke: g.stroke, mark: m.mark }, x + m.dx, y)).join('') +
+      g.words.map(w => B().text(w.label, x + w.dx, y, { pt: g.pt, color: '#444444' })).join('')
       : BM().shapeMark(g.shape, x, y, g.size, g.stroke, g.fill, g.opacity, g.border));
+
+  // The animals' rows: each row's first shape at the row's mark (the key's u(0.14)) and its word at u(0.28), each
+  // later one after the word before it, while it ends inside the key's right edge (u(0.94)); else on the next row.
+  function animalRows(animals) {
+    const BR = B(), pt = BR.textPt(3.0), inner = BR.px(BR.LAYOUT.gutterW) - 10, r = bullseyeR(4.5, 0.9);
+    const rows = [];
+    let row = null, end = 0;
+    for (const a of animals) {
+      const at = end + 7 + r, wordEnd = at + r + 3 + BR.textWidth(a.label, pt);
+      if (row && wordEnd <= 0.8 * inner) {
+        row.marks.push({ mark: a.shape, dx: at });
+        row.words.push({ label: a.label, dx: at + r + 3 });
+        end = wordEnd;
+        continue;
+      }
+      row = { shape: 'animals', size: 4.5, stroke: 0.9, marks: [{ mark: a.shape, dx: 0 }], words: [], pt, first: a.label };
+      rows.push(row);
+      end = 0.14 * inner + BR.textWidth(a.label, pt);
+    }
+    return rows;
+  }
+  function animalGlyph(g, x, y) {
+    const r = bullseyeR(g.size, g.stroke);
+    return '<path d="' + root.WSDA.facilities.markPath(g.mark, x, y, r) + '" fill="#ffffff" stroke="#444444" stroke-width="' +
+      B().num(0.24 * r) + '" stroke-linejoin="round"/>';
+  }
 
   // ── Copied from brandedmaps.js (lines 2669 to 2744): the key's lines and its column ──
   // A key label as one line, or as words wrapped onto up to three lines that fit the box beside the mark; a word too
@@ -330,6 +385,39 @@
     }
     if (cur) lines.push(cur);
     return lines.length > 3 ? lines.slice(0, 2).concat([cut(lines.slice(2).join(' '))]) : lines;
+  }
+  // The value boxes, as shared/branded.js valueBoxes with three changes: they start just after the period line (at
+  // most at the shared copy's 0.46, so four boxes get wider), they are taller with the label further below the number,
+  // and a label too wide for its box is drawn smaller (down to BOX_LABEL_FLOOR, then cut with "…").
+  // Returns { parts, boxes: [{ x0, x1, label, labelPt, labelWidth, valueBottom, labelTop }] } (points).
+  const BOX_GAP = 0.035, BOX_PAD = 4, BOX_LABEL_FLOOR = 0.7;
+  function valueBoxes(stats, period) {
+    const BR = B(), L = BR.LAYOUT;
+    const periodRight = BR.px(0.01) + BR.textWidth(period.prefix, 13, true) + BR.px(0.006)
+      + BR.textWidth(period.value, 13);
+    const x = Math.min(0.46, periodRight / BR.px(1) + 0.03);
+    const p = BR.panel(x, L.statY - 0.024, L.mapW - x, 0.050, 0);
+    const n = stats.length, w = (1 - BOX_GAP * (n - 1)) / n;
+    const valuePt = BR.textPt(5.2), basePt = BR.textPt(2.7), valueY = p.v(0.68), labelY = p.v(0.27);
+    const parts = [], boxes = [];
+    stats.forEach((s, i) => {
+      const x0 = p.u(i * (w + BOX_GAP)), x1 = p.u(i * (w + BOX_GAP) + w), room = x1 - x0 - 2 * BOX_PAD;
+      const labelPt = Math.max(basePt * BOX_LABEL_FLOOR, Math.min(basePt, basePt * room / BR.textWidth(s.label, basePt)));
+      const label = boxLabel(s.label, labelPt, room);
+      parts.push(BR.rect(x0, p.v(1), x1 - x0, p.v(0) - p.v(1), s.color));
+      parts.push(BR.text(s.value, (x0 + x1) / 2, valueY, { pt: valuePt, color: '#ffffff', bold: true, anchor: 'middle' }));
+      parts.push(BR.text(label, (x0 + x1) / 2, labelY, { pt: labelPt, color: '#ffffff', anchor: 'middle' }));
+      boxes.push({ x0, x1, label, labelPt, labelWidth: BR.textWidth(label, labelPt),
+        valueBottom: valueY + 0.358 * valuePt, labelTop: labelY - 0.358 * labelPt });
+    });
+    return { parts: parts.join(''), boxes };
+  }
+  function boxLabel(label, pt, room) {
+    const BR = B();
+    if (BR.textWidth(label, pt) <= room + 1e-6) return label;   // a label drawn smaller to fit exactly
+    const ch = Array.from(label);
+    const k = BM().longestFitting(ch.length, j => BR.textWidth(ch.slice(0, j).join('') + '…', pt) <= room);
+    return ch.slice(0, k).join('') + '…';
   }
   // The legend column by size: each row as tall as its mark, the box growing up to maxH. The facility layers stay in
   // one column while their rows can be drawn at MIN_KEY_SQUEEZE of their height or more; else the key lists the layers
@@ -417,7 +505,7 @@
     // Only the positives inside the inset's Washington frame (one in Oregon would fall below the box).
     const inside = ([x, y]) => x >= p.left && x <= p.left + p.width && y >= p.top && y <= p.top + p.height;
     const placed = marks.map(m => ({ m, xy: fit.project(m.lon, m.lat) })).filter(q => inside(q.xy));
-    placed.forEach(({ m, xy }) => parts.push(positiveMark(xy[0], xy[1], 1.6, 0.4, m.color, m.past)));
+    placed.forEach(({ m, xy }) => parts.push(positiveMark(xy[0], xy[1], 1.6, 0.4, m.color, m.past, m.shape)));
     return { parts: parts.join(''), marks: placed.map(q => q.xy) };
   }
 
@@ -463,6 +551,89 @@
     return e;
   }
 
+  // ── Copied from brandedmaps.js (lines 1764 to 1828, v2.3): the Streets background ──
+  // geo/streets-wa.js (build/derive_streets.R, from CVI's own files). Every layer is cut to the focus counties, in
+  // CVI's order, colors and widths: urban areas, lakes, wide rivers, the coast (a faint halo under a dashed line),
+  // secondary then primary roads; over the county names, place names (the largest first, kept apart, at most 22 for
+  // one county and 14 for more; CVI's priority is the place's land area) and the major rivers' names.
+  const STREETS_CREDIT = 'Streets: U.S. Census Bureau TIGER/Line, USGS NHD, Natural Earth';
+  function streetsParts(data, project, focusSub, extent, pad, style) {
+    const BR = B();
+    const near = parts => parts.some(part => part.some(c => c[0] >= extent.west - pad && c[0] <= extent.east + pad &&
+      c[1] >= extent.south - pad && c[1] <= extent.north + pad));
+    const areaPath = polys => polys.map(poly => poly.map(ring => ring.map((c, i) => {
+      const q = project(c[0], c[1]);
+      return (i ? 'L' : 'M') + BR.num(q[0]) + ' ' + BR.num(q[1]);
+    }).join('') + 'Z').join('')).join('');
+    const areas = (list, fill, stroke, lw) => list.filter(polys => near(polys.flat())).map(polys => '<path d="' +
+      areaPath(polys) + '" fill="' + fill + '"' + (stroke ? ' stroke="' + stroke + '" stroke-width="' +
+      BR.num(BR.linePt(lw)) + '"' : '') + ' fill-rule="evenodd"/>').join('');
+    const lines = (list, color, lw, extra) => list.filter(near).map(parts => '<path d="' + BR.lineData(parts, project) +
+      '" fill="none" stroke="' + color + '" stroke-width="' + BR.num(BR.linePt(lw)) + '"' + (extra || '') + '/>').join('');
+    const under = [
+      areas(data.urban, '#e6e6e6', null, 0),
+      areas(data.lakes, '#cfe4ee', '#5b8aa6', 0.25),
+      areas(data.riversPoly, '#d4e6ef', '#9cc0d4', 0.12),
+      lines(data.coast, '#7fb0cc', 2.6, ' stroke-opacity="0.16" stroke-linecap="round"'),
+      lines(data.coast, '#5b8aa6', 0.45, ' stroke-dasharray="' + BR.num(4 * BR.linePt(0.45)) + ' ' +
+        BR.num(4 * BR.linePt(0.45)) + '"'),
+      lines(data.secondary, '#a89070', 0.2),
+      lines(data.primary, '#ead7c2', 0.3)
+    ].join('');
+    return under;
+  }
+  // Place and river names inside the focus counties; taken: boxes already used (the county names).
+  function streetsNames(data, project, focusSub, taken, area) {
+    const BR = B();
+    const inside = (lon, lat) => focusSub.some(f => {
+      const [x, y] = project(lon, lat);
+      return BR.insideGeometry(f.geometry, project, x, y);
+    });
+    const pt = BR.textPt(2.5);
+    const placed = taken.slice();
+    const meet = (a, b) => Math.min(a.x1, b.x1) > Math.max(a.x0, b.x0) && Math.min(a.y1, b.y1) > Math.max(a.y0, b.y0);
+    const cap = focusSub.length <= 1 ? 22 : 14;
+    const out = [];
+    const places = data.places.filter(q => inside(q.lon, q.lat)).sort((a, b) => b.aland - a.aland);
+    for (const q of places) {
+      if (out.filter(x => x.kind === 'place').length >= cap) break;
+      const [x, y] = project(q.lon, q.lat);
+      const w = BR.textWidth(q.name, pt) + 2;
+      const b = { x0: x - w / 2, x1: x + w / 2, y0: y - pt * 0.5, y1: y + pt * 0.5 };
+      if (b.x0 < area.x0 || b.x1 > area.x1 || b.y0 < area.y0 || b.y1 > area.y1) continue;
+      if (placed.some(o => meet(o, b))) continue;
+      placed.push(b);
+      out.push({ kind: 'place', name: q.name, x, y, box: b });
+    }
+    for (const r of data.rivers.filter(x => x.name)) {
+      const pts = r.lines.flat().filter(c => inside(c[0], c[1]));
+      if (!pts.length) continue;
+      const c = pts[Math.floor(pts.length / 2)];
+      const [x, y] = project(c[0], c[1]);
+      out.push({ kind: 'river', name: r.name, x, y });
+    }
+    return out.map(n => Object.assign(n, { markup: BR.text(n.name, n.x, n.y, { pt, anchor: 'middle',
+      color: n.kind === 'place' ? '#2c2c2c' : '#2c6b8a', italic: n.kind === 'river',
+      halo: { color: '#ffffff', opacity: n.kind === 'place' ? 0.9 : 0.85,
+        width: 2 * (n.kind === 'place' ? 0.28 : 0.25) * pt } }) }));
+  }
+
+  // The street names kept (2.4): every place name (streetsNames kept them apart), and a river's name only inside the
+  // map and clear of the place names and of every box in kept (the other names and the marks), which it then joins.
+  function clearRiverNames(found, kept, area) {
+    const BR = B(), pt = BR.textPt(2.5);
+    found.filter(n => n.kind === 'place').forEach(n => kept.push(n.box));
+    return found.filter(n => {
+      if (n.kind === 'place') return true;
+      const w = BR.textWidth(n.name, pt) + 2;
+      const b = { x0: n.x - w / 2, x1: n.x + w / 2, y0: n.y - pt * 0.5, y1: n.y + pt * 0.5 };
+      if (b.x0 < area.x0 || b.x1 > area.x1 || b.y0 < area.y0 || b.y1 > area.y1 || kept.some(o => boxesMeet(o, b))) return false;
+      n.box = b;
+      kept.push(b);
+      return true;
+    });
+  }
+
   function page(input, styleOpts) {
     const BR = B();
     const R = E();
@@ -477,9 +648,12 @@
     const result = input.result || null;
     const bg = BM().backgroundOf(input);
     const theme = root.WSDA.tiles ? root.WSDA.tiles.THEMES[bg ? bg.theme : 'standard'] : null;
+    const streets = input.background === 'vector:streets' && input.streets ? input.streets : null;
+    // The names picked under "Name markers in PNG"; the positives' alone when none were given.
+    const named = new Set(input.nameLayers || ['positives']);
 
     // Strings.
-    const pageTitle = title(type);
+    const pageTitle = title(type, input.title);
     const win = input.window || {};
     const period = { prefix: 'Detected between', value: win.start && win.end
       ? R.dayLabel(win.start) + ' and ' + R.dayLabel(win.end) : 'all dates' };
@@ -550,7 +724,7 @@
     };
     const cviOrigins = ends('hitOrigin', 'Origin'), cviDests = ends('hitDest', 'Dest');
     const items = keyItems({ statuses, pastColors, added: added.length > 0, zonesMode: !!input.zonesMode,
-      zoneName: input.zoneName, rings, unit, pastRings: pastSites.length > 0,
+      zoneName: input.zoneName, rings, unit, pastRings: pastSites.length > 0, animals: input.animals || [],
       cvi: input.cvi ? { years: input.cvi.years || null, origins: cviOrigins.length, dests: cviDests.length } : null,
       facilities: facLayers.map(l => ({ label: l.label, color: l.color, shape: l.shape, n: l.points.length })) });
 
@@ -558,7 +732,8 @@
     const ringParts = input.zonesMode ? [] : ringShapes(sites.filter(s => !s.zone), rings, unit);
     const pastParts = ringShapes(pastSites, rings, unit, PAST);
     const zoneParts = sites.filter(s => s.zone).map(s => ({ geometry: s.zone, km: 0, color: ZONE_COLOR, site: s.id, zone: true }));
-    const marksIn = positives.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, color: p.color, past: !!p.past }))
+    const marksIn = positives.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, color: p.color, past: !!p.past,
+      shape: p.shape || 'circle' }))
       .concat(added.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, color: PICK, past: false })));
     const extent = extentOf(ringParts.concat(pastParts, zoneParts), marksIn);
     const mapH = L.statY - BM().BAND_PAD;
@@ -568,8 +743,16 @@
     const P = (lon, lat) => fit.project(lon, lat);
     const counties = input.counties;
     const mapParts = [];
-    // The land: every county (neighbors' context kept); over a tile background no land fill, white county lines.
-    if (!bg) {
+    // The land: every county (neighbors' context kept); over a tile background no land fill, white county lines; under
+    // Streets County Focus's light gray, the streets, then the county lines over them.
+    if (streets) {
+      for (const c of counties) mapParts.push('<path d="' + BR.pathData(c.geometry, P) + '" fill="#f5f5f5"/>');
+      mapParts.push(streetsParts(streets, P, counties, extent, 0.05, style));
+      for (const c of counties) {
+        mapParts.push('<path d="' + BR.pathData(c.geometry, P) + '" fill="none" stroke="#8a8a8a" stroke-width="' +
+          BR.num(BR.linePt(0.4)) + '" stroke-linejoin="round"/>');
+      }
+    } else if (!bg) {
       for (const c of counties) {
         mapParts.push('<path d="' + BR.pathData(c.geometry, P) + '" fill="#e8e8e8" stroke="#8a8a8a" stroke-width="' +
           BR.num(BR.linePt(0.4)) + '" stroke-linejoin="round"/>');
@@ -612,18 +795,42 @@
       return Object.assign({}, m, { x, y, r: bullseyeReach(6.0, 1.0) });
     });
     marks.filter(m => m.past).concat(marks.filter(m => !m.past))
-      .forEach(m => mapParts.push(positiveMark(m.x, m.y, 6.0, 1.0, m.color, m.past)));
+      .forEach(m => mapParts.push(positiveMark(m.x, m.y, 6.0, 1.0, m.color, m.past, m.shape)));
 
-    // Names: the positives' beside their marks, clear of the other marks (CVI: bold, 3.4, #222222 on a white halo).
+    // Names: the positives' beside their marks (when picked), clear of the other marks (CVI: bold, 3.4, #222222 on a
+    // white halo); then each picked layer's sites inside, as CVI's facility names (brandedmaps.js lines 3055 to 3065:
+    // labels.js, the layer's darker color), clear of the marks and the positives' names; under Streets the place and
+    // river names where they meet no other name (CVI's order: those first, the positives' on top).
     const LB = root.WSDA.labels;
     const area = { x0: mapPanel.left + 2, x1: mapPanel.left + mapPanel.width - 2, y0: mapPanel.top + 2,
       y1: mapPanel.top + mapPanel.height - 2 };
     const sitePt = BR.textPt(3.4);
     const markBoxes = marks.map(m => ({ x: m.x, y: m.y, r: m.r }))
       .concat(facilities.flatMap(l => l.points.map(q => ({ x: q.x, y: q.y, r: q.r }))), cviPoints.map(q => ({ x: q.x, y: q.y, r: q.r })));
-    const names = marks.filter(m => m.name).map(m => ({ lines: [String(m.name)], x: m.x, y: m.y, r: m.r }));
+    const names = !named.has('positives') ? []
+      : marks.filter(m => m.name).map(m => ({ lines: [String(m.name)], x: m.x, y: m.y, r: m.r }));
     const places = style.darkNames ? LB.place(names, markBoxes, [], area, sitePt, [])
       : names.map(n => ({ x: n.x, y: n.y, box: BM().nameBox(n.lines[0], n.x, n.y, sitePt), leader: null, free: false }));
+    const facilityNames = [];
+    for (const l of facilities.filter(x => named.has(x.key))) {
+      for (const q of l.points) {
+        const lines = LB.wrapName(q.name);
+        if (lines.length) facilityNames.push({ lines, x: q.x, y: q.y, r: q.r, color: BM().facilityNameColor(l), layer: l.key });
+      }
+    }
+    const namePtF = BR.textPt(2.6);
+    const facilityPlaces = LB.place(facilityNames, markBoxes, [], area, namePtF, places.map(p => p.box));
+    const taken = places.map(p => p.box).concat(facilityPlaces.map(p => p.box));
+    // Changed from the copy's use: a place name also kept off the marks (given as boxes taken), and a river's name
+    // kept only inside the map and clear of every other name and mark (CVI writes it at the river's middle point
+    // whatever is there, so "Columbia" ran off the map's edge and onto a positive's name).
+    const markSquares = markBoxes.map(c => ({ x0: c.x - c.r, x1: c.x + c.r, y0: c.y - c.r, y1: c.y + c.r }));
+    const kept = taken.concat(markSquares);
+    const streetNames = !streets ? [] : clearRiverNames(streetsNames(streets, P, [{ geometry: { type: 'Polygon', coordinates: [[
+      [corrected.west, corrected.south], [corrected.east, corrected.south], [corrected.east, corrected.north],
+      [corrected.west, corrected.north], [corrected.west, corrected.south]]] } }], kept.slice(), area), kept, area);
+    streetNames.forEach(n => mapParts.push(n.markup));
+    facilityNames.forEach((n, i) => mapParts.push(LB.markup(n, facilityPlaces[i], namePtF, n.color)));
     // On Satellite the theme's light names on a dark halo (dark names could not be read).
     const lightNames = !!bg && bg.theme === 'satellite';
     const nameStyle = { pt: sitePt, color: lightNames ? theme.label : '#222222', bold: true, anchor: 'middle',
@@ -638,7 +845,7 @@
     const corners = BM().insetCorners(mapH);
     const insetAt = Object.assign({}, corners[0], { covers: null });
     if (style.insetCorner) {
-      const nameBoxes = places.map(q => q.box);
+      const nameBoxes = taken;
       const hitsAt = (x, y) => {
         const b = BM().insetBox({ x, y });
         return markBoxes.filter(c => touchesBox(c, b)).length + nameBoxes.filter(q => boxesMeet(q, b)).length;
@@ -672,15 +879,16 @@
       corner(mapPanel.left, mapPanel.top + mapPanel.height), corner(mapPanel.left, mapPanel.top)]] } };
     const panelBox = BR.panel(L.gutterX, panelY, L.gutterW, panelH, 0);
 
-    const source = input.cvi ? SOURCE_CVI : SOURCE;
+    const source = (input.cvi ? SOURCE_CVI : SOURCE) + (streets ? ' · ' + STREETS_CREDIT : '');
     const sensitive = BR.text(SENSITIVE, BR.px(0.005), BR.py(0.026), { pt: 6.5, italic: true,
       color: style.darkerGrays ? '#555555' : '#777777', halo: { color: '#ffffff', opacity: 0.78, width: 2 } });
+    const valueRow = valueBoxes(boxes, period);
     const parts = [
       BR.clipped('em-map', mapPanel, mapParts.join('')),
       BR.header(pageTitle, style),
       BR.metaRow(meta.left, meta.right, style),
       BR.statRow([period], []),
-      BR.valueBoxes(boxes, 0.46, L.statY - 0.024, L.mapW - 0.46, 0.044),
+      valueRow.parts,
       panelParts(panelBox, panel, 'Sites inside', footer),
       key.parts,
       insetParts.parts,
@@ -692,27 +900,31 @@
     const model = {
       view: 'emergency', type: type.id, title: pageTitle, titleSize: BR.titleSize(pageTitle), meta,
       stats: { left: [period], right: [] }, boxes, panel, panelY, panelH, panelKey: 'Sites inside', footer, keyItems: items,
+      boxLayout: valueRow.boxes,
       keyY: lgY, keyHeight: key.height, keyRows: key.rows, keyFits: key.fits, keyMode: key.mode,
       keySqueeze: key.squeeze === undefined ? 1 : key.squeeze, keyShown: key.shown || null, keyTextScale: key.textScale || 1, unit,
       cviPremises: cviPoints.map(q => ({ end: q.end, lat: q.lat, lon: q.lon, x: q.x, y: q.y })),
       extent, corrected, scale, mapKm, mapPanel: { left: mapPanel.left, top: mapPanel.top, width: mapPanel.width,
         height: mapPanel.height },
-      positives: marks.map(m => ({ name: m.name, x: m.x, y: m.y, lon: m.lon, lat: m.lat, color: m.color, past: m.past })),
-      names: places.map((p, i) => ({ name: names[i].lines[0], at: p })),
+      positives: marks.map(m => ({ name: m.name, x: m.x, y: m.y, lon: m.lon, lat: m.lat, color: m.color, past: m.past,
+        shape: m.shape })),
+      names: places.map((p, i) => ({ name: names[i].lines[0], at: p })), nameLayers: [...named],
+      facilityNames: facilityNames.map((n, i) => ({ lines: n.lines, color: n.color, layer: n.layer, at: facilityPlaces[i] })),
+      streetNames: streetNames.map(n => ({ kind: n.kind, name: n.name, box: n.box || null })),
       rings: drawn.map(r => ({ km: r.km, zone: !!r.zone, color: r.color, site: r.site })),
       pastRings: pastParts.map(r => ({ km: r.km, site: r.site, color: r.color })),
       facilities: facilities.map(l => ({ key: l.key, label: l.label, color: l.color, shape: l.shape,
         points: l.points.map(q => ({ name: q.name, lon: q.lon, lat: q.lat, x: q.x, y: q.y })) })),
       insetPositives: insetParts.marks.length, inset: { corner: insetAt.corner, covers: insetAt.covers, box: insetAtBox,
         scores: insetAt.scores || null },
-      background: bg ? input.background : 'standard', underlay: BM().underlayOf(input, mapPanel, fit, [panelFeature], 10),
+      background: bg || streets ? input.background : 'standard', underlay: BM().underlayOf(input, mapPanel, fit, [panelFeature], 10),
       basemap: bg ? bg.attribution : null, theme: bg ? bg.theme : 'standard',
-      sensitive: SENSITIVE, source: style.sourceLine ? source : null, fileName: fileName(type, input.date)
+      sensitive: SENSITIVE, source: style.sourceLine ? source : null, fileName: fileName(type, input.date, input.label)
     };
     return { model, parts, style };
   }
 
   root.WSDA = root.WSDA || {};
-  root.WSDA.emergencyBranded = { page, title, fileName, keyItems, keyColumn, SENSITIVE, RING_OPACITY, ZONE_COLOR,
+  root.WSDA.emergencyBranded = { page, title, fileName, safeLabel, clearRiverNames, keyItems, keyColumn, valueBoxes, SENSITIVE, RING_OPACITY, ZONE_COLOR,
     PAST, PICK, CVI_ORIGIN, CVI_DEST };
 })(typeof window !== 'undefined' ? window : globalThis);

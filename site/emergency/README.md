@@ -25,7 +25,8 @@ The page loads the platform's shared files unchanged (`site/shared/`), and CVI's
 loads them (`datasets.js`, `csv.js`, `master.js`, `scaling.js`, `palettes.js`, `aggregate.js`, `summary.js`,
 `icons.js`, `basemaps.js`, `map.js`), with CVI's `exports.js` (the CSV writer and its formula guard), `lookup.js`
 (`query`, Premise Lookup's CVI match, for the CVI movements tab) and `brandedmaps.js` (the branded pages' helpers, for
-the map picture, with the shared `branded.js`, `tiles.js` and `labels.js`, in the Infrastructure page's order); none of
+the map picture, with the shared `branded.js`, `tiles.js` and `labels.js`, in the Infrastructure page's order) and
+`previews.js` (the map picture's "Preview Map" window, 2.4); none of
 them is changed. Code copied from the other dashboards names its source and version in a comment at its top, so a later
 fix to the original can be carried over on purpose:
 
@@ -39,6 +40,8 @@ fix to the original can be carried over on purpose:
 | `rules.js`: the blank-line rule a layer's points are numbered by (`isBlankLine`) | `site/shared/facilities.js`, v1.1 |
 | `branded.js`: Premise Lookup's branded proximity page (`proximity()` and the helpers it does not export or that change: the panel's rows and drawing, the key's lines and column, the WA inset, the shape sizes, `touchesBox`, `boxesMeet`), with the Emergency changes listed at its top | `site/cvi/app/brandedmaps.js`, v2.0 |
 | `app.js`: the map picture's background, quality and tile loading (with Default and a notice when tiles cannot be loaded) | `site/infrastructure/app.js`, v2.0 |
+| `branded.js`: the Streets background (`streetsParts`, `streetsNames`) | `site/cvi/app/brandedmaps.js`, v2.3 |
+| `app.js`: a script loaded when first needed (`loadScript`) and the Streets data's loading (`loadStreets`); `index.html`: the preview window's styles | `site/cvi/app/ui.js`, `site/cvi/app/lookup.js` and `site/cvi/index.html`, v2.3 |
 | `chart.js`: the text escaping, Arial's text widths (`textWidth`) and ggplot2's axis breaks (`extended` and its scores; `valueAxis`, here keeping whole numbers only) | `site/cvi/app/chartsvg.js`, v2.0 |
 | `chart.js`: the horizontal bars (`hbars` with `fit`, `labelStep` and the drawing context, without the picking; a row's bars stacked, a hollow bar and the labels above their bars on a phone marked "Emergency:") | `site/cvi/app/chartsvg.js`, v2.2 |
 | `app.js`: the charts' hover box (`showTip`); `index.html`: its style (`.chart-tip`) | `site/cvi/app/ui.js` and `site/cvi/index.html`, v2.0 |

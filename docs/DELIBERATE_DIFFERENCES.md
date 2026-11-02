@@ -84,6 +84,13 @@ backgrounds this document mentions.
   just off the shore), else "Outside Washington". Its two bar charts are CVI's horizontal bars with a row's bars stacked end to end (CVI sets a
   row's bars side by side) and, on a phone, each name above its bar (CVI cuts a long name). Every Overview box and
   chart has a "?" with its plain sentence. Not in CVI or Infrastructure.
+- **Emergency Response's positives and view (version 2.4):** each positive in its animal's shape (birds a circle, cattle
+  a square, other animals a triangle) with a white halo and a dark outline, on the map and in the map picture (CVI's and
+  Infrastructure's points take their layer's shape). The view fits by itself to the zones and every positive shown
+  after a load, a date change, a chart pick or unpick and once when the play stops, clear of the legend and the map's
+  buttons; the house button reads "Fit to the positives shown". In the map picture's Streets background, place names
+  stay off the positives' marks and a river's name is written only where it fits clear of names and marks (CVI's
+  County Focus writes it at the river's middle point).
 - **Emergency Response's map hover (version 2.1):** each positive's or site's name in bold on its own line; over the
   zones, each positive named once with one short line per ring ("Infection zone (3 km): 25 days") and one closing
   line, "Days since the last positive inside each zone, as of ..."; never wider than the screen. The text size and

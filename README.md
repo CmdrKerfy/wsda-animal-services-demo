@@ -20,6 +20,7 @@ decides; third-party materials keep their own terms (`site/PROVENANCE.md`).
 |---|---|
 | [`site/`](site/README.md) | The pages themselves. Open `site/index.html`, or host the `site/` folder as it is. [`site/README.md`](site/README.md) explains opening, hosting and loading data, and the known limits. |
 | [`tests/`](tests/README.md) | Node and browser test suites, mutation runners, R reference scripts and synthetic fixtures; how to run them and the full regression chain. |
+| [`tools/work-pc/`](tools/work-pc/README.txt) | The HPAI table check for the agency's computer: a double-click file and a base-R script that show an HPAI table's shape and counts as the Emergency page reads them (counts only, the table never changed). |
 | [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md) | How the pages are put together, a file map and where to change what. |
 | [`docs/DELIBERATE_DIFFERENCES.md`](docs/DELIBERATE_DIFFERENCES.md) | Where the CVI dashboard differs from CVI's own app on purpose, and why. |
 | [`docs/FUTURE_ENHANCEMENTS.md`](docs/FUTURE_ENHANCEMENTS.md) | Work recorded for later. |

@@ -13,10 +13,13 @@
  *   wins, the earlier type on a tie, and the first type when no value matches. counts: type id -> values matched.
  * statusOf(type, value) -> the status whose words hold the value (any case, spaces trimmed), or null
  * isClosed(type, value) -> true when a value of the type's closed column marks a positive closed (any case)
+ * quarantineStatusOf(type, value) -> 'under' or 'released' when a value of the type's quarantine status column is one
+ *   of its quarantineValues (any case, spaces trimmed), else null
  * COLUMN_DEFAULTS: the column names a type gets for a role it does not list (E1a's names for id, detected and
  *   disease), so a file in E1a's form still reads under any type.
  * INVENTORY_WORD: the word after the animals' total when a type names none ("animals"); countedApart is empty when
- *   a type names none; a type without a title gets its name in capitals with "RESPONSE MAP". */
+ *   a type names none; a type without a title gets its name in capitals with "RESPONSE MAP".
+ * QUARANTINE_VALUES: the quarantine status values a type gets when it names none ("Under quarantine", "Released"). */
 (function (root) {
   'use strict';
   const types = [];
@@ -26,8 +29,9 @@
   const UNITS = ['km', 'mi'];
   // The column roles a type may name, and E1a's names used when it names none.
   const COLUMN_DEFAULTS = { id: ['AnimalDiseaseReportId'], detected: ['Detection Date'], disease: ['Disease Name'],
-    status: [], quarantine: [], flockType: [], inventory: [], shown: [] };
+    status: [], quarantine: [], quarantineStatus: [], flockType: [], inventory: [], shown: [] };
   const INVENTORY_WORD = 'animals';
+  const QUARANTINE_VALUES = { under: ['under quarantine', 'quarantined', 'in quarantine'], released: ['released', 'lifted'] };
   // A column whose name holds one of these words is never read (the same words as rules.js PRIVATE).
   const PRIVATE = /address|location|street|premise/i;
 
@@ -101,6 +105,14 @@
     }
 
     // The closed column: one name or a list of names, first found wins; the checked copy holds a list.
+    // The quarantine status column's values: those meaning still under quarantine, and those meaning released.
+    const q = t.quarantineValues === undefined ? QUARANTINE_VALUES : t.quarantineValues;
+    if (!q || typeof q !== 'object') fail('quarantineValues', 'the values for under quarantine and released, in { }');
+    out.quarantineValues = { under: words(q.under, 'quarantineValues.under', fail),
+      released: words(q.released, 'quarantineValues.released', fail) };
+    const both = out.quarantineValues.under.find(w => out.quarantineValues.released.includes(w));
+    if (both) fail('quarantineValues', `different words for under quarantine and released ("${both}" is in both)`);
+
     const c = t.closed;
     if (!c || typeof c !== 'object') fail('closed', 'a column and its values, in { }');
     if (typeof c.column !== 'string' && !Array.isArray(c.column)) fail('closed.column', 'a column name, or a list of names');
@@ -209,6 +221,13 @@
     return type.closed.values.includes(String(value == null ? '' : value).trim().toLowerCase());
   }
 
+  function quarantineStatusOf(type, value) {
+    const v = String(value == null ? '' : value).trim().toLowerCase();
+    if (!v) return null;
+    return type.quarantineValues.under.includes(v) ? 'under' : type.quarantineValues.released.includes(v) ? 'released' : null;
+  }
+
   root.WSDA = root.WSDA || {};
-  root.WSDA.emergencyTypes = { add, list, get, pick, statusOf, isClosed, check, COLUMN_DEFAULTS, INVENTORY_WORD };
+  root.WSDA.emergencyTypes = { add, list, get, pick, statusOf, isClosed, quarantineStatusOf, check, COLUMN_DEFAULTS,
+    INVENTORY_WORD, QUARANTINE_VALUES };
 })(typeof window !== 'undefined' ? window : globalThis);
