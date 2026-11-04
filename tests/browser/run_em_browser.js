@@ -14,22 +14,25 @@
 //          roughly"), the boxes without the optional columns, the CVI movements without a master and with one (its
 //          year filter), the Export ZIP's files and export_params.json, and the marked addresses found in no page
 //          text, map label or exported file
-//   e1b    E1b on the page: past positives hidden, shown faded and with their rings; the status list hidden without a
-//          status column; the "Detected between" window; the play by week (start, pause, the slider, the last step
-//          on the latest detection, a step under one second, the CVI movements waiting) and by month; km | miles; the
+//   e1b    E1b on the page: closed positives hidden, shown faded and with their rings; the status list hidden without a
+//          status column; the two time views (2.5: On a day on today, Between dates from the first detection to
+//          today, each keeping its dates, the switch by real key presses, the badge, the boxes per view); the play
+//          by week in each view (start, pause, the slider, the last step on the day, a step under one second, the CVI
+//          movements waiting) and by month; km | miles; the
 //          zone hover with days since; the "Zones" list; the rows not mapped; two positives at one spot; the
 //          synthetic screwworm outbreak and the switch to HPAI; the density limits; 320 pixels wide
 //   png    the map picture: its controls under More options, the download at 200 and 300 dpi (size and dpi read from the
 //          file), the title, file name, boxes, rings and key, miles, a paused play's date, the screwworm outbreak's
 //          zones; copies in local-test-artifacts/em/png/
-//   chart  the chart "Positives over time": its fold (hidden before a load, closed by default), one column per step with
-//          each dated, mapped positive counted once, a click and the keyboard moving the window's end, the hover box,
-//          the play moving the picked column, the screwworm outbreak by week, 320 pixels wide; pictures in
+//   chart  the chart "Positives over time": one column per week to today with each dated, mapped positive counted
+//          once, the day's line or the dates' band (2.5), a click and the keyboard moving the day or making the dates
+//          that week, the picked column again giving the opening dates, the hover box, the line following the play, the
+//          screwworm outbreak by week, 320 pixels wide; pictures in
 //          local-test-artifacts/em/chart/
 //   speed  the one-second step at full size: 40 positives against 30,000 points, every step of a whole play timed by
 //          the page's own hook, without a master, with the 50,000-row synthetic master (make_scale_master.js) and with
 //          the CVI movements tab open
-// Every part: no exception, no policy report, no request outside the site.
+// Every part: no exception, no policy report, no request outside the site. "Today" is fixed at Oct 30, 2026 (TODAY).
 // Hosted mode: EM_PAGE_URL=http://127.0.0.1:8765/index.html (the case-strict server, tests/browser/serve_case_strict.js).
 // Needs: node tests/synthetic/make_em_fixtures.js (also run by the Emergency unit suite).
 // Writes local-test-artifacts/em/browser_<file|http>.json.
@@ -45,6 +48,9 @@ const OUT = path.join(ROOT, 'local-test-artifacts', 'em');
 // the slice).
 let BOARDS_DIR = path.join(OUT, 'pictures');
 const TABLES = path.join(ROOT, 'test-tables');
+// "Today" fixed for every page (2.5; app.js todayIso reads it), so no result depends on the day the suite runs.
+const TODAY = '2026-10-30';
+const FIXED_TODAY = 'window.WSDA_EMERGENCY_TODAY = ' + JSON.stringify(TODAY) + ';';
 const PAGE = process.env.EM_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'index.html')).href;
 const SITE = new URL('.', PAGE).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -120,6 +126,7 @@ async function launch() {
   const { sessionId: sid } = await send('Target.attachToTarget', { targetId, flatten: true });
   watch(sid);
   for (const d of DOMAINS) await send(d, {}, sid);
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: FIXED_TODAY }, sid);
   // Tabs opened later (by the page or by the test) are attached paused, so nothing they request is missed.
   const opened = [];
   listeners.push(async m => {
@@ -127,6 +134,7 @@ async function launch() {
     const s2 = m.params.sessionId;
     watch(s2);
     for (const d of DOMAINS) await send(d, {}, s2);
+    await send('Page.addScriptToEvaluateOnNewDocument', { source: FIXED_TODAY }, s2);
     await send('Runtime.runIfWaitingForDebugger', {}, s2);
     opened.push({ targetId: m.params.targetInfo.targetId, page: makePage(s2) });
   });
@@ -336,7 +344,7 @@ async function partLoad(b) {
 // and links not inside a closed fold's body and not the map's own buttons; a fold's header is the fold, but a control
 // inside a header counts), and per section the visible sentences of explanation (paragraphs and notes, not status
 // lines, help notes, labels or the checklist; nor, from 2.4, CVI's warning under "Optional Filename" not to type a
-// person's name or a case number, a warning shown as CVI shows it, board wp_06 PASS).
+// person's name or a case number, a warning shown as CVI shows it).
 const DENSITY = `(() => {
   const shown = e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
   const inClosedBody = e => { for (let d = e.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) {
@@ -385,13 +393,13 @@ async function partPage(b) {
   check(same(st.folds, [false, false, false, false]), 'page: after a clean load every fold is closed (the map and boxes show first)', st.folds);
   check(st.useZones === false && st.data.zones === 12 && st.drawn.positives === 6 && st.drawn.inside > 0 && st.drawn.outside > 0,
     'page: HPAI\'s rings (two around each of six positives; the sample\'s zone file waits for its tick); six current positives (the past one hidden); sites inside highlighted and others faded', st);
-  check(st.boxes[0] === '6Current positives' && st.boxes[1] === '1Past positivesnone under quarantine'
+  check(st.boxes[0] === '6Active' && st.boxes[1] === '1Closednone under quarantine'
     && st.lines === null
-    && st.boxes[2] === 'Oct 5, 2026Last positiveAs of Oct 5, 2026' && /^\d+Sites inside the zones/.test(st.boxes[3]),
-  'page: the value boxes, each count once (the current positives, "with zones" only when it differs; the past one, none under quarantine; the last positive as of the window\'s end, written "Oct 5, 2026"; sites inside); no line under them (the animals are the Overview\'s box since 2.3)', [st.boxes, st.lines]);
+    && st.boxes[2] === 'Oct 5, 2026Last positiveAs of Oct 30, 2026' && /^\d+Sites inside the zones/.test(st.boxes[3]),
+  'page: the value boxes On a day, on today (Oct 30, 2026, fixed), each count once (the active positives, "with zones" only when it differs; the closed one, none under quarantine; the last positive, written "Oct 5, 2026", as of the day; sites inside); no line under them (the animals are the Overview\'s box since 2.3)', [st.boxes, st.lines]);
   check(same(st.layers, ['poultry', 'premises', 'markets', 'fairgrounds', 'disposal', 'milkproducer', 'feedlots']),
     'page: the type\'s suggested layers ticked first (poultry and cattle positives; no milk processing file in the sample)', st.layers);
-  check(same(st.sums, ['positives, 7 facility files and a zone file', '3\u00a0and\u00a010\u00a0km rings, past hidden', '7 layers']),
+  check(same(st.sums, ['positives, 7 facility files and a zone file', '3\u00a0and\u00a010\u00a0km rings, closed hidden', '7 layers']),
     'page: the folds\' summaries ("Positives and zones" says its settings, the counts being in the boxes)', st.sums);
   d = await p.eval(DENSITY);
   check(d.controls.length <= 6, 'density: at most six visible controls outside folds when the page opens (sample loaded)', d.controls);
@@ -416,7 +424,7 @@ async function partPage(b) {
   await p.waitFor('WSDA.emergency.state.useZones === true', 5000, 'zone file');
   const zoned = await p.eval(`({ zones: WSDA.emergency.state.mapData.zones, rows: WSDA.emergency.state.result.rows.map(r => r.name),
     sum: document.getElementById('positives-sum').textContent, legend: document.getElementById('em-legend-content').textContent })`);
-  check(zoned.zones === 1 && zoned.sum === 'zones from a file, past hidden' && /Synthetic control area/.test(zoned.legend),
+  check(zoned.zones === 1 && zoned.sum === 'zones from a file, closed hidden' && /Synthetic control area/.test(zoned.legend),
     'page: ticking "Use the file\'s zones" draws the control area in place of the rings, named in the legend', zoned);
   await shot('sample_1280_zonefile');
   await p.click(`document.getElementById('em-use-zones').click()`);
@@ -540,24 +548,26 @@ async function partResults(b) {
     'export_params.json', 'inside_the_zones.csv', 'layers.csv', 'left_out.csv', 'positives.csv', 'zones.csv', 'zones.geojson']),
   'results: Export saves one ZIP with the nine files (counties.csv since 2.3)', [d, Object.keys(files)]);
   const cl = (files['counties.csv'] || '').trim().split('\n');
-  check(cl.length === 7 && /^"?County"?,"?Current"?,"?Past"?,"?Total"?,"?Birds at the current positives"?,"?Cattle at the current positives"?,"?Current positives without a count"?$/.test(cl[0])
+  check(cl.length === 7 && /^"?County"?,"?Active"?,"?Closed"?,"?Total"?,"?Birds at the active positives"?,"?Cattle at the active positives"?,"?Active positives without a count"?$/.test(cl[0])
     && /^"?Yakima"?,2,0,2,\d{7},0,0$/.test(cl[1]) && /^"?Snohomish"?,0,1,1,,,0$/.test(cl[6]),
-  'results: counties.csv: the Overview\'s counties table, the exact animal totals, blank where none is current', cl);
+  'results: counties.csv: the Overview\'s counties table in the words Active and Closed, the exact animal totals, blank where none is active', cl);
   let geo = null;
   try { geo = JSON.parse(files['zones.geojson'] || ''); } catch (e) { geo = null; }
   const feats = geo ? geo.features : [];
-  check(geo && geo.type === 'FeatureCollection' && feats.length === 12 && feats.every(f => f.properties.group === 'Current')
+  check(geo && geo.type === 'FeatureCollection' && feats.length === 12 && feats.every(f => f.properties.group === 'Active')
     && same(Object.keys(feats[0].properties), ['name', 'zone', 'positive', 'group', 'distance', 'unit', 'days_since_last_positive', 'as_of'])
     && /^(Infection|Control) zone \((3|10) km\) around SYN-HPAI-\d{3}$/.test(feats[0].properties.name)
-    && feats.every(f => f.geometry.coordinates[0].length === 361) && feats[0].properties.as_of === '2026-10-05',
-  'results: zones.geojson: the two rings around each of the six current positives, whole circles, with their properties', feats.slice(0, 1));
+    && feats.every(f => f.geometry.coordinates[0].length === 361) && feats[0].properties.as_of === '2026-10-30',
+  'results: zones.geojson: the two rings around each of the six active positives, whole circles, with their properties (group Active, as of the day)', feats.slice(0, 1));
   const zl = (files['zones.csv'] || '').trim().split('\n');
   check(zl.length === 7 && /^"?Zone"?,"?Positive"?,"?Ring"?,"?Distance"?,"?Unit"?,"?Last positive"?,"?Days since the last positive"?,"?As of"?/.test(zl[0])
     && /Control zone \(10 km\) around SYN-HPAI-007/.test(zl[1]), 'results: zones.csv: one row per positive\'s outer ring, the most recent first', zl.slice(0, 2));
   const params = files['export_params.json'] ? JSON.parse(files['export_params.json']) : {};
   check(params.tool === 'emergency_response' && /^rings Infection zone 3 km, Control zone 10 km$/.test(params.zones)
-    && params.data_note === 'Synthetic sample data' && params.positives === 7 && params.unit === 'km' && params.as_of === '2026-10-05',
-  'results: export_params.json says what was exported, with the unit and the as-of date', params);
+    && params.data_note === 'Synthetic sample data' && params.positives === 7 && params.unit === 'km' && params.as_of === '2026-10-30'
+    && params.view === 'on a day' && params.day === '2026-10-30' && !('detected_between' in params) && params.closed_shown === false
+    && !('past_shown' in params),
+  'results: export_params.json says what was exported: the view On a day and its day (today), the unit, the as-of date, closed_shown', params);
   check(/^"?Positive"?,/.test(files['positives.csv'] || '') && (files['positives.csv'] || '').split('\n').length === 9
     && /^"?CVI"?,/.test(files['cvi_movements.csv'] || '') && !/Origin\.Address/.test(files['cvi_movements.csv'] || ''),
   'results: the CSVs: seven positives; the CVI rows without the address column', [files['positives.csv'], (files['cvi_movements.csv'] || '').split('\n')[0]]);
@@ -656,19 +666,19 @@ async function partE1b(b) {
   const qLabels = await p.eval(`${S}.map.em.positives.features.map(f => f.properties.label.split('\\n'))
     .filter(l => /^(Yakima 02|Benton 01|Grant 01)$/.test(l[0])).map(l => l[0] + ': ' + l[2]).sort()`);
   const qTitle = await p.eval(`document.getElementById('box-past').title`);
-  check(qv.past === '7 Past positives 1 still under quarantine, 2 not known' && qv.quar && /1 quarantine status not read/.test(qv.lines)
-    && same(qLabels, ['Benton 01: Past, quarantine not known', 'Grant 01: Past', 'Yakima 02: Past, still under quarantine'])
+  check(qv.past === '7 Closed 1 still under quarantine, 2 not known' && qv.quar && /1 quarantine status not read/.test(qv.lines)
+    && same(qLabels, ['Benton 01: Closed, quarantine not known', 'Grant 01: Closed', 'Yakima 02: Closed, still under quarantine'])
     && /Quarantine Status/.test(qTitle) && /describes today/.test(qTitle),
-  'e1b: the quarantine status table (2.4): the past box "1 still under quarantine, 2 not known", the status not read named under the boxes, the hovers, the box\'s hover text', [qv.past, qv.lines, qLabels]);
+  'e1b: the quarantine status table (2.4): the closed box "1 still under quarantine, 2 not known", the status not read named under the boxes, the hovers, the box\'s hover text', [qv.past, qv.lines, qLabels]);
 
-  // ---- The HPAI sample: the agreed table, no status column, one past positive (released) ----
+  // ---- The HPAI sample: the agreed table, no status column, one closed positive (released) ----
   await load([samplePath]);
   await p.eval(`document.getElementById('positives-fold').open = true; true`);
   check(await p.eval(`document.getElementById('em-statuses-field').hidden`),
     'e1b: the file has no status column, so the "Zones around" status list is not shown');
   let v = await view();
-  check(v.data.positives === 6 && v.data.past === 0 && v.positives === '6 Current positives' && v.past === '1 Past positives none under quarantine' && !v.quar,
-    'e1b: past positives are hidden on the map at first; the boxes count the six current ones and the past one, none under quarantine (not in the warning color)', v);
+  check(v.data.positives === 6 && v.data.past === 0 && v.positives === '6 Active' && v.past === '1 Closed none under quarantine' && !v.quar,
+    'e1b: closed positives are hidden on the map at first (On a day); the boxes count the six active ones and the closed one, none under quarantine (not in the warning color)', v);
   // Each box's brand color on its edge and its icon's tile (wider screens): crimson, eggplant, blue-green, evergreen.
   const colors = () => p.eval(`['box-positives', 'box-past', 'box-last', 'box-inside'].map(id => { const c = document.getElementById(id), i = c.querySelector('.card-ic');
     return { icon: i.dataset.icon, drawn: !!i.querySelector('svg'), edge: getComputedStyle(c, '::before').backgroundColor,
@@ -679,49 +689,118 @@ async function partE1b(b) {
     ['clock-history', true, 'rgb(82, 35, 72)', 'rgb(82, 35, 72)', 'rgb(255, 255, 255)', 'absolute'],
     ['calendar-event', true, 'rgb(0, 148, 170)', 'rgb(0, 148, 170)', 'rgb(255, 255, 255)', 'absolute'],
     ['bullseye', true, 'rgb(74, 139, 44)', 'rgb(74, 139, 44)', 'rgb(255, 255, 255)', 'absolute']]),
-  'e1b: each box\'s icon on a tile in its brand color, its edge the same (current crimson, past eggplant, last positive blue-green, sites inside evergreen)', boxColors);
-  check(await p.eval(`document.getElementById('em-past-fold').hidden`), 'e1b: "Past zones" is hidden until "Show past positives" is ticked');
+  'e1b: each box\'s icon on a tile in its brand color, its edge the same (active crimson, closed eggplant, last positive blue-green, sites inside evergreen)', boxColors);
+  check(await p.eval(`document.getElementById('em-past-fold').hidden`), 'e1b: "Closed zones" is hidden until "Show closed positives" is ticked');
   await tick('em-past');
   const rowsBefore = v.rows;
   v = await view();
-  check(v.data.positives === 7 && v.data.past === 1 && v.positives === '6 Current positives' && v.rows === rowsBefore
-    && v.legend.includes('Past (hollow, faded)'),
-  'e1b: "Show past positives" draws the past one hollow and faded, named in the legend; it never counts or adds sites', v);
-  check(!await p.eval(`document.getElementById('em-past-fold').hidden`), 'e1b: ticked, "Past zones" shows (folded, inside the fold)');
+  check(v.data.positives === 7 && v.data.past === 1 && v.positives === '6 Active' && v.rows === rowsBefore
+    && v.legend.includes('Closed (hollow, faded)'),
+  'e1b: "Show closed positives" draws the closed one hollow and faded, named in the legend; it never counts or adds sites', v);
+  check(!await p.eval(`document.getElementById('em-past-fold').hidden`), 'e1b: ticked, "Closed zones" shows (folded, inside the fold)');
   await p.eval(`document.getElementById('em-past-fold').open = true; true`);
   await tick('em-past-rings');
   v = await view();
-  check(v.data.pastZones === 2 && v.rows === rowsBefore && v.legend.includes('Past zones (dashed)'),
-    'e1b: "Draw their rings" draws the past positive\'s two rings, gray and dashed; no site is added', v);
+  check(v.data.pastZones === 2 && v.rows === rowsBefore && v.legend.includes('Closed zones (dashed)'),
+    'e1b: "Draw their rings" draws the closed positive\'s two rings, gray and dashed; no site is added', v);
   await tick('em-past-rings');
   await tick('em-past');
-  // The window.
-  check(same(v.window, { start: '2026-07-15', end: '2026-10-05' }) && await p.eval(`document.getElementById('em-from').value === '2026-07-15'
-    && document.getElementById('em-to').value === '2026-10-05'`),
-  'e1b: "Detected between" starts at the earliest and the latest detection in the file', v.window);
-  await setDate('em-to', '2026-09-05');
+  // The two views (2.5): On a day opens on today (fixed Oct 30, 2026), the file's first detection held.
+  const dates = () => p.eval(`({ day: document.getElementById('em-day').value, from: document.getElementById('em-from').value,
+    to: document.getElementById('em-to').value, dayRow: !document.getElementById('em-day-row').hidden, rangeRow: !document.getElementById('em-range-row').hidden,
+    pressed: ['em-view-day', 'em-view-range'].map(id => document.getElementById(id).getAttribute('aria-pressed')),
+    closedTick: !document.getElementById('em-past-label').hidden, badge: document.getElementById('em-badge').textContent,
+    badgeIcon: !!document.querySelector('#em-badge svg path'), badgeShown: getComputedStyle(document.getElementById('em-badge')).display !== 'none',
+    shown: ['box-detected', 'box-positives', 'box-past', 'box-last', 'box-inside'].filter(id => getComputedStyle(document.getElementById(id)).display !== 'none'),
+    detected: document.getElementById('box-detected').innerText.replace(/\\s+/g, ' ').trim(),
+    // Anything marked hidden that a style still shows (a box's display: grid once hid nothing; the neighboring
+    // regions' counties boxes in "More options" showed from E1a to 2.5).
+    hiddenShown: [...document.querySelectorAll('[hidden]')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id || e.className) })`);
+  let tv = await dates();
+  check(same(v.window, { view: 'day', start: '2026-07-15', end: '2026-10-30' }) && tv.day === '2026-10-30' && tv.dayRow && !tv.rangeRow
+    && same(tv.pressed, ['true', 'false']) && tv.closedTick && tv.badge === 'Oct 30, 2026' && tv.badgeIcon && tv.badgeShown
+    && same(tv.shown, ['box-positives', 'box-past', 'box-last', 'box-inside']) && !tv.hiddenShown.length,
+  'e1b: after a load the page opens On a day on today: its one date box, the pin badge on the map, the closed tick, the boxes Active, Closed, Last positive, Sites inside (nothing hidden still shown)', [v.window, tv]);
+  const layout = await p.eval(`(() => { const w = document.getElementById('em-window-field'), f = document.getElementById('em-past-field');
+    return { above: w.getBoundingClientRect().bottom <= f.getBoundingClientRect().top + 1,
+      icons: ['em-view-day', 'em-view-range', 'em-day-row', 'em-range-row'].map(id => !!document.querySelector('#' + id + ' svg path')) }; })()`);
+  check(layout.above && layout.icons.every(Boolean),
+    'e1b: the switch and its dates above "Show closed positives"; the pin and the span drawn on the switch and beside the dates', layout);
+  await setDate('em-day', '2026-09-05');
   v = await view();
   let animals = await overviewAnimals(p);
-  check(v.data.positives === 2 && v.positives === '2 Current positives' && v.lines === ''
+  check(v.data.positives === 2 && v.positives === '2 Active' && v.lines === ''
     && animals.value === '1.2M birds' && animals.note === '2,400 cattle · 2 commercial'
-    && v.last === 'Sep 2, 2026 Last positive As of Sep 5, 2026'
-    && /^1 Past positives /.test(v.past),
-  'e1b: a window ending Sep 5 shows the two positives current then (the Overview\'s animals theirs); the last positive is the latest inside it, "As of" the end', [v, animals]);
-  await setDate('em-from', '2026-09-30');
-  check(await p.eval(`!document.getElementById('em-window-msg').hidden && document.getElementById('em-from').value === '2026-07-15'`),
-    'e1b: a first date after the second is refused, with a message');
-  await setDate('em-to', '');
+    && v.last === 'Sep 2, 2026 Last positive As of Sep 5, 2026' && /^1 Closed /.test(v.past)
+    && (await dates()).badge === 'Sep 5, 2026',
+  'e1b: On a day Sep 5 shows the two positives active then, the Franklin dairy among them (the Overview\'s animals theirs); the last positive by then, "As of" the day', [v, animals]);
+  // Between dates: its two boxes, from the first detection to today; every positive detected in it, closed ones drawn.
+  await tick('em-view-range');
   v = await view();
-  check(v.window.end === '2026-10-05', 'e1b: a cleared date box goes back to the file\'s date', v.window);
-  // The play: 13 epi weeks, one a second; the first step ends on its Saturday, the last on the latest detection.
-  check(v.play === 'Play by week' && await p.eval(`document.getElementById('em-step').max`) === '12' && v.step === 'Up to Oct 5, 2026 \u00b7 week 13 of 13'
-    && await p.eval(`document.getElementById('em-step').getAttribute('aria-valuetext')`) === v.step,
-    'e1b: "Play by week" with a slider over 13 weeks, resting on the last; its label (and the slider\'s spoken value) says what the map shows', v);
+  tv = await dates();
+  check(same(v.window, { view: 'range', start: '2026-07-15', end: '2026-10-30' }) && tv.from === '2026-07-15' && tv.to === '2026-10-30'
+    && !tv.dayRow && tv.rangeRow && same(tv.pressed, ['false', 'true']) && !tv.closedTick && v.data.past === 1 && v.data.positives === 7
+    && tv.badge === 'Jul 15, 2026 – Oct 30, 2026' && same(tv.shown, ['box-detected', 'box-positives', 'box-past', 'box-inside'])
+    && tv.detected === '7 Detected 6 active 1 closed' && v.positives === '6 Active' && !tv.hiddenShown.length,
+  'e1b: Between dates opens from the first detection to today: two date boxes, the span badge, Detected 7 (6 active, 1 closed) first, no last positive; the closed one always drawn, its tick hidden (nothing hidden still shown)', [v.window, tv]);
+  await setDate('em-from', '2026-09-01');
+  v = await view();
+  tv = await dates();
+  check(tv.detected === '5 Detected 5 active 0 closed' && v.data.positives === 5 && tv.badge === 'Sep 1, 2026 – Oct 30, 2026',
+    'e1b: Between Sep 1 and Oct 30: the five detected in it, all active; the Franklin dairy (detected Aug 21) not in it', [tv, v.data]);
+  await setDate('em-to', '2026-08-01');
+  check(await p.eval(`!document.getElementById('em-window-msg').hidden && document.getElementById('em-to').value === '2026-10-30'`),
+    'e1b: a second date before the first is refused, with a message');
+  await setDate('em-from', '');
+  v = await view();
+  check(v.window.start === '2026-07-15' && v.window.end === '2026-10-30', 'e1b: a cleared date box goes back to its opening date', v.window);
+  await setDate('em-from', '2026-09-01');
+  await tick('em-view-day');
+  v = await view();
+  check(same(v.window, { view: 'day', start: '2026-07-15', end: '2026-09-05' }), 'e1b: back On a day, its own day kept (Sep 5)', v.window);
+  await tick('em-view-range');
+  v = await view();
+  check(same(v.window, { view: 'range', start: '2026-09-01', end: '2026-10-30' }), 'e1b: back Between dates, its own dates kept', v.window);
+  // The switch with the keyboard: real key presses; Tab reaches each button, Enter and Space pick it
+  // and the focus stays on it.
+  const press = async (k, code, keyCode) => {
+    for (const type of ['keyDown', 'keyUp']) {
+      await b.send('Input.dispatchKeyEvent', { type, key: k, code, windowsVirtualKeyCode: keyCode, text: type === 'keyDown' ? { Enter: '\r', ' ': ' ' }[k] : undefined }, p.sid);
+    }
+  };
+  await p.eval(`document.getElementById('em-view-range').focus(); true`);
+  await press('Tab', 'Tab', 9);
+  const afterTab = await p.eval(`document.activeElement.getAttribute('data-help')`);
+  await p.eval(`document.getElementById('em-view-day').focus(); true`);
+  await press('Enter', 'Enter', 13);
+  const byEnter = await p.eval(`[${S}.viewKind, document.activeElement.id, getComputedStyle(document.activeElement).outlineStyle]`);
+  await press('Tab', 'Tab', 9);
+  await press(' ', 'Space', 32);
+  const bySpace = await p.eval(`[${S}.viewKind, document.activeElement.id]`);
+  check(afterTab === 'em-time' && same(byEnter.slice(0, 2), ['day', 'em-view-day']) && byEnter[2] !== 'none' && same(bySpace, ['range', 'em-view-range']),
+    'e1b: the switch with the keyboard: Enter picks On a day and Space Between dates, the focus staying on the button (its ring shown); Tab goes on to the "?"', [afterTab, byEnter, bySpace]);
+  // The play Between dates: the range grows from its first date, one week a step.
+  check(v.play === 'Play by week' && v.step === 'Up to Oct 30, 2026 · week 9 of 9', 'e1b: Between Sep 1 and Oct 30, nine weeks to play', v.step);
   await tick('em-play');
   v = await view();
-  check(v.playing && v.play === 'Pause' && v.stepAt === 0 && same(v.window, { start: '2026-07-15', end: '2026-07-18' })
-    && v.step === 'Up to Jul 18, 2026 \u00b7 week 1 of 13' && v.data.positives === 1,
-  'e1b: Play starts at the first week: the window ends on its Saturday, the map as it stood then', v);
+  tv = await dates();
+  check(v.playing && same(v.window, { view: 'range', start: '2026-09-01', end: '2026-09-05' }) && v.step === 'Up to Sep 5, 2026 · week 1 of 9'
+    && tv.detected === '1 Detected 1 active 0 closed',
+  'e1b: Play Between dates starts the range at its first date and ends it on the first week\'s Saturday: Detected counts up', [v.window, tv.detected]);
+  await tick('em-play');
+  await tick('em-view-day');
+  await setDate('em-day', '');
+  v = await view();
+  check(v.window.end === '2026-10-30', 'e1b: a cleared day goes back to today', v.window);
+  // The play On a day: 16 epi weeks from the file's first to today's; the first step ends on its Saturday, the last on the day.
+  check(v.play === 'Play by week' && await p.eval(`document.getElementById('em-step').max`) === '15' && v.step === 'Oct 30, 2026 · week 16 of 16'
+    && await p.eval(`document.getElementById('em-step').getAttribute('aria-valuetext')`) === v.step,
+    'e1b: "Play by week" with a slider over 16 weeks (to today\'s), resting on the last; its label (and the slider\'s spoken value) says the day shown', v);
+  await tick('em-play');
+  v = await view();
+  check(v.playing && v.play === 'Pause' && v.stepAt === 0 && same(v.window, { view: 'day', start: '2026-07-15', end: '2026-07-18' })
+    && v.step === 'Jul 18, 2026 · week 1 of 16' && v.data.positives === 1,
+  'e1b: Play starts at the first week: the day is its Saturday, the map as the outbreak stood then', v);
   check(v.ms < 1000, 'e1b: a step redraws in under one second (the sample)', v.ms);
   await tick('em-play');
   await sleep(1300);
@@ -729,18 +808,18 @@ async function partE1b(b) {
   check(!paused.playing && paused.play === 'Play by week' && paused.stepAt === v.stepAt, 'e1b: Pause stops the play where it is', paused);
   await p.eval(`(() => { const i = document.getElementById('em-step'); i.value = '6'; i.dispatchEvent(new Event('input')); return true; })()`);
   v = await view();
-  check(v.stepAt === 6 && v.window.end === '2026-08-29' && v.step === 'Up to Aug 29, 2026 \u00b7 week 7 of 13',
-    'e1b: the slider moves the window\'s end to that week\'s Saturday', v);
+  check(v.stepAt === 6 && v.window.end === '2026-08-29' && v.step === 'Aug 29, 2026 · week 7 of 16' && (await dates()).day === '2026-08-29',
+    'e1b: the slider moves the day to that week\'s Saturday (the date box follows)', v);
   await tick('em-play');
   await p.eval(`(() => { const i = document.getElementById('em-step'); i.value = '3'; i.dispatchEvent(new Event('input')); return true; })()`);
   v = await view();
   check(!v.playing && v.stepAt === 3 && v.window.end === '2026-08-08',
     'e1b: moving the slider while the play runs pauses it on the week chosen', v);
   await tick('em-play');
-  await p.waitFor(`!${S}.playing`, 15000, 'play ends');
+  await p.waitFor(`!${S}.playing`, 20000, 'play ends');
   v = await view();
-  check(v.stepAt === 12 && v.window.end === '2026-10-05' && v.play === 'Play by week' && v.positives === '6 Current positives',
-    'e1b: the play stops on its own at the last step, on the latest detection itself (not its Saturday); no loop', v);
+  check(v.stepAt === 15 && v.window.end === '2026-10-30' && v.play === 'Play by week' && v.positives === '6 Active',
+    'e1b: the play stops on its own at the last step, on the day itself (not its Saturday); no loop', v);
   // Miles: the rings keep their place; the boxes, the legend and the tab read miles; back to km gives 3 and 10 again.
   const kmRows = v.rows;
   await tick('em-unit-mi');
@@ -788,23 +867,23 @@ async function partE1b(b) {
   // The "Zones" list and the zone hover.
   const zl = await p.eval(`({ sum: document.querySelector('#tab-inside .em-zones-list summary').textContent,
     rows: Array.from(document.querySelectorAll('#tab-inside .em-zones-list tbody tr')).map(r => Array.from(r.cells).map(c => c.textContent)) })`);
-  check(zl.sum === 'Zones: days since the last positive in each positive\'s Control zone (10 km), as of Oct 5, 2026' && zl.rows.length === 6
-    && same(zl.rows[0], ['SYN-HPAI-007', 'Oct 5, 2026', '0 days'])
-    && same(zl.rows[5], ['SYN-HPAI-003', 'Aug 21, 2026', '45 days']),
+  check(zl.sum === 'Zones: days since the last positive in each positive\'s Control zone (10 km), as of Oct 30, 2026' && zl.rows.length === 6
+    && same(zl.rows[0], ['SYN-HPAI-007', 'Oct 5, 2026', '25 days'])
+    && same(zl.rows[5], ['SYN-HPAI-003', 'Aug 21, 2026', '70 days']),
   'e1b: "Inside the zones" starts with the "Zones" list: one row per positive (named by it, the ring said once), the dates written out, the longest-quiet zone last', zl);
   await p.eval(`${S}.map.map.fitBounds([[-120.45, 46.33], [-120.18, 46.47]], { animate: false }); true`);
   await sleep(500);
   const at = await p.eval(`(() => { const pt = ${S}.map.map.project([-120.315, 46.415]), r = ${S}.map.map.getCanvas().getBoundingClientRect();
     return { x: pt.x, y: pt.y, px: r.left + pt.x, py: r.top + pt.y, lines: ${S}.map.hoverAt([pt.x, pt.y]) }; })()`);
-  check(same(at.lines, { items: [{ head: 'SYN-HPAI-002', lines: ['Infection zone (3 km): 25 days', 'Control zone (10 km): 25 days'] }],
-    foot: 'Days since the last positive inside each zone, as of Oct 5, 2026', points: false }),
+  check(same(at.lines, { items: [{ head: 'SYN-HPAI-002', lines: ['Infection zone (3 km): 50 days', 'Control zone (10 km): 50 days'] }],
+    foot: 'Days since the last positive inside each zone, as of Oct 30, 2026', points: false }),
   'e1b: hovering a zone lists every zone under the pointer, smallest ring first, under its positive\'s name once, each with its days since; then the "as of" date', at.lines);
   await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.px, y: at.py }, p.sid);
   await sleep(300);
   const popup = await p.eval(`(() => { const e = document.querySelector('.maplibregl-popup'); return e ? { text: e.textContent,
     head: (e.querySelector('strong') || {}).textContent, foot: (e.querySelector('.tip-foot') || {}).textContent } : null; })()`);
-  check(popup && popup.head === 'SYN-HPAI-002' && /Infection zone \(3 km\): 25 days/.test(popup.text)
-    && popup.foot === 'Days since the last positive inside each zone, as of Oct 5, 2026',
+  check(popup && popup.head === 'SYN-HPAI-002' && /Infection zone \(3 km\): 50 days/.test(popup.text)
+    && popup.foot === 'Days since the last positive inside each zone, as of Oct 30, 2026',
   'e1b: a real pointer move over the zone opens that tooltip, the positive\'s name in bold, the "as of" line last', popup);
   // Population density: its key under "Population context" in the legend, and the tract's lines in the zone hover.
   await p.eval(`document.getElementById('options-fold').open = true; true`);
@@ -836,11 +915,11 @@ async function partE1b(b) {
     ${S}.map.map.resize(); ${S}.map.map.setCenter([-120.315, 46.415]); true`);
   await sleep(600);
   const phone = await p.eval(`(() => { const lg = document.getElementById('em-legend'), m = document.getElementById('em-map').getBoundingClientRect(),
-    r = lg.getBoundingClientRect(), dates = document.querySelector('.date-row');
+    r = lg.getBoundingClientRect(), sw = document.querySelector('#em-window-field .ts-switch'), day = document.getElementById('em-day');
     const zones = document.querySelector('#tab-inside .em-zones-list tbody tr'), cells = Array.from(zones.cells).map(c => c.getBoundingClientRect());
     return { open: lg.open, below: r.top >= m.bottom - 1, within: r.left >= m.left - 1 && r.right <= m.right + 1, mapHigh: m.height,
-      dateWords: Array.from(dates.querySelectorAll('span')).map(e => e.textContent),
-      dateRows: dates.querySelector('#em-to').getBoundingClientRect().top > dates.querySelector('#em-from').getBoundingClientRect().bottom - 1,
+      switchFits: Array.from(sw.querySelectorAll('.btn')).every(e => e.scrollWidth <= e.clientWidth + 1) && sw.getBoundingClientRect().right <= document.getElementById('em-window-field').getBoundingClientRect().right + 1,
+      dayFits: day.getBoundingClientRect().right <= document.getElementById('em-window-field').getBoundingClientRect().right + 1,
       head: getComputedStyle(document.querySelector('#tab-inside .em-zones-list thead')).display,
       twoLines: cells[1].top >= cells[0].bottom - 1, said: zones.cells[1].dataset.label, days: zones.cells[2].innerText,
       sum: getComputedStyle(document.getElementById('positives-sum')).display,
@@ -850,8 +929,15 @@ async function partE1b(b) {
   'e1b: a fold\'s summary on its own line, each item kept whole', phone.items);
   check(phone.open && phone.below && phone.within && phone.mapHigh >= 300,
     'e1b: at 320 pixels wide the legend sits under the map, open, never over it', phone);
-  check(same(phone.dateWords, ['From', 'To']) && phone.dateRows, 'e1b: the date boxes as two rows, "From" and "To"', phone);
-  check(phone.head === 'none' && phone.twoLines && phone.said === 'Last positive' && phone.days === '0 days',
+  check(phone.switchFits && phone.dayFits, 'e1b: at 320 pixels wide the switch\'s two buttons fit whole, and the day\'s box', phone);
+  await tick('em-view-range');
+  check(await p.eval(`(() => { const a = document.getElementById('em-from').getBoundingClientRect(), b = document.getElementById('em-to').getBoundingClientRect(),
+    f = document.getElementById('em-window-field').getBoundingClientRect(); return b.top > a.bottom - 1 && b.right <= f.right + 1; })()`),
+  'e1b: at 320 pixels wide Between dates\' two boxes as two rows, joined by the span\'s bracket');
+  await tick('em-view-day');
+  await p.eval(`${S}.map.map.resize(); ${S}.map.map.setCenter([-120.315, 46.415]); true`);
+  await sleep(600);
+  check(phone.head === 'none' && phone.twoLines && phone.said === 'Last positive' && phone.days === '25 days',
     'e1b: at 320 pixels wide a "Zones" row is two lines: the positive, then its date and days with their words', phone);
   // Scrolled to the map again as it is measured: the open chart redraws after the resize and can move the map down.
   const narrow = await p.eval(`(() => { document.querySelector('.map-frame').scrollIntoView();
@@ -863,8 +949,8 @@ async function partE1b(b) {
     return { left: r.left, right: r.right }; })()`);
   check(narrow.tip && narrow.tip.left >= narrow.left - 1 && narrow.tip.right <= narrow.right + 1,
     'e1b: at 320 pixels wide the zone hover fits inside the map', narrow);
-  // A wide date ("Aug 21, 2026", as of Aug 29) fits its box at 320 and 480 pixels (it was cut off at its edge).
-  await setDate('em-to', '2026-08-29');
+  // A wide date ("Aug 21, 2026", on Aug 29) fits its box at 320 and 480 pixels (it was cut off at its edge).
+  await setDate('em-day', '2026-08-29');
   const fits = [];
   for (const w of [320, 480]) {
     await b.send('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: true }, p.sid);
@@ -885,8 +971,8 @@ async function partE1b(b) {
   await sleep(300);
   boxColors = await colors();
   check(boxColors[1].tile === 'rgb(252, 182, 20)' && boxColors[1].color === 'rgb(56, 37, 19)',
-    'e1b: on a wider screen, with one still under quarantine, the past box\'s tile is gold with a dark-brown icon', boxColors[1]);
-  await setDate('em-to', '');
+    'e1b: on a wider screen, with one still under quarantine, the closed box\'s tile is gold with a dark-brown icon', boxColors[1]);
+  await setDate('em-day', '');
   await b.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 900, deviceScaleFactor: 1, mobile: true }, p.sid);
   await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2 }, p.sid);
   await b.send('Emulation.clearDeviceMetricsOverride', {}, p.sid);
@@ -907,14 +993,14 @@ async function partE1b(b) {
   await open();
   await load([path.join(TABLES, 'em_rules_agreed.csv')]);
   v = await view();
-  check(v.play === 'Play by month' && v.step === 'Up to Oct 5, 2026 \u00b7 month 24 of 24' && await p.eval(`document.getElementById('em-step').getAttribute('aria-label')`) === 'Month of',
-    'e1b: a window over more than 26 weeks plays by month ("Up to Oct 5, 2026 · month 24 of 24")', v);
-  check(/2 not mapped: 1 no coordinates, 1 latitude and longitude look swapped/.test(v.lines) && v.past === '5 Past positives 2 still under quarantine' && v.quar
+  check(v.play === 'Play by month' && v.step === 'Oct 30, 2026 \u00b7 month 24 of 24' && await p.eval(`document.getElementById('em-step').getAttribute('aria-label')`) === 'Month of',
+    'e1b: more than 26 weeks to today plays by month ("Oct 30, 2026 · month 24 of 24")', v);
+  check(/2 not mapped: 1 no coordinates, 1 latitude and longitude look swapped/.test(v.lines) && v.past === '5 Closed 2 still under quarantine' && v.quar
     && await p.eval(`(() => { const b = document.getElementById('box-past'), note = b.querySelector('.card-note'), n = note.querySelector('b'), last = document.querySelector('#box-last .card-note');
       return getComputedStyle(note).color === getComputedStyle(last).color && getComputedStyle(note).fontWeight === getComputedStyle(last).fontWeight
         && !!n && n.textContent === '2' && getComputedStyle(n).color === 'rgb(56, 37, 19)' && getComputedStyle(n).fontWeight === '600'
         && getComputedStyle(b, '::before').backgroundColor !== getComputedStyle(document.getElementById('box-last'), '::before').backgroundColor; })()`),
-  'e1b: the past box counts those still under quarantine, the number in bold and the warning color with its edge, the rest of the note as the "As of" note; the line names the rows not mapped', [v.past, v.lines]);
+  'e1b: the closed box counts those still under quarantine, the number in bold and the warning color with its edge, the rest of the note as the "As of" note; the line names the rows not mapped', [v.past, v.lines]);
   check(await p.eval(`(() => { const w = Array.from(document.querySelectorAll('#em-box-lines .warn')).map(e => e.textContent);
     return JSON.stringify(w) === JSON.stringify(['2 not mapped: 1 no coordinates, 1 latitude and longitude look swapped', '1 date not readable', '1 without a date']); })()`),
   'e1b: the rows not mapped, the unreadable date and the positive without a date, and only they, are in the warning color');
@@ -935,9 +1021,9 @@ async function partE1b(b) {
   await sleep(500);
   const two = await p.eval(`(() => { const pt = ${S}.map.map.project([-122.96, 46.66]); return ${S}.map.hoverAt([pt.x, pt.y]); })()`);
   check(two && two.points && two.items.length === 2
-    && two.items.some(it => it.head === 'Lewis 01' && it.lines[0] === 'Detected Jun 10, 2025' && it.lines[1] === 'Past')
+    && two.items.some(it => it.head === 'Lewis 01' && it.lines[0] === 'Detected Jun 10, 2025' && it.lines[1] === 'Closed')
     && two.items.some(it => it.head === 'Lewis 02' && it.lines[0] === 'Detected Sep 30, 2026'),
-  'e1b: two positives at one spot: the hover lists both, each under its name, the past one marked past', two);
+  'e1b: two positives at one spot: the hover lists both, each under its name, the closed one marked closed', two);
   animals = await overviewAnimals(p);
   check(animals.value === '1.3M birds' && /^35 cattle · .+ · 1 without a count$/.test(animals.note),
     'e1b: the Overview\'s animals count the herd\'s cattle apart from the birds, and name the positive without a count', animals);
@@ -951,26 +1037,61 @@ async function partE1b(b) {
   await open();
   await load([path.join(TABLES, 'em_positives_times.csv')]);
   v = await view();
-  const times = await p.eval(`({ max: document.getElementById('em-to').max, to: document.getElementById('em-to').value,
+  const times = await p.eval(`({ max: document.getElementById('em-day').max, day: document.getElementById('em-day').value,
     warn: Array.from(document.querySelectorAll('#em-box-lines .warn')).map(e => e.textContent),
     today: (() => { const d = new Date(), t = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + t(d.getMonth() + 1) + '-' + t(d.getDate()); })() })`);
-  check(v.positives === '2 Current positives' && v.past === '1 Past positives 1 still under quarantine' && v.last === 'Oct 1, 2026 Last positive As of Oct 1, 2026'
+  check(v.positives === '1 Active' && v.past === '2 Closed 2 still under quarantine' && v.last === 'Oct 1, 2026 Last positive As of Oct 30, 2026'
     && times.warn.includes('2 dates not readable'),
-  'e1b: dates written with a time are read ("9/3/2026 0:00"); the two that cannot be read are said in the warning color', [v.positives, v.past, v.last, times.warn]);
-  check(times.to === '2026-10-01' && times.max === (times.today > '2026-10-01' ? times.today : '2026-10-01'),
-    'e1b: the window opens on the latest detection; its "To" date can run on to today', times);
-  await setDate('em-to', '2026-10-21');
+  'e1b: dates written with a time are read ("9/3/2026 0:00"); the two that cannot be read are said in the warning color; on today the premises closed on Oct 20 is closed (released Nov 30: still under quarantine)', [v.positives, v.past, v.last, times.warn]);
+  check(times.day === '2026-10-30' && times.max === '2026-10-30',
+    'e1b: On a day opens on today, after the latest detection (Oct 1); the day can run up to today', times);
+  await setDate('em-day', '2026-10-01');
   v = await view();
-  check(v.positives === '1 Current positives' && v.past === '2 Past positives 2 still under quarantine' && v.last === 'Oct 1, 2026 Last positive As of Oct 21, 2026'
-    && v.step === 'Up to Oct 21, 2026 \u00b7 week 5 of 5',
-  'e1b: a "To" date after the latest detection: the premises closed on Oct 20 is past (released Nov 30: still under quarantine); the play\'s label says the window\'s end', [v.positives, v.past, v.last, v.step]);
+  check(v.positives === '2 Active' && v.past === '1 Closed 1 still under quarantine' && v.last === 'Oct 1, 2026 Last positive As of Oct 1, 2026'
+    && v.step === 'Oct 1, 2026 \u00b7 week 5 of 5',
+  'e1b: On a day Oct 1, the latest detection: the premises closed on Oct 20 is still active; the play\'s label says the day', [v.positives, v.past, v.last, v.step]);
   await p.click(`document.querySelector('button.tip[data-help="em-type"]').click()`);
   const timesHelp = await p.eval(`document.getElementById('help-em-type-text').textContent`);
-  check(/no readable close date, shows as past at every step of the play/.test(timesHelp),
-    'e1b: the type\'s "?" says a positive closed by its status alone shows as past at every step of the play', timesHelp);
+  check(/with no readable close or release date, shows as closed on every day: the page cannot tell when it closed\./.test(timesHelp)
+    && !/closes on its quarantine release date/.test(timesHelp),
+  'e1b: the type\'s "?" says a positive closed by its status with neither date shows as closed on every day (no release date here)', timesHelp);
   await load([path.join(TABLES, 'em_positives_agreed.csv')]);
   check(!/no readable close date/.test(await p.eval(`document.getElementById('help-em-type-text').textContent`)),
     'e1b: with close dates for every closed positive, the "?" does not say it');
+
+  // ---- The closing day (2.5): closed by Status, from the release date ----
+  await load([path.join(TABLES, 'em_rules_closed_day.csv')]);
+  const dayLines = () => p.eval(`Array.from(document.querySelectorAll('#em-box-lines .warn')).map(e => e.textContent)`);
+  v = await view();
+  let cdLines = await dayLines();
+  check(v.positives === '3 Active' && /^5 Closed/.test(v.past) && !cdLines.some(l => /day not known/.test(l)),
+    'closing day: on today 3 active and 5 closed; no "closed on a day not known" line on today', [v.positives, v.past, cdLines]);
+  await setDate('em-day', '2023-04-01');
+  v = await view();
+  check(v.positives === '2 Active' && v.past === '0 Closed',
+    'closing day: On a day Apr 1, 2023: Yakima 11 (closed by Status, released Jun 1, 2023) active then, with the undated one; nothing closed', [v.positives, v.past]);
+  await setDate('em-day', '2025-10-01');
+  v = await view();
+  cdLines = await dayLines();
+  check(v.positives === '1 Active' && /^5 Closed/.test(v.past) && cdLines.includes('2 closed on a day not known'),
+    'closing day: On a day Oct 1, 2025: "2 closed on a day not known" in the warning color under the boxes', [v.positives, v.past, cdLines]);
+  const cdHelp = await p.eval(`document.getElementById('help-em-type-text').textContent`);
+  check(/A positive closed by its status, with no readable close date, closes on its quarantine release date\./.test(cdHelp)
+    && /with no readable close or release date, shows as closed on every day/.test(cdHelp),
+  'closing day: the type\'s "?" says both: closed from the release date, and with neither date closed on every day', cdHelp);
+  await setDate('em-day', '');
+  // The same table on an earlier today (May 1, 2023; the page opens on the file's last detection, after it): Yakima
+  // 11's and 12's releases are after today, so neither is their closing day. On Apr 1, 2023 Yakima 11 is closed
+  // already (on today's real date it was active then), and the "?" says why.
+  await p.eval(`${S}.today = '2023-05-01'; true`);
+  await load([path.join(TABLES, 'em_rules_closed_day.csv')]);
+  await setDate('em-day', '2023-04-01');
+  v = await view();
+  const laterHelp = await p.eval(`document.getElementById('help-em-type-text').textContent`);
+  check(v.positives === '1 Active' && /^1 Closed/.test(v.past)
+    && /A positive closed by its status, with a release date after today, shows as closed on every day: that date cannot be when it closed\./.test(laterHelp)
+    && !/closes on its quarantine release date/.test(laterHelp),
+  'closing day: on an earlier today a release date after it is not the closing day: on Apr 1, 2023 Yakima 11 closed, the undated one active; the "?" says so', [v.positives, v.past, laterHelp]);
 
   // ---- The synthetic screwworm outbreak: the type follows the file, its dispersal areas are the zones ----
   await open();
@@ -980,14 +1101,14 @@ async function partE1b(b) {
     synthetic: ${S}.synthetic, zones: Array.from(document.querySelectorAll('#tab-inside .em-zones-list tbody tr')).map(r => Array.from(r.cells).map(c => c.textContent)) })`);
   check(nws.type === 'nws' && nws.useZones && v.data.zones === 2 && nws.synthetic && same(nws.layers, ['markets', 'feedlots', 'fairgrounds']),
     'e1b: the screwworm bundle picks New World screwworm, uses its dispersal areas at once, ticks its livestock layers; marked synthetic', nws);
-  check(v.positives === '8 Current positives zones from a file' && v.past === '2 Past positives 1 still under quarantine'
-    && v.lines === '1 not mapped: no coordinates' && v.last === 'Oct 9, 2026 Last positive As of Oct 9, 2026'
+  check(v.positives === '8 Active zones from a file' && v.past === '2 Closed 1 still under quarantine'
+    && v.lines === '1 not mapped: no coordinates' && v.last === 'Oct 9, 2026 Last positive As of Oct 30, 2026'
     && (animals = await overviewAnimals(p)).value === '10,835 animals' && animals.note === '4 commercial, 4 backyard · 1 without a count',
-  'e1b: the screwworm boxes: eight current positives as of Oct 9, two past (one still under quarantine); under them the not-mapped line; the Overview\'s animals in screwworm\'s word', [v.positives, v.past, v.lines, v.last, animals]);
-  check(same(nws.zones, [['Synthetic dispersal area: Yakima and Tri-Cities (made up)', 'Oct 2, 2026', '7 days'],
-    ['Synthetic dispersal area: Klickitat (made up)', 'Aug 26, 2026', '44 days']]),
+  'e1b: the screwworm boxes: eight active positives on today, two closed (one still under quarantine); under them the not-mapped line; the Overview\'s animals in screwworm\'s word', [v.positives, v.past, v.lines, v.last, animals]);
+  check(same(nws.zones, [['Synthetic dispersal area: Yakima and Tri-Cities (made up)', 'Oct 2, 2026', '28 days'],
+    ['Synthetic dispersal area: Klickitat (made up)', 'Aug 26, 2026', '65 days']]),
   'e1b: the "Zones" list for the dispersal areas, the longest-quiet last', nws.zones);
-  check(v.play === 'Play by week' && v.step === 'Up to Oct 9, 2026 \u00b7 week 10 of 10', 'e1b: the screwworm outbreak plays by week (ten weeks)', v);
+  check(v.play === 'Play by week' && v.step === 'Oct 30, 2026 \u00b7 week 13 of 13', 'e1b: the screwworm outbreak plays by week (13 weeks, to today\'s)', v);
   // A zone file: a layer with sites in two zones says the count and the zones; the table names each zone.
   const twoZones = await p.eval(`Array.from(document.querySelectorAll('#tab-inside details.em-layer[data-layer] summary')).map(e => e.textContent)`);
   check(twoZones.some(t => /^[^:]+: \d+ in 2 zones$/.test(t)), 'e1b: with a zone file, a layer with sites in two zones reads "n in 2 zones"', twoZones);
@@ -1033,8 +1154,8 @@ async function partE1b(b) {
 
 // The chart "Positives over time": in the Overview's "Over time" (2.3; no switch before a load, the Map shown after
 // each load, the chart drawn once the Overview shows), one column per step of the play with the file's dated, mapped positives counted once, a click and the keyboard moving the
-// window's end (as the slider), the hover box, the play moving the picked column, a start after the clicked step
-// going back to the earliest detection, the screwworm outbreak by week, 320 pixels wide. Pictures of the chart's
+// window's end (as the slider), the hover box, the slider or the play leaving no column picked (2.5),
+// the screwworm outbreak by week, 320 pixels wide. Pictures of the chart's
 // panel in local-test-artifacts/em/chart/ for a look.
 async function partChart(b) {
   const p = b.page, S = 'WSDA.emergency.state', OUTC = path.join(OUT, 'chart');
@@ -1071,6 +1192,8 @@ async function partChart(b) {
     return { hidden: document.getElementById('ov-s-time').hidden, open: s.view === 'overview', sum: document.getElementById('em-chart-sum').textContent,
       note: document.getElementById('em-chart-note').hidden ? '' : document.getElementById('em-chart-note').textContent,
       steps: s.steps.steps.length, by: s.steps.by, stepAt: s.stepAt, window: s.window, to: document.getElementById('em-to').value,
+      day: document.getElementById('em-day').value, mark: s.chartMark, chartCols: s.chartSteps.steps.length,
+      line: document.querySelectorAll('#em-chart .chart-line').length, band: document.querySelectorAll('#em-chart .chart-band').length,
       slider: document.getElementById('em-step').value, positives: document.getElementById('box-positives').querySelector('strong').textContent,
       counts: s.chart ? s.chart.columns.map(c => [c.current, c.past, c.outside]) : [],
       dated: s.read.positives.filter(x => x.detected).length, mapped: s.read.positives.length, dropped: s.read.dropped.length,
@@ -1100,85 +1223,121 @@ async function partChart(b) {
   await p.waitFor(`document.querySelectorAll('#em-chart .chart-col').length > 0`, 5000, 'chart drawn again');
   v = await view();
   const total = v.counts.reduce((t, c) => t + c[0] + c[1] + c[2], 0);
-  check(v.cols === v.steps && v.steps > 1 && total === v.dated && v.current === -1 && same(v.stops, [v.steps - 1])
-    && v.counts.every(c => c[2] === 0) && v.svgWidth === v.boxWidth,
-  'chart: one column per step of the play, each dated mapped positive counted once, no column picked after a load (the last the one keyboard stop), nothing outside the window, as wide as its panel', v);
+  check(v.cols === v.chartCols && v.cols === 16 && v.steps === 16 && total === v.dated && v.current === -1 && same(v.stops, [v.cols - 1])
+    && v.counts.every(c => c[2] === 0) && v.svgWidth === v.boxWidth && same(v.mark, { kind: 'line', col: 15, at: 1 }) && v.line === 1 && v.band === 0,
+  'chart: On a day on today: one column per week from the file\'s first to today\'s (16), each dated mapped positive counted once, no column picked (the last the one keyboard stop), nothing after the day, the day\'s line on today, as wide as its panel', v);
   await shot('chart_01_hpai_sample_open');
   check((v.dropped || v.mapped > v.dated) ? /^Not counted: /.test(v.note) : v.note === '', 'chart: the note names what is not counted, only when something is', v.note);
-  // A click on an earlier column with positives: the window's end moves to that step's end, as the slider does.
+  // A click on an earlier column with positives On a day: the day moves to the column's last day (the date box follows).
   const at = v.counts.findIndex(c => c[0] + c[1] > 0);
-  const step = await p.eval(`${S}.steps.steps[${at}]`);
+  const column = await p.eval(`${S}.chartSteps.steps[${at}]`);
   await p.click(`document.querySelector('#em-chart .chart-col[data-col="${at}"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
-  await p.waitFor(`${S}.stepAt === ${at}`, 5000, 'chart click');
+  await p.waitFor(`${S}.picked === ${at}`, 5000, 'chart click');
   v = await view();
   const later = v.counts.slice(at + 1).reduce((t, c) => t + c[2], 0), laterAll = total - v.counts.slice(0, at + 1).reduce((t, c) => t + c[0] + c[1] + c[2], 0);
-  check(v.window.end === step.end && v.to === step.end && v.slider === String(at) && v.current === at && same(v.stops, [at])
-    && later === laterAll && later > 0,
-  'chart: a click on a column moves the window\'s end to its step\'s end (the date box and the slider follow); the later positives turn "outside the window"', v);
+  check(v.window.view === 'day' && v.window.end === column.end && v.day === column.end && v.current === at && same(v.stops, [at])
+    && later === laterAll && later > 0 && v.mark.kind === 'line' && v.mark.col === at,
+  'chart: On a day a click on a column moves the day to its last day (the date box follows), the line with it; the later positives turn "after the day"', v);
   check(v.positives === await p.eval(`String(WSDA.emergencyRules.groups(${S}.read, ${S}.window).current.length)`),
-    'chart: the "Positives" box follows the click', v.positives);
+    'chart: the "Active" box follows the click', v.positives);
   // The hover box: the column's counts and its click's hint.
   await p.eval(`(() => { const c = document.querySelector('#em-chart .chart-col[data-col="${at}"]'), r = c.getBoundingClientRect();
     c.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + 30 })); return true; })()`);
   v = await view();
-  check(v.tip === v.hovers[at] + 'Click again for all dates' && /: \d+ (current|past)/.test(v.tip),
-    'chart: the pointer over the picked column shows its counts and that a click again gives all dates', v.tip);
+  check(v.tip === v.hovers[at] + 'Click again for the opening dates' && /: \d+ (active|closed)/.test(v.tip),
+    'chart: the pointer over the picked column shows its counts and that a click again gives the opening dates', v.tip);
   await shot('chart_02_hpai_sample_clicked_hover');
   await p.eval(`document.getElementById('em-chart').dispatchEvent(new PointerEvent('pointerleave')); true`);
-  // The keyboard: the picked column is the stop; the left arrow moves along, Enter picks.
+  // The keyboard: the picked column is the stop; the right arrow moves along, Enter picks.
   await p.eval(`document.querySelector('#em-chart .chart-col[tabindex="0"]').focus(); true`);
   await p.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); true`);
   v = await view();
-  check(v.focus === String(at + 1) && same(v.stops, [at + 1]) && v.tip === v.hovers[at + 1] + 'Click to end the date window on '
-    + (await p.eval(`WSDA.emergencyRules.dayLabel(${S}.steps.steps[${at + 1}].end)`)) && v.stepAt === at,
-  'chart: the right arrow moves the focus (and the hover box) to the next column without moving the window', v);
+  check(v.focus === String(at + 1) && same(v.stops, [at + 1]) && v.tip === v.hovers[at + 1] + 'Click to move the day to '
+    + (await p.eval(`WSDA.emergencyRules.dayLabel(${S}.chartSteps.steps[${at + 1}].end)`)) && v.window.end === column.end,
+  'chart: the right arrow moves the focus (and the hover box) to the next column without moving the day', v);
   await p.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); true`);
-  await p.waitFor(`${S}.stepAt === ${at + 1}`, 5000, 'chart Enter');
+  await p.waitFor(`${S}.picked === ${at + 1}`, 5000, 'chart Enter');
   v = await view();
   check(v.current === at + 1 && v.focus === String(at + 1), 'chart: Enter picks the focused column; the focus stays on it after the redraw', v);
-  // A start after the clicked step's end goes back to the earliest detection.
-  const fw = await p.eval(`${S}.fileWindow`);
-  await p.eval(`(() => { const i = document.getElementById('em-from'); i.value = '${fw.end}'; i.dispatchEvent(new Event('change')); return true; })()`);
-  await p.click(`document.querySelector('#em-chart .chart-col[data-col="0"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
-  await p.waitFor(`${S}.stepAt === 0`, 5000, 'chart click on the first column');
+  // The slider after a pick: the day's line moves to the step, and no column stays picked (its hint gone with it).
+  await p.eval(`(() => { const i = document.getElementById('em-step'); i.value = '0'; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+  await p.waitFor(`${S}.picked === null`, 5000, 'the slider after a pick');
+  await p.eval(`(() => { const c = document.querySelector('#em-chart .chart-col[data-col="${at + 1}"]'), r = c.getBoundingClientRect();
+    c.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + 30 })); return true; })()`);
   v = await view();
-  check(v.window.start === fw.start && v.window.end === (await p.eval(`${S}.steps.steps[0].end`)),
-    'chart: with the window starting after the clicked step, the start goes back to the earliest detection (never an empty window)', v.window);
-  // The picked column again (2.4): the whole file's dates, as after a load, and no column picked; Space too.
-  await p.click(`document.querySelector('#em-chart .chart-col[data-col="0"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await p.eval(`document.getElementById('em-chart').dispatchEvent(new PointerEvent('pointerleave')); true`);
+  check(v.current === -1 && v.mark.kind === 'line' && v.mark.col !== at + 1
+    && v.window.end === await p.eval(`${S}.steps.steps[0].end`) && v.tip.startsWith(v.hovers[at + 1] + 'Click to move the day to '),
+  'chart: the slider after a pick moves the day\'s line to its step; no column stays picked (the column once picked says "Click to move the day")', v);
+  await p.click(`document.querySelector('#em-chart .chart-col[data-col="${at + 1}"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === ${at + 1}`, 5000, 'chart click again after the slider');
+  // The picked column again: the view's opening dates (today), no column picked.
+  await p.click(`document.querySelector('#em-chart .chart-col[data-col="${at + 1}"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
   await p.waitFor(`${S}.picked === null`, 5000, 'chart unpick');
   v = await view();
-  check(same(v.window, fw) && v.to === fw.end && v.current === -1 && same(v.stops, [v.steps - 1]) && v.stepAt === v.steps - 1
-    && v.counts.every(c => c[2] === 0) && v.positives === await p.eval(`String(WSDA.emergencyRules.groups(${S}.read, ${S}.fileWindow).current.length)`),
-  'chart: a click on the picked column gives back the whole file\'s dates, no column picked, nothing outside the window', v);
-  check(await p.eval(`document.querySelector('#ov-s-time .ov-section-head p').textContent === 'One column per step of the play. Click a column to end the window there; click it again for all dates.'
-    && /click it again for all dates\.$/.test(document.getElementById('help-ov-time').textContent)`),
-  'chart: the line over the chart and its "?" say a click again gives all dates');
+  check(v.window.end === '2026-10-30' && v.day === '2026-10-30' && v.current === -1 && same(v.stops, [v.cols - 1]) && v.counts.every(c => c[2] === 0),
+    'chart: On a day a click on the picked column gives back the opening day (today), no column picked', v);
+  check(await p.eval(`document.getElementById('ov-time-help').textContent === 'One column per week, to today. The line is the day; click a column to move the day to its end.'
+    && /goes back to the opening dates\.$/.test(document.getElementById('help-ov-time').textContent)`),
+  'chart: On a day the line over the chart says the line is the day; its "?" says a click again goes back to the opening dates');
+  // Between dates: the band over the dates; a column becomes the dates alone; again, the opening dates.
+  await p.eval(`document.getElementById('em-view-range').click(); true`);
+  await p.waitFor(`${S}.viewKind === 'range'`, 5000, 'Between dates');
+  v = await view();
+  check(same(v.mark, { kind: 'band', from: 0, to: 15 }) && v.band === 1 && v.line === 0 && v.counts.every(c => c[2] === 0)
+    && await p.eval(`document.getElementById('ov-time-help').textContent === 'One column per week, to today. The band is the dates; click a column to see that week alone.'`)
+    && await p.eval(`document.getElementById('ov-badge').textContent === 'Jul 15, 2026 – Oct 30, 2026' && !!document.querySelector('#ov-badge svg')
+      && getComputedStyle(document.getElementById('ov-badge')).display !== 'none'`),
+  'chart: Between dates the band over every column from the first detection to today; the Overview\'s badge the span and both dates', v);
+  const wk = v.counts.findIndex((c, k) => k > at && c[0] + c[1] > 0), week = await p.eval(`${S}.chartSteps.steps[${wk}]`);
+  await p.click(`document.querySelector('#em-chart .chart-col[data-col="${wk}"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === ${wk}`, 5000, 'chart click Between dates');
+  v = await view();
+  const inWeek = v.counts[wk][0] + v.counts[wk][1];
+  check(same(v.window, { view: 'range', start: week.start, end: week.end }) && same(v.mark, { kind: 'band', from: wk, to: wk })
+    && v.counts.every((c, k) => k === wk || c[0] + c[1] === 0) && inWeek > 0
+    && await p.eval(`document.querySelector('#box-detected strong').textContent`) === String(inWeek),
+  'chart: Between dates a click on a column makes the dates that week alone: the band on it, the boxes count what was detected in it', v);
+  await p.click(`document.querySelector('#em-chart .chart-col[data-col="${wk}"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === null`, 5000, 'chart unpick Between dates');
+  v = await view();
+  check(same(v.window, { view: 'range', start: '2026-07-15', end: '2026-10-30' }) && same(v.mark, { kind: 'band', from: 0, to: 15 }),
+    'chart: Between dates the picked column again gives back the opening dates', v);
+  // The first column (the week of Sunday, Jul 12): its first date the file's first detection (Jul 15), never earlier
+  // than the first date box allows.
+  await p.click(`document.querySelector('#em-chart .chart-col[data-col="0"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === 0`, 5000, 'chart first column Between dates');
+  v = await view();
+  const firstWeek = await p.eval(`${S}.chartSteps.steps[0]`);
+  check(firstWeek.start === '2026-07-12' && same(v.window, { view: 'range', start: '2026-07-15', end: firstWeek.end })
+    && await p.eval(`(() => { const f = document.getElementById('em-from'); return f.value === '2026-07-15' && f.value >= f.min; })()`),
+  'chart: Between dates the first column starts on the file\'s first detection (Jul 15), not its Sunday; the first date box within its limits', v.window);
+  await p.click(`document.querySelector('#em-chart .chart-col[data-col="0"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await p.waitFor(`${S}.picked === null`, 5000, 'chart first column unpicked');
   await p.eval(`document.querySelector('#em-chart .chart-col[data-col="${at}"]').focus(); true`);
   await p.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true })); true`);
   await p.waitFor(`${S}.picked === ${at}`, 5000, 'chart Space');
   await p.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true })); true`);
   await p.waitFor(`${S}.picked === null`, 5000, 'chart Space again');
   v = await view();
-  check(same(v.window, fw) && v.current === -1, 'chart: Space on a column picks it, Space again gives all dates back', v);
+  check(v.window.start === '2026-07-15' && v.window.end === '2026-10-30' && v.current === -1, 'chart: Space on a column picks it, Space again gives the opening dates back', v);
   // The pick was made on the Overview: the map's fit waits for the Map.
   check(await p.eval(`${S}.fitNext === true`), 'chart: a pick on the Overview leaves the map\'s fit waiting for the Map');
-  await p.click(`document.querySelector('#em-chart .chart-col[data-col="${at}"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
-  await p.waitFor(`${S}.picked === ${at}`, 5000, 'chart click again');
-  // The play moves the picked column; Pause stops it.
+  // The play On a day moves the line along the columns; Pause stops it.
+  await p.eval(`document.getElementById('em-view-day').click(); true`);
   await p.click(`document.getElementById('em-play').click()`);
   await p.waitFor(`${S}.stepAt >= 1`, 5000, 'one step played');
   v = await view();
-  check(v.current === v.stepAt, 'chart: while the play runs, the picked column follows its step', v);
+  check(v.mark.kind === 'line' && v.mark.col === v.stepAt && v.current === -1, 'chart: while the play runs On a day, the line follows its step (no column picked)', v);
   await p.click(`document.getElementById('em-play').click()`);
-  // The screwworm outbreak: ten weeks.
+  // The screwworm outbreak: 13 weeks, to today's.
   await p.eval(`document.activeElement.blur(); true`);
   await load([nwsPath]);
   await overview();
   v = await view();
-  check(v.open && v.by === 'week' && v.sum === 'by week' && v.cols === 10 && v.counts.reduce((t, c) => t + c[0] + c[1] + c[2], 0) === 10
+  check(v.open && v.by === 'week' && v.sum === 'by week' && v.cols === 13 && v.counts.reduce((t, c) => t + c[0] + c[1] + c[2], 0) === 10
     && v.note === 'Not counted: 1 not mapped' && /^Week of /.test(v.hovers[0]),
-  'chart: the screwworm outbreak, by week: ten columns, its ten mapped positives, the row without coordinates named', v);
+  'chart: the screwworm outbreak, by week: 13 columns to today\'s, its ten mapped positives, the row without coordinates named', v);
   await shot('chart_03_screwworm_by_week');
   await b.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 900, deviceScaleFactor: 1, mobile: true }, p.sid);
   await sleep(400);
@@ -1262,20 +1421,20 @@ async function partView(b) {
   let v = await seen();
   check(v.n === 6 && v.inView && v.clear && !v.fitNext, 'view: after the load every positive shown is in view, clear of the legend and the map\'s buttons', v);
   await shot('view_01_sample_open');
-  // "Show past positives" and "Draw their rings": the view takes them in when ticked.
+  // "Show closed positives" and "Draw their rings": the view takes them in when ticked.
   await away();
   await tick('em-past');
   await p.waitFor(`${S}.mapData.past > 0`, 5000, 'past shown');
   v = await seen();
-  check(v.n === 7 && v.inView && v.clear, 'view: ticking "Show past positives" fits the view to them too', v);
+  check(v.n === 7 && v.inView && v.clear, 'view: ticking "Show closed positives" fits the view to them too', v);
   await p.eval(`document.getElementById('em-past-fold').open = true; true`);
   await away();
   await tick('em-past-rings');
   await p.waitFor(`${S}.map.em.pastZones.features.length > 0`, 5000, 'past rings drawn');
   v = await seen();
-  check(v.pastZones > 0 && v.pastZonesIn && v.inView, 'view: ticking "Draw their rings" fits the view to the past zones too', v);
+  check(v.pastZones > 0 && v.pastZonesIn && v.inView, 'view: ticking "Draw their rings" fits the view to the closed zones too', v);
   lg = await legend();
-  check(lg.indexOf('Animals') > lg.indexOf('Past zones (dashed)'), 'view: the "Animals" rows after the past zones\' line', lg);
+  check(lg.indexOf('Closed zones (dashed)') >= 0 && lg.indexOf('Animals') > lg.indexOf('Closed zones (dashed)'), 'view: the "Animals" rows after the closed zones\' line', lg);
   await shot('view_02_past_and_rings');
   await away();
   await tick('em-past-rings');
@@ -1285,7 +1444,7 @@ async function partView(b) {
   check(v.n === 6 && v.inView && v.clear, 'view: unticking fits the view to what is still shown', v);
   // A date box changed: the view fits what the new window shows.
   await away();
-  await p.eval(`(() => { const i = document.getElementById('em-to'); i.value = '2026-09-10'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await p.eval(`(() => { const i = document.getElementById('em-day'); i.value = '2026-09-10'; i.dispatchEvent(new Event('change')); return true; })()`);
   await p.waitFor(`${S}.window.end === '2026-09-10'`, 5000, 'date changed');
   v = await seen();
   check(v.n === 3 && v.inView && v.clear, 'view: a changed date box fits the view to the positives it shows', v);
@@ -1295,14 +1454,14 @@ async function partView(b) {
   v = await seen();
   check(v.n === 3 && v.inView && v.clear, 'view: the home button fits the positives shown', v);
   // The play: the view stays still while it steps, then fits once when it stops.
-  await p.eval(`(() => { const i = document.getElementById('em-to'); i.value = ''; i.dispatchEvent(new Event('change')); return true; })()`);
-  await p.waitFor(`${S}.window.end === ${S}.fileWindow.end`, 5000, 'date cleared');
+  await p.eval(`(() => { const i = document.getElementById('em-day'); i.value = ''; i.dispatchEvent(new Event('change')); return true; })()`);
+  await p.waitFor(`${S}.window.end === '2026-10-30'`, 5000, 'date cleared');
   await away();
   const before = await seen();
   await p.click(`document.getElementById('em-play').click()`);
   await p.waitFor(`${S}.playing && ${S}.stepAt >= 2`, 8000, 'two steps played');
   const during = await seen();
-  await p.waitFor(`!${S}.playing`, 30000, 'the play ends');
+  await p.waitFor(`!${S}.playing`, 40000, 'the play ends');
   v = await seen();
   check(same(during.center, before.center) && during.zoom === before.zoom && !v.fitNext && v.n === 6 && v.inView && v.clear,
     'view: still while the play steps (no jump each second), fitted once when it ends', [before, during, v]);
@@ -1339,27 +1498,34 @@ async function partView(b) {
     return [${S}.map.legendWidth(), parseFloat(getComputedStyle(lg).maxWidth) + 8, lg.open]; })()`);
   check(v.n === 6 && v.inView && v.clear && room[2] && room[0] === room[1],
     'view: on a fresh page after the first load every positive is clear of the legend, its full width kept', [v, room]);
-  // The window to Sep 5, then the past positive shown: it lies at the view's top left, where the map's buttons are
+  // The day to Sep 5, then the closed positive shown: it lies at the view's top left, where the map's buttons are
   // (with an edge of 40 pixels its mark sat under them).
-  await p.eval(`(() => { const i = document.getElementById('em-to'); i.value = '2026-09-05'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await p.eval(`(() => { const i = document.getElementById('em-day'); i.value = '2026-09-05'; i.dispatchEvent(new Event('change')); return true; })()`);
   await p.waitFor(`${S}.window.end === '2026-09-05'`, 5000, 'date changed');
   await tick('em-past');
   await p.waitFor(`${S}.mapData.past > 0`, 5000, 'past shown');
   v = await seen();
-  check(v.n === 3 && v.inView && v.clear, 'view: a past positive at the view\'s edge is clear of the map\'s buttons', v);
-  // A one-day window with no positive (2.4): the boxes say why, and how to see a date's positives.
+  check(v.n === 3 && v.inView && v.clear, 'view: a closed positive at the view\'s edge is clear of the map\'s buttons', v);
+  // A day before the first detection, and dates with no detection between them (2.5): the boxes say so in the view's
+  // words; 2.4's line under the dates is gone.
   const setDate = (id, value) => p.eval(`(() => { const i = document.getElementById('${id}'); i.value = '${value}'; i.dispatchEvent(new Event('change')); return true; })()`);
-  await setDate('em-from', '2026-09-05');
-  await p.waitFor(`${S}.window.start === '2026-09-05'`, 5000, 'one-day window');
-  const empty = await p.eval(`(() => { const e = document.getElementById('em-window-empty');
-    return [e.hidden, e.textContent, document.querySelector('#box-last strong').textContent, document.querySelector('#box-positives strong').textContent]; })()`);
-  check(!empty[0] && empty[1] === 'No positive was detected between these dates. To see the positives current on a date, keep the first date at Jul 15, 2026 and change only the second.'
-    && empty[2] === 'None between these dates' && empty[3] === '0',
-  'dates: a window with no positive says so under the dates, and "Last positive" reads "None between these dates"', empty);
-  await setDate('em-from', '2026-07-15');
-  await p.waitFor(`${S}.window.start === '2026-07-15'`, 5000, 'window back');
-  check(await p.eval(`document.getElementById('em-window-empty').hidden && document.querySelector('#box-last strong').textContent === 'Sep 2, 2026'`),
-    'dates: with a positive in the window again, the line goes and "Last positive" is its date');
+  await setDate('em-day', '2026-07-01');
+  await p.waitFor(`${S}.window.end === '2026-07-01'`, 5000, 'a day before the first detection');
+  const empty = await p.eval(`[!!document.getElementById('em-window-empty'), document.querySelector('#box-last strong').textContent,
+    document.querySelector('#box-positives strong').textContent]`);
+  check(same(empty, [false, 'None by this day', '0']),
+    'dates: On a day before the first detection "Last positive" reads "None by this day" and Active 0; no line under the dates (2.4\'s stopgap gone)', empty);
+  await tick('em-view-range');
+  await setDate('em-from', '2026-09-03');
+  await setDate('em-to', '2026-09-05');
+  await p.waitFor(`${S}.window.start === '2026-09-03' && ${S}.window.end === '2026-09-05'`, 5000, 'dates with no detection');
+  check(await p.eval(`document.querySelector('#box-detected strong').textContent === '0' && getComputedStyle(document.getElementById('box-last')).display === 'none'`),
+    'dates: Between dates with no detection between them, Detected 0 (no last positive box in this view)');
+  await tick('em-view-day');
+  await setDate('em-day', '2026-09-05');
+  await p.waitFor(`${S}.window.end === '2026-09-05'`, 5000, 'day back');
+  check(await p.eval(`document.querySelector('#box-last strong').textContent === 'Sep 2, 2026'`),
+    'dates: with a positive by the day again, "Last positive" is its date');
   // The population layers (2.4): on after a load of a positives file; turned off, they stay off when the same
   // positives file comes again (as when a layer or a zone file is added), and a new positives file turns them on.
   const pcTicked = () => p.eval(`Array.from(document.querySelectorAll('#pc-block .pc-on')).filter(b => b.checked).map(b => b.dataset.layer)`);
@@ -1570,9 +1736,10 @@ async function partPng(b) {
   check(v.state === 'completed' && v.name === 'emergency_hpai_' + today + '.png' && v.png && v.width === 2200 && v.height === 1700
     && v.ppm === 7874 && v.dpi === 200, 'png: the picture saves as emergency_hpai_<date>.png, 2200 x 1700 pixels at 200 dpi', v);
   check(v.title === 'HPAI RESPONSE MAP' && v.meta.left === 'Zones: Infection zone 3 km (1.9 mi), Control zone 10 km (6.2 mi)'
-    && v.meta.right.indexOf('As of Oct 5, 2026 · Last Updated: ') === 0 && v.stats.left[0].value === 'Jul 15, 2026 and Oct 5, 2026',
-  'png: the title from the type, the zones, "As of" and the detection window', [v.title, v.meta, v.stats]);
-  check(same(v.boxes.slice(0, 1), [['Current positives', '6']]) && v.boxes[1][0] === 'Sites inside' && v.boxes.length === 2
+    && v.meta.right.indexOf('As of Oct 30, 2026 · Last Updated: ') === 0 && v.stats.left[0].prefix === 'Active on' && v.stats.left[0].value === 'Oct 30, 2026'
+    && v.stats.left[0].icon === 'pin',
+  'png: the title from the type, the zones, "As of" and the period line On a day ("Active on Oct 30, 2026", the pin)', [v.title, v.meta, v.stats]);
+  check(same(v.boxes.slice(0, 1), [['Active positives', '6']]) && v.boxes[1][0] === 'Sites inside' && v.boxes.length === 2
     && same(v.footer, [['Positives with a site inside', '6 of 6']]) && v.rings.length === 12
     && v.rings.filter(c => c === '#cb181d').length === 6 && v.panel.length === 6 && v.key[1] === 'Confirmed positive'
     && v.key.includes('Control zone (10 km / 6.2 mi)') && /^Saved emergency_hpai_.*blocked the download\.$/.test(v.line),
@@ -1593,8 +1760,17 @@ async function partPng(b) {
   await p.eval(`(() => { const i = document.getElementById('em-step'); i.value = '7'; i.dispatchEvent(new Event('input')); return true; })()`);
   const shown = await p.eval(`${S}.window.end`);
   v = await picture();
-  check(shown === '2026-09-05' && v.stats.left[0].value === 'Jul 15, 2026 and Sep 5, 2026' && v.meta.right.indexOf('As of Sep 5, 2026') === 0
-    && same(v.boxes[0], ['Current positives', '2']), 'png: during a paused play the picture shows the week shown (Sep 5, two current positives)', [shown, v.stats, v.boxes]);
+  check(shown === '2026-09-05' && v.stats.left[0].value === 'Sep 5, 2026' && v.meta.right.indexOf('As of Sep 5, 2026') === 0
+    && same(v.boxes[0], ['Active positives', '2']), 'png: during a paused play the picture shows the day shown (Sep 5, two active positives)', [shown, v.stats, v.boxes]);
+  // Between dates (2.5): the span, "Detected" and the two dates, and a "Detected" box first.
+  await p.click(`document.getElementById('em-view-range').click()`);
+  await p.eval(`(() => { const i = document.getElementById('em-from'); i.value = '2026-09-01'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await p.eval(`(() => { const i = document.getElementById('em-to'); i.value = '2026-10-05'; i.dispatchEvent(new Event('change')); return true; })()`);
+  v = await picture();
+  check(v.stats.left[0].icon === 'span' && v.stats.left[0].prefix + ' ' + v.stats.left[0].value === 'Detected Sep 1, 2026 to Oct 5, 2026'
+    && same(v.boxes.slice(0, 2), [['Detected', '5'], ['Active positives', '5']]) && v.meta.right.indexOf('As of Oct 5, 2026') === 0,
+  'png: Between dates the span and "Detected Sep 1, 2026 to Oct 5, 2026", a "Detected" box first', [v.stats, v.boxes]);
+  await p.click(`document.getElementById('em-view-day').click()`);
 
   // 2.4: the controls in the approved order: the background, the resolution, "Name markers in PNG" (open: "Positives"
   // ticked, then each checked layer not ticked, in the layers' order), "Optional Filename" with its note, "Optional Map
@@ -1714,7 +1890,7 @@ async function partPng(b) {
   v = await picture('nws_synthetic_200dpi');
   check(v.name === 'emergency_nws_' + today + '.png' && v.title === 'NEW WORLD SCREWWORM RESPONSE MAP' && v.zones === 2
     && /^Zones: /.test(v.meta.left) && v.key.includes('Zone (from file)') && same(v.panel, ['Synthetic dispersal area: Klickitat (made up)',
-      'Synthetic dispersal area: Yakima and Tri-Cities (made up)']) && same(v.boxes[0], ['Current positives', '8']) && v.panel.length === 2 && same(v.footer, [['Zones with a site inside', '2 of 2']]),
+      'Synthetic dispersal area: Yakima and Tri-Cities (made up)']) && same(v.boxes[0], ['Active positives', '8']) && v.panel.length === 2 && same(v.footer, [['Zones with a site inside', '2 of 2']]),
   'png: the screwworm outbreak: its title and file name, its two dispersal areas as zones (their names whole, on two lines), eight current positives', v);
   await b.send('Browser.setDownloadBehavior', { behavior: 'default' });
   fs.rmSync(DL, { recursive: true, force: true });
@@ -1815,7 +1991,7 @@ async function partOverview(b) {
   let r = await rules();
   check(v.counties.shown === '5' && v.counties.note === '6 counties since Jul 2026' && v.animals.shown === '1.2M birds'
     && v.animals.note === '3,550 cattle · 3 commercial, 3 backyard' && v.counties.shown === String(r.boxes.counties.value),
-  'overview: the sample\'s counties (5 with a current positive, 6 since Jul 2026) and animals (1.2M birds; the cattle and the flock types under it)', [v.counties, v.animals]);
+  'overview: the sample\'s counties (5 with an active positive, 6 since Jul 2026) and animals (1.2M birds; the cattle and the flock types under it)', [v.counties, v.animals]);
   const shownPeople = '~' + r.boxes.people.value.toLocaleString('en-US');
   check(v.people.shown === shownPeople && v.tilde === '~' && v.people.heard === 'about ' + r.boxes.people.value.toLocaleString('en-US')
     && v.people.note === 'Estimate from ' + v.tracts + ' Census tracts (2020)' && v.total === r.total && v.tracts > 0,
@@ -1832,28 +2008,45 @@ async function partOverview(b) {
     && /Department of Health/.test(helps[2].text) && /not a count of people exposed or sick/.test(helps[2].text),
   'overview: a "?" on each of its three boxes and three charts opens its plain sentence (the same on hover) and closes it; the people\'s names the Department of Health', helps);
   const sums = await p.eval(`${S}.result.layers.map(l => String(l.inside))`);
-  check(v.county.marks.includes('Yakima: 2 current') && v.county.marks.includes('Snohomish: 1 past') && same(v.county.totals, ['2', '1', '1', '1', '1', '1'])
+  check(v.county.marks.includes('Yakima: 2 active') && v.county.marks.includes('Snohomish: 1 closed') && same(v.county.totals, ['2', '1', '1', '1', '1', '1'])
     && v.county.width === v.county.box && same(v.layer.totals, sums) && /Infection zone/.test(v.layer.text) && /Control zone/.test(v.layer.text)
     && v.layer.marks.some(m => /^Commercial Poultry: \d+ in the Infection zone$/.test(m)),
-  'overview: the bars by county (current and past, a total per county, as wide as their panel) and by layer (each ring\'s count, the layer\'s total as "Inside the zones")', [v.county, v.layer]);
-  check(same(v.ct[0], ['County', 'Current', 'Past', 'Total', 'Animals (current)']) && same(v.ct[1], ['Yakima', '2', '0', '2', '1.2M birds'])
+  'overview: the bars by county (active and closed, a total per county, as wide as their panel) and by layer (each ring\'s count, the layer\'s total as "Inside the zones")', [v.county, v.layer]);
+  check(same(v.ct[0], ['County', 'Active', 'Closed', 'Total', 'Animals (active)']) && same(v.ct[1], ['Yakima', '2', '0', '2', '1.2M birds'])
     && v.ct.length === 7 && v.pt.length === 8 && v.pt[1][0] === 'SYN-HPAI-007' && v.pt[0][0] === 'Case ID',
-  'overview: the counties table (Yakima first, its 1.2M birds) and the positives table (every positive in the window, newest first)', [v.ct.slice(0, 2), v.pt.slice(0, 2)]);
+  'overview: the counties table (Yakima first, its 1.2M birds) and the positives table (every positive by the day, newest first)', [v.ct.slice(0, 2), v.pt.slice(0, 2)]);
   await p.eval(`(() => { const m = document.querySelector('#ov-county-chart .chart-mark'), r = m.getBoundingClientRect();
     m.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: r.left + 4, clientY: r.top + 4 })); return true; })()`);
   const tip = await p.eval(`document.getElementById('em-chart-tip').hidden ? null : document.getElementById('em-chart-tip').textContent`);
   check(tip === v.county.marks[0], 'overview: the pointer over a bar shows its count', tip);
   await p.eval(`(document.getElementById('ov-county-chart').dispatchEvent(new PointerEvent('pointerleave')), true)`);
   await shot('ov_01_sample_1280');
-  // The window: an earlier end changes every figure, as the rules give it.
+  // The day: an earlier day changes every figure, as the rules give it.
   const before = v;
-  await p.eval(`(() => { const i = document.getElementById('em-to'); i.value = '2026-09-05'; i.dispatchEvent(new Event('change')); return true; })()`);
+  check(await p.eval(`document.getElementById('ov-badge').textContent === 'Oct 30, 2026' && !!document.querySelector('#ov-badge svg')
+    && getComputedStyle(document.getElementById('ov-badge')).display !== 'none'
+    && document.querySelector('#ov-box-counties .card-label').textContent === 'Counties with an active positive?'`),
+  'overview: On a day the badge above it says the day with the pin; the counties box "Counties with an active positive"');
+  await p.eval(`(() => { const i = document.getElementById('em-day'); i.value = '2026-09-05'; i.dispatchEvent(new Event('change')); return true; })()`);
   await settled();
   v = await view();
   r = await rules();
   check(v.counties.shown === String(r.boxes.counties.value) && v.ct.length === r.rows + 1 && v.pt.length === r.positives + 1
     && v.total === r.total && v.total !== before.total && v.pt.length < before.pt.length && v.animals.shown === r.boxes.animals.value,
-  'overview: a window ending Sep 5 changes the boxes, the people, the bars and both tables, as the rules give them', [v.counties, v.animals, v.total, r]);
+  'overview: On a day Sep 5 changes the boxes, the people, the bars and both tables, as the rules give them', [v.counties, v.animals, v.total, r]);
+  // Between dates: the counties with a positive detected, "n with an active one".
+  await p.eval(`document.getElementById('em-view-range').click(); true`);
+  await p.eval(`(() => { const i = document.getElementById('em-from'); i.value = '2026-09-01'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await settled();
+  r = await rules();
+  const between = await p.eval(`(() => { const c = document.getElementById('ov-box-counties');
+    return { label: c.querySelector('.card-label').textContent, value: c.querySelector('strong').textContent, note: c.querySelector('.card-note').textContent,
+      badge: document.getElementById('ov-badge').textContent }; })()`);
+  check(between.label === 'Counties with a positive detected?' && between.value === String(r.boxes.counties.value) && between.note === r.boxes.counties.note
+    && /^\d+ with an active one/.test(between.note) && between.badge === 'Sep 1, 2026 – Oct 30, 2026',
+  'overview: Between dates the counties box counts the counties with a positive detected, "n with an active one" under it, as the rules give it; the badge the span and both dates', [between, r.boxes.counties]);
+  await p.eval(`document.getElementById('em-view-day').click(); true`);
+  await settled();
   // The play: each step's figures.
   await p.click(`document.getElementById('em-play').click()`);
   await p.waitFor(`${S}.stepAt >= 2`, 8000, 'two steps played');
@@ -1879,7 +2072,7 @@ async function partOverview(b) {
     'overview: no zones (every status unticked): "Not available: needs zones", never zero', [statuses, v.people]);
   await p.eval(`(Array.from(document.querySelectorAll('#em-statuses input')).forEach(i => { if (!i.checked) i.click(); }), true)`);
   await settled();
-  // The past positives' rings drawn add no people; an added point's rings add those inside them.
+  // The closed positives' rings drawn add no people; an added point's rings add those inside them.
   r = await rules();
   const ringsOnly = r.total;
   await p.eval(`document.getElementById('positives-fold').open = true; true`);
@@ -1888,7 +2081,7 @@ async function partOverview(b) {
   await settled();
   v = await view();
   const pastRings = await p.eval(`${S}.zoneParts.pastSites.length`);
-  check(pastRings > 0 && v.total === ringsOnly, 'overview: the past positives\' rings drawn add no people', [pastRings, v.total, ringsOnly]);
+  check(pastRings > 0 && v.total === ringsOnly, 'overview: the closed positives\' rings drawn add no people', [pastRings, v.total, ringsOnly]);
   // With the past rings still drawn, a point added: the people worked out again, the added point's rings counted and
   // the past rings not.
   await p.eval(`(${S}.points.push({ name: 'Call-in', lat: 47.61, lon: -122.33 }), WSDA.emergency.compute(), true)`);
@@ -1896,7 +2089,7 @@ async function partOverview(b) {
   v = await view();
   r = await rules();
   check(v.total === r.total && v.total > ringsOnly + 1000,
-    'overview: an added point\'s rings add the people inside them, the past rings still not, as the rules count them', [v.total, r.total, ringsOnly]);
+    'overview: an added point\'s rings add the people inside them, the closed rings still not, as the rules count them', [v.total, r.total, ringsOnly]);
   await p.eval(`(${S}.points.pop(), WSDA.emergency.compute(), true)`);
   await p.click(`document.getElementById('em-past-rings').click()`);
   await p.click(`document.getElementById('em-past').click()`);
@@ -1924,7 +2117,7 @@ async function partOverview(b) {
   v = await view();
   const ring = await p.eval(`${S}.rings.map(x => x.distance).join(',') + ' ' + ${S}.unit`);
   const names = await p.eval(`${S}.read.targets.map(x => x.name)`);
-  check(ring === '2,6 mi' && same(names, R.targets), 'overview: the scenario: rings of 2 and 6 miles around R\'s seven current positives', [ring, names]);
+  check(ring === '2,6 mi' && same(names, R.targets), 'overview: the scenario: rings of 2 and 6 miles around R\'s seven active positives', [ring, names]);
   const want = await p.eval(`(() => { const E = WSDA.emergencyRules, R = ${JSON.stringify(R.counties)};
     const text = c => [[c.birds, 'birds'], [c.cattle, 'cattle']].filter(x => x[0] !== null).map(x => E.bigNumber(x[0]) + ' ' + x[1]).join(', ');
     return R.map(c => [c.county, String(c.current), String(c.past), String(c.current + c.past), text(c)]); })()`);

@@ -7,8 +7,9 @@
  * 448). Each piece keeps its shape, so a
  * later fix to the original can be carried over. The helpers brandedmaps.js exports are called unchanged (the page
  * loads it, with shared/branded.js, tiles.js and labels.js, as the Infrastructure page does). The copy's changes:
- *   - the title from the type ("HPAI RESPONSE MAP", "NEW WORLD SCREWWORM RESPONSE MAP"), the period line
- *     "Detected between ... and ...", the meta line naming the zones in both units and "As of" the window's end;
+ *   - the title from the type ("HPAI RESPONSE MAP", "NEW WORLD SCREWWORM RESPONSE MAP"), the period line by the view
+ *     (2.5: the pin and "Active on Oct 5, 2026", or the span and "Detected Sep 1, 2026 to Oct 5, 2026, active and
+ *     closed", with a "Detected" box first), the meta line naming the zones in both units and "As of" the view's end;
  *   - the panel "POSITIVES" in place of "QUERY SITES": one row per positive with zones (or per zone-file zone), its
  *     count the sites inside its zones, its lines the county and the days since the last positive (in place of CVI's
  *     matched origins and destinations);
@@ -63,7 +64,7 @@
   const PANEL_H = 0.46;
   // The least size of the panel's rows (against CVI's) that the key may take room down to.
   const PANEL_FLOOR_SCL = 0.85;
-  const TEAL = '#245566', BLUE = '#1c5a83', GOLD = '#c8842c';
+  const TEAL = '#245566', BLUE = '#1c5a83', GOLD = '#c8842c', CRIMSON = '#ca3014';
   const SENSITIVE = 'Shows positive premises\' locations: handle as sensitive data and share only with authorized responders.';
   const SOURCE = 'Data: positives and facility layers as loaded · County boundaries: U.S. Census Bureau';
   const SOURCE_CVI = 'Data: positives and facility layers as loaded, WSDA Animal Services CVI records · County ' +
@@ -291,7 +292,7 @@
     const items = [{ type: 'header', label: 'MAP KEY' }];
     const bullseye = (color, past) => ({ shape: 'bullseye', size: 4.5, stroke: 0.9, fill: color, past: !!past });
     o.statuses.forEach(s => items.push({ type: 'row', glyph: bullseye(s.color), label: s.label + ' positive' }));
-    o.pastColors.forEach(c => items.push({ type: 'row', glyph: bullseye(c, true), label: 'Past positive' }));
+    o.pastColors.forEach(c => items.push({ type: 'row', glyph: bullseye(c, true), label: 'Closed positive' }));
     if (o.added) items.push({ type: 'row', glyph: bullseye(PICK), label: 'Added point' });
     // The animals by the marks' shapes (2.4), as the live legend's rows, under the positives' rows: side by side, each
     // shape before its word, as many on a row as fit, so a crowded key keeps its layers.
@@ -307,7 +308,7 @@
         items[items.length - 1].lines = [r.label, b.shown + ' / ' + b.other];
       });
     }
-    if (o.pastRings) ring(PAST, 'Past positives\' rings', true);
+    if (o.pastRings) ring(PAST, 'Closed positives\' rings', true);
     // With a CVI master: the premises a matched movement left from or went to inside a zone, each count on the right.
     if (o.cvi) {
       items.push({ type: 'subheader', label: 'CVI PREMISES' + (o.cvi.years ? ', ' + o.cvi.years : '') });
@@ -386,6 +387,38 @@
     if (cur) lines.push(cur);
     return lines.length > 3 ? lines.slice(0, 2).concat([cut(lines.slice(2).join(' '))]) : lines;
   }
+  // The period line's words by the view (2.5; rules.js periodLine says the same in one string): "Active on" and the day
+  // with the pin, or "Detected" and the two dates with the span (the key's "Closed positive" says the closed ones are
+  // drawn, so the line stays short enough for five boxes beside it); a window without a view, as before 2.5
+  // ("Detected between ... and ...", or "all dates").
+  const ICON_PT = 13;
+  function periodOf(win) {
+    const R = root.WSDA.emergencyRules;
+    if (win.view === 'day') return { prefix: 'Active on', value: R.dayLabel(win.end), icon: 'pin', iconW: ICON_PT * 1.25 };
+    if (win.view === 'range') {
+      return { prefix: 'Detected', value: R.dayLabel(win.start) + ' to ' + R.dayLabel(win.end),
+        icon: 'span', iconW: ICON_PT * 1.25 };
+    }
+    return { prefix: 'Detected between', value: win.start && win.end ? R.dayLabel(win.start) + ' and ' + R.dayLabel(win.end)
+      : 'all dates' };
+  }
+  // The period line: as shared/branded.js statRow's left item (13 pt, bold prefix, plain value, CVI's gap), after the
+  // view's icon in WSDA blue (icons.js) when there is one.
+  function periodRow(period) {
+    const BR = B(), y = BR.py(BR.LAYOUT.statY), pt = 13;
+    let x = BR.px(0.01);
+    const parts = [];
+    if (period.icon) {
+      const size = ICON_PT, k = size / 16;
+      parts.push('<path transform="translate(' + (x).toFixed(2) + ' ' + (y - size / 2).toFixed(2) + ') scale(' + k.toFixed(4) +
+        ')" d="' + root.WSDA.emergencyIcons.path(period.icon) + '" fill="' + BLUE + '"/>');
+      x += period.iconW;
+    }
+    parts.push(BR.text(period.prefix, x, y, { pt, color: '#222222', bold: true }));
+    x += BR.textWidth(period.prefix, pt, true) + BR.px(0.006);
+    parts.push(BR.text(period.value, x, y, { pt, color: '#222222' }));
+    return parts.join('');
+  }
   // The value boxes, as shared/branded.js valueBoxes with three changes: they start just after the period line (at
   // most at the shared copy's 0.46, so four boxes get wider), they are taller with the label further below the number,
   // and a label too wide for its box is drawn smaller (down to BOX_LABEL_FLOOR, then cut with "…").
@@ -393,7 +426,7 @@
   const BOX_GAP = 0.035, BOX_PAD = 4, BOX_LABEL_FLOOR = 0.7;
   function valueBoxes(stats, period) {
     const BR = B(), L = BR.LAYOUT;
-    const periodRight = BR.px(0.01) + BR.textWidth(period.prefix, 13, true) + BR.px(0.006)
+    const periodRight = BR.px(0.01) + (period.iconW || 0) + BR.textWidth(period.prefix, 13, true) + BR.px(0.006)
       + BR.textWidth(period.value, 13);
     const x = Math.min(0.46, periodRight / BR.px(1) + 0.03);
     const p = BR.panel(x, L.statY - 0.024, L.mapW - x, 0.050, 0);
@@ -655,8 +688,7 @@
     // Strings.
     const pageTitle = title(type, input.title);
     const win = input.window || {};
-    const period = { prefix: 'Detected between', value: win.start && win.end
-      ? R.dayLabel(win.start) + ' and ' + R.dayLabel(win.end) : 'all dates' };
+    const period = periodOf(win);
     const zonesText = input.zonesMode ? 'Zones: ' + (input.zoneName || 'from a zone file')
       : 'Zones: ' + rings.map(r => { const b = bothUnits(r.distance, unit); return r.label + ' ' + b.shown + ' (' + b.other + ')'; })
         .join(', ');
@@ -681,8 +713,10 @@
     }
     const facTotal = result ? result.total : 0;
     // The layers are listed in the key, so no box counts them.
-    const boxes = [{ label: 'Current positives', value: S().comma(input.current || 0), color: TEAL },
-      { label: 'Sites inside', value: S().comma(facTotal), color: BLUE }].concat(input.cvi
+    // Between dates (2.5): a "Detected" box first, as on the page.
+    const boxes = (win.view === 'range' ? [{ label: 'Detected', value: S().comma(input.detected || 0), color: CRIMSON }] : [])
+      .concat([{ label: 'Active positives', value: S().comma(input.current || 0), color: TEAL },
+        { label: 'Sites inside', value: S().comma(facTotal), color: BLUE }]).concat(input.cvi
       ? [{ label: 'CVIs in or out', value: S().comma(input.cvi.cvis), color: GOLD }, { label: 'Animals moved',
         value: S().comma(input.cvi.animals), color: TEAL }] : []);
 
@@ -887,7 +921,7 @@
       BR.clipped('em-map', mapPanel, mapParts.join('')),
       BR.header(pageTitle, style),
       BR.metaRow(meta.left, meta.right, style),
-      BR.statRow([period], []),
+      periodRow(period),
       valueRow.parts,
       panelParts(panelBox, panel, 'Sites inside', footer),
       key.parts,

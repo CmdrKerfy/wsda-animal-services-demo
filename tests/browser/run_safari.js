@@ -3044,6 +3044,8 @@ async function runEM() {
       await d.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map');
       await d.run(errorsOn);
       v0 = await d.run('return WSDA.emergency.state.version;');
+      // "Today" fixed for the loads from here on (2.5; app.js todayIso), as the Chrome suite fixes it.
+      await d.run(`WSDA.emergency.state.today = '2026-10-30'; return true;`);
       await d.run(SET_FILES, '#files-input', [b64(samplePath)]);
       await d.waitFor('WSDA.emergency.state.version > ' + v0 + ' && !WSDA.emergency.state.loading && WSDA.emergency.state.map.drawn && WSDA.emergency.state.map.drawn.positives > 0', 20000, 'sample drawn');
       const page = await d.run(`var s=WSDA.emergency.state;return { drawn: s.map.drawn, zones: s.mapData.zones,
@@ -3051,7 +3053,7 @@ async function runEM() {
         boxes: ['box-positives','box-last','box-inside'].map(function(id){return document.querySelector('#'+id+' strong').textContent;}) };`);
       check(page.drawn.positives === 6 && page.zones === 12 && page.drawn.inside > 0 && page.drawn.outside > 0 && page.folds.every(function (x) { return !x; })
         && page.boxes[0] === '6' && page.boxes[1] === 'Oct 5, 2026' && Number(page.boxes[2]) > 0,
-      'EM Safari: the sample: six current positives (the past one hidden), twelve rings, sites inside and faded, every fold closed, the boxes', page);
+      'EM Safari: the sample On a day (today, fixed Oct 30, 2026): six active positives (the closed one hidden), twelve rings, sites inside and faded, every fold closed, the boxes', page);
       // The animals' shapes (2.4): each mark's picture drawn by Safari's canvas; the legend's Animals rows; the home button.
       const shapes = await d.run(`var s=WSDA.emergency.state,m=s.map.map;return { marks: s.map.em.positives.features.map(function(f){
           var id=f.properties.mark;return id.split(':')[1]+(m.hasImage(id)?'':' missing');}).sort(),
@@ -3095,19 +3097,27 @@ async function runEM() {
       const fitted = await d.run(inView);
       const past = await d.run(`var s=${S};return { positives: s.mapData.positives, past: s.mapData.past, box: document.querySelector('#box-positives strong').textContent };`);
       check(past.positives === 7 && past.past === 1 && past.box === '6',
-        'EM Safari: a real click on "Show past positives" draws the past one; the "Positives" box still counts six', past);
-      check(fitted, 'EM Safari: the view fits the positives shown after the click on "Show past positives"');
+        'EM Safari: a real click on "Show closed positives" draws the closed one; the "Active" box still counts six', past);
+      check(fitted, 'EM Safari: the view fits the positives shown after the click on "Show closed positives"');
       await d.click('#em-past');
       await d.run(`var m=WSDA.emergency.state.map.map;m.getCanvas().scrollIntoView({block:'center'});m.jumpTo({ center: [-124.5, 47.9], zoom: 10 });return true;`);
       await sleep(300);
       await d.click('#em-map .map-fit');
       check(await d.run(inView), 'EM Safari: a real click on the home button fits the positives shown');
-      // "Detected between": Safari's own date box, set as a picker sets it.
-      const win = await d.run(`var i=document.getElementById('em-to');i.value='2026-09-05';i.dispatchEvent(new Event('change'));
+      // "On a day": Safari's own date box, set as a picker sets it.
+      const win = await d.run(`var i=document.getElementById('em-day');i.value='2026-09-05';i.dispatchEvent(new Event('change'));
         var s=${S};return { type: i.type, end: s.window.end, positives: s.mapData.positives, last: document.querySelector('#box-last strong').textContent };`);
       check(win.type === 'date' && win.end === '2026-09-05' && win.positives === 2 && win.last === 'Sep 2, 2026',
-        'EM Safari: "Detected between" is a date box in Safari; a second date of Sep 5 shows the two positives current then', win);
-      await d.run(`var i=document.getElementById('em-to');i.value='';i.dispatchEvent(new Event('change'));return true;`);
+        'EM Safari: "On a day" is a date box in Safari; Sep 5 shows the two positives active then', win);
+      await d.run(`var i=document.getElementById('em-day');i.value='';i.dispatchEvent(new Event('change'));return true;`);
+      // The switch by real clicks (2.5): Between dates shows its two boxes and the Detected box; On a day again.
+      await d.click('#em-view-range');
+      const range = await d.run(`var s=${S};return { view: s.window.view, start: s.window.start, end: s.window.end, rows: !document.getElementById('em-range-row').hidden,
+        detected: document.querySelector('#box-detected strong').textContent, badge: document.getElementById('em-badge').textContent, past: s.mapData.past };`);
+      await d.click('#em-view-day');
+      check(range.view === 'range' && range.start === '2026-07-15' && range.end === '2026-10-30' && range.rows && range.detected === '7'
+        && range.badge === 'Jul 15, 2026 \u2013 Oct 30, 2026' && range.past === 1 && await d.run(`return ${S}.window.view === 'day';`),
+      'EM Safari: real clicks on the switch: Between dates from the first detection to today, Detected 7, the closed one drawn, the span badge; then On a day again', range);
       // The play: real clicks on Play and Pause; then a real arrow key on the slider.
       await d.click('#em-play');
       const playing = await d.run(`var s=${S};return { playing: s.playing, button: document.getElementById('em-play').textContent, at: s.stepAt, end: s.window.end };`);
@@ -3122,7 +3132,7 @@ async function runEM() {
       await d.run(`document.getElementById('em-step').focus();return document.activeElement.id;`);
       await d.key('\uE014');
       const keyed = await d.run(`var s=${S};return { at: s.stepAt, label: document.getElementById('em-step-label').textContent, playing: s.playing };`);
-      check(keyed.at === paused.at + 1 && new RegExp('^Up to .+ \u00b7 week ' + (keyed.at + 1) + ' of \\d+$').test(keyed.label) && !keyed.playing,
+      check(keyed.at === paused.at + 1 && new RegExp('^[A-Z][a-z]{2} \\d+, \\d{4} \u00b7 week ' + (keyed.at + 1) + ' of 16$').test(keyed.label) && !keyed.playing,
         'EM Safari: a real right-arrow key on the slider moves one week on', [paused.at, keyed]);
       await d.run(`var i=document.getElementById('em-step');i.value=i.max;i.dispatchEvent(new Event('input'));return true;`);
       // km | miles by real clicks: the rings shown in miles, then exactly 3 and 10 km again.
@@ -3139,8 +3149,8 @@ async function runEM() {
       await sleep(500);
       const tip = await d.run(`return (document.querySelector('.maplibregl-popup')||{}).textContent||'';`);
       // The population layers are on after the load (2.4), so the tract under the pointer follows the "as of" line.
-      check(/^SYN-HPAI-002Infection zone \(3 km\): 25 days/.test(tip)
-        && /Days since the last positive inside each zone, as of Oct 5, 2026Census tract, 2020[\d,]+ people per sq mi of land2020 population [\d,]+$/.test(tip),
+      check(/^SYN-HPAI-002Infection zone \(3 km\): 50 days/.test(tip)
+        && /Days since the last positive inside each zone, as of Oct 30, 2026Census tract, 2020[\d,]+ people per sq mi of land2020 population [\d,]+$/.test(tip),
         'EM Safari: a real pointer move over a zone opens its hover: the rings under the pointer with their days since, as of the date shown, then the tract (the population layers on after the load)', tip);
       await d.move(5, 5);
       // The Overview (2.3) by a real click on the switch: its boxes (the people from the Census tracts' file, loaded
@@ -3155,13 +3165,14 @@ async function runEM() {
         && ov.map && ov.rows === 7 && ov.bars === 6,
       'EM Safari: a real click on "Overview": its boxes (the people inside the zones from the Census tracts\' file), the bars and the positives table; the map hidden', ov);
       await d.click('.chart-col[data-col="7"]');
-      const chart = await d.run(`var s=${S};return { at: s.stepAt, end: s.window.end, columns: document.querySelectorAll('.chart-col').length };`);
-      check(chart.columns === 13 && chart.at === 7 && chart.end === '2026-09-05',
-        'EM Safari: a real click on the chart\'s eighth column moves the window\'s end to that week\'s Saturday', chart);
+      const chart = await d.run(`var s=${S};return { picked: s.picked, end: s.window.end, columns: document.querySelectorAll('.chart-col').length,
+        line: document.querySelectorAll('#em-chart .chart-line').length };`);
+      check(chart.columns === 16 && chart.picked === 7 && chart.end === '2026-09-05' && chart.line === 1,
+        'EM Safari: a real click on the chart\'s eighth column moves the day to that week\'s Saturday, the line with it', chart);
       await d.click('.chart-col[data-col="7"]');
-      const unpicked = await d.run(`var s=${S};return { picked: s.picked, window: s.window, file: s.fileWindow, marked: document.querySelectorAll('.chart-col[aria-current="true"]').length };`);
-      check(unpicked.picked === null && unpicked.window.start === unpicked.file.start && unpicked.window.end === unpicked.file.end && unpicked.marked === 0,
-        'EM Safari: a real click on the picked column again gives back all the dates, no column picked (2.4)', unpicked);
+      const unpicked = await d.run(`var s=${S};return { picked: s.picked, window: s.window, marked: document.querySelectorAll('.chart-col[aria-current="true"]').length };`);
+      check(unpicked.picked === null && unpicked.window.end === '2026-10-30' && unpicked.marked === 0,
+        'EM Safari: a real click on the picked column again gives back the opening day (today), no column picked', unpicked);
       // The slider to its end, focused as a real drag focuses it (the picked column keeps no focus for the redraw to
       // scroll back to); then the people worked out once it stops, before the click.
       await d.run(`var i=document.getElementById('em-step');i.focus();i.value=i.max;i.dispatchEvent(new Event('input'));return true;`);
@@ -3217,7 +3228,7 @@ async function runEM() {
       const nws = await d.run(`var s=${S};return { type: document.getElementById('em-type').value, useZones: s.useZones, zones: s.mapData.zones,
         box: document.querySelector('#box-positives strong').textContent };`);
       check(nws.type === 'nws' && nws.useZones && nws.zones === 2 && nws.box === '8',
-        'EM Safari: the screwworm outbreak picks New World screwworm and uses its two dispersal areas; eight current positives', nws);
+        'EM Safari: the screwworm outbreak picks New World screwworm and uses its two dispersal areas; eight active positives', nws);
       fs.writeFileSync(path.join(out, 'safari_em_' + mode + '.png'), Buffer.from(await d.screenshot(), 'base64'));
       const errors = await d.run('var e = window.__errors || []; window.__errors = []; return e;');
       check(!errors.length, 'EM Safari: no page errors', errors);

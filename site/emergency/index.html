@@ -44,6 +44,8 @@
   .field { margin-bottom: 0.75rem; }
   .field > label.ctl, .field > span.ctl, .ctl { font-weight: 600; font-size: 0.85rem; color: var(--heading); display: block; margin-bottom: 0.3rem; }
   .field.check > label { display: flex; align-items: flex-start; gap: 0.4rem; margin: 0.15rem 0; cursor: pointer; font-size: 0.85rem; line-height: 1.3; }
+  /* "Show closed positives" hides Between dates (2.5), where the closed positives are always drawn. */
+  .field.check > label[hidden] { display: none; }
   details.refine { margin: 0 0 0.6rem; }
   details.refine summary { cursor: pointer; font-size: 0.85rem; color: var(--heading); margin: 0.25rem 0; }
   .fold-sum { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
@@ -74,6 +76,8 @@
   #pc-block label:has(input:disabled) { color: var(--disabled); cursor: not-allowed; }
   .nr-row > label { display: flex; align-items: flex-start; gap: 0.4rem; margin: 0.15rem 0; cursor: pointer; font-size: 0.85rem; line-height: 1.3; }
   .nr-row > label.nr-sub { margin-left: 1.4rem; }
+  /* A region's counties box shows only once its region is ticked, as in CVI (the style above would show it anyway). */
+  .nr-row > label[hidden] { display: none; }
   .explore { display: grid; grid-template-columns: 330px minmax(0,1fr); gap: 1rem; margin-bottom: 1rem; }
   /* The sidebar stays in view while the page scrolls down to the results; it scrolls on its own only when it is
      taller than the window. */
@@ -91,7 +95,7 @@
   .count-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--box, var(--heading)); }
   /* Each box's brand color on its edge and its icon (version 2.1): a tile on wider screens, a
      plain icon before the label on a phone. Every white icon keeps at least 3:1 on its tile. */
-  #box-positives { --box: var(--wsda-crimson); }
+  #box-detected, #box-positives { --box: var(--wsda-crimson); }
   #box-past { --box: var(--wsda-eggplant); }
   #box-last { --box: var(--wsda-blue-green); }
   #box-inside { --box: var(--wsda-evergreen); }
@@ -112,13 +116,16 @@
   #ov-boxes { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 0; }
   @media (min-width: 768px) { #em-boxes { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
   .count-card { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0.15rem; align-content: start; }
+  /* A box the view does not use (2.5: Detected On a day, Last positive Between dates) is hidden: the grid above would
+     otherwise show it. */
+  .count-card[hidden] { display: none; }
   .count-card .card-label { grid-row: 1; font-size: 0.9rem; font-weight: 600; color: var(--muted); }
   /* The numbers sit at the bottom of their shared line, one font size tall, so a smaller one (a long date) stays
      within about a pixel of the others' baseline. */
   .count-card strong { grid-row: 2; align-self: end; line-height: 1; margin: 0.3rem 0 0.2rem; white-space: nowrap; }
   .count-card .card-note { grid-row: 3; }
   .count-card.na strong { padding: 0.2rem 0; white-space: normal; }
-  /* Past positives still under quarantine: the number in the note, the box's edge and its icon in the warning colors
+  /* Closed positives still under quarantine: the number in the note, the box's edge and its icon in the warning colors
      (on a wider screen a gold tile with a dark-brown icon, as the page's warning notices); the rest of the note plain. */
   .count-card.quar::before { background: var(--notice-text); }
   .count-card.quar .card-ic { color: var(--notice-text); }
@@ -182,15 +189,39 @@
   .ring-row label { flex: 1 1 auto; }
   .ring-row input { width: 5rem; font: inherit; font-size: 0.85rem; padding: 0.2rem; border: 1px solid var(--border-input); border-radius: 4px; }
   .lg-swatch { display: inline-block; flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; margin-top: 0.1em; border: 2px solid; }
-  /* The window, the play and the km | miles switch (E1b). */
-  .date-row { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 0.3rem 0.5rem; font-size: 0.85rem; }
-  .date-row span { color: var(--text); }
-  .date-row input { font: inherit; font-size: 0.85rem; padding: 0.15rem; border: 1px solid var(--border-input); border-radius: 4px; min-width: 0; }
+  /* The play and the km | miles switch (E1b). */
   .play-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; margin-top: 0.45rem; font-size: 0.85rem; }
   .play-row .btn { margin: 0; padding: 0.2rem 0.6rem; }
   .play-row input[type=range] { flex: 1 1 120px; min-width: 0; }
   .play-row output { flex: 1 1 100%; color: var(--muted); }
   #em-play[aria-pressed=true] { background: var(--primary); border-color: var(--primary); color: #fff; }
+  /* The time views (2.5): the switch, the date boxes with their pin or span, the badge, the boxes' marks and bar. */
+  .ts-head { display: flex; align-items: center; gap: 0.3rem; margin: 0 0 0.45rem; }
+  .ts-switch { display: flex; flex: 1 1 auto; min-width: 0; }
+  .ts-switch .btn { flex: 1 1 50%; margin: 0; padding: 0.2rem 0.4rem; font-size: 0.85rem; font-weight: 400; border-color: var(--primary);
+    color: var(--primary); background: #fff; display: inline-flex; gap: 0.35rem; align-items: center; justify-content: center; white-space: nowrap; }
+  .ts-switch .btn:first-child { border-radius: 4px 0 0 4px; }
+  .ts-switch .btn + .btn { margin-left: -1px; border-radius: 0 4px 4px 0; }
+  .ts-switch .btn[aria-pressed="true"] { background: var(--primary); color: #fff; font-weight: 600; position: relative; z-index: 1; }
+  .ts-switch .btn:focus-visible { position: relative; z-index: 2; }
+  .ts-switch .em-ic, .ts-badge .em-ic { flex: none; }
+  .ts-dates { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; margin-bottom: 0.3rem; }
+  .ts-dates[hidden] { display: none; }
+  .ts-dates .ts-ic { color: var(--primary); flex: none; display: inline-flex; }
+  .ts-dates input { font: inherit; font-size: 0.85rem; padding: 0.15rem; border: 1px solid var(--border-input); border-radius: 4px; min-width: 0; }
+  .ts-pair { display: grid; gap: 0.3rem; padding-left: 0.5rem; border-left: 2px solid var(--primary); border-radius: 2px; }
+  .ts-badge { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 3; display: inline-flex; gap: 6px;
+    align-items: center; background: var(--primary); color: #fff; border-radius: 14px; padding: 3px 11px; font-size: 13px;
+    white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); pointer-events: none; }
+  .ts-badge[hidden] { display: none; }
+  .ts-ov-badge { display: flex; justify-content: center; margin: 0 0 0.6rem; }
+  .ts-ov-badge .ts-badge { position: static; transform: none; }
+  .ts-mark { display: inline-block; width: 0.55em; height: 0.55em; border-radius: 50%; margin-right: 0.25em; vertical-align: 0.12em; box-sizing: border-box; }
+  .ts-mark.solid { background: var(--wsda-crimson); }
+  .ts-mark.hollow { border: 2px solid var(--wsda-crimson); opacity: 0.6; }
+  .ts-bar { display: flex; width: 100%; max-width: 150px; height: 7px; margin: 0.1rem 0 0.2rem; }
+  .ts-bar i { background: var(--wsda-crimson); }
+  .ts-bar b { border: 1.5px solid var(--wsda-crimson); opacity: 0.55; box-sizing: border-box; }
   .unit-switch { display: inline-flex; }
   .unit-switch .btn { margin: 0; padding: 0.05rem 0.5rem; font-size: 0.85rem; font-weight: 400; border-color: var(--muted); color: var(--muted); background: #fff; }
   .unit-switch .btn:first-child { border-radius: 4px 0 0 4px; }
@@ -330,15 +361,16 @@
 <div class="help-note" id="help-em-type" hidden><span id="help-em-type-text"></span><ul id="em-type-links"></ul></div>
 <div class="field" id="em-statuses-field"><span class="ctl" id="em-statuses-label">Zones around</span>
 <fieldset class="checklist" id="em-statuses" aria-labelledby="em-statuses-label"></fieldset></div>
-<div class="field check"><label><input type="checkbox" id="em-past"> Show past positives</label>
-<details class="refine" id="em-past-fold" hidden><summary>Past zones</summary>
-<label><input type="checkbox" id="em-past-rings"> Draw their rings</label></details></div>
-<div class="field" id="em-window-field"><span class="ctl" id="em-window-label">Detected between</span>
-<div class="date-row" role="group" aria-labelledby="em-window-label"><span>From</span><input type="date" id="em-from" aria-label="Detected from"><span>To</span><input type="date" id="em-to" aria-label="Detected until"></div>
+<div class="field" id="em-window-field"><div class="ts-head"><div class="ts-switch" role="group" aria-label="Time view"><button type="button" class="btn" id="em-view-day" data-view-kind="day" aria-pressed="true"><span data-em-icon="pin"></span>On a day</button><button type="button" class="btn" id="em-view-range" data-view-kind="range" aria-pressed="false"><span data-em-icon="span"></span>Between dates</button></div><button type="button" class="tip" aria-expanded="false" data-help="em-time" aria-controls="help-em-time" aria-label="About the two time views" title="On a day: every positive active on that day, whenever it was detected, as the outbreak stood then. Between dates: every positive detected between the two dates, active and closed, so nothing in the range is left out.">?</button></div>
+<p class="help-note" id="help-em-time" hidden>On a day: every positive active on that day, whenever it was detected, as the outbreak stood then; the closed ones show when "Show closed positives" is ticked. Between dates: every positive detected between the two dates, active and closed, so nothing in the range is left out; each is active or closed on the second date.</p>
+<div class="ts-dates" id="em-day-row"><span class="ts-ic" data-em-icon="pin"></span><input type="date" id="em-day" aria-label="The day"></div>
+<div class="ts-dates" id="em-range-row" hidden><span class="ts-ic" data-em-icon="span"></span><div class="ts-pair"><input type="date" id="em-from" aria-label="Detected from"><input type="date" id="em-to" aria-label="Detected until"></div></div>
 <p class="status err" id="em-window-msg" role="alert" hidden></p>
-<p class="status warn" id="em-window-empty" role="status" hidden></p>
 <div class="play-row"><button type="button" class="btn" id="em-play" aria-pressed="false">Play by week</button>
 <input type="range" id="em-step" min="0" max="0" value="0" aria-label="Week of"><output id="em-step-label" for="em-step"></output></div></div>
+<div class="field check" id="em-past-field"><label id="em-past-label"><input type="checkbox" id="em-past"> Show closed positives</label>
+<details class="refine" id="em-past-fold" hidden><summary>Closed zones</summary>
+<label><input type="checkbox" id="em-past-rings"> Draw their rings</label></details></div>
 <div class="field" id="em-rings-field"><div class="ctl-row"><span class="ctl">Rings</span><span class="unit-switch" role="group" aria-label="Distance unit"><button type="button" class="btn" id="em-unit-km" data-unit="km" aria-pressed="true">km</button><button type="button" class="btn" id="em-unit-mi" data-unit="mi" aria-pressed="false">miles</button></span></div><div id="em-rings"></div><p class="status err" id="em-rings-msg" role="alert" hidden></p></div>
 <details class="refine" id="em-zone-fold"><summary>Use a zone file</summary>
 <div class="field"><label class="ctl" for="em-zone-file">GeoJSON, KML or zipped shapefile</label><input type="file" id="em-zone-file" accept=".geojson,.json,.kml,.zip"></div>
@@ -403,8 +435,9 @@
 </aside>
 <div class="em-main">
 <div role="status"><div id="em-boxes" class="count-cards">
-<div class="count-card" id="box-positives"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="geo-alt-fill" aria-hidden="true"></span>Current positives</span><span class="card-note"></span></div>
-<div class="count-card" id="box-past" title="Positives whose surveillance ended by the end of the date window. Still under quarantine: a Quarantine Release after that date; with none, a Quarantine Status of Under quarantine; with neither, not known (in a table without a Quarantine Status column, still under quarantine). The status describes today, so for an earlier end date a Released row without a release date counts as released."><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="clock-history" aria-hidden="true"></span>Past positives</span><span class="card-note"></span></div>
+<div class="count-card" id="box-detected" hidden><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-em-icon="span" aria-hidden="true"></span>Detected</span><span class="card-note"></span></div>
+<div class="count-card" id="box-positives"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="geo-alt-fill" aria-hidden="true"></span>Active</span><span class="card-note"></span></div>
+<div class="count-card" id="box-past" title="Positives whose surveillance ended by the day (or by the second date). Still under quarantine: a Quarantine Release after that date; with none, a Quarantine Status of Under quarantine; with neither, not known (in a table without a Quarantine Status column, still under quarantine). The status describes today, so for an earlier date a Released row without a release date counts as released."><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="clock-history" aria-hidden="true"></span>Closed</span><span class="card-note"></span></div>
 <div class="count-card" id="box-last"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="calendar-event" aria-hidden="true"></span>Last positive</span><span class="card-note"></span></div>
 <div class="count-card" id="box-inside"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="bullseye" aria-hidden="true"></span>Sites inside the zones</span><span class="card-note"></span></div>
 </div>
@@ -414,7 +447,7 @@
 <button type="button" class="btn" id="show-overview" data-view="overview" aria-pressed="false" aria-controls="view-overview"><span class="btn-icon" data-icon="bar-chart" aria-hidden="true"></span>Overview</button>
 </div>
 <div id="view-map">
-<div class="map-frame"><div id="em-map" role="region" aria-label="Emergency map" aria-describedby="em-map-alt"></div><div id="basemap-status" class="status warn" hidden><span></span> <button id="offline-back" type="button" class="btn"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div><details id="em-legend" open><summary>Legend</summary><div id="em-legend-content"></div></details></div>
+<div class="map-frame"><div class="ts-badge" id="em-badge" hidden></div><div id="em-map" role="region" aria-label="Emergency map" aria-describedby="em-map-alt"></div><div id="basemap-status" class="status warn" hidden><span></span> <button id="offline-back" type="button" class="btn"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div><details id="em-legend" open><summary>Legend</summary><div id="em-legend-content"></div></details></div>
 <div class="live" role="status" aria-live="polite"><div id="screenshot-status" class="status info" hidden></div></div>
 <div id="em-zero" class="status warn" role="status">Load a positives file to see the positives and their zones.</div>
 <p class="muted map-alt" id="em-map-alt" hidden>The map's results are listed in the tabs below.</p>
@@ -436,21 +469,22 @@
 </section>
 </div>
 <div id="view-overview" hidden>
-<section class="ov-section" id="ov-s-glance" aria-labelledby="ov-h-glance"><div class="ov-section-head"><h2 id="ov-h-glance">At a glance</h2><p>The counties, animals and people of the current positives and their zones.</p></div>
+<div class="ts-ov-badge"><div class="ts-badge" id="ov-badge"></div></div>
+<section class="ov-section" id="ov-s-glance" aria-labelledby="ov-h-glance"><div class="ov-section-head"><h2 id="ov-h-glance">At a glance</h2><p>The counties, animals and people of the active positives and their zones.</p></div>
 <div class="count-cards" id="ov-boxes">
-<div class="count-card" id="ov-box-counties"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="map" aria-hidden="true"></span>Counties with a current <span class="nowrap">positive<button type="button" class="tip" aria-expanded="false" data-help="ov-counties" aria-controls="help-ov-counties" aria-label="About counties with a current positive" title="How many counties have at least one current positive (not yet closed) in the date window. Under it: how many counties had any positive in the window, since its first. A positive whose County is blank takes the county where it is mapped.">?</button></span></span><span class="card-note"></span></div>
-<div class="count-card" id="ov-box-animals"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="clipboard-data" aria-hidden="true"></span>Animals at the current <span class="nowrap">positives<button type="button" class="tip" aria-expanded="false" data-help="ov-animals" aria-controls="help-ov-animals" aria-label="About animals at the current positives" title="The animals at the current positives, added up from the file's inventory column. Under it: the animals counted apart, how many current positives are of each flock type, and any positive without a count (left out, never counted as zero).">?</button></span></span><span class="card-note"></span></div>
+<div class="count-card" id="ov-box-counties"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="map" aria-hidden="true"></span><span id="ov-counties-words">Counties with an active</span> <span class="nowrap"><span id="ov-counties-last">positive</span><button type="button" class="tip" aria-expanded="false" data-help="ov-counties" aria-controls="help-ov-counties" aria-label="About the counties box" title="On a day: how many counties have at least one active positive (not yet closed) on the day; under it, how many counties had any positive by then, since the first. Between dates: how many counties had a positive detected between the dates; under it, how many of them have an active one. A positive whose County is blank takes the county where it is mapped.">?</button></span></span><span class="card-note"></span></div>
+<div class="count-card" id="ov-box-animals"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="clipboard-data" aria-hidden="true"></span>Animals at the active <span class="nowrap">positives<button type="button" class="tip" aria-expanded="false" data-help="ov-animals" aria-controls="help-ov-animals" aria-label="About animals at the active positives" title="The animals at the active positives, added up from the file's inventory column. Under it: the animals counted apart, how many active positives are of each flock type, and any positive without a count (left out, never counted as zero).">?</button></span></span><span class="card-note"></span></div>
 <div class="count-card" id="ov-box-people"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="buildings" aria-hidden="true"></span>People inside the <span class="nowrap">zones<button type="button" class="tip" aria-expanded="false" data-help="ov-people" aria-controls="help-ov-people" aria-label="About people inside the zones" title="An estimate of how many people live inside the zones, from the 2020 Census: each Census tract's people are counted by how much of the tract lies inside a zone (a tract half inside counts half its people), and zones that overlap are counted once. Only Washington's tracts are used, so people who live outside Washington are not counted. It is where people live, not a count of people exposed or sick. Human cases are the Department of Health's.">?</button></span></span><span class="card-note"></span></div>
 </div>
-<p class="help-note ov-help" id="help-ov-counties" hidden>How many counties have at least one current positive (not yet closed) in the date window. Under it: how many counties had any positive in the window, since its first. A positive whose County is blank takes the county where it is mapped.</p>
-<p class="help-note ov-help" id="help-ov-animals" hidden>The animals at the current positives, added up from the file's inventory column. Under it: the animals counted apart, how many current positives are of each flock type, and any positive without a count (left out, never counted as zero).</p>
+<p class="help-note ov-help" id="help-ov-counties" hidden>On a day: how many counties have at least one active positive (not yet closed) on the day; under it, how many counties had any positive by then, since the first. Between dates: how many counties had a positive detected between the dates; under it, how many of them have an active one. A positive whose County is blank takes the county where it is mapped.</p>
+<p class="help-note ov-help" id="help-ov-animals" hidden>The animals at the active positives, added up from the file's inventory column. Under it: the animals counted apart, how many active positives are of each flock type, and any positive without a count (left out, never counted as zero).</p>
 <p class="help-note ov-help" id="help-ov-people" hidden>An estimate of how many people live inside the zones, from the 2020 Census: each Census tract's people are counted by how much of the tract lies inside a zone (a tract half inside counts half its people), and zones that overlap are counted once. Only Washington's tracts are used, so people who live outside Washington are not counted. It is where people live, not a count of people exposed or sick. Human cases are the Department of Health's.</p>
 </section>
-<section class="ov-section" id="ov-s-time" aria-labelledby="ov-h-time"><div class="ov-section-head"><h2 id="ov-h-time">Over time</h2><p>One column per step of the play. Click a column to end the window there; click it again for all dates.</p></div>
-<div class="ov-panel" id="ov-time"><h3>Positives over time<span class="fold-sum" id="em-chart-sum"></span><button type="button" class="tip" aria-expanded="false" data-help="ov-time" aria-controls="help-ov-time" aria-label="About positives over time" title="One column per week (or per month for a long outbreak): solid for current positives, outlined for past ones, gray outside the date window. Click a column to end the date window there; click it again for all dates.">?</button></h3><p class="help-note" id="help-ov-time" hidden>One column per week (or per month for a long outbreak): solid for current positives, outlined for past ones, gray outside the date window. Click a column to end the date window there; click it again for all dates.</p><div id="em-chart"></div><div class="muted" id="em-chart-note" hidden></div></div>
+<section class="ov-section" id="ov-s-time" aria-labelledby="ov-h-time"><div class="ov-section-head"><h2 id="ov-h-time">Over time</h2><p id="ov-time-help">One column per week, to today. The line is the day; click a column to move the day to its end.</p></div>
+<div class="ov-panel" id="ov-time"><h3>Positives over time<span class="fold-sum" id="em-chart-sum"></span><button type="button" class="tip" aria-expanded="false" data-help="ov-time" aria-controls="help-ov-time" aria-label="About positives over time" title="One column per week (or per month for a long outbreak), up to today: solid for active positives, outlined for closed ones, gray after the day (On a day) or outside the dates (Between dates). On a day, the line is the day and a column moves the day to its end; Between dates, the band is the dates and a column shows that week or month alone. The column again goes back to the opening dates.">?</button></h3><p class="help-note" id="help-ov-time" hidden>One column per week (or per month for a long outbreak), up to today: solid for active positives, outlined for closed ones, gray after the day (On a day) or outside the dates (Between dates). On a day, the line is the day and a column moves the day to its end; Between dates, the band is the dates and a column shows that week or month alone. The column again goes back to the opening dates.</p><div id="em-chart"></div><div class="muted" id="em-chart-note" hidden></div></div>
 </section>
-<section class="ov-section" id="ov-s-county" aria-labelledby="ov-h-county"><div class="ov-section-head"><h2 id="ov-h-county">By county</h2><p>Where the positives are, current and past.</p></div>
-<div class="ov-pair"><div class="ov-panel" id="ov-county"><h3>Positives by county<button type="button" class="tip" aria-expanded="false" data-help="ov-county" aria-controls="help-ov-county" aria-label="About positives by county" title="The positives in the date window by county: the solid bar current, the outlined bar past. A positive whose County is blank takes the county where it is mapped.">?</button></h3><p class="help-note" id="help-ov-county" hidden>The positives in the date window by county: the solid bar current, the outlined bar past. A positive whose County is blank takes the county where it is mapped.</p><div id="ov-county-chart"></div></div><div class="ov-panel ov-table" id="ov-counties"><h3>Counties</h3><div id="ov-counties-table"></div></div></div>
+<section class="ov-section" id="ov-s-county" aria-labelledby="ov-h-county"><div class="ov-section-head"><h2 id="ov-h-county">By county</h2><p>Where the positives are, active and closed.</p></div>
+<div class="ov-pair"><div class="ov-panel" id="ov-county"><h3>Positives by county<button type="button" class="tip" aria-expanded="false" data-help="ov-county" aria-controls="help-ov-county" aria-label="About positives by county" title="The positives of the view by county (On a day: by the day; Between dates: detected between the dates): the solid bar active, the outlined bar closed. A positive whose County is blank takes the county where it is mapped.">?</button></h3><p class="help-note" id="help-ov-county" hidden>The positives of the view by county (On a day: by the day; Between dates: detected between the dates): the solid bar active, the outlined bar closed. A positive whose County is blank takes the county where it is mapped.</p><div id="ov-county-chart"></div></div><div class="ov-panel ov-table" id="ov-counties"><h3>Counties</h3><div id="ov-counties-table"></div></div></div>
 </section>
 <section class="ov-section" id="ov-s-zones" aria-labelledby="ov-h-zones"><div class="ov-section-head"><h2 id="ov-h-zones">Inside the zones</h2><p>The sites of each ticked layer, by zone.</p></div>
 <div class="ov-panel" id="ov-layer"><h3>Sites inside the zones by layer<button type="button" class="tip" aria-expanded="false" data-help="ov-layer" aria-controls="help-ov-layer" aria-label="About sites inside the zones by layer" title="How many sites of each ticked layer lie inside the zones, by zone: with rings, each site in the smallest ring that holds it; with a zone file, in each zone that holds it.">?</button></h3><p class="help-note" id="help-ov-layer" hidden>How many sites of each ticked layer lie inside the zones, by zone: with rings, each site in the smallest ring that holds it; with a zone file, in each zone that holds it.</p><div id="ov-layer-chart"></div></div>
@@ -464,7 +498,7 @@
 </section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.4 (2026-10-30)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.5 (2026-11-04)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="../shared/release.js"></script>
 <script src="../shared/zip.js"></script>
@@ -508,6 +542,7 @@
 <script src="types/hpai.js"></script>
 <script src="types/nws.js"></script>
 <script src="rules.js"></script>
+<script src="icons.js"></script>
 <script src="map.js"></script>
 <script src="../cvi/app/previews.js"></script>
 <script src="branded.js"></script>

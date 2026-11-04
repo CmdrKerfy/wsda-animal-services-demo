@@ -1,9 +1,9 @@
 # HPAI table check: the shape and the counts of an HPAI positives table, as the Emergency Response page reads it.
 #
 # Run by CHECK_HPAI_TABLE.bat beside it (double-click), or by hand:
-#   Rscript --vanilla check_hpai_table.R <the table .csv> [<the report .txt>]
+#   Rscript --vanilla check_hpai_table.R <the table .csv> [<the report .txt>] [<a day, YYYY-MM-DD>]
 # The report goes to the second path, else to hpai_table_check_YYYY-MM-DD.txt beside this script. It is printed in
-# the window too.
+# the window too. The third, for the project's tests, is the day the page is taken to be opened on, in place of today.
 #
 # Base R only: no packages, nothing installed. The table is only read: never changed, never copied. Nothing else is
 # opened and nothing is sent anywhere.
@@ -18,13 +18,14 @@
 # The page's rules are written again here, from site/emergency/rules.js, types.js and types/hpai.js and the CSV
 # reader site/cvi/app/csv.js: the columns it reads (the first name the file has wins, any case; a name holding
 # address, location, street or premise is never read), the dates it reads (YYYY-MM-DD, YYYY/M/D or M/D/YYYY, a time
-# after them ignored), the coordinates it maps, and each positive's group on the last detection date (current, past,
-# still under quarantine, not known, not mapped). The project's unit suite runs this script on the synthetic tables
-# and compares its counts with the page's.
+# after them ignored), the coordinates it maps, and each positive's group (active, closed, still under quarantine,
+# not known, not mapped) on the last detection date and on the day the check is run, as the page opens (2.5: "On a
+# day" on today, "Between dates" from the first detection to today). The project's unit suite runs this script on the
+# synthetic tables and compares its counts with the page's.
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 1 || !nzchar(args[1])) {
-  cat("Usage: Rscript --vanilla check_hpai_table.R <the table .csv> [<the report .txt>]\n")
+  cat("Usage: Rscript --vanilla check_hpai_table.R <the table .csv> [<the report .txt>] [<a day, YYYY-MM-DD>]\n")
   quit(save = "no", status = 2)
 }
 table_path <- args[1]
@@ -209,6 +210,13 @@ number_of <- function(v) {
 }
 usable <- function(lat, lon) !is.na(lat) & !is.na(lon) & abs(lat) <= 90 & abs(lon) <= 180
 
+# The day the page is taken to be opened on: today, or the third argument (the project's tests).
+on_day <- if (length(args) >= 3 && nzchar(args[3])) date_of(args[3])$date else today
+if (is.na(on_day)) {
+  cat("The day must be written YYYY-MM-DD. Nothing was changed.\n")
+  quit(save = "no", status = 2)
+}
+
 pad <- function(x, w) paste0(x, strrep(" ", pmax(0, w - nchar(x))))
 plural <- function(n, one, many) paste(n, if (n == 1) one else many)
 
@@ -239,13 +247,18 @@ shown_at <- as.integer(unique(na.omit(vapply(ROLE_NAMES$shown, function(nm) colu
 named <- function(names) !is.na(column_index(header, names[nchar(names) >= 3]))
 looks_like_header <- named(ROLE_NAMES$lat) || named(ROLE_NAMES$lon) || named(ROLE_NAMES$id) ||
   any(vapply(ROLE_NAMES$detected, function(nm) named(nm), logical(1)))
-# A cell that could be from a record, never shown as written: a date, a number like a coordinate (three decimals or
+# A cell that could be from a record, never shown as written: a date (in figures or with its month's name), a number like a coordinate (three decimals or
 # more; a subtype such as 2.3.4.4b is kept), a county's name, or one of the table's Case IDs.
 ids <- unique(col_cells(col$id)[col_cells(col$id) != ""])
 county_word <- paste0("\\b(", paste(WA_COUNTIES, collapse = "|"), ")\\b")
+# A date written with its month's name, either way round ("Oct 5, 2026", "5 October"); a month and year alone is not a
+# day, so it may show.
+month_day <- paste0("\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?\\s+[0-9]{1,2}(st|nd|rd|th)?\\b|",
+  "\\b[0-9]{1,2}(st|nd|rd|th)?\\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)")
 looks_private <- function(v) {
   grepl("[0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}|[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|(^|[^0-9.])-?[0-9]{1,3}\\.[0-9]{3,}", v,
-    perl = TRUE) | grepl(county_word, v, ignore.case = TRUE, perl = TRUE) | v %in% ids
+    perl = TRUE) | grepl(month_day, v, ignore.case = TRUE, perl = TRUE) | grepl(county_word, v, ignore.case = TRUE, perl = TRUE) |
+    v %in% ids
 }
 column_name <- function(i) {
   if (!looks_like_header) return(paste("Column", i))
@@ -388,8 +401,8 @@ if (!is.na(col$county)) {
   as_map <- known & v %in% WA_COUNTIES
   with_county <- known & !as_map & grepl(" county$", gsub("\\s+", " ", v), ignore.case = TRUE)
   other_case <- known & !as_map & !with_county
-  out <- c(out, "", "County, how it is written (the forms, never the names):", paste0("  \"Yakima\" ", sum(as_map),
-    ", \"yakima\" ", sum(other_case), ", \"Yakima County\" ", sum(with_county), ", not a Washington county ",
+  out <- c(out, "", "County, how it is written (the forms, never the names):", paste0("  \"Name\" ", sum(as_map),
+    ", \"name\" ", sum(other_case), ", \"Name County\" ", sum(with_county), ", not a Washington county ",
     sum(v != "" & !known), ", blank ", sum(v == "")))
 }
 
@@ -410,7 +423,8 @@ out <- c(out, if (is.na(col$county)) "" else character(0), paste0("Coordinates: 
   sum(!mapped)), paste0("  not mapped because: no coordinates ", sum(none), ", no latitude ", sum(no_lat), ", no longitude ", sum(no_lon),
   ", not readable ", sum(unreadable), ", look swapped ", sum(swapped)))
 
-# What the page would show on the last detection date (rules.js windowOf, isPast, quarantineOf, groups).
+# What the page would show on the last detection date, and on the day it opens on (rules.js windowOf, isPast,
+# quarantineOf, groups, openingViews).
 detected_text <- if (length(detected_at) && n_rows) apply(grid[, detected_at, drop = FALSE], 1, function(r) {
   f <- r[r != ""]
   if (length(f)) f[1] else ""
@@ -423,20 +437,52 @@ q_text <- tolower(col_cells(col$quarantineStatus))
 q_status <- ifelse(q_text %in% QUARANTINE_UNDER, "under", ifelse(q_text %in% QUARANTINE_RELEASED, "released", NA))
 dates <- detected[mapped & !is.na(detected)]
 end <- if (length(dates)) max(dates) else NA_character_
-past <- ifelse(!is.na(closed_date), is.na(end) | closed_date <= end, closed)
-quarantine <- rep(NA_character_, n_rows)
-if (!is.na(col$quarantine) || !is.na(col$quarantineStatus)) {
-  quarantine <- ifelse(!past, NA_character_,
-    ifelse(!is.na(release), ifelse(!is.na(end) & release > end, "under", "released"),
-      ifelse(!is.na(q_status), q_status, if (!is.na(col$quarantineStatus)) "unknown" else "under")))
-}
-on_end <- if (is.na(end)) "(no readable detection date, so no end date)" else
-  paste0("(", month.name[as.integer(substr(end, 6, 7))], " ", substr(end, 1, 4), ")")
-out <- c(out, "", paste("What the page would show on the last detection date", paste0(on_end, ":")),
-  paste0("  current ", sum(mapped & !past), ", past ", sum(mapped & past), " (still under quarantine ",
+# The groups on a day: closed when its closed date is on or before the day (with no day, any closed date); without
+# one, when its closed column says so, from its release date (2.5; not a release date after the day the page is
+# opened on, which cannot be when it closed), or with neither date on any day; a closed positive's quarantine on the
+# day. Every mapped positive is counted, as the day is never before the last detection date (a positive without a
+# readable date is shown whatever the day).
+release_closes <- !is.na(release) & release <= on_day
+day_not_known <- is.na(closed_date) & closed & !release_closes
+groups_on <- function(day) {
+  past <- ifelse(!is.na(closed_date), is.na(day) | closed_date <= day,
+    ifelse(closed & release_closes, is.na(day) | release <= day, closed))
+  quarantine <- rep(NA_character_, n_rows)
+  if (!is.na(col$quarantine) || !is.na(col$quarantineStatus)) {
+    quarantine <- ifelse(!past, NA_character_,
+      ifelse(!is.na(release), ifelse(!is.na(day) & release > day, "under", "released"),
+        ifelse(!is.na(q_status), q_status, if (!is.na(col$quarantineStatus)) "unknown" else "under")))
+  }
+  paste0("  active ", sum(mapped & !past), ", closed ", sum(mapped & past), " (still under quarantine ",
     sum(mapped & quarantine %in% "under"), ", not known ", sum(mapped & quarantine %in% "unknown"), "), not mapped ",
-    sum(!mapped)),
+    sum(!mapped))
+}
+month_year <- function(d) paste(month.name[as.integer(substr(d, 6, 7))], substr(d, 1, 4))
+on_end <- if (is.na(end)) "(no readable detection date, so no end date)" else paste0("(", month_year(end), ")")
+out <- c(out, "", paste("What the page would show on the last detection date", paste0(on_end, ":")), groups_on(end),
   paste0("  of the mapped positives, without a readable detection date: ", sum(mapped & is.na(detected))))
+# How far back "On a day" can show the outbreak as it stood: a positive closes on its closed date (whatever its closed
+# column says), else, closed by that column, on its release date; with neither (or a release date after today), it
+# shows closed on every day, so on a day before today it may show closed too early. The three add up to the positives
+# closed by either column.
+if (!is.na(col$closed)) {
+  out <- c(out, paste0("  of the mapped closed positives: closed on their Close Date ", sum(mapped & !is.na(closed_date)),
+    ", on their release date ", sum(mapped & closed & is.na(closed_date) & release_closes), ", on a day not known ",
+    sum(mapped & day_not_known)))
+}
+# The page opens both views on today, or on the last detection date when that is later (a typing slip, or the
+# computer's date set wrong), so no positive is hidden. Today is not from the table, so it is shown in full.
+day_words <- paste0(month.name[as.integer(substr(on_day, 6, 7))], " ", as.integer(substr(on_day, 9, 10)), ", ",
+  substr(on_day, 1, 4))
+if (is.na(end)) {
+  out <- c(out, "", "What the page opens on: no readable detection date, so no day to open on (the counts above).")
+} else if (end > on_day) {
+  out <- c(out, "", paste0("What the page opens on: a detection is after today (", day_words,
+    "), so both views open on the last"), paste0("detection date (", month_year(end), "), the counts above."))
+} else {
+  out <- c(out, "", paste0("What the page opens on, today (", day_words, "), in both views:"), groups_on(on_day),
+    "  (\"On a day\" opens on today, \"Between dates\" from the first detection to today: the same positives.)")
+}
 
 out <- c(out, "", paste0("Saved as ", basename(report_path), " beside CHECK_HPAI_TABLE.bat. Read it before sending it."))
 cat(out, sep = "\n")

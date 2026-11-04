@@ -23,17 +23,27 @@ What the report holds (counts only)
   - the category columns (status, subtype, flock type, production type,
     species, quarantine status): each value and its count, and how the
     page reads the status and quarantine values. A value found in one row
-    only, or one holding a date, a coordinate, a county's name or a Case
-    ID, is shown by its shape (such as "aaaaa aaaa"), never as written;
-  - how the County column is written (the forms, never the names);
+    only, or one holding a date (in figures or with its month's name), a
+    coordinate, a county's name or a Case ID, is shown by its shape (such as "aaaaa aaaa"), never as written;
+  - how the County column is written (the forms, never the names: "Name",
+    "name", "Name County");
   - the coordinates: how many mapped, and why the others are not;
-  - what the page would show on the last detection date: current, past,
-    still under quarantine, not known, not mapped.
+  - what the page would show on the last detection date: active, closed,
+    still under quarantine, not known, not mapped; and the closed positives
+    by the day they close on the page: their Close Date, else their
+    Quarantine Release date (one on or before the day the check is run),
+    else a day not known (shown closed on every day); the three add up to
+    every closed positive;
+  - the same counts on the day the check is run, as the page opens: "On a
+    day" on today and "Between dates" from the first detection to today
+    (a closed date or a release date after the last detection counts
+    here, not above).
 
 What it never does
   - It never changes or copies the table, and opens nothing else.
   - The report never holds a Case ID, a name, an address, a coordinate, a
-    county's name or a full date from the table.
+    county's name or a full date from the table (only today's date, which
+    is not from the table).
   - It installs nothing and sends nothing anywhere. It needs R (the same R
     the CVI tools use); base R only, no packages.
 

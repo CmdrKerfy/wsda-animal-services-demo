@@ -11,8 +11,9 @@
  * Each new set of files opens on the Map.
  *
  * The sidebar has five folds: Load your data; Positives and zones (the type picker and its "?" in the fold's header,
- * the status tick boxes when the file has a status column, "Show past positives" with its folded "Past zones" ("Draw
- * their rings"), "Detected between" with the play by week or month and its slider, the rings with the km | miles
+ * the status tick boxes when the file has a status column, the time views' switch (2.5: "On a day" with its one
+ * date, "Between dates" with its two) with the play by week or month and its slider, "Show closed positives" (On a day
+ * only) with its folded "Closed zones" ("Draw their rings"), the rings with the km | miles
  * switch, "Use a zone file" (a zone file that comes with the files replaces the rings at once only when the type's
  * zones come from a file), "Add a point on the map"); Layers to check (the type's suggestions ticked first); More
  * options (basemap, neighboring regions, population, locations known only roughly); Export & Preview (the ZIP of
@@ -39,6 +40,7 @@
     type: T.list()[0], typePicked: false, positivesFile: null, read: null, ticks: null, rings: null,
     unit: 'km', unitPicked: false, ringBase: null, pastRings: false,
     fileWindow: null, window: null, steps: { by: null, steps: [] }, stepAt: 0, picked: null, playing: false, playTimer: null,
+    opening: null, views: null, viewKind: 'day', chartSteps: { by: null, steps: [] }, today: null,
     days: null,
     zoneFile: null, useZones: false, points: [], pointsAdded: 0, picking: false,
     prepared: null, layers: Object.create(null), selectedLayers: [], includeCoarse: false, result: null,
@@ -49,6 +51,7 @@
     master: null, masterReason: '', cvi: { years: [], quarters: QUARTERS.slice(), species: [] }, cviRes: null, cviKey: null
   };
   let pendingReply = null;
+  W.emergencyIcons.fill();   // the time views' pin and span (icons.js)
 
   // Show a status message of a kind (ok, info, warn, err) in the element with that id.
   function say(id, kind, text) {
@@ -275,17 +278,14 @@
   function readPositives() {
     const f = state.positivesFile;
     stopPlay();
-    state.read = f ? E.readPositives(f.header, f.rows, state.type) : null;
+    state.read = f ? E.readPositives(f.header, f.rows, state.type, todayIso()) : null;
     state.ticks = state.read ? E.defaultTicks(state.type, state.read.positives) : null;
     if (!state.unitPicked) state.unit = state.type.zones.unit;
     state.ringBase = { unit: state.type.zones.unit, distances: state.type.zones.rings.map(r => r.distance) };
     state.rings = state.type.zones.rings.map(r => Object.assign({}, r));
     state.rings = ringsIn(state.unit);
     state.fileWindow = state.read ? E.windowOf(state.read.positives) : null;
-    state.window = state.fileWindow ? Object.assign({}, state.fileWindow) : null;
-    state.steps = E.playSteps(state.fileWindow);
-    state.stepAt = Math.max(0, state.steps.steps.length - 1);
-    state.picked = null;   // no column is picked: the window is the whole file's
+    openViews();
   }
 
   // The "as of" lines: the bundle's label and date, then one line per loaded file.
@@ -405,14 +405,21 @@
   // The type's "?": the reference links (each opens an outside site in a new tab) and the "examples" note. A click
   // on it opens the fold, so the note is in view.
   const EXAMPLES = 'Statuses, zones and suggested layers are examples until WSDA staff confirm them.';
-  // Said when a positive is past by its status alone: without its close date the play cannot place it in time.
-  const NO_CLOSE_DATE = 'A positive closed by its status, with no readable close date, shows as past at every step of'
-    + ' the play: the page cannot tell when its surveillance ended.';
+  // Said when a positive is closed by its status without a close date: it closes on its release date (2.5); with
+  // neither date, or with a release date after today, the page cannot place it in time (rules.js closedDayNotKnown).
+  const BY_RELEASE = 'A positive closed by its status, with no readable close date, closes on its quarantine release date.';
+  const NO_CLOSE_DAY = 'A positive closed by its status, with no readable close or release date, shows as closed on every'
+    + ' day: the page cannot tell when it closed.';
+  const LATER_RELEASE = 'A positive closed by its status, with a release date after today, shows as closed on every day:'
+    + ' that date cannot be when it closed.';
   function syncTypeHelp() {
     const t = state.type;
     const read = state.read;
-    const byStatusOnly = !!read && read.positives.some(p => p.closed && !p.closedDate);
-    const said = EXAMPLES + (byStatusOnly ? ' ' + NO_CLOSE_DATE : '');
+    const byStatus = read ? read.positives.filter(p => p.closed && !p.closedDate) : [];
+    const byRelease = byStatus.some(p => p.quarantine && !p.releaseAfterToday);
+    const noDay = byStatus.some(p => !p.quarantine), later = byStatus.some(p => p.releaseAfterToday);
+    const said = EXAMPLES + (byRelease ? ' ' + BY_RELEASE : '') + (noDay ? ' ' + NO_CLOSE_DAY : '')
+      + (later ? ' ' + LATER_RELEASE : '');
     $('help-em-type-text').textContent = said + ' Reference pages:';
     $('em-type-links').replaceChildren(...t.links.map(l => {
       const li = document.createElement('li'), a = document.createElement('a');
@@ -437,8 +444,8 @@
   }, true);
 
   // The status tick boxes ("Zones around"), with each status's color and count: only the statuses the file has, and
-  // none when the file has no status column (every positive then takes the type's first status). Then "Show past
-  // positives" and its folded "Past zones".
+  // none when the file has no status column (every positive then takes the type's first status). Then "Show closed
+  // positives" and its folded "Closed zones" (the tick On a day only; 2.5).
   function renderStatuses() {
     const box = $('em-statuses');
     box.replaceChildren();
@@ -446,7 +453,7 @@
     const past = $('em-past');
     past.disabled = !state.read || !state.read.positives.some(p => p.closedDate || p.closed);
     past.checked = !!state.ticks && state.ticks.pastShown;
-    $('em-past-fold').hidden = !past.checked;
+    $('em-past-fold').hidden = !closedShown() || past.disabled;
     $('em-past-rings').checked = state.pastRings;
     $('em-past-rings').disabled = state.useZones && !!state.zoneFile;
     if (!state.read) { box.disabled = true; return; }
@@ -465,12 +472,12 @@
       box.append(label);
     }
   }
-  // Past positives are hidden at first; shown, they are faded and hollow, and "Draw their rings" (in "Past zones")
-  // draws their rings gray and dashed. Past positives never get zones that count.
+  // Closed positives are hidden at first On a day (always drawn Between dates); shown, they are faded and hollow, and
+  // "Draw their rings" (in "Closed zones") draws their rings gray and dashed. They never get zones that count.
   $('em-past').addEventListener('change', () => {
     if (!state.ticks) return;
     state.ticks.pastShown = $('em-past').checked;
-    $('em-past-fold').hidden = !state.ticks.pastShown;
+    $('em-past-fold').hidden = !closedShown();
     state.fitNext = true;   // the view takes them in, or lets them go
     compute();
   });
@@ -480,54 +487,121 @@
     compute();
   });
 
-  // ---- The window and the play -----------------------------------------------------------------------------
-  // "Detected between": two dates, at first the earliest and the latest readable detection; a cleared box goes back
-  // to the file's date. Only positives detected inside the window are shown, get zones and count; past and current
-  // are told on its end date, which may run on to today (a premises closed after the latest detection is past then).
+  // ---- The two time views and the play (2.5) ------------------------------------------------------------------
+  // "On a day" (the pin): one date, every positive active on it whatever its detection date (the window from the
+  // file's first detection to the day); "Between dates" (the span): every positive detected between two dates, active
+  // and closed, both always drawn. After a load the page opens On a day on today, and Between dates from the first
+  // detection to today (rules.js openingViews); each view keeps its own dates when the switch goes back and forth.
+  // state.window is the view shown (rules.js dayView or rangeView), so every rule that takes a window takes it.
+  // state.today is a test hook: a fixed "today" (YYYY-MM-DD) for the suites (the Chrome suite sets
+  // WSDA_EMERGENCY_TODAY before the page loads), else the computer's own date.
   function todayIso() {
+    if (state.today || root.WSDA_EMERGENCY_TODAY) return state.today || root.WSDA_EMERGENCY_TODAY;
     const d = new Date(), two = n => String(n).padStart(2, '0');
     return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate());
   }
-  function renderWindow() {
-    const fw = state.fileWindow;
-    $('em-window-field').hidden = !fw;
-    if (!fw) return;
+  // After a load: the opening views, the chart's columns (to today) and the play's steps.
+  function openViews() {
     const today = todayIso();
+    state.opening = E.openingViews(state.fileWindow, today);
+    state.views = state.opening ? { day: state.opening.day, range: state.opening.range } : null;
+    state.viewKind = 'day';
+    state.window = state.views ? state.views.day : null;
+    state.chartSteps = E.playSteps(E.chartSpan(state.fileWindow, today));
+    state.picked = null;   // no chart column is picked
+    setSteps();
+  }
+  // The play's steps for the view as it now is (rules.js viewSteps); the step shown is the view's last.
+  function setSteps() {
+    state.steps = E.viewSteps(state.chartSteps, state.window);
+    syncStep();
+  }
+  // The view shown changed: kept as that view's dates, the steps worked out again, the view fitted once.
+  function showWindow(next) {
+    state.window = next;
+    state.views[state.viewKind] = next;
+    $('em-window-msg').hidden = true;
+    setSteps();
+    state.fitNext = true;
+    renderWindow();
+    compute();
+  }
+  function renderWindow() {
+    const fw = state.fileWindow, win = state.window;
+    $('em-window-field').hidden = !fw;
+    renderBadges();
+    if (!fw) return;
+    const day = state.viewKind === 'day', last = todayIso() > fw.end ? todayIso() : fw.end;
+    $('em-view-day').setAttribute('aria-pressed', String(day));
+    $('em-view-range').setAttribute('aria-pressed', String(!day));
+    $('em-day-row').hidden = !day;
+    $('em-range-row').hidden = day;
+    // "Show closed positives" in On a day only: Between dates always draws the closed positives.
+    $('em-past-label').hidden = !day;
+    $('em-past-fold').hidden = !closedShown() || $('em-past').disabled;
+    $('em-day').max = last;
+    $('em-day').value = state.views.day.end;
     for (const [id, key] of [['em-from', 'start'], ['em-to', 'end']]) {
       const input = $(id);
       input.min = fw.start;
-      input.max = key === 'end' && today > fw.end ? today : fw.end;
-      input.value = state.window[key];
+      input.max = last;
+      input.value = state.views.range[key];
     }
-    renderPlay();
+    if (win) renderPlay();
   }
+  // The badge at the map's top center and above the Overview: the pin and the day, or the span and the two dates.
+  function renderBadges() {
+    const win = state.read ? state.window : null;
+    for (const id of ['em-badge', 'ov-badge']) {
+      const b = $(id);
+      b.hidden = !win;
+      if (win) b.innerHTML = W.emergencyIcons.svg(win.view === 'range' ? 'span' : 'pin') + '<span>' + E.viewBadge(win) + '</span>';
+    }
+  }
+  // The closed positives are drawn: always Between dates; On a day when "Show closed positives" is ticked.
+  const closedShown = () => !!state.ticks && (state.viewKind === 'range' || state.ticks.pastShown);
+  function setView(kind) {
+    if (!state.views || kind === state.viewKind) return;
+    stopPlay();
+    state.viewKind = kind;
+    state.picked = null;
+    showWindow(state.views[kind]);
+  }
+  $('em-view-day').addEventListener('click', () => setView('day'));
+  $('em-view-range').addEventListener('click', () => setView('range'));
+  // The day typed; a cleared box goes back to today.
+  function setDay(value) {
+    if (!state.fileWindow) return;
+    stopPlay();
+    state.picked = null;
+    showWindow(E.dayView(state.fileWindow, value || state.opening.day.end));
+  }
+  $('em-day').addEventListener('change', () => setDay($('em-day').value));
+  // A date of Between dates typed; a cleared box goes back to its opening date.
   function setWindow(key, value) {
     if (!state.fileWindow) return;
     stopPlay();
-    const next = Object.assign({}, state.window, { [key]: value || state.fileWindow[key] });
-    const msg = $('em-window-msg');
+    const range = state.views.range;
+    const next = E.rangeView(key === 'start' ? value || state.opening.range.start : range.start,
+      key === 'end' ? value || state.opening.range.end : range.end);
     if (next.start > next.end) {
+      const msg = $('em-window-msg');
       msg.hidden = false;
       msg.textContent = 'The first date needs to be on or before the second.';
       renderWindow();
       return;
     }
-    msg.hidden = true;
-    state.window = next;
-    syncStep();
-    state.picked = state.stepAt;
-    state.fitNext = true;
-    renderWindow();
-    compute();
+    state.picked = null;
+    showWindow(next);
   }
   $('em-from').addEventListener('change', () => setWindow('start', $('em-from').value));
   $('em-to').addEventListener('change', () => setWindow('end', $('em-to').value));
 
-  // The play: the file's detections step by step (rules.js playSteps: epi weeks, or calendar months over more than
-  // 26 weeks), one step a second; each step's end becomes the window's end, the last step the latest detection. It
-  // starts the window at the earliest detection, stops at the end (no loop), and pauses on Pause, on the slider or on
-  // a date box. While it plays, the CVI movements wait and the view stays still (the map would jump each second); it
-  // fits once when the play stops.
+  // The play: the view's steps (rules.js viewSteps: the chart's weeks, or months over more than 26 weeks), one step a
+  // second. On a day it moves the day from the file's first week to the day picked: the outbreak as it stood each
+  // week. Between dates it grows the range from its first date to its second, one step at a time. It stops at the
+  // end (no loop) and pauses on Pause, on the slider, on a date box or on the switch. While it plays, the CVI
+  // movements wait and the view stays still (the map would jump each second); it fits once when the play stops.
   const PLAY_MS = 1000;
   function renderPlay() {
     const s = state.steps, n = s.steps.length;
@@ -539,27 +613,25 @@
     slider.max = String(Math.max(0, n - 1));
     slider.value = String(state.stepAt);
     slider.setAttribute('aria-label', s.by === 'month' ? 'Month of' : 'Week of');
-    // What the map shows and where the step is: "Up to Sep 5, 2026 · week 8 of 12"; past the last step (a "To" date
-    // after the latest detection), the window's end.
-    const upTo = n && state.stepAt === n - 1 && state.window.end > s.steps[n - 1].end ? state.window.end
-      : n ? s.steps[state.stepAt].end : null;
-    const said = n ? 'Up to ' + E.dayLabel(upTo) + ' · ' + s.by + ' ' + (state.stepAt + 1) +
-      ' of ' + n : '';
+    // Where the step is: "Sep 5, 2026 · week 8 of 12" On a day, "Up to Sep 5, 2026 · week 8 of 12" Between dates.
+    const said = n ? (state.viewKind === 'range' ? 'Up to ' : '') + E.dayLabel(state.window.end) + ' · ' + s.by + ' ' +
+      (state.stepAt + 1) + ' of ' + n : '';
     $('em-step-label').textContent = said;
     slider.setAttribute('aria-valuetext', said);
   }
-  // The step whose end is the first on or after the window's end.
+  // The step whose end is the first on or after the view's end.
   function syncStep() {
-    const steps = state.steps.steps, i = steps.findIndex(x => x.end >= state.window.end);
+    const steps = state.steps.steps, i = state.window ? steps.findIndex(x => x.end >= state.window.end) : -1;
     state.stepAt = i < 0 ? Math.max(0, steps.length - 1) : i;
   }
+  // A step of the play or the slider: the view's end moves to the step's end; its steps stay as they were set.
   function goStep(i) {
     const step = state.steps.steps[i];
     if (!step) return;
     state.stepAt = i;
-    state.picked = i;
-    // A start after the step's end goes back to the earliest detection, so the window is never empty.
-    state.window = { start: state.window.start <= step.end ? state.window.start : state.fileWindow.start, end: step.end };
+    state.picked = null;   // the slider or the play moves the day's line; no chart column stays picked
+    state.window = Object.assign({}, state.window, { end: step.end });
+    state.views[state.viewKind] = state.window;
     $('em-window-msg').hidden = true;
     renderWindow();
     compute();
@@ -573,7 +645,6 @@
   function startPlay() {
     const steps = state.steps.steps;
     if (steps.length < 2) return;
-    state.window = { start: state.fileWindow.start, end: state.window.end };
     if (state.stepAt >= steps.length - 1) state.stepAt = -1;   // from the first step
     state.playing = true;
     advance();
@@ -837,7 +908,7 @@
     const g = read ? E.groups(read, state.window) : null;
     const sites = zonesMode ? E.zoneSites(state.zoneFile.zones) : state.rings ? E.ringSites(targets, state.rings, unit) : [];
     // Past positives' rings: drawn only, when asked for, at the current distances; they never add rows or counts.
-    const pastSites = g && !zonesMode && state.rings && state.ticks.pastShown && state.pastRings && g.past.length
+    const pastSites = g && !zonesMode && state.rings && closedShown() && state.pastRings && g.past.length
       ? E.ringSites(g.past, state.rings, unit) : [];
     const layers = state.selectedLayers.map(k => state.layers[k]).filter(Boolean);
     state.result = sites.length || layers.length ? E.inside(sites, layers, { mode: zonesMode ? 'zones' : 'rings',
@@ -862,7 +933,7 @@
     if (read) {
       sum.push(zonesMode ? 'zones from a file' : !state.rings || !state.rings.length ? 'no rings'
         : listOf(state.rings.map(r => shownDistance(r.distance))).replace(/ /g, '\u00a0') + '\u00a0' + E.UNITS[state.unit].label + ' rings');
-      if (g.past.length) sum.push(state.ticks.pastShown ? 'past shown' : 'past hidden');
+      if (g.past.length) sum.push(closedShown() ? 'closed shown' : 'closed hidden');
       const noStatus = read.columns.status ? read.positives.filter(p => !p.status && E.inWindow(p, state.window)).length : 0;
       if (noStatus) sum.push(noStatus.toLocaleString('en-US') + ' without a status');
     }
@@ -888,7 +959,7 @@
     const line = second.join(' · ');
     const lines = [p.name, line.charAt(0).toUpperCase() + line.slice(1)];
     if (E.isPast(p, end)) {
-      lines.push({ under: 'Past, still under quarantine', unknown: 'Past, quarantine not known' }[E.quarantineOf(read, p, end)] || 'Past');
+      lines.push({ under: 'Closed, still under quarantine', unknown: 'Closed, quarantine not known' }[E.quarantineOf(read, p, end)] || 'Closed');
     }
     const more = E.details(read, p).filter(d => d[1]).map(([column, value]) => column === read.columns.inventory
       ? value + ' ' + E.inventoryWordOf(read.type, p) : column === 'Flock size' ? 'flock size ' + value : value);
@@ -904,7 +975,7 @@
     // same positive (a point in the Infection zone is also in the Control zone), each with its days since the last
     // positive. A zone file's zone has no heading.
     const ringTips = (f, list, past) => state.rings.slice(f.properties.ring).map((r, k) => ({ km: E.toKm(r.distance, state.unit),
-      head: f.properties.name + (past ? ' (past)' : ''),
+      head: f.properties.name + (past ? ' (closed)' : ''),
       text: r.label + ' (' + ringDistance(r) + '): ' + daysText(list[f.properties.site].rings[f.properties.ring + k].days) }));
     zones.forEach((f, i) => {
       f.properties.zid = tips.length;
@@ -916,7 +987,7 @@
       tips.push(ringTips(f, days.past, true));
     });
     const withZones = new Set(targets.map(p => p.index)), read = state.read, end = windowEnd();
-    const shown = read ? read.positives.filter(p => E.inWindow(p, state.window) && (state.ticks.pastShown || !E.isPast(p, end))) : [];
+    const shown = read ? read.positives.filter(p => E.inWindow(p, state.window) && (closedShown() || !E.isPast(p, end))) : [];
     const positives = shown.map(p => ({ lat: p.lat, lon: p.lon, label: positiveLabel(p),
       color: p.status ? p.status.color : NO_STATUS, past: E.isPast(p, end), withZones: withZones.has(p.index),
       shape: E.animalShapeOf(read.type, p) }))
@@ -952,13 +1023,17 @@
       past: positives.filter(p => p.past).length, inside: inside.length, outside: outside.length };   // test hook
   }
 
-  // The four value boxes; a value that cannot be given says what it needs, never zero. "Current positives" counts the
-  // current positives in the window, "Past positives" the past ones with those still under quarantine; the other lines
-  // (the rows not mapped, the unreadable dates, the positives without a date) go in one line under the boxes, in the
+  // The four value boxes of the view (rules.js boxesOf): On a day Active, Closed, Last positive and Sites inside;
+  // Between dates Detected (its bar of active and closed), Active, Closed and Sites inside. A value that cannot be given
+  // says what it needs, never zero. Active and Closed carry the map's marks, solid and hollow; Closed notes those still
+  // under quarantine; the other lines
+  // (the rows not mapped, the unreadable dates, the positives without a date, those closed on a day not known) go in
+  // one line under the boxes, in the
   // warning color (the animals are the Overview's box since 2.3). The "Last positive"
   // box gives the date as the page writes dates ("Oct 2, 2026"), its note the window's end ("As of Oct 5, 2026").
   function renderBoxes() {
-    const v = E.valueBoxes(state.read, state.result && state.result.layers.length ? state.result : null, state.window);
+    const v = E.valueBoxes(state.read, state.result && state.result.layers.length ? state.result : null, state.window,
+      todayIso());
     const set = (id, value, note) => {
       const card = $(id);
       card.classList.toggle('na', value === null);
@@ -968,6 +1043,25 @@
     const fromFile = state.useZones && !!state.zoneFile;
     set('box-positives', v.positives.value, v.positives.value !== null && fromFile ? 'zones from a file' : v.positives.note);
     set('box-past', v.past.value, v.past.value === null ? v.past.reason : v.past.note);
+    set('box-detected', v.detected.value, v.detected.value === null ? v.detected.reason : '');
+    for (const id of ['box-detected', 'box-positives', 'box-past', 'box-last', 'box-inside']) {
+      $(id).hidden = !v.order.includes(id.slice(4) === 'positives' ? 'positives' : id.slice(4));
+    }
+    // The marks before the numbers, as on the map: solid for active, hollow for closed.
+    const mark = (id, kind) => { if ($(id).classList.contains('na')) return; $(id).querySelector('strong').prepend(el('span', 'ts-mark ' + kind)); };
+    mark('box-positives', 'solid');
+    mark('box-past', 'hollow');
+    // Detected: a bar split active and closed, then both counts with their marks.
+    if (v.detected.value !== null && v.order.includes('detected')) {
+      const d = v.detected, bar = el('span', 'ts-bar'), share = d.value ? Math.round(100 * d.active / d.value) : 0;
+      const solid = el('i'), hollow = el('b');
+      solid.style.width = share + '%';
+      hollow.style.width = (100 - share) + '%';
+      bar.append(solid);
+      if (d.closed) bar.append(hollow);
+      $('box-detected').querySelector('.card-note').replaceChildren(bar, el('span', 'ts-mark solid'), d.active.toLocaleString('en-US') + ' active \u00a0',
+        el('span', 'ts-mark hollow'), d.closed.toLocaleString('en-US') + ' closed');
+    }
     $('box-past').classList.toggle('quar', !!v.past.quarantined);
     // Some quarantines not known (2.4): the icon striped gold, half the cue of the solid gold for still under quarantine.
     $('box-past').classList.toggle('unk', !!v.past.notKnown);
@@ -989,14 +1083,6 @@
     }
     set('box-last', v.last.value === null ? null : E.dayLabel(v.last.value), v.last.value === null ? v.last.reason : v.last.note || '');
     set('box-inside', v.inside.value, v.inside.reason);
-    // A window with no positive (two dates typed close together): why the boxes are empty, and how to see the
-    // positives current on a date.
-    const empty = $('em-window-empty');
-    empty.hidden = !v.emptyWindow;
-    if (v.emptyWindow) {
-      empty.textContent = 'No positive was detected between these dates. To see the positives current on a date, keep ' +
-        'the first date at ' + E.dayLabel(state.fileWindow.start) + ' and change only the second.';
-    }
     const strip = $('em-box-lines'), lines = v.positives.value === null ? [] : v.positives.lines;
     strip.replaceChildren();
     lines.forEach((l, i) => {
@@ -1007,17 +1093,20 @@
   }
 
   // ---- The chart "Positives over time" (chart.js) ---------------------------------------------------------------
-  // The file's positives by the week or month they were detected in (the play's steps; rules.js overTime): current
-  // in the type's first status color, past hollow and faded as on the map, those outside the window gray. A click on a
-  // column, or Enter on it, moves the window's end to that step's end, as the slider does. In the Overview's "Over
-  // time" (2.3), drawn at its panel's width while the Overview shows; the section is hidden without a readable date.
+  // The file's positives by the week or month they were detected in, from the first detection to today (rules.js
+  // chartSpan and overTime): active in the type's first status color, closed hollow and faded as on the map, those
+  // after the day (On a day) or outside the dates (Between dates) gray. The day's line or the dates' band in WSDA blue
+  // (2.5). A click on a column, or Enter on it, moves the day to the column's last day, or makes the dates that week
+  // or month (rules.js pickColumn); the picked column again goes back to the view's opening dates. In the Overview's
+  // "Over time" (2.3), drawn at its panel's width while the Overview shows; the section is hidden without a readable
+  // date.
   const CH = W.emergencyChart;
   const OUTSIDE = '#d9d9d9', CHART_HEIGHT = { narrow: 260, wide: 300 };
   function renderChart() {
     const box = $('em-chart'), tip = $('em-chart-tip');
-    const none = !state.read || !state.steps.steps.length;
+    const none = !state.read || !state.chartSteps.steps.length || !state.window;
     $('ov-s-time').hidden = none;
-    state.chart = none ? null : E.overTime(state.read, state.window, state.steps);   // test hook
+    state.chart = none ? null : E.overTime(state.read, state.window, state.chartSteps);   // test hook
     tip.hidden = true;
     if (!state.chart) { box.replaceChildren(); return; }
     const t = state.chart, notCounted = [];
@@ -1027,17 +1116,30 @@
     $('em-chart-note').hidden = !notCounted.length;
     $('em-chart-note').textContent = notCounted.length ? 'Not counted: ' + notCounted.join(', ') : '';
     if (state.view !== 'overview') return;
-    const color = state.type.statuses[0].color;
-    const series = [{ key: 'current', label: 'current', name: 'Current', fill: color },
-      { key: 'past', label: 'past', name: 'Past', outline: true, stroke: color, opacity: 0.55 },
-      { key: 'outside', label: 'outside the window', name: 'Outside the window', fill: OUTSIDE }];
+    const color = state.type.statuses[0].color, day = state.viewKind === 'day', win = state.window;
+    const series = [{ key: 'current', label: 'active', name: 'Active', fill: color },
+      { key: 'past', label: 'closed', name: 'Closed', outline: true, stroke: color, opacity: 0.55 },
+      { key: 'outside', label: day ? 'after the day' : 'outside the dates', name: day ? 'After the day' : 'Outside the dates', fill: OUTSIDE }];
     const tick = c => (t.by === 'month' ? c.label.replace(/^Month of /, '') : c.label.replace(/^Week of /, '').replace(/, \d{4}$/, ''));
     const columns = t.columns.map((c, i) => ({ label: c.label, tick: tick(c), picked: i === state.picked,
       values: { current: c.current, past: c.past, outside: c.outside },
-      click: i === state.picked ? 'Click again for all dates' : 'Click to end the date window on ' + E.dayLabel(c.end) }));
+      click: i === state.picked ? 'Click again for the opening dates'
+        : day ? 'Click to move the day to ' + E.dayLabel(c.end) : 'Click to see the ' + (t.by === 'month' ? 'month' : 'week') + ' alone' }));
+    // The line inside the day's column, by the day's place in it; the band over the dates' columns.
+    const colAt = iso => t.columns.findIndex(c => iso >= c.start && iso <= c.end);
+    const spanDays = c => (Date.parse(c.end) - Date.parse(c.start)) / 864e5 + 1;
+    let mark = null;
+    if (day) {
+      const k = colAt(win.end);
+      if (k >= 0) mark = { kind: 'line', col: k, at: ((Date.parse(win.end) - Date.parse(t.columns[k].start)) / 864e5 + 1) / spanDays(t.columns[k]) };
+    } else {
+      const from = win.start < t.columns[0].start ? 0 : colAt(win.start), to = colAt(win.end);
+      if (from >= 0 && to >= 0) mark = { kind: 'band', from, to };
+    }
+    state.chartMark = mark;   // test hook
     const focused = box.contains(document.activeElement);
     box.innerHTML = CH.columns({ title: 'Positives over time, ' + (t.by === 'month' ? 'by month' : 'by week'),
-      none: 'no positives', series, columns }, { width: box.clientWidth,
+      none: 'no positives', series, columns, mark }, { width: box.clientWidth,
       height: box.clientWidth < 600 ? CHART_HEIGHT.narrow : CHART_HEIGHT.wide });
     if (focused) box.querySelector('.chart-col[tabindex="0"]').focus();
   }
@@ -1052,18 +1154,23 @@
     tip.style.left = Math.max(4, Math.min(x + 12, root.innerWidth - w - 8)) + 'px';
     tip.style.top = (y + 16 + h > root.innerHeight ? y - h - 10 : y + 16) + 'px';
   }
-  // A column ends the window there; the picked column again gives back the whole file's dates, as after a load, with
-  // no column picked. The view follows (on the Overview, when the Map is next shown).
+  // A column moves the day to its last day (On a day) or makes the dates that column (Between dates);
+  // the picked column again goes back to the view's opening dates, with no column picked. The map's view
+  // follows (on the Overview, when the Map is next shown).
   function pickColumn(i) {
     stopPlay();
-    state.fitNext = true;
-    if (i !== state.picked) { goStep(i); return; }
-    state.picked = null;
-    state.window = Object.assign({}, state.fileWindow);
-    $('em-window-msg').hidden = true;
-    syncStep();
-    renderWindow();
-    compute();
+    const column = state.chartSteps.steps[i];
+    if (!column) return;
+    if (i === state.picked) {
+      state.picked = null;
+      showWindow(state.opening[state.viewKind]);
+      return;
+    }
+    state.picked = i;
+    // The first column starts on its Sunday or the 1st, which may be before the file's first detection: the first
+    // date box starts no earlier than its own first date (the counts are the same).
+    const from = state.fileWindow.start;
+    showWindow(E.pickColumn(state.window, column.start < from ? Object.assign({}, column, { start: from }) : column));
   }
   const chartBox = $('em-chart'), colOf = e => e.target.closest && e.target.closest('.chart-col');
   chartBox.addEventListener('click', e => { const c = colOf(e); if (c) pickColumn(Number(c.getAttribute('data-col'))); });
@@ -1197,6 +1304,12 @@
     else if (tracts.failed) boxes.people = { value: null, reason: 'Not available: the Census tracts could not be loaded', note: null };
     const bars = E.overviewBars(rows, state.result), positives = E.positiveRows(read, win, counties);
     state.overview = { boxes, people: people.value, rows, bars, positives };   // test hook
+    // The counties box's name by the view: "Counties with an active positive", or "Counties with a positive detected".
+    const range = state.viewKind === 'range';
+    $('ov-counties-words').textContent = range ? 'Counties with a positive' : 'Counties with an active';
+    $('ov-counties-last').textContent = range ? 'detected' : 'positive';
+    $('ov-time-help').textContent = range ? 'One column per week, to today. The band is the dates; click a column to see that week alone.'
+      : 'One column per week, to today. The line is the day; click a column to move the day to its end.';
     setOverviewBox('ov-box-counties', boxes.counties);
     setOverviewBox('ov-box-animals', boxes.animals);
     // "~" for "about": the "~" hidden from screen readers, which hear "about".
@@ -1205,14 +1318,15 @@
     setOverviewBox('ov-box-people', boxes.people, boxes.people.value === null ? null
       : [tilde, el('span', 'sr-only', 'about '), document.createTextNode(boxes.people.value.toLocaleString('en-US'))]);
     renderChart();
-    // The bars by county: current solid in the type's first status color, past hollow, as in the time chart.
+    // The bars by county: active solid in the type's first status color, closed hollow, as in the time chart.
     const color = state.type.statuses[0].color, countyBox = $('ov-county-chart'), layerBox = $('ov-layer-chart');
     const valuesOf = r => ({ label: r.label, values: Object.fromEntries(r.parts.map(x => [x.key, x.value])), total: r.total });
-    if (!rows.length) countyBox.replaceChildren(el('p', 'muted', 'No positives in the date window.'));
+    const noneText = state.viewKind === 'range' ? 'No positives detected between these dates.' : 'No positives by this day.';
+    if (!rows.length) countyBox.replaceChildren(el('p', 'muted', noneText));
     else {
       countyBox.innerHTML = CH.bars({ title: 'Positives by county', rows: bars.counties.map(valuesOf),
-        series: [{ key: 'current', label: 'current', name: 'Current', fill: color },
-          { key: 'past', label: 'past', name: 'Past', outline: true, stroke: color }] }, { width: countyBox.clientWidth });
+        series: [{ key: 'current', label: 'active', name: 'Active', fill: color },
+          { key: 'past', label: 'closed', name: 'Closed', outline: true, stroke: color }] }, { width: countyBox.clientWidth });
     }
     // The bars by layer: one part per ring (in its color) or per zone of a zone file.
     if (!bars.layers.length) layerBox.replaceChildren(el('p', 'muted', 'Not available: needs a facility layer'));
@@ -1225,8 +1339,8 @@
         { width: layerBox.clientWidth });
     }
     // The two tables; the animals' text under its heading at the right, as the numbers are.
-    const none = () => [el('p', 'muted', 'No positives in the date window.')];
-    const ct = tableOf(['County', 'Current', 'Past', 'Total', 'Animals (current)'],
+    const none = () => [el('p', 'muted', noneText)];
+    const ct = tableOf(['County', 'Active', 'Closed', 'Total', 'Animals (active)'],
       rows.map(r => [r.county, r.current, r.past, r.total, r.animalsText]));
     ct[0].querySelectorAll('tr').forEach(tr => { if (tr.children.length === 5) tr.lastChild.classList.add('num'); });
     $('ov-counties-table').replaceChildren(...(rows.length ? ct : none()));
@@ -1254,11 +1368,11 @@
       return s;
     };
     if (state.read) {
-      const shown = g.current.concat(state.ticks.pastShown ? g.past : []);
+      const shown = g.current.concat(closedShown() ? g.past : []);
       for (const c of E.statusChoices(state.type, shown).filter(x => x.count)) {
         line(swatch('lg-dot', c.color || NO_STATUS, c.color || NO_STATUS), c.label);
       }
-      if (state.ticks.pastShown && g.past.length) line(swatch('lg-dot', NO_STATUS, '#ffffff'), 'Past (hollow, faded)');
+      if (closedShown() && g.past.length) line(swatch('lg-dot', NO_STATUS, '#ffffff'), 'Closed (hollow, faded)');
     }
     if (zonesMode) {
       const z = state.zoneFile.zones;
@@ -1267,9 +1381,9 @@
     else if (state.rings && state.read) {
       state.rings.forEach(r => line(swatch('lg-ring', r.color, 'transparent'), r.label + ' (' + ringDistance(r) + ')'));
     }
-    if (pastRings) line(el('span', 'lg-past-ring'), 'Past zones (dashed)');
+    if (pastRings) line(el('span', 'lg-past-ring'), 'Closed zones (dashed)');
     // The animals by the marks' shapes (2.4), for the kinds among the positives drawn.
-    const kinds = state.read ? E.animalKeys(state.type, g.current.concat(state.ticks.pastShown ? g.past : [])) : [];
+    const kinds = state.read ? E.animalKeys(state.type, g.current.concat(closedShown() ? g.past : [])) : [];
     if (kinds.length) {
       const head = el('p', 'lg-pc-head');
       head.append(el('strong', '', 'Animals'));
@@ -1559,8 +1673,8 @@
   const isAdded = s => String(s.positive).indexOf('added-') === 0;
   function zonesGeoJson() {
     const zp = state.zoneParts;
-    const parts = zp.zonesMode ? { zones: zp.sites } : { rings: [{ sites: zp.sites.filter(s => !isAdded(s)), group: 'Current' },
-      { sites: zp.sites.filter(isAdded), group: 'Added point' }, { sites: zp.pastSites, group: 'Past' }] };
+    const parts = zp.zonesMode ? { zones: zp.sites } : { rings: [{ sites: zp.sites.filter(s => !isAdded(s)), group: 'Active' },
+      { sites: zp.sites.filter(isAdded), group: 'Added point' }, { sites: zp.pastSites, group: 'Closed' }] };
     return E.zonesGeoJson(parts, { rings: state.rings || [], unit: state.unit, asOf: windowEnd(), positives: zp.counted });
   }
   $('em-export').addEventListener('click', () => {
@@ -1589,11 +1703,11 @@
       positives_file: state.datasets.positives ? state.datasets.positives.name : '',
       zones: zonesMode ? 'zone file ' + state.zoneFile.name : 'rings ' + state.rings.map(x => x.label + ' ' + ringDistance(x)).join(', '),
       statuses_with_zones: state.ticks.statuses.map(k => k === 'none' ? 'No status' : k),
-      detected_between: state.window ? [state.window.start, state.window.end] : null,
+      ...E.viewParams(state.window),
       as_of: windowEnd(),
       unit: state.unit,
-      past_shown: state.ticks.pastShown,
-      past_rings_drawn: state.ticks.pastShown && state.pastRings && !zonesMode,
+      closed_shown: closedShown(),
+      closed_rings_drawn: closedShown() && state.pastRings && !zonesMode,
       added_points: state.points.map(p => p.name + ' (' + p.lat + ', ' + p.lon + ')'),
       layers_checked: state.selectedLayers.map(k => state.layers[k] ? state.layers[k].label : k),
       locations_known_only_roughly: state.includeCoarse ? 'included' : 'left out',
@@ -1687,7 +1801,7 @@
   // The page's input: the positives shown, the zones drawn and the sites inside, as on the map; ch the choices.
   function pngInput(ch, background, streets, now) {
     const read = state.read, end = windowEnd(), zp = state.zoneParts;
-    const shown = read.positives.filter(p => E.inWindow(p, state.window) && (state.ticks.pastShown || !E.isPast(p, end)));
+    const shown = read.positives.filter(p => E.inWindow(p, state.window) && (closedShown() || !E.isPast(p, end)));
     if (state.master && state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }
     const res = state.master && state.cviRes && state.cviRes.summary ? state.cviRes : null;
     // The CVI tab's years: a run of years as "2025–2026", else listed.
@@ -1706,6 +1820,7 @@
     pastSites: zp.pastSites, zonesMode: zp.zonesMode, zoneName: zp.zonesMode ? state.zoneFile.name : null,
     rings: state.rings || [], unit: state.unit, result: state.result, layers, days: state.days.sites,
     window: state.window, current: E.groups(read, state.window).current.length,
+    detected: E.valueBoxes(read, null, state.window).detected.value,
     cvi: res ? { cvis: res.summary.cvis, animals: res.summary.animals, matched: res.matched || [], years: yearsText } : null, counties: root.CVIWA_GEO.counties.features, date: now,
     background, streets, nameLayers: ch.nameLayers, title: ch.title, label: ch.label, synthetic: !!state.synthetic };
   }

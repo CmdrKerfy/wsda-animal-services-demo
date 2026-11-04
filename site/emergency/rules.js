@@ -3,7 +3,7 @@
  * CVI's distance rule on a sphere of 6,378,137 m, the edge counting as inside, a point inside a zone polygon at 0 km).
  *
  * Positives:
- *   readPositives(header, rows, type?) -> { type, positives, dropped, columns, badDates, badCloseDates,
+ *   readPositives(header, rows, type?, today?) -> { type, positives, dropped, columns, badDates, badCloseDates,
  *     badReleaseDates }
  *     header: the file's column names; rows: its data rows (lists of text, as a CSV reader gives them). type: an
  *     emergency type (types.js); without one, the type is picked (types.pick) from the values of every disease
@@ -14,7 +14,7 @@
  *     type.
  *     positives: [{ index (0, 1, ... among the usable rows), line (the file's line number, the header being line 1),
  *       id, name, county, lat, lon, status ({ label, color } or null), statusText, closed, closedDate, quarantine,
- *       quarantineStatus ('under', 'released' or null), quarantineStatusText (as written, or null),
+ *       releaseAfterToday (a release date after today, given today), quarantineStatus ('under', 'released' or null), quarantineStatusText (as written, or null),
  *       detected (dates as YYYY-MM-DD or null), disease, species, flockType, inventoryText (as written), inventory
  *       (a number, or null when blank or unreadable), size (the flock size class), shown ([[column, value]] in the
  *       type's order) }].
@@ -48,15 +48,18 @@
  *   windowOf(positives) -> the earliest and latest readable detection dates, or null.
  *   inWindow(p, win) -> detected between start and end, both counting; a positive without a readable date is inside
  *     whatever the window.
- *   isPast(p, end) -> past on the end date: its closed date on or before it; without a readable closed date, its
- *     closed column says closed. quarantineOf(read, p, end) -> for a past positive in a file with a quarantine
+ *   isPast(p, end) -> past on the end date: its closed date on or before it; without a readable closed date, when its
+ *     closed column says closed, its quarantine release date on or before it (2.5; not a release date after today),
+ *     or, with neither date, any end date. closedDayNotKnown(p) -> closed by its closed column alone, with neither
+ *     date or with a release date after today (so a day before today may show it closed too early). quarantineOf(read, p, end) -> for a past positive in a file with a quarantine
  *     release or status column: 'under' (still under quarantine on the end date) or 'released' by a readable release
  *     date (after the end, or on or before it); without one, by its quarantine status; with neither, 'unknown' in a
  *     file with a status column, 'under' in a file with only the release date (as before the status column). Else
  *     null. stillQuarantined(read, p, end) -> quarantineOf is 'under'.
- *   groups(read, win) -> { current, past, stillQuarantined, notKnown, undated, outside, notMapped }: the positives inside the
- *     window by group (undated: those of them without a readable date; outside: detected outside the window).
- *     groupOf(p, end) -> "Current", "Past" or "Not mapped".
+ *   groups(read, win) -> { current, past, stillQuarantined, notKnown, closedDayNotKnown, undated, outside, notMapped }: the
+ *     positives inside the window by group (closedDayNotKnown: the past ones closed on a day not known; undated: those
+ *     of them without a readable date; outside: detected outside the window).
+ *     groupOf(p, end) -> "Active", "Closed" or "Not mapped" (since 2.5; the lists keep their names, current and past).
  *   playSteps(win) -> { by: 'week' or 'month', steps: [{ start, end, label }] }: epi weeks (Sunday to Saturday,
  *     "Week of Oct 4, 2026"), or calendar months ("Month of Oct 2026") when the window holds more than 26 weeks;
  *     each step ends on its Saturday or the month's last day, the last on the window's end. Worked out with
@@ -64,6 +67,23 @@
  *   overTime(read, win, steps) -> { by, columns: [{ start, end, label, current, past, outside }], notMapped, undated }:
  *     the chart's counts, one column per step of the file's play (steps), the mapped dated positives by the step
  *     they were detected in: current or past on the window's end date, or outside the window.
+ *
+ * The two views (2.5). A view is a window with its kind, so every rule that takes a window takes a view:
+ *   dayView(fileWindow, day) -> { view: 'day', start (the file's first detection), end (the day) }: "On a day", every
+ *     positive detected on or before the day, active or closed on it. rangeView(start, end) -> { view: 'range',
+ *     start, end }: "Between dates", every positive detected between the dates, active or closed on the second.
+ *   openingViews(fileWindow, today) -> { day, range } after a load: the day today, the range from the first detection
+ *     to today (both moved to a detection after today, so none is hidden); null without a readable date.
+ *   chartSpan(fileWindow, today) -> the chart's span, the first detection to today (or the last detection, if later).
+ *   viewSteps(steps, view) -> the play's steps in a view: the chart's columns that reach into it, the last ending on
+ *     the view's end (On a day from the file's first column; Between dates from the range's first date).
+ *   pickColumn(view, column) -> the view after a chart column is picked: the day moved to the column's last day, or
+ *     the range made the column's own dates.
+ *   boxesOf(view) -> the value boxes shown, in order: ['positives', 'past', 'last', 'inside'] On a day (and without a
+ *     view), ['detected', 'positives', 'past', 'inside'] Between dates.
+ *   viewBadge(view) -> "Oct 30, 2026" or "Sep 1, 2026 – Oct 5, 2026"; periodLine(view) -> the map picture's "Active on
+ *     Oct 30, 2026" or "Detected Sep 1, 2026 to Oct 5, 2026"; viewParams(view) -> export_params.json's
+ *     { view: 'on a day', day } or { view: 'between dates', detected_between: [start, end] }.
  *
  * The report's numbers:
  *   inventoryOf(text) -> a whole number (thousands commas allowed), or null; never zero for a blank.
@@ -122,20 +142,23 @@
  *     distance in the unit, km by default).
  *
  * The value boxes and the exports:
- *   valueBoxes(read, result, win?) -> { positives: { value, note, lines }, past: { value, reason, note, quarantined, notKnown },
- *     last: { value, reason, note }, inside: { value, reason }, emptyWindow }; a value that cannot be given is null with "Not
+ *   valueBoxes(read, result, win?, today?) -> { order (boxesOf), detected: { value, reason, active, closed }, positives: { value,
+ *     note, lines }, past: { value, reason, note, quarantined, notKnown }, last: { value, reason, note }, inside: { value,
+ *     reason } }; a value that cannot be given is null with "Not
  *     available: needs ..." as its reason (never shown as zero). Each count is said once: the positives' value
  *     counts the current positives inside the window, its note "5 with zones" only when that differs; the past box
  *     counts the past positives inside it, its note "2 still under quarantine" (or "none under quarantine"), with ", 1
  *     not known" when a quarantine is not known; lines holds the not-mapped line, "2 dates not readable" (detection,
- *     closed and release dates together), "1 quarantine status not read" and "1 without a date", each when it applies (the animals are the Overview's box since 2.3); the last
- *     positive is the latest inside the window, its note "As of Oct 5, 2026" (the window's end); a window with no
- *     dated positive in a file whose dates are read gives emptyWindow true and "None between these dates". Without a window
+ *     closed and release dates together), "1 quarantine status not read", "1 without a date" and, on a view ending before
+ *     today, "3 closed on a day not known" (closedDayNotKnown), each when it applies (the animals are the Overview's box since 2.3); the last
+ *     positive is the latest inside the window, its note "As of Oct 5, 2026" (the window's end); a view with no
+ *     dated positive in a file whose dates are read says "None by this day" (On a day) or "None between these dates";
+ *     detected counts every positive in the view (the current and the past). Without a window
  *     (no readable detection date) the current positives are those not past by their closed column, the past box is
  *     not available and only the not-mapped and unreadable-dates lines are added.
  *   exportRows(read, targets, result, unit?, win?) -> { positives, inside, layers, leftOut }: each { columns, rows }
  *     for the CSV files, with no address column; positives.csv lists the positives inside the window and the rows
- *     not mapped, each with its group, the details and a note ("Still under quarantine", "Quarantine not known", or
+ *     not mapped, each with its group (Active, Closed or Not mapped), the details and a note ("Still under quarantine", "Quarantine not known", or
  *     "Not mapped: ..."); a "Quarantine Status" column (as written) when the file has one. The
  *     distances in the unit (km by default).
  *
@@ -148,22 +171,23 @@
  *     animalsText ("1.3M birds"), missing (current positives without a count) }], by current, then total, then name,
  *     "Outside Washington" last.
  *   positiveRows(read, win, counties) -> { columns, rows }: the ID (or "Positive"), Detected, County, Flock size, the
- *     flock type, species, status, "Current or past", quarantine release and quarantine status columns the file has; dates written out
+ *     flock type, species, status, "Active or closed", quarantine release and quarantine status columns the file has; dates written out
  *     ("Oct 5, 2026"); newest first, the undated last. No address column.
  *   peopleInside(sites, tracts, opts) -> null without sites, else { total, rounded (three significant figures:
  *     roughly(n)), year, tracts: [{ geoid, pop, share, people }] (each tract touched), beyond (a zone reaches past
  *     Washington: reachesPastWashington) }: tracts [{ geoid, pop, coordinates }] (a MultiPolygon's, as population.js
  *     geometry() decodes them; Washington's); opts { year, counties }. How it is measured: at the function.
- *   overviewBoxes(read, win, counties, people) -> { counties: { value (counties with a current positive, "Outside
- *     Washington" not counted), note ("8 counties since Nov 2024 · 1 outside Washington") }, animals: { value ("1.3M
+ *   overviewBoxes(read, win, counties, people) -> { counties: { value, label, note }: On a day the counties with an
+ *     active positive ("Outside Washington" not counted), note "8 counties since Nov 2024 · 1 outside Washington";
+ *     Between dates the counties with a positive detected, note "3 with an active one" }, animals: { value ("1.3M
  *     birds"), note (the counted-apart animals, the flock types, "1 without a count") }, people: { value (rounded),
  *     note ("Estimate from 57 Census tracts (2020)", with " · Washington only" when a zone reaches past the state; "Not
  *     available: the zones are outside Washington" when it touches no tract) } }, each with a reason ("Not available: needs zones") when its
  *     value cannot be given, never zero for an unknown.
  *   overviewBars(countyRows, result) -> { counties, layers }: [{ label, parts: [{ key, value }], total }] for the two
  *     bar charts (current and past by county; each ring's or zone's count by layer, the total its distinct sites).
- *   countyTable(read, countyRows) -> { columns, rows } for counties.csv: County, Current, Past, Total, each animal
- *     word's exact total at the current positives, and the current positives without a count.
+ *   countyTable(read, countyRows) -> { columns, rows } for counties.csv: County, Active, Closed, Total, each animal
+ *     word's exact total at the active positives, and the active positives without a count.
  *   flockKinds(list), animalTotals(read, list), animalsText(totals): the counts shared with numbersLine.
  * The inside rows and counts are copied from site/cvi/app/lookup.js, v1.1 (facilitiesInside, facilityCounts and
  * facilityTable), with the zones' labels and the unit added, and the rows grouped by layer first (the results tab lists
@@ -233,7 +257,7 @@
     return !isNaN(back) && back.toISOString().slice(0, 10) === iso ? iso : null;
   }
 
-  function readPositives(header, rows, type) {
+  function readPositives(header, rows, type, today) {
     const col = {};
     for (const k of Object.keys(COLUMNS)) col[k] = columnIndex(header, COLUMNS[k]);
     const cell = (r, i) => i < 0 ? '' : text(r[i]);
@@ -276,7 +300,8 @@
       const p = { index: null, line, id: id || null, name: null, county: county || null, lat: null, lon: null,
         status: status ? { label: status.label, color: status.color } : null,
         statusText: statusText || null, closed: col.closed >= 0 && T().isClosed(type, r[col.closed]),
-        closedDate, quarantine: release, quarantineStatus: qStatus, quarantineStatusText: qText || null,
+        closedDate, quarantine: release, releaseAfterToday: !!(today && release && release > today),
+        quarantineStatus: qStatus, quarantineStatusText: qText || null,
         detected, disease: cell(r, col.disease) || null, species: cell(r, col.species) || null,
         flockType: cell(r, col.flockType) || null, inventoryText: inventoryText || null, inventory,
         size: sizeClass(inventory), shown: shownAt.map(i => [header[i], cell(r, i)]) };
@@ -365,12 +390,19 @@
     return (!win.start || p.detected >= win.start) && (!win.end || p.detected <= win.end);
   }
 
-  // Past on the end date: its closed date (the end of surveillance) on or before it; without a readable closed
-  // date, its closed column says closed. With no end date, any closed date makes it past.
+  // Past on the end date: its closed date (the end of surveillance) on or before it. Without a readable closed date,
+  // a positive its closed column says closed is past from its quarantine release date (2.5: the agency's table often
+  // has the release date but not the closed date, so a day before the release shows it active, as it was); with
+  // neither date, on any date. A release date after today (a planned date, or a typing slip) is not when it closed,
+  // so it counts as neither. With no end date, any closed date makes it past.
   function isPast(p, end) {
     if (p.closedDate) return !end || p.closedDate <= end;
+    if (p.closed && p.quarantine && !p.releaseAfterToday) return !end || p.quarantine <= end;
     return p.closed;
   }
+  // Closed by its closed column alone, with no readable closed date and no release date on or before today: past on
+  // any date, so the day it closed is not known (the boxes say how many on a view ending before today).
+  const closedDayNotKnown = p => p.closed && !p.closedDate && (!p.quarantine || p.releaseAfterToday);
 
   // A past positive's quarantine on the end date. A readable release date decides (it is exact for any end date);
   // without one, the quarantine status (it describes today, whatever the end date); with neither, not known when the
@@ -386,7 +418,8 @@
 
   function groups(read, win) {
     const end = win ? win.end : null;
-    const out = { current: [], past: [], stillQuarantined: [], notKnown: [], undated: [], outside: [], notMapped: read.dropped };
+    const out = { current: [], past: [], stillQuarantined: [], notKnown: [], closedDayNotKnown: [], undated: [], outside: [],
+      notMapped: read.dropped };
     for (const p of read.positives) {
       if (!inWindow(p, win)) {
         out.outside.push(p);
@@ -398,13 +431,15 @@
         const q = quarantineOf(read, p, end);
         if (q === 'under') out.stillQuarantined.push(p);
         else if (q === 'unknown') out.notKnown.push(p);
+        if (closedDayNotKnown(p)) out.closedDayNotKnown.push(p);
       } else out.current.push(p);
     }
     return out;
   }
 
-  // A positive's group on the end date: "Current", "Past", or "Not mapped" for a row without usable coordinates.
-  const groupOf = (p, end) => (p.index === null ? 'Not mapped' : isPast(p, end) ? 'Past' : 'Current');
+  // A positive's group on the end date: "Active", "Closed", or "Not mapped" for a row without usable coordinates (the
+  // words since 2.5; the lists keep their names, current and past).
+  const groupOf = (p, end) => (p.index === null ? 'Not mapped' : isPast(p, end) ? 'Closed' : 'Active');
 
   // Dates: YYYY-MM-DD in and out, worked out in UTC (never the computer's own time zone).
   const DAY_MS = 86400000;
@@ -466,6 +501,71 @@
     }
     return { by: steps ? steps.by : null, columns, notMapped: read ? read.dropped.length : 0,
       undated: positives.filter(p => !p.detected).length };
+  }
+
+  // ---- The two views (2.5) -------------------------------------------------------------------------------------
+
+  // A view is a window with its kind, so every rule here that takes a window takes a view unchanged:
+  //   "On a day", { view: 'day', start, end }: end is the day, and start is held at the file's first detection, so
+  //     every positive detected on or before the day is inside it, active or closed on the day.
+  //   "Between dates", { view: 'range', start, end }: the positives detected between the two dates (both counting),
+  //     active or closed on the second.
+  const dayView = (fileWindow, day) => ({ view: 'day', start: fileWindow ? fileWindow.start : null, end: day });
+  const rangeView = (start, end) => ({ view: 'range', start, end });
+  const later = (a, b) => (a > b ? a : b);
+
+  // The views a load opens on: the day is today; the range runs from the file's first detection to today. A
+  // detection after today (a typing slip, or the computer's date set wrong) moves both to it, so the opening dates
+  // never hide a positive. Null without a readable detection date.
+  function openingViews(fileWindow, today) {
+    if (!fileWindow) return null;
+    const end = later(today, fileWindow.end);
+    return { day: dayView(fileWindow, end), range: rangeView(fileWindow.start, end) };
+  }
+
+  // The chart's span: the file's first detection to today (or to its last detection, when later), so the day's line
+  // on today is not at the chart's edge. The chart's columns are playSteps over it and stay put whatever the view.
+  const chartSpan = (fileWindow, today) => (fileWindow ? { start: fileWindow.start, end: later(today, fileWindow.end) } : null);
+
+  // The play's steps in a view: the chart's columns (steps: playSteps over chartSpan) that reach into it, the last
+  // ending on the view's end. "On a day" plays from the file's first column to the day; "Between dates" grows the
+  // range from its first date, each step's end becoming its second date.
+  function viewSteps(steps, view) {
+    const by = steps ? steps.by : null;
+    if (!view || !steps) return { by, steps: [] };
+    const from = view.view === 'range' ? view.start : null;
+    const list = steps.steps.filter(s => s.start <= view.end && (!from || s.end >= from))
+      .map(s => (s.end > view.end ? Object.assign({}, s, { end: view.end }) : s));
+    return { by, steps: list };
+  }
+
+  // A chart column picked: "On a day" moves the day to the column's last day; "Between dates" becomes the column's
+  // own week or month.
+  function pickColumn(view, column) {
+    return view.view === 'range' ? rangeView(column.start, column.end) : Object.assign({}, view, { end: column.end });
+  }
+
+  // The boxes each view shows, in order: "On a day" the active, the closed, the last positive and the sites inside;
+  // "Between dates" the detected first, and no last positive (the band shows where the range ends).
+  const boxesOf = view => (view && view.view === 'range' ? ['detected', 'positives', 'past', 'inside']
+    : ['positives', 'past', 'last', 'inside']);
+
+  // The view's words: the badge on the map and the Overview ("Oct 30, 2026", or "Sep 1, 2026 – Oct 5, 2026"); the map
+  // picture's period line ("Active on Oct 30, 2026", or "Detected Sep 1, 2026 to Oct 5, 2026": its key says closed);
+  // export_params.json's fields. Null without a view.
+  function viewBadge(view) {
+    if (!view) return null;
+    return view.view === 'range' ? dayLabel(view.start) + ' – ' + dayLabel(view.end) : dayLabel(view.end);
+  }
+  function periodLine(view) {
+    if (!view) return null;
+    return view.view === 'range' ? 'Detected ' + dayLabel(view.start) + ' to ' + dayLabel(view.end)
+      : 'Active on ' + dayLabel(view.end);
+  }
+  function viewParams(view) {
+    if (!view) return { view: null };
+    return view.view === 'range' ? { view: 'between dates', detected_between: [view.start, view.end] }
+      : { view: 'on a day', day: view.end };
   }
 
   // ---- The report's numbers ------------------------------------------------------------------------------------
@@ -647,7 +747,7 @@
   }
 
   // One feature per zone drawn: a whole circle per ring per positive (360 steps, as CVI draws them), and each zone
-  // file zone as read. No merging. parts: { rings: [{ sites (ringSites), group ('Current' or 'Past') }], zones
+  // file zone as read. No merging. parts: { rings: [{ sites (ringSites), group ('Active', 'Added point' or 'Closed') }], zones
   // (zoneSites, or none) }; opts: { rings (the ring list, distances in unit), unit, asOf, positives (those that count
   // for days since) }. Properties: name ("Infection zone (3 km) around SYN-HPAI-001", or the zone file zone's name: the
   // property shared/zones.js reads a zone's name from), zone, positive, group, distance, unit, days_since_last_positive,
@@ -791,19 +891,22 @@
       UNITS[u].label + ' from ' + s.nearest.from;
   }
 
-  // win: the date window ({ start, end }); without one (no readable detection date), the current positives are those
-  // not past by their closed column, and only the not-mapped and unreadable-dates lines are added.
-  function valueBoxes(read, result, win) {
+  // win: the view (or a plain window); without one (no readable detection date), the current positives are those
+  // not past by their closed column, and only the not-mapped and unreadable-dates lines are added. today
+  // (YYYY-MM-DD): on a view ending before it, a line counts the closed positives whose closing day is not known.
+  function valueBoxes(read, result, win, today) {
     const g = read && win ? groups(read, win) : null;
     const all = !read ? [] : g ? g.current : read.positives.filter(p => !isPast(p, null));
     const withZones = read && read.targets ? read.targets.length : null;
     const counted = !read ? [] : g ? g.current.concat(g.past) : read.positives;
     const dates = counted.map(p => p.detected).filter(Boolean).sort();
-    // A window with no dated positive in a file whose dates are read (2.4): the box says so, and the page says why.
-    const emptyWindow = !!g && !dates.length && read.positives.some(p => p.detected);
+    // No dated positive in the view of a file whose dates are read: the box says so in the view's words (a day before
+    // the first detection, or dates with no detection between them).
+    const none = !!g && !dates.length && read.positives.some(p => p.detected);
+    const noneWords = win && win.view === 'day' ? 'None by this day' : 'None between these dates';
     const last = !read ? { value: null, reason: 'Not available: needs the positives file' }
       : !read.columns.detected ? { value: null, reason: 'Not available: needs ' + read.type.columns.detected[0] }
-        : !dates.length ? { value: null, reason: emptyWindow ? 'None between these dates' : 'Not available: no readable ' + read.columns.detected }
+        : !dates.length ? { value: null, reason: none ? noneWords : 'Not available: no readable ' + read.columns.detected }
           : { value: dates[dates.length - 1], reason: null };
     if (g && last.value && win.end) last.note = 'As of ' + dayLabel(win.end);
     const insideBox = !result || !result.layers.length
@@ -819,19 +922,25 @@
     }
     // The animals at the current positives are the Overview's own box (2.3), no longer a line here.
     if (g && g.undated.length) lines.push(g.undated.length.toLocaleString('en-US') + ' without a date');
+    const dayNotKnown = g && today && win.end && win.end < today ? g.closedDayNotKnown.length : 0;
+    if (dayNotKnown) lines.push(dayNotKnown.toLocaleString('en-US') + ' closed on a day not known');
     const quarantined = g ? g.stillQuarantined.length : 0, notKnown = g ? g.notKnown.length : 0;
     const past = !read ? { value: null, reason: 'Not available: needs the positives file' }
       : !g ? { value: null, reason: last.value === null ? last.reason : 'Not available: needs dates' }
         : { value: g.past.length, reason: null, quarantined, notKnown,
           note: !g.past.length ? null : (quarantined ? quarantined.toLocaleString('en-US') + ' still under quarantine' : 'none under quarantine')
             + (notKnown ? ', ' + notKnown.toLocaleString('en-US') + ' not known' : '') };
+    // Detected ("Between dates"): every positive in the view, with its two parts for the bar under the number.
+    const detected = !g ? { value: null, reason: past.reason }
+      : { value: g.current.length + g.past.length, reason: null, active: g.current.length, closed: g.past.length };
     return {
+      order: boxesOf(win),
+      detected,
       positives: read ? { value: all.length, note: withZones === null || withZones === all.length ? null : withZones + ' with zones', lines }
         : { value: null, note: 'Not available: needs the positives file', lines },
       past,
       last,
-      inside: insideBox,
-      emptyWindow
+      inside: insideBox
     };
   }
 
@@ -959,7 +1068,7 @@
       [c.flockType, p => text(p.flockType), !!c.flockType],
       [c.species, p => text(p.species), !!c.species],
       [c.status, p => (p.status ? p.status.label : text(p.statusText)), !!c.status],
-      ['Current or past', p => groupOf(p, end), true],
+      ['Active or closed', p => groupOf(p, end), true],
       [c.quarantine, p => day(p.quarantine), !!c.quarantine],
       [c.quarantineStatus, p => text(p.quarantineStatusText), !!c.quarantineStatus]].filter(col => col[2]);
     const list = g.current.concat(g.past).sort((a, b) => (b.detected || '').localeCompare(a.detected || '') || a.line - b.line);
@@ -1088,12 +1197,19 @@
       set.delete(OUTSIDE_WA);
       return set;
     };
-    const outside = cur.filter(p => countyOf(p, counties) === OUTSIDE_WA).length;
+    // Outside Washington: the active positives On a day; Between dates every positive detected, as the box counts.
+    const outside = (win && win.view === 'range' ? cur.concat(g.past) : cur).filter(p => countyOf(p, counties) === OUTSIDE_WA).length;
     const all = named(cur.concat(g.past));
     const first = cur.concat(g.past).map(p => p.detected).filter(Boolean).sort()[0];
-    const countyBox = { value: named(cur).size, reason: null,
-      note: [all.size + (all.size === 1 ? ' county' : ' counties') + (first ? ' since ' + monthLabel(first) : ''),
-        outside ? outside + ' outside Washington' : ''].filter(Boolean).join(' · ') };
+    const outsideNote = outside ? outside + ' outside Washington' : '';
+    // "Between dates" counts the counties with a positive detected in the range, its note how many have an active one
+    // ("n with an active one"); "On a day" the counties with an active positive on the day, as before.
+    const countyBox = win && win.view === 'range'
+      ? { value: all.size, reason: null, label: 'Counties with a positive detected',
+        note: [named(cur).size + ' with an active one', outsideNote].filter(Boolean).join(' · ') }
+      : { value: named(cur).size, reason: null, label: 'Counties with an active positive',
+        note: [all.size + (all.size === 1 ? ' county' : ' counties') + (first ? ' since ' + monthLabel(first) : ''),
+          outsideNote].filter(Boolean).join(' · ') };
     let animals;
     if (!read.columns.inventory) animals = { value: null, reason: 'Not available: needs ' + read.type.columns.inventory[0], note: null };
     else if (!cur.length) animals = { value: '0 ' + read.type.inventoryWord, reason: null, note: null };
@@ -1102,7 +1218,7 @@
       const note = [animalsText(a.totals.slice(1)), read.columns.flockType ? flockKinds(cur).map(kindText).join(', ') : '',
         a.missing ? a.missing + ' without a count' : ''].filter(Boolean).join(' · ') || null;
       animals = a.totals.length ? { value: animalsText(a.totals.slice(0, 1)), reason: null, note }
-        : { value: null, reason: 'Not available: no animal counts at the current positives', note };
+        : { value: null, reason: 'Not available: no animal counts at the active positives', note };
     }
     // Washington's tracts only: "Washington only" when a zone reaches past the state; zones wholly outside it are
     // not available, never zero.
@@ -1126,15 +1242,15 @@
     };
   }
 
-  // counties.csv: the counties table with each animal word's exact total at the current positives, in the type's
-  // order ("Birds at the current positives"), and the current positives without a count. A county without a current
-  // positive with a count has a blank total, never zero for an unknown.
+  // counties.csv: the counties table with each animal word's exact total at the active positives, in the type's
+  // order ("Birds at the active positives"), and the active positives without a count. A county without an active
+  // positive with a count has a blank total, never zero for an unknown. Its words Active and Closed since 2.5.
   function countyTable(read, rows) {
     const words = [read.type.inventoryWord].concat(read.type.countedApart.map(a => a.word))
       .filter(w => rows.some(r => r.animals.some(a => a[0] === w)));
-    const columns = ['County', 'Current', 'Past', 'Total']
-      .concat(words.map(w => w.charAt(0).toUpperCase() + w.slice(1) + ' at the current positives'))
-      .concat(read.columns.inventory ? ['Current positives without a count'] : []);
+    const columns = ['County', 'Active', 'Closed', 'Total']
+      .concat(words.map(w => w.charAt(0).toUpperCase() + w.slice(1) + ' at the active positives'))
+      .concat(read.columns.inventory ? ['Active positives without a count'] : []);
     return { columns, rows: rows.map(r => {
       const counted = r.current - r.missing > 0;
       const animals = words.map(w => {
@@ -1149,8 +1265,9 @@
   root.WSDA.emergencyRules = { readPositives, statusChoices, defaultTicks, targets, suggestedLayers, ringSites,
     zoneSites, ringLabel,
     coarseReason, precisionRows, inside, countLine, valueBoxes, exportRows, round2, dateOf, PRIVATE, COLUMNS, UNITS,
-    PRECISION, toKm, fromKm, KM_PER_MILE, inventoryOf, sizeClass, windowOf, inWindow, isPast, quarantineOf, stillQuarantined, groups,
-    groupOf, weekOf, dayLabel, playSteps, MAX_WEEKS, overTime, bigNumber, inventoryWordOf, ANIMAL_SHAPES, animalShapeOf, animalKeys, numbersLine, notMappedLine, details, daysSince, byQuiet,
+    PRECISION, toKm, fromKm, KM_PER_MILE, inventoryOf, sizeClass, windowOf, inWindow, isPast, closedDayNotKnown, quarantineOf, stillQuarantined, groups,
+    groupOf, weekOf, dayLabel, playSteps, MAX_WEEKS, overTime, dayView, rangeView, openingViews, chartSpan, viewSteps,
+    pickColumn, boxesOf, viewBadge, periodLine, viewParams, bigNumber, inventoryWordOf, ANIMAL_SHAPES, animalShapeOf, animalKeys, numbersLine, notMappedLine, details, daysSince, byQuiet,
     zoneRows,
     zonesGeoJson, flockKinds, animalTotals, animalsText, OUTSIDE_WA, NEAR_KM, countyOf, countyRows, positiveRows, CELL_KM,
     PLANE_LAT, TRACT_CELLS, peopleInside, reachesPastWashington, roughly, overviewBoxes, overviewBars, countyTable };

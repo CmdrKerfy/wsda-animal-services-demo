@@ -39,6 +39,12 @@
 #   - the quarantine status scenario (2.4; rules.json "quarantine"): each row's group and its quarantine on two end
 #     dates (still under quarantine, released or not known) from the release date, else the Quarantine Status column,
 #     and the statuses not read.
+#   - the two views' scenario (2.5; rules.json "views": the agreed rows, one positive active since Mar 2025 and one
+#     that closes between two of the days): each row's group (Active, Closed, Outside or Not mapped), the counts and
+#     the last positive On a day for six days and Between dates for four ranges, from the scope's rule written fresh.
+#   - the closing day's scenario (2.5; rules.json "closedDay"): each row's group
+#     in six days and two ranges when the Status says Closed without a Close Date: closed from its release date, or,
+#     with neither date, on any day (counted as closed on a day not known).
 # The Node suite (tests/node/run_em_unit_tests.js) compares the row sets and distances within 1e-6, not counts alone.
 # RAD's and the fixtures' files are only read; nothing is installed.
 #
@@ -268,9 +274,9 @@ win_start <- min(detected[mapped], na.rm = TRUE)
 groups_on <- function(end) {
   inside <- mapped & (is.na(detected) | (detected >= win_start & detected <= end))
   past <- ifelse(!is.na(closed_date), closed_date <= end, closed_flag)
-  group <- ifelse(!mapped, "Not mapped", ifelse(!inside, "Outside", ifelse(past, "Past", "Current")))
-  still <- group == "Past" & (is.na(release) | release > end)
-  cur <- group == "Current"
+  group <- ifelse(!mapped, "Not mapped", ifelse(!inside, "Outside", ifelse(past, "Closed", "Active")))
+  still <- group == "Closed" & (is.na(release) | release > end)
+  cur <- group == "Active"
   kinds <- lapply(split(seq_along(flock)[cur], flock[cur]), function(k)
     list(count = length(k), animals = sum(inventory[k], na.rm = TRUE)))
   list(end = format(end), group = I(group), still = I(still),
@@ -280,7 +286,7 @@ groups_on <- function(end) {
 as_of <- as.Date(ag$asOf)
 ag_groups <- list(asOf = groups_on(as_of), earlier = groups_on(as.Date(ag$earlierEnd)))
 in_window <- mapped & (is.na(detected) | (detected >= win_start & detected <= as_of))
-ag_target <- which(ag_groups$asOf$group == "Current")
+ag_target <- which(ag_groups$asOf$group == "Active")
 km_per_mile <- 1.609344
 ag_rings_km <- vapply(ag$rings, function(r) as.numeric(r$distance), numeric(1)) * km_per_mile
 ag_labels <- vapply(ag$rings, function(r) r$label, character(1))
@@ -315,7 +321,7 @@ zone_latest <- latest_in(zone_hit)
 zone_days <- list(name = as.character(zone2$name[1]), inside = I(anames[dated][zone_hit]), latest = zone_latest,
                   days = days_to(zone_latest))
 cat(sprintf("agreed: %d rows, %d mapped, %d current, %d past, %d inside rows in miles, zone %s: %s days\n",
-            length(anames), sum(mapped), length(ag_target), sum(ag_groups$asOf$group == "Past"), length(mile_rows),
+            length(anames), sum(mapped), length(ag_target), sum(ag_groups$asOf$group == "Closed"), length(mile_rows),
             zone_days$name, zone_days$days))
 # The page's zones.geojson, read with sf.
 gj <- suppressWarnings(st_read(file.path(fx_dir, ag$geojson), quiet = TRUE))
@@ -380,7 +386,7 @@ o_end <- as.Date(ov$asOf)
 o_start <- min(o_det[o_mapped], na.rm = TRUE)
 o_inside <- o_mapped & (is.na(o_det) | (o_det >= o_start & o_det <= o_end))
 o_past <- ifelse(!is.na(o_closed), o_closed <= o_end, o_flag)
-o_group <- ifelse(o_past, "Past", "Current")
+o_group <- ifelse(o_past, "Closed", "Active")
 # Counties: the County column (as the county's own name when it names one of Washington's, whatever its case,
 # spacing or a trailing "County"; else as written), else the county shape holding the positive, else the nearest
 # county within 2 km (measured in a Washington equal-area plane), else outside Washington.
@@ -409,8 +415,8 @@ cat("counties:", paste(county_rules, collapse = ", "), "\n")
 listed <- which(o_inside)
 county_rows <- lapply(sort(unique(o_county[listed])), function(cn) {
   k <- listed[o_county[listed] == cn]
-  cur <- k[o_group[k] == "Current"]
-  list(county = cn, current = sum(o_group[k] == "Current"), past = sum(o_group[k] == "Past"),
+  cur <- k[o_group[k] == "Active"]
+  list(county = cn, current = sum(o_group[k] == "Active"), past = sum(o_group[k] == "Closed"),
        birds = if (any(!is.na(o_inv[cur]) & !o_cattle[cur])) sum(o_inv[cur][!o_cattle[cur]], na.rm = TRUE) else NA,
        cattle = if (any(!is.na(o_inv[cur]) & o_cattle[cur])) sum(o_inv[cur][o_cattle[cur]], na.rm = TRUE) else NA,
        missing = sum(is.na(o_inv[cur])))
@@ -450,7 +456,7 @@ people_in <- function(zones) {
                                                      people = tract_sf$pop[hit[i]] * share[i])))
 }
 o_km <- max(vapply(ov$rings, function(r) as.numeric(r$distance), numeric(1))) * 1.609344
-o_target <- which(o_inside & o_group == "Current")
+o_target <- which(o_inside & o_group == "Active")
 circles <- st_sfc(lapply(o_target, function(k) {
   v <- destPoint(c(o_lon[k], o_lat[k]), b = seq(0, 360, length.out = 721)[-721], d = o_km * 1000, a = 6378137, f = 0)
   st_polygon(list(rbind(v, v[1, ])))
@@ -471,7 +477,7 @@ overview_out <- list(
 # ── Written out ────────────────────────────────────────────────────────────────────────────────────
 inputs <- c("rules.json", rules$positives, cv$positives, cv$master, vapply(rules$layers, function(l) l$file, character(1)),
             unlist(rules$zoneFiles), ag$positives, ag$layer$file, ag$zoneFile, ag$geojson, ov$positives,
-            rules$counties$positives)
+            rules$counties$positives, rules$views$positives, rules$closedDay$positives)
 # ── The quarantine status scenario (2.4) ───────────────────────────────────────────────────────────────
 # Each row's group and quarantine on two end dates, from the scope's rule: a past positive's readable Quarantine
 # Release decides (after the end: still under quarantine; else released); without one, its Quarantine Status
@@ -496,8 +502,8 @@ q_on <- function(end) {
   end <- as.Date(end)
   past <- ifelse(!is.na(q_closed), q_closed <= end, q_closed_flag)
   inside <- is.na(q_detected) | (q_detected >= q_start & q_detected <= end)
-  group <- ifelse(!q_mapped, "Not mapped", ifelse(!inside, "Outside", ifelse(past, "Past", "Current")))
-  quar <- ifelse(group != "Past", NA,
+  group <- ifelse(!q_mapped, "Not mapped", ifelse(!inside, "Outside", ifelse(past, "Closed", "Active")))
+  quar <- ifelse(group != "Closed", NA,
           ifelse(!is.na(q_release), ifelse(q_release > end, "under", "released"),
           ifelse(!is.na(q_status), q_status, "unknown")))
   list(group = I(group), quarantine = I(quar),
@@ -507,6 +513,92 @@ quarantine_out <- list(bad_status = q_bad, asOf = q_on(qr$asOf), earlier = q_on(
 cat(sprintf("quarantine: %d rows; on %s %d under, %d not known; on %s %d under, %d not known; %d status not read\n",
             nrow(qp), qr$asOf, quarantine_out$asOf$under, quarantine_out$asOf$unknown, qr$earlierEnd,
             quarantine_out$earlier$under, quarantine_out$earlier$unknown, q_bad))
+
+# ── The two views (2.5) ──────────────────────────────────────────────────────────────────────────────
+# Each row's group in each view, from the scope's rule written fresh (not as the page works it out, a window with its
+# first date held at the first detection): On a day, a positive counts when it was detected on or before the day (a
+# row without a readable date always counts), and is closed when its Close Date is on or before the day (without
+# one, when its Status says Closed: from its Quarantine Release date on or before today, or with none on any day);
+# Between dates, a positive counts when it was detected between the two dates,
+# both counting, and is active or closed on the second. With each view's counts and its last positive.
+vr <- rules$views
+vp <- read_fixture(vr$positives)
+v_lat <- num(trimws(vp[["Latitude"]]))
+v_lon <- num(trimws(vp[["Longitude"]]))
+v_mapped <- usable(v_lat, v_lon)
+v_conf <- trimws(vp[["Confirmed Diagnosis"]])
+v_det <- as_day(ifelse(nzchar(v_conf), v_conf, trimws(vp[["Date Reported"]])))
+v_closed <- as_day(vp[["Close Date"]])
+v_flag <- tolower(trimws(vp[["Status"]])) %in% c("closed", "yes", "y", "true", "1")
+v_release <- as_day(vp[["Quarantine Release"]])
+v_release[!is.na(v_release) & v_release > as.Date(vr$today)] <- NA
+v_groups <- function(counts, on) {
+  closed <- ifelse(!is.na(v_closed), v_closed <= on, ifelse(v_flag & !is.na(v_release), v_release <= on, v_flag))
+  group <- ifelse(!v_mapped, "Not mapped", ifelse(!counts, "Outside", ifelse(closed, "Closed", "Active")))
+  dated <- v_det[group %in% c("Active", "Closed") & !is.na(v_det)]
+  list(group = I(group), active = sum(group == "Active"), closed = sum(group == "Closed"),
+       last = if (length(dated)) format(max(dated)) else NA)
+}
+views_out <- list(
+  days = lapply(vr$days, function(d) {
+    day <- as.Date(d)
+    c(list(day = d), v_groups(is.na(v_det) | v_det <= day, day))
+  }),
+  ranges = lapply(vr$ranges, function(r) {
+    from <- as.Date(r[[1]])
+    to <- as.Date(r[[2]])
+    c(list(range = I(c(r[[1]], r[[2]]))), v_groups(is.na(v_det) | (v_det >= from & v_det <= to), to))
+  }))
+cat(sprintf("views: %d rows; on a day %s; between dates %s\n", nrow(vp),
+            paste(vapply(views_out$days, function(v) sprintf("%s %d active %d closed", v$day, v$active, v$closed), ""), collapse = ", "),
+            paste(vapply(views_out$ranges, function(v) sprintf("%s to %s %d active %d closed", v$range[1], v$range[2], v$active, v$closed), ""),
+                  collapse = ", ")))
+
+# ── The closing day (2.5) ─────────────────────────────────────────────────────────────────────────────
+# A row's closing day, from the rule written fresh: its Close Date; without a readable one, when its Status says
+# Closed, its Quarantine Release date when that is on or before today; with neither (a release that cannot be read,
+# or one after today, counts as none), no day: closed on every day, and counted as closed on a day not known. Worked
+# out for the scenario's today and again for an earlier today ("early"), when a release is still to come. A row whose Status is not Closed and has no Close Date is never
+# closed. Then the same views as above: On a day, detected on or before the day (or undated); Between dates, detected
+# between the two dates (or undated); closed when its closing day is on or before the view's last day.
+cr <- rules$closedDay
+cp <- read_fixture(cr$positives)
+c_mapped <- usable(num(trimws(cp[["Latitude"]])), num(trimws(cp[["Longitude"]])))
+c_conf <- trimws(cp[["Confirmed Diagnosis"]])
+c_det <- as_day(ifelse(nzchar(c_conf), c_conf, trimws(cp[["Date Reported"]])))
+c_status_closed <- tolower(trimws(cp[["Status"]])) %in% c("closed", "yes", "y", "true", "1")
+c_close <- as_day(cp[["Close Date"]])
+c_release <- as_day(cp[["Quarantine Release"]])
+c_groups <- function(counts, on, today = as.Date(cr$today)) {
+  release <- c_release
+  release[!is.na(release) & release > today] <- NA
+  c_day <- c_close
+  c_day[is.na(c_close) & c_status_closed] <- release[is.na(c_close) & c_status_closed]
+  c_unknown_day <- is.na(c_close) & c_status_closed & is.na(release)
+  closed <- c_unknown_day | (!is.na(c_day) & c_day <= on)
+  group <- ifelse(!c_mapped, "Not mapped", ifelse(!counts, "Outside", ifelse(closed, "Closed", "Active")))
+  list(group = I(group), active = sum(group == "Active"), closed = sum(group == "Closed"),
+       day_not_known = sum(group == "Closed" & c_unknown_day))
+}
+closed_day_out <- list(
+  days = lapply(cr$days, function(d) {
+    day <- as.Date(d)
+    c(list(day = d), c_groups(is.na(c_det) | c_det <= day, day))
+  }),
+  ranges = lapply(cr$ranges, function(r) {
+    from <- as.Date(r[[1]])
+    to <- as.Date(r[[2]])
+    c(list(range = I(c(r[[1]], r[[2]]))), c_groups(is.na(c_det) | (c_det >= from & c_det <= to), to))
+  }),
+  early = list(today = cr$early$today, days = lapply(cr$early$days, function(d) {
+    day <- as.Date(d)
+    c(list(day = d), c_groups(is.na(c_det) | c_det <= day, day, as.Date(cr$early$today)))
+  })))
+cat(sprintf("closed day: %d rows; on a day %s; between dates %s\n", nrow(cp),
+            paste(vapply(closed_day_out$days, function(v) sprintf("%s %d active %d closed (%d day not known)", v$day,
+                                                                  v$active, v$closed, v$day_not_known), ""), collapse = ", "),
+            paste(vapply(closed_day_out$ranges, function(v) sprintf("%s to %s %d active %d closed", v$range[1], v$range[2],
+                                                                    v$active, v$closed), ""), collapse = ", ")))
 
 out <- list(
   generated_by = "tests/oracle/em_oracle.R",
@@ -524,7 +616,9 @@ out <- list(
   cvi = cvi_out,
   agreed = agreed_out,
   overview = overview_out,
-  quarantine = quarantine_out
+  quarantine = quarantine_out,
+  views = views_out,
+  closedDay = closed_day_out
 )
 dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)
 writeLines(toJSON(out, auto_unbox = TRUE, digits = NA, null = "null", na = "null", pretty = FALSE), out_file)

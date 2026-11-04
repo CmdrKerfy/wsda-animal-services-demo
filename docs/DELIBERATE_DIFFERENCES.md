@@ -73,6 +73,9 @@ backgrounds this document mentions.
   last positive blue-green, sites inside evergreen; a past box with premises still under quarantine in the warning
   colors, its tile gold): a tile on wider screens, as CVI's own value boxes have, a plain icon before the label on a
   phone. CVI's and Infrastructure's count cards stay as they are until the final UI pass gives them the same.
+  Since 2.5 the boxes follow the time view and say "Active" and "Closed": On a day Active, Closed, Last positive and
+  Sites inside; Between dates a "Detected" box first (crimson, a bar and "n active · n closed"), then Active, Closed
+  and Sites inside; Active's and Closed's numbers carry the map's marks, solid and hollow.
 - **Emergency Response's Overview (2.3):** a "Map | Overview" switch under the value boxes (each new set of files
   opens on the Map). The Overview's people inside the zones is an estimate from the 2020 Census tracts the population
   density layer draws: each tract's people counted by the share of its area inside the zones, measured on small cells
@@ -91,6 +94,14 @@ backgrounds this document mentions.
   buttons; the house button reads "Fit to the positives shown". In the map picture's Streets background, place names
   stay off the positives' marks and a river's name is written only where it fits clear of names and marks (CVI's
   County Focus writes it at the river's middle point).
+- **Emergency Response's time views (version 2.5):** a switch "On a day" | "Between dates" with a pin and a span, in
+  place of CVI's and Infrastructure's single date window. On a day shows every positive active on the day, whenever it
+  was detected (closed ones when ticked); Between dates every positive detected between the two dates, active and
+  closed, each active or closed on the second. The page opens On a day on today and Between dates from the first
+  detection to today; each view keeps its own dates. The same pin or span marks the view on a badge over the map and the
+  Overview, on the chart (the day's line or the dates' band, the columns running to today) and on the map picture's
+  period line. "Active" and "Closed" in place of "Current" and "Past" throughout, the exports included. The span icon
+  is drawn for this page (not a Bootstrap icon); both icons sit in Emergency's own `icons.js`, not CVI's.
 - **Emergency Response's map hover (version 2.1):** each positive's or site's name in bold on its own line; over the
   zones, each positive named once with one short line per ring ("Infection zone (3 km): 25 days") and one closing
   line, "Days since the last positive inside each zone, as of ..."; never wider than the screen. The text size and

@@ -84,6 +84,17 @@
 //                             their release date, still under quarantine by a release date after an earlier end
 //                             (whatever the status says), under quarantine and released by the status alone (any
 //                             case, spaces around it), not known (both blank), and one status not read ("Pending")
+// The two views' scenario (2.5), checked by the unit suite and the R reference in the same way:
+//   em_rules_views.csv        the agreed scenario's twelve rows and two more: Pierce 01, detected in Mar 2025 and
+//                             still open (a long outbreak), and Spokane 01, detected in Aug 2026 and closed on Sep
+//                             30; each row's group On a day for six days and Between dates for four ranges, with a
+//                             fixed "today" (Oct 30, 2026)
+// The closing day's scenario (2.5), checked in the same way:
+//   em_rules_closed_day.csv   a long outbreak shaped like the agency's table: closed by Status with no Close Date but
+//                             a release date (closed from the release), a Close Date and a later release (the Close
+//                             Date decides), closed with neither date or an unreadable release (closed on a day not
+//                             known), active with a release date (still active), and active without a date; each
+//                             row's group and the count closed on a day not known for six days and two ranges
 // The made-up third type is tests/synthetic/em_made_up_type.js (not generated).
 // Deterministic: no clock, no random numbers (the speed set's generator has a fixed seed).
 //
@@ -415,6 +426,52 @@ const OVERVIEW_RULES = { positives: 'em_rules_overview.csv', unit: 'mi', rings: 
   zoneFile: 'em_zone_hole.geojson', asOf: AGREED_RULES.asOf, earlierEnd: AGREED_RULES.earlierEnd };
 // The quarantine status scenario: the latest detection, and an end between Franklin 01's close and its release.
 const QUARANTINE_RULES = { positives: 'em_rules_quarantine.csv', asOf: AGREED_RULES.asOf, earlierEnd: '2026-06-01' };
+// The two views' scenario (2.5): the agreed rows and two more, a long outbreak with one positive active since Mar
+// 2025 and one detected in Aug 2026 that closes between two of the days; "today" fixed, as every test's is. Each day
+// and each range is worked out on both sides: before the first detection, on a detection, a positive active then
+// closed, today; a long range, a short one, a range with no detection, and the range a load opens on.
+const VIEWS_EXTRA = [
+  ['Pierce 01', '3/10/2025', '', '3/12/2025', '', 'Pierce', '47.0500', '-122.3000', 'Active', 'Backyard',
+    'WOAH Non-Poultry', 'Duck', '25'],
+  ['Spokane 01', '8/20/2026', '9/30/2026', '8/21/2026', '10/30/2026', 'Spokane', '47.6500', '-117.4000', 'Closed',
+    'Commercial', 'Dairy', 'Cattle', '1,500']
+];
+RULES_FILES['em_rules_views.csv'] = csv([AGREED_HEAD].concat(AGREED.concat(VIEWS_EXTRA).map((r, k) => [r[0], r[1], r[2],
+  r[3], r[4], address(500 + 2 * k), address(501 + 2 * k), 'Synthetic Town', r[5], r[6], r[7], r[8], 'H5N1 2.3.4.4b',
+  r[9], r[10], r[11], r[12], r[12], '1', 'Landfill'].map(quoted))));
+const VIEWS_RULES = { positives: 'em_rules_views.csv', today: '2026-10-30',
+  days: ['2024-10-01', '2025-03-12', '2025-07-01', '2026-09-05', '2026-10-05', '2026-10-30'],
+  ranges: [['2025-07-01', '2026-10-05'], ['2026-09-01', '2026-10-05'], ['2026-09-21', '2026-09-21'], ['2024-11-05', '2026-10-30']] };
+// The closing day's scenario (2.5): the Status says Closed, the Close Date is mostly blank and the release date mostly
+// filled in, as in the agency's table. A day before a release shows that positive active, as it was then.
+const CLOSED_DAY_ROWS = [
+  ['Yakima 11', '', '', '3/10/2023', '6/1/2023', 'Yakima', '46.6000', '-120.5000', 'Closed', 'Backyard', 'WOAH Non-Poultry',
+    'Chicken', '20', 'Released'],
+  ['Yakima 12', '', '', '11/2/2023', '2/1/2024', 'Yakima', '46.6100', '-120.5100', 'Closed', 'Backyard', 'WOAH Non-Poultry',
+    'Duck', '15', 'Released'],
+  ['Yakima 13', '', '5/1/2025', '4/1/2025', '9/1/2025', 'Yakima', '46.6200', '-120.5200', 'Closed', 'Commercial',
+    'WOAH Poultry', 'Chicken', '9,000', 'Released'],
+  ['Yakima 14', '', '', '9/5/2025', '', 'Yakima', '46.6300', '-120.5300', 'Closed', 'Backyard', 'WOAH Non-Poultry',
+    'Goose', '8', 'Under quarantine'],
+  ['Yakima 15', '', '', '1/15/2025', 'pending', 'Yakima', '46.6400', '-120.5400', 'Closed', 'Backyard', 'WOAH Non-Poultry',
+    'Chicken', '12', ''],
+  ['Yakima 16', '', '', '1/5/2026', '3/1/2026', 'Yakima', '46.6500', '-120.5500', 'Active', 'Backyard', 'WOAH Non-Poultry',
+    'Chicken', '40', 'Released'],
+  ['Yakima 17', '10/20/2026', '', '10/22/2026', '', 'Yakima', '46.6600', '-120.5600', 'Active', 'Commercial', 'Dairy',
+    'Cattle', '300', 'Under quarantine'],
+  ['Yakima 18', '', '', '', '', 'Yakima', '46.6700', '-120.5700', 'Active', 'Backyard', 'WOAH Non-Poultry', 'Duck', '6',
+    'Under quarantine']
+];
+RULES_FILES['em_rules_closed_day.csv'] = csv([AGREED_HEAD.concat(['Quarantine Status'])].concat(CLOSED_DAY_ROWS.map((r, k) =>
+  [r[0], r[1], r[2], r[3], r[4], address(700 + 2 * k), address(701 + 2 * k), 'Synthetic Town', r[5], r[6], r[7], r[8],
+    'H5N1 2.3.4.4b', r[9], r[10], r[11], r[12], r[12], '1', 'Landfill', r[13]].map(quoted))));
+// Before the first release, on a release day, between releases, on a Close Date before its release, after them, and
+// today; a range ending before the first release and the range a load opens on.
+const CLOSED_DAY_RULES = { positives: 'em_rules_closed_day.csv', today: '2026-10-30',
+  days: ['2023-04-01', '2023-06-01', '2023-12-01', '2025-05-01', '2025-10-01', '2026-10-30'],
+  ranges: [['2023-01-01', '2023-05-31'], ['2023-03-10', '2026-10-30']],
+  // An earlier today, before Yakima 11's release (Jun 1, 2023): a release date after today is not its closing day.
+  early: { today: '2023-05-01', days: ['2023-04-01', '2023-05-01'] } };
 
 // The page's zones.geojson for the scenario, as zonesGeoJson writes it, for the R reference to read with sf.
 for (const f of ['site/shared/zones.js', 'site/emergency/types.js', 'site/emergency/types/hpai.js',
@@ -469,6 +526,8 @@ const RULES = {
   agreed: AGREED_RULES,
   overview: OVERVIEW_RULES,
   quarantine: QUARANTINE_RULES,
+  views: VIEWS_RULES,
+  closedDay: CLOSED_DAY_RULES,
   counties: { positives: 'em_rules_counties.csv', nearKm: 2 }
 };
 

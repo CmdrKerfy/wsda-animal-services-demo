@@ -338,4 +338,7 @@ the page from the zones drawn. The synthetic screwworm outbreak in `test-tables/
 areas) is made up by `tests/synthetic/make_em_fixtures.js`; it is not an APHIS area. Its rule for locations too coarse for zone results follows RAD_Animal_Diseases'
 `premises_zone_eligible()` (another internal WSDA project); no code was copied, and the tests compare the page with
 that function run unmodified. Its HPAI layer keys are those of the facility layer list CVI keeps
-(`facility_overlays_manifest.csv`); only the key names were taken.
+(`facility_overlays_manifest.csv`); only the key names were taken. From version 2.5 the time views' two icons are in
+Emergency's own file (`emergency/icons.js`): the pin is Bootstrap Icons' `geo-alt-fill` (MIT, the same path as in
+`cvi/app/icons.js`), and the span (two bars with an arrow between them) was drawn for this page on Bootstrap Icons'
+16-unit grid; it is not a Bootstrap icon.

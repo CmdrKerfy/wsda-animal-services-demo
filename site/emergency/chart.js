@@ -11,7 +11,10 @@
  *   chart: { title (the text alternative), none (the hover of an empty column, "no positives"),
  *     series: [{ key, label (in the hover: "3 current"), name (in the key: "Current"), fill, stroke, outline (drawn
  *       hollow), opacity }] (bottom to top; also the key's order, which shows only the series counted somewhere),
- *     columns: [{ label ("Week of Oct 4, 2026"), tick ("Oct 4"), values: { key: count }, picked, click }] }
+ *     columns: [{ label ("Week of Oct 4, 2026"), tick ("Oct 4"), values: { key: count }, picked, click }],
+ *     mark (2.5, optional): { kind: 'line', col, at } (the day's line over column col, at its share at, 0 to 1, of the
+ *       column's width; a dot on its top) or { kind: 'band', from, to } (a light band over columns from to to, edged),
+ *       both in WSDA blue }
  *   opts: { width, height } in pixels.
  * Each column is one target over its whole height (so a thin column is easy to point at): data-col (its place),
  * data-hover ("Week of Oct 4, 2026: 3 current, 1 past"), data-click (its click's hint) and, as a keyboard button,
@@ -175,6 +178,15 @@
       out.push('<text' + attrs({ x: left - 4, y: y(b) + PX.axis * 0.35, 'font-size': PX.axis, fill: INK.axis,
         'text-anchor': 'end' }) + '>' + esc(ax.labels[i]) + '</text>');
     });
+    // The view's mark (2.5): a light band behind the range's columns, edged in WSDA blue.
+    const mk = chart.mark;
+    if (mk && mk.kind === 'band' && mk.from >= 0 && mk.to >= mk.from) {
+      const bx = left + mk.from * slot, bwid = (mk.to - mk.from + 1) * slot;
+      out.push('<rect' + attrs({ class: 'chart-band', x: bx, y: top, width: bwid, height: bottom - top, fill: INK.picked,
+        'fill-opacity': 0.1 }) + '/>');
+      [bx + 1, bx + bwid - 1].forEach(x => out.push('<line' + attrs({ class: 'chart-band-edge', x1: x, x2: x, y1: top, y2: bottom,
+        stroke: INK.picked, 'stroke-width': 2 }) + '/>'));
+    }
     // The columns, at most 24 pixels wide, each series stacked on the one before with a 1-pixel surface gap.
     const bw = Math.max(1, Math.min(slot - 2, slot * 0.8, MAX_COLUMN));
     cols.forEach((c, i) => {
@@ -189,6 +201,12 @@
       }
     });
     out.push('<line' + attrs({ x1: left, x2: width - right, y1: bottom, y2: bottom, stroke: INK.axis, 'stroke-width': 1 }) + '/>');
+    // The day's line (2.5): in WSDA blue over the day's column, placed by the day's place in it, a dot on its top.
+    if (mk && mk.kind === 'line' && mk.col >= 0 && mk.col < n) {
+      const lx = left + (mk.col + Math.min(1, Math.max(0, mk.at))) * slot;
+      out.push('<line' + attrs({ class: 'chart-line', x1: lx, x2: lx, y1: top + 4, y2: bottom, stroke: INK.picked, 'stroke-width': 2 }) + '/>');
+      out.push('<circle' + attrs({ class: 'chart-line-dot', cx: lx, cy: top + 4, r: 4, fill: INK.picked }) + '/>');
+    }
     // The axis labels: every k-th column's, k as small as keeps them apart; the picked column's always, the labels
     // near it left out.
     const widest = Math.max(0, ...cols.map(c => textWidth(c.tick, PX.axis)));

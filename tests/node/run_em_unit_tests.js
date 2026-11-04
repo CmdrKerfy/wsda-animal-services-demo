@@ -464,7 +464,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       'County', 'Latitude', 'Longitude', 'Zones', 'Note'])
       && ex.positives.rows.length === 7 && ex.inside.rows.length === res.rows.length && ex.leftOut.rows.length === 7
       && same(ex.layers.columns.slice(2, 4), ['Infection zone', 'Control zone']), 'rules: the export rows', ex.positives.columns);
-    check(same(ex.positives.rows.map(r => r[1]), ['Current', 'Current', 'Past', 'Current', 'Current', 'Current', 'Not mapped'])
+    check(same(ex.positives.rows.map(r => r[1]), ['Active', 'Active', 'Closed', 'Active', 'Active', 'Active', 'Not mapped'])
       && same(ex.positives.rows[6].slice(-4), ['', '', 'No', 'Not mapped: coordinates not readable']),
     'rules: positives.csv: each positive\'s group, and the row not mapped with its reason', ex.positives.rows.map(r => r.slice(0, 2)));
     check(!/MARKED-ADDRESS/.test(JSON.stringify(ex)) && !/MARKED-ADDRESS/.test(JSON.stringify(res)),
@@ -627,11 +627,14 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const ndBox = E.valueBoxes(noDates, null, E.windowOf(noDates.positives));
     check(ndBox.positives.value === 1 && same(ndBox.positives.lines, ['2 dates not readable']) && ndBox.past.value === null,
     'no readable dates: the current positives leave out the closed ones (as the map does), and the unreadable dates are said', ndBox);
-    // A window with no positive (2.4): "None between these dates", never "no readable".
-    const emptyBox = E.valueBoxes(tm, null, { start: '2026-09-21', end: '2026-09-21' });
-    check(emptyBox.emptyWindow === true && emptyBox.last.value === null && emptyBox.last.reason === 'None between these dates'
-      && emptyBox.positives.value === 0 && tmBox.emptyWindow === false && ndBox.emptyWindow === false,
-    'a date window with no positive: "None between these dates" (the file\'s dates are read), not "no readable"', emptyBox);
+    // A view with no dated positive: in its own words, never "no readable" (2.5; 2.4's emptyWindow and its line gone).
+    const emptyBox = E.valueBoxes(tm, null, E.rangeView('2026-09-21', '2026-09-21'));
+    const beforeBox = E.valueBoxes(tm, null, E.dayView(tmWin, '2026-09-01'));
+    check(emptyBox.last.value === null && emptyBox.last.reason === 'None between these dates' && emptyBox.positives.value === 0
+      && beforeBox.last.value === null && beforeBox.last.reason === 'None by this day' && beforeBox.positives.value === 0
+      && !('emptyWindow' in emptyBox),
+    'a view with no dated positive: "None between these dates", or "None by this day" before the first detection; never "no readable"',
+      [emptyBox.last, beforeBox.last]);
     const vbFew = E.valueBoxes(Object.assign({}, ag, { targets: E.targets(ag.positives, { statuses: ['Confirmed'] }, agWin).slice(0, 3) }), null, agWin);
     check(vbFew.positives.note === '3 with zones', 'the boxes: "3 with zones" when fewer positives have zones than are current', vbFew.positives);
     const vbEarly = E.valueBoxes(ag, null, { start: agWin.start, end: AG.earlierEnd });
@@ -736,6 +739,17 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     'chart: each column\'s target is its whole slot, taller than its tallest column; a wide slot\'s column at most 24 pixels wide', bars.map(r => r.width));
     check(['Current', 'Past', 'Outside the window'].every(k => svg.includes('>' + k + '</text>')) && !/>(0\.5|1\.5)</.test(svg)
       && ['0', '1', '2', '3'].every(k => svg.includes('>' + k + '</text>')), 'chart: the key and the count labels 0 to 3', svg.length);
+    // The day's line and the dates' band (2.5), in WSDA blue; none without a mark.
+    const lineSvg = CH.columns({ title: 't', series, columns: cols, mark: { kind: 'line', col: 2, at: 0.5 } }, { width: 400, height: 170 });
+    const bandSvg = CH.columns({ title: 't', series, columns: cols, mark: { kind: 'band', from: 1, to: 2 } }, { width: 400, height: 170 });
+    const xOf = (s, re) => Number((s.match(re) || [])[1]);
+    const colX = k => xOf(svg, new RegExp('class="chart-col" data-col="' + k + '" x="([\\d.]+)"'));
+    const slotW = colX(1) - colX(0);
+    check(Math.abs(xOf(lineSvg, /class="chart-line" x1="([\d.]+)"/) - (colX(2) + slotW / 2)) < 0.01 && /chart-line-dot/.test(lineSvg)
+      && Math.abs(xOf(bandSvg, /class="chart-band" x="([\d.]+)"/) - colX(1)) < 0.01
+      && Math.abs(xOf(bandSvg, /class="chart-band" x="[\d.]+" y="[\d.]+" width="([\d.]+)"/) - 2 * slotW) < 0.01
+      && (bandSvg.match(/chart-band-edge/g) || []).length === 2 && !/chart-line|chart-band/.test(svg),
+    'chart: the day\'s line inside its column at its share; the band over the dates\' columns, edged; neither without a mark');
     const one = CH.columns({ title: 't', series, columns: [cols[3]] }, { width: 320, height: 170 });
     check(one.includes('>Current</text>') && !one.includes('>Past</text>') && !one.includes('>Outside the window</text>'),
       'chart: the key shows only the series counted somewhere');
@@ -795,7 +809,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       'Latitude', 'Longitude', 'Zones', 'Flock/Herd Type', 'Production Type', 'Flock/Herd Inventory', 'Flock size', 'Note']),
     'positives.csv: the agreed table\'s columns, the flock size and the note', agEx.positives.columns);
     const exRow = n => agEx.positives.rows.find(r => r[0] === n);
-    check(same(exRow('Yakima 02').slice(1, 6), ['Past', 'Confirmed', 'Yes', '2026-02-10', '']) && exRow('Yakima 02')[15] === 'Still under quarantine'
+    check(same(exRow('Yakima 02').slice(1, 6), ['Closed', 'Confirmed', 'Yes', '2026-02-10', '']) && exRow('Yakima 02')[15] === 'Still under quarantine'
       && same(exRow('Lewis 03').slice(1, 2).concat(exRow('Lewis 03').slice(-1)), ['Not mapped', 'Not mapped: no coordinates'])
       && same(exRow('Skagit 01').slice(11, 15), ['Commercial', 'Commercial Table Egg Layer', '1,250,000', 'Large']) && exRow('Skagit 01')[10] === 'Yes'
       && agEx.positives.rows.length === 12, 'positives.csv: the groups, the quarantine note, the rows not mapped and the details', exRow('Yakima 02'));
@@ -872,7 +886,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     for (const f of ['cvi/app/csv.js', 'cvi/app/scaling.js', 'shared/proximity.js', 'shared/zones.js', 'geo/wa-counties.js',
       'shared/facilities.js', 'shared/brand.js', 'shared/branded.js', 'shared/tiles.js', 'shared/labels.js',
       'cvi/app/brandedmaps.js', 'emergency/types.js', 'emergency/types/hpai.js', 'emergency/types/nws.js', 'emergency/rules.js',
-      'emergency/branded.js']) {
+      'emergency/icons.js', 'emergency/branded.js']) {
       vm.runInContext(fs.readFileSync(path.join(SITE, f), 'utf8'), ctx, { filename: f });
     }
     const EB = ctx.window.WSDA.emergencyBranded, BRW = ctx.window.WSDA.branded;
@@ -896,11 +910,39 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(m.meta.left === 'Zones: Infection zone 2 mi (3.2 km), Control zone 6 mi (9.7 km)' && m.meta.right === 'As of Oct 5, 2026 · Last Updated: 10/22/2026'
       && same(m.stats.left, [{ prefix: 'Detected between', value: 'Nov 5, 2024 and Oct 5, 2026' }]),
     'map picture: the zones in both units (the unit shown first), "As of" the window\'s end, the period line "Detected between"', [m.meta, m.stats]);
+    // The period line by the view (2.5): the pin and "Active on", or the span, "Detected" and a "Detected" box first.
+    const onDay = EB.page(base({ window: E.dayView(agWin, '2026-10-05') })).model;
+    const between = EB.page(base({ window: E.rangeView('2026-09-01', '2026-10-05'), detected: 7 })), rangeModel = between.model;
+    const iconOf = parts => ([].concat(parts).join("").match(/<path transform="translate\([^"]*\)[^>]*d="([^"]*)" fill="#1c5a83"\/>/) || [])[1];
+    check(same(onDay.stats.left.map(x => x.prefix + ' ' + x.value), ['Active on Oct 5, 2026'])
+      && same(rangeModel.stats.left.map(x => x.prefix + ' ' + x.value), ['Detected Sep 1, 2026 to Oct 5, 2026'])
+      && onDay.stats.left[0].prefix + ' ' + onDay.stats.left[0].value === E.periodLine(E.dayView(agWin, '2026-10-05'))
+      && rangeModel.stats.left[0].prefix + ' ' + rangeModel.stats.left[0].value === E.periodLine(E.rangeView('2026-09-01', '2026-10-05'))
+      && iconOf(EB.page(base({ window: E.dayView(agWin, '2026-10-05') })).parts) === ctx.window.WSDA.emergencyIcons.path('pin')
+      && iconOf(between.parts) === ctx.window.WSDA.emergencyIcons.path('span') && !iconOf(built.parts),
+    'map picture: the period line by the view, as rules.js periodLine says it, after the pin or the span in WSDA blue', [onDay.stats, rangeModel.stats]);
+    check(same(onDay.boxes.map(b => b.label), ['Active positives', 'Sites inside'])
+      && same(rangeModel.boxes.map(b => [b.label, b.value]), [['Detected', '7'], ['Active positives', '5'], ['Sites inside', String(agRes.total)]]),
+    'map picture: Between dates a "Detected" box first; On a day "Active positives" and "Sites inside"', rangeModel.boxes);
+    const iconEnd = rangeModel.stats.left[0].iconW + BRW.px(0.01) + BRW.textWidth('Detected', 13, true) + BRW.px(0.006) + BRW.textWidth(rangeModel.stats.left[0].value, 13);
+    check(iconEnd < rangeModel.boxLayout[0].x0, 'map picture: the boxes start after the period line and its icon', [iconEnd, rangeModel.boxLayout[0].x0]);
+    // The widest range line (any two months, the 28th, 2024 to 2026) beside the five boxes a CVI master gives: every
+    // label whole, the boxes after the line.
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const widest = [].concat(...MON.map(a => MON.map(b => a + ' 28, 2024 to ' + b + ' 28, 2026')))
+      .reduce((w, v) => (BRW.textWidth(v, 13) > BRW.textWidth(w, 13) ? v : w));
+    const widePeriod = Object.assign({}, rangeModel.stats.left[0], { value: widest });
+    const fiveLabels = ['Detected', 'Active positives', 'Sites inside', 'CVIs in or out', 'Animals moved'];
+    const fiveBoxes = EB.valueBoxes(fiveLabels.map(label => ({ label, value: '1,234', color: '#245566' })), widePeriod).boxes;
+    const wideEnd = widePeriod.iconW + BRW.px(0.01) + BRW.textWidth('Detected', 13, true) + BRW.px(0.006) + BRW.textWidth(widest, 13);
+    check(fiveBoxes.every((b, i) => b.label === fiveLabels[i]) && wideEnd < fiveBoxes[0].x0,
+      'map picture: Between dates the widest period line beside five boxes: every label whole, the boxes after the line',
+      [widest, Math.round(wideEnd), fiveBoxes.map(b => [b.label, Math.round(b.x0), +b.labelPt.toFixed(1)])]);
     const periodEnd = BRW.px(0.01) + BRW.textWidth('Detected between', 13, true) + BRW.px(0.006) + BRW.textWidth(m.stats.left[0].value, 13);
     check(periodEnd < m.boxLayout[0].x0 && m.boxLayout[0].x0 <= BRW.px(0.46) + 0.01,
     'map picture: the period line ends before the value boxes, which start just after it (at most at 0.46)', [periodEnd, m.boxLayout[0].x0]);
     const insideKeys = new Set(agRes.rows.map(r => r.lat + ',' + r.lon + ',' + r.name));
-    check(same(m.boxes.map(b => [b.label, b.value]), [['Current positives', '5'], ['Sites inside', String(agRes.total)]])
+    check(same(m.boxes.map(b => [b.label, b.value]), [['Active positives', '5'], ['Sites inside', String(agRes.total)]])
       && agRes.total === insideKeys.size && agRes.total > 0,
     'map picture: the boxes: the current positives (never the past) and the sites inside (the layers are in the key)', m.boxes);
     const withSites = agSites.filter(st => agRes.rows.some(r => r.site === st.id)).length;
@@ -928,8 +970,8 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     'map picture: the sensitive-data line, the synthetic marker, the panel; no address or other unread column');
     // Past positives shown, with their rings.
     const past = EB.page(base({ positives: shownOf(agGroups.current.concat(agGroups.past)), pastSites: agPast })).model;
-    check(same(past.keyItems.map(i => i.label).slice(1, 3), ['Confirmed positive', 'Past positive'])
-      && past.keyItems.some(i => i.label === 'Past positives\' rings') && past.pastRings.length === agPast.length * 2 && past.pastRings.every(r => r.color === EB.PAST)
+    check(same(past.keyItems.map(i => i.label).slice(1, 3), ['Confirmed positive', 'Closed positive'])
+      && past.keyItems.some(i => i.label === 'Closed positives\' rings') && past.pastRings.length === agPast.length * 2 && past.pastRings.every(r => r.color === EB.PAST)
       && past.positives.filter(q => q.past).length === agGroups.past.length && same(past.boxes[0], m.boxes[0]),
     'map picture: past positives shown: faded in the key, their rings drawn gray; the boxes unchanged', past.keyItems.map(i => i.label));
     // The key with past positives, both rings and six layers (one name on two lines), at every height from roomy to
@@ -972,7 +1014,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       { hitOrigin: true, hitDest: false, 'Origin.Lat': 'unknown', 'Origin.Long': '-120.5' }];
     const cvBuilt = EB.page(base({ cvi: { cvis: 12, animals: 3400, matched, years: '2025–2026' } })), cv = cvBuilt.model;
     const cvSvg = BRW.svg(cvBuilt.parts, BRW.pixelSize(200));
-    check(same(cv.boxes.map(b => [b.label, b.value]), [['Current positives', '5'], ['Sites inside', String(agRes.total)], ['CVIs in or out', '12'], ['Animals moved', '3,400']])
+    check(same(cv.boxes.map(b => [b.label, b.value]), [['Active positives', '5'], ['Sites inside', String(agRes.total)], ['CVIs in or out', '12'], ['Animals moved', '3,400']])
       && /CVI records/.test(cv.source) && !/CVI records/.test(m.source), 'map picture: with a CVI master, the CVIs to or from the zones and the animals moved in the boxes', cv.boxes);
     // The four boxes: each label whole and inside its box, set clearly below its number; wider than the shared copy's.
     const sharedW = BRW.px(0.77 - 0.46) * (1 - 0.035 * 3) / 4;
@@ -980,19 +1022,24 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && b.labelWidth <= b.x1 - b.x0 - 8 + 1e-6 && b.labelTop - b.valueBottom >= 4 && b.x1 - b.x0 > sharedW),
     'map picture: four value boxes: each label whole, inside its box and well below its number; wider than before',
       cv.boxLayout.map(b => [b.label, Math.round(b.x1 - b.x0), Math.round(b.labelWidth), +b.labelPt.toFixed(2), +(b.labelTop - b.valueBottom).toFixed(1)]));
-    const longRow = EB.valueBoxes(['Current positives', 'Sites inside', 'A label far too long for any box at all', 'Animals moved']
+    const longRow = EB.valueBoxes(['Active positives', 'Sites inside', 'A label far too long for any box at all', 'Animals moved']
       .map(label => ({ label, value: '1', color: '#245566' })), { prefix: 'Detected between', value: 'September 30, 2024 and December 31, 2026' }).boxes;
-    check(Math.abs(longRow[0].x0 - BRW.px(0.46)) < 0.01 && longRow[0].labelPt < BRW.textPt(2.7) && longRow[0].label === 'Current positives'
+    check(Math.abs(longRow[0].x0 - BRW.px(0.46)) < 0.01 && longRow[0].labelPt < BRW.textPt(2.7) && longRow[0].label === 'Active positives'
       && longRow[1].labelPt === BRW.textPt(2.7) && longRow[2].labelPt === BRW.textPt(2.7) * 0.7 && /…$/.test(longRow[2].label)
       && longRow.every(b => b.labelWidth <= b.x1 - b.x0 - 8 + 1e-6),
     'map picture: the value boxes after a long period line start at 0.46 at the latest; a long label drawn smaller, one too long even then cut with "…"',
       longRow.map(b => [b.label, +b.labelPt.toFixed(2)]));
-    // A label drawn smaller to fit its box exactly is never cut as well (at any period line's length).
-    const fourLabels = ['Current positives', 'Sites inside', 'CVIs in or out', 'Animals moved'];
-    const shrunk = ['Jul 15, 2026 and Oct 5, 2026', 'Sep 30, 2024 and Dec 31, 2026', 'September 30, 2024 and December 31, 2026']
-      .map(value => EB.valueBoxes(fourLabels.map(label => ({ label, value: '1', color: '#245566' })), { prefix: 'Detected between', value }).boxes);
-    check(shrunk.every(row => row.every((b, i) => b.label === fourLabels[i])) && shrunk.some(row => row.some(b => b.labelPt < BRW.textPt(2.7))),
-    'map picture: the boxes\' labels whole after any period line, a label drawn smaller to fit never cut too', shrunk.map(row => row.map(b => b.label)));
+    // A label drawn smaller to fit its box exactly is never cut as well (at any period line's length). The 2.4 label
+    // "Current positives" lands on the rounding edge (drawn smaller, a rounding error wider than its room); the check
+    // also asks that some label reach that edge, so a renamed label cannot leave it testing nothing.
+    const labelSets = [['Active positives', 'Sites inside', 'CVIs in or out', 'Animals moved'],
+      ['Current positives', 'Sites inside', 'CVIs in or out', 'Animals moved']];
+    const shrunk = labelSets.flatMap(labels => ['Jul 15, 2026 and Oct 5, 2026', 'Sep 30, 2024 and Dec 31, 2026', 'September 30, 2024 and December 31, 2026']
+      .map(value => ({ labels, boxes: EB.valueBoxes(labels.map(label => ({ label, value: '1', color: '#245566' })), { prefix: 'Detected between', value }).boxes })));
+    check(shrunk.every(row => row.boxes.every((b, i) => b.label === row.labels[i])) && shrunk.some(row => row.boxes.some(b => b.labelPt < BRW.textPt(2.7)))
+      && shrunk.some(row => row.boxes.some(b => b.labelWidth > b.x1 - b.x0 - 8)),
+    'map picture: the boxes\' labels whole after any period line, a label drawn smaller to fit never cut too (one at the rounding edge)',
+      shrunk.map(row => row.boxes.map(b => b.label)));
     const cvKey = cv.keyItems.map(i => i.label + (i.count ? ' ' + i.count : ''));
     check(same(cv.cviPremises.map(q => [q.end, q.lat, q.lon]), [['origin', 46.6, -120.5], ['destination', 46.2, -119.1]])
       && cvKey.includes('CVI PREMISES, 2025–2026') && cvKey.includes('Origin in a zone 1') && cvKey.includes('Destination in a zone 1')
@@ -1019,7 +1066,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const squarePaths = (anSvg.match(/<path d="M[^"]*" fill="#ffffff" stroke="(?!#444444)#[0-9a-f]{6}" stroke-width="[^"]*" stroke-linejoin="round"/g) || []).length;
     check(squares.length === animalsShown.filter(q => q.shape === 'square').length && squares.length > 0
       && an.positives.filter(q => q.shape === 'circle').length === animalsShown.length - squares.length
-      && same(anKey.slice(1, 4), ['Confirmed positive', 'Past positive', 'Birds']) && anRow.glyph.shape === 'animals'
+      && same(anKey.slice(1, 4), ['Confirmed positive', 'Closed positive', 'Birds']) && anRow.glyph.shape === 'animals'
       && same(anRow.glyph.marks.map(k => k.mark), ['circle', 'square']) && same(anRow.glyph.words.map(w => w.label), ['Cattle'])
       && anRow.glyph.words[0].dx > anRow.glyph.marks[1].dx && !m.keyItems.some(i => i.glyph && /^animal/.test(i.glyph.shape))
       && (anSvg.match(/<path d="M[^"]*" fill="#ffffff" stroke="#444444"/g) || []).length === 2 && anSvg.includes('>Cattle</text>')
@@ -1198,17 +1245,26 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && ovCounties[1].missing === 1 && ovCounties.every((r, k) => k === 1 || r.missing === 0),
     'counties table: the current positives\' animals by word (cattle apart); a blank inventory named, never zero', ovCounties.map(r => [r.animalsText, r.missing]));
     const pr = E.positiveRows(ov, ovWin, COUNTIES);
-    check(same(pr.columns, ['Case ID', 'Detected', 'County', 'Flock size', 'Flock/Herd Type', 'Species', 'Current or past', 'Quarantine Release']),
+    check(same(pr.columns, ['Case ID', 'Detected', 'County', 'Flock size', 'Flock/Herd Type', 'Species', 'Active or closed', 'Quarantine Release']),
       'positives table: the columns the file has (no status column in the agreed table, so none shown)', pr.columns);
     check(same(pr.rows.map(r => r[0]), ['Skagit 01', 'Skagit 02', 'Lewis 02', 'Idaho 01', 'Umatilla 01', 'Whatcom 01', 'Franklin 01',
       'Benton 01', 'Yakima 02', 'Lewis 01', 'Yakima 01', 'Positive 4 (Kittitas)'])
-      && same(pr.rows[1], ['Skagit 02', 'Oct 3, 2026', 'Skagit', 'Large', 'Commercial', 'Chicken', 'Current', ''])
-      && same(pr.rows[6], ['Franklin 01', 'Mar 15, 2026', 'Franklin', 'Medium', 'Commercial', 'Turkey', 'Past', 'Jun 30, 2026']),
+      && same(pr.rows[1], ['Skagit 02', 'Oct 3, 2026', 'Skagit', 'Large', 'Commercial', 'Chicken', 'Active', ''])
+      && same(pr.rows[6], ['Franklin 01', 'Mar 15, 2026', 'Franklin', 'Medium', 'Commercial', 'Turkey', 'Closed', 'Jun 30, 2026']),
     'positives table: newest first, the undated last; dates written out; the county from the location when blank', pr.rows.slice(0, 2));
     check(!/MARKED-ADDRESS|Synthetic Town|Landfill/.test(JSON.stringify([ovCounties, pr])), 'overview: no Premises, Address, City or Disposal Method reaches a table');
     const boxes = E.overviewBoxes(ov, ovWin, COUNTIES, ovPeople);
-    check(same(boxes.counties, { value: 5, reason: null, note: '8 counties since Nov 2024 · 1 outside Washington' }),
-      'counties box: the counties with a current positive; the note the counties since the first positive, and those outside Washington', boxes.counties);
+    check(same(boxes.counties, { value: 5, reason: null, label: 'Counties with an active positive', note: '8 counties since Nov 2024 · 1 outside Washington' }),
+      'counties box: the counties with an active positive; the note the counties since the first positive, and those outside Washington', boxes.counties);
+    // The one outside Washington closed on its detection day: Between dates it still counts as detected outside
+    // Washington; On a day it is no longer active, so the note leaves it out.
+    const ovOutClosed = Object.assign({}, ov, { positives: ov.positives.map(p => (p.name === 'Idaho 01'
+      ? Object.assign({}, p, { closed: true, closedDate: p.detected }) : p)) });
+    const outRange = E.overviewBoxes(ovOutClosed, E.rangeView(ovWin.start, ovWin.end), COUNTIES, ovPeople).counties;
+    const outDay = E.overviewBoxes(ovOutClosed, E.dayView(ovWin, ovWin.end), COUNTIES, ovPeople).counties;
+    check(ov.positives.some(p => p.name === 'Idaho 01' && p.detected) && /· 1 outside Washington$/.test(outRange.note)
+      && !/outside Washington/.test(outDay.note),
+    'counties box: a closed positive outside Washington is in the note Between dates (detected in the range), not On a day', [outRange, outDay]);
     check(same(boxes.animals, { value: '1.3M birds', reason: null, note: '35 cattle · 3 commercial, 4 backyard · 1 without a count' }),
       'animals box: the birds at the current positives; the cattle, the flock types and the blank inventory in its note', boxes.animals);
     check(boxes.people.value === ovPeople.rounded && boxes.people.note === 'Estimate from ' + ovPeople.tracts.length + ' Census tracts (2020)',
@@ -1222,8 +1278,8 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(nb.animals.value === null && nb.animals.reason === 'Not available: needs Flock/Herd Inventory' && nb.counties.value === 1,
       'animals box: a file without an inventory column says what it needs', nb);
     const blank = E.readPositives(['Case ID', 'Latitude', 'Longitude', 'Flock/Herd Inventory'], [['A', '47.0', '-120.5', '']], hpai);
-    check(E.overviewBoxes(blank, E.windowOf(blank.positives), COUNTIES, null).animals.reason === 'Not available: no animal counts at the current positives',
-      'animals box: current positives that all lack a count give no number, never zero');
+    check(E.overviewBoxes(blank, E.windowOf(blank.positives), COUNTIES, null).animals.reason === 'Not available: no animal counts at the active positives',
+      'animals box: active positives that all lack a count give no number, never zero');
     const bars = E.overviewBars(ovCounties, { layers: [{ label: 'Dairies', inside: 3, byZone: [{ label: 'Zone A', count: 2 }, { label: 'Zone B', count: 2 }] }] });
     check(same(bars.counties[0], { label: 'Skagit', parts: [{ key: 'current', value: 2 }, { key: 'past', value: 0 }], total: 2 })
       && same(bars.layers, [{ label: 'Dairies', parts: [{ key: 'Zone A', value: 2 }, { key: 'Zone B', value: 2 }], total: 3 }])
@@ -1232,14 +1288,14 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     // counties.csv: each animal word's exact total; blank where nothing is known, never zero for an unknown.
     const ct = E.countyTable(ov, ovCounties), at = n => ct.rows.find(r => r[0] === n);
     const birdsRow = ovCounties[0].animals.find(a => a[0] === 'birds'), birds = birdsRow ? birdsRow[1] : null;
-    check(same(ct.columns, ['County', 'Current', 'Past', 'Total', 'Birds at the current positives', 'Cattle at the current positives',
-      'Current positives without a count'])
+    check(same(ct.columns, ['County', 'Active', 'Closed', 'Total', 'Birds at the active positives', 'Cattle at the active positives',
+      'Active positives without a count'])
       && same(at('Skagit'), ['Skagit', 2, 0, 2, birds, 0, 0]) && birds > 1e6
       && same(at('Whatcom'), ['Whatcom', 1, 0, 1, 0, 35, 0]) && same(at('Lewis'), ['Lewis', 1, 1, 2, null, null, 1])
       && same(at('Yakima'), ['Yakima', 0, 2, 2, null, null, 0]) && ct.rows.length === ovCounties.length,
     'counties.csv: the exact totals by word; a county whose current positives have no count, or with none current, blank (not zero)', ct);
     const noInvTable = E.countyTable(noInv, E.countyRows(noInv, E.windowOf(noInv.positives), COUNTIES));
-    check(same(noInvTable.columns, ['County', 'Current', 'Past', 'Total']), 'counties.csv: no animal columns without an inventory column', noInvTable.columns);
+    check(same(noInvTable.columns, ['County', 'Active', 'Closed', 'Total']), 'counties.csv: no animal columns without an inventory column', noInvTable.columns);
     // Each positive's county (2.3): one county written four ways is one county; a name
     // not Washington's kept as written; a blank County by its location, the nearest county within 2 km off the shore.
     const crRows = csvOf('em_rules_counties.csv'), cr = E.readPositives(crRows[0], crRows.slice(1), hpai);
@@ -1370,6 +1426,108 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     'types: the quarantine status values, any case, spaces trimmed; a type naming none gets "Under quarantine" and "Released"');
   }
 
+  // ---- 8e. The two views (2.5): On a day and Between dates -------------------------------------------------------
+  const VR = FX.RULES.views;
+  const vRows = csvOf(VR.positives);
+  const vr = E.readPositives(vRows[0], vRows.slice(1), null);
+  const vByLine = vr.positives.concat(vr.dropped).sort((a, b) => a.line - b.line);
+  const vWin = E.windowOf(vr.positives);
+  // Each row's group in a view: Not mapped, Outside (not in the view), Active or Closed.
+  const viewRow = view => { const g = E.groups(vr, view);
+    return vByLine.map(p => p.index === null ? 'Not mapped' : g.outside.includes(p) ? 'Outside' : E.groupOf(p, view.end)); };
+  {
+    // On a day: the same as a window from the file's first detection to the day, for every day of the scenario.
+    check(VR.days.every(d => same(E.groups(vr, E.dayView(vWin, d)), E.groups(vr, { start: vWin.start, end: d }))
+      && same(E.groups(vr, E.dayView(vWin, d)), E.groups(vr, { start: null, end: d }))),
+    'On a day: the window from the file\'s first detection to the day (start held), the same as no first date at all');
+    const day = d => E.groups(vr, E.dayView(vWin, d));
+    check(same(names(day('2026-09-05').current), ['Kittitas', 'Umatilla 01', 'Whatcom 01', 'Pierce 01', 'Spokane 01'].map(n => n === 'Kittitas' ? 'Positive 4 (Kittitas)' : n))
+      && same(names(day('2026-10-05').past).includes('Spokane 01'), true) && names(day('2025-03-12').current).includes('Pierce 01')
+      && names(day('2026-10-30').current).includes('Pierce 01'),
+    'On a day: Pierce 01 (detected Mar 2025, still open) active on every later day; Spokane 01 active on Sep 5, closed by Oct 5',
+      names(day('2026-09-05').current));
+    const before = day('2024-10-01');
+    check(before.current.length === 1 && !before.current[0].detected && before.past.length === 0 && before.outside.length === vr.positives.length - 1,
+      'On a day before the first detection: only the positive without a date (shown in both views); every dated one outside', before.current.map(p => p.name));
+    // The sample's Franklin dairy (detected Aug 21, still open) counts on Sep 5, as the page shows it.
+    const sRows = csvOf('em_sample_positives.csv'), sm = E.readPositives(sRows[0], sRows.slice(1), null), smWin = E.windowOf(sm.positives);
+    check(names(E.groups(sm, E.dayView(smWin, '2026-09-05')).current).includes('SYN-HPAI-003')
+      && !names(E.groups(sm, E.rangeView('2026-09-01', '2026-10-05')).current).includes('SYN-HPAI-003'),
+    'the sample: the Franklin dairy (detected Aug 21, open) active On a day Sep 5; not in Between dates Sep 1 to Oct 5 (detected before it)');
+    // Between dates: detected between the dates, active or closed on the second.
+    const rg = E.groups(vr, E.rangeView('2026-09-01', '2026-10-05'));
+    check(same(names(rg.current), ['Positive 4 (Kittitas)', 'Umatilla 01', 'Lewis 02', 'Skagit 01']) && rg.past.length === 0
+      && rg.outside.some(p => p.name === 'Pierce 01') && rg.outside.some(p => p.name === 'Spokane 01'),
+    'Between dates Sep 1 to Oct 5: the four detected in it (and the undated one); Pierce 01 and Spokane 01 detected before it', names(rg.current));
+    // The opening views: the day today; the range from the first detection to today; a detection after today moves both.
+    const open = E.openingViews(vWin, VR.today);
+    check(same(open, { day: { view: 'day', start: '2024-11-05', end: '2026-10-30' }, range: { view: 'range', start: '2024-11-05', end: '2026-10-30' } })
+      && same(E.openingViews({ start: '2026-01-01', end: '2026-11-15' }, '2026-10-30').day.end, '2026-11-15') && E.openingViews(null, VR.today) === null,
+    'opening: On a day on today, Between dates from the first detection to today; a detection after today moves both to it; none without dates', open);
+    check(same(E.groups(vr, open.day).current, E.groups(vr, open.range).current),
+      'opening: the two views agree on the active positives after a load (question 2)');
+    // The chart's span runs to today, so the line on today is not at the edge; its columns stay put whatever the view.
+    check(same(E.chartSpan(vWin, VR.today), { start: '2024-11-05', end: '2026-10-30' }) && same(E.chartSpan({ start: '2026-08-01', end: '2026-10-05' }, '2026-10-30').end, '2026-10-30')
+      && same(E.chartSpan({ start: '2026-08-01', end: '2026-11-15' }, '2026-10-30').end, '2026-11-15') && E.chartSpan(null, VR.today) === null,
+    'the chart\'s span: the first detection to today, or to the last detection when it is later');
+    const smSteps = E.playSteps(E.chartSpan(smWin, '2026-10-30'));
+    check(smSteps.by === 'week' && smSteps.steps[smSteps.steps.length - 1].end === '2026-10-30' && smSteps.steps[smSteps.steps.length - 1].start === '2026-10-25',
+      'the sample\'s chart: weekly columns up to today\'s week, ending on today', smSteps.steps.slice(-1));
+    // The play in each view: the chart's columns that reach into it, the last ending on the view's end.
+    const dSteps = E.viewSteps(smSteps, E.dayView(smWin, '2026-09-05')), rSteps = E.viewSteps(smSteps, E.rangeView('2026-09-01', '2026-10-05'));
+    check(dSteps.by === 'week' && dSteps.steps[0].start === smSteps.steps[0].start && same(dSteps.steps.slice(-1)[0], { start: '2026-08-30', end: '2026-09-05', label: 'Week of Aug 30, 2026' })
+      && dSteps.steps.length === 8,
+    'the play On a day: from the file\'s first week (Jul 12) to the day\'s week, eight weeks, the last ending on the day', dSteps.steps.slice(-1));
+    check(same(rSteps.steps.map(s => s.start), ['2026-08-30', '2026-09-06', '2026-09-13', '2026-09-20', '2026-09-27', '2026-10-04'])
+      && rSteps.steps.slice(-1)[0].end === '2026-10-05' && smSteps.steps.find(s => s.start === '2026-10-04').end === '2026-10-10',
+    'the play Between dates: the weeks from the range\'s first date to its second, the last ending on it; the chart\'s own columns untouched',
+      rSteps.steps.map(s => [s.start, s.end]));
+    // A range starting on a Saturday keeps the week that ends on it (Sep 13 to 19), its first step that one day.
+    const satSteps = E.viewSteps(smSteps, E.rangeView('2026-09-19', '2026-10-05'));
+    check(satSteps.steps[0].start === '2026-09-13' && satSteps.steps[0].end === '2026-09-19' && satSteps.steps.length === 4,
+      'the play Between dates from a Saturday: the week ending on it is the first step', satSteps.steps.map(s => [s.start, s.end]));
+    check(same(E.viewSteps(smSteps, null).steps, []) && same(E.viewSteps(null, open.day), { by: null, steps: [] })
+      && E.viewSteps(smSteps, E.dayView(smWin, '2026-07-01')).steps.length === 0,
+    'the play: no steps without a view, without columns, or on a day before the first column');
+    // A chart column: the day moves to its last day; the range becomes the column.
+    const col = smSteps.steps.find(s => s.start === '2026-09-13');
+    check(!!col && same(E.pickColumn(E.dayView(smWin, '2026-10-30'), col), { view: 'day', start: smWin.start, end: '2026-09-19' })
+      && same(E.pickColumn(E.rangeView('2026-07-01', '2026-10-30'), col), { view: 'range', start: '2026-09-13', end: '2026-09-19' }),
+    'a chart column: On a day moves the day to its last day; Between dates becomes its own week');
+    // The boxes per view: their order, the Detected box with its two parts, and the last positive's words.
+    const dBox = E.valueBoxes(vr, null, E.dayView(vWin, '2026-09-05')), rBox = E.valueBoxes(vr, null, E.rangeView('2025-07-01', '2026-10-05'));
+    check(same(dBox.order, ['positives', 'past', 'last', 'inside']) && same(rBox.order, ['detected', 'positives', 'past', 'inside'])
+      && same(E.valueBoxes(vr, null, null).order, dBox.order),
+    'the boxes: On a day (and without a view) active, closed, last positive, sites inside; Between dates detected first, no last positive');
+    check(same(rBox.detected, { value: 9, reason: null, active: 5, closed: 4 }) && rBox.positives.value === 5 && rBox.past.value === 4
+      && dBox.positives.value === 5 && dBox.past.value === 5 && dBox.last.value === '2026-09-02' && dBox.last.note === 'As of Sep 5, 2026',
+    'the boxes: Detected 9 (5 active, 4 closed) Between Jul 1, 2025 and Oct 5, 2026; On Sep 5 5 active, 5 closed, last positive Sep 2',
+      [rBox.detected, dBox.last]);
+    check(E.valueBoxes(vr, null, null).detected.value === null && E.valueBoxes(null, null, null).detected.value === null,
+      'the Detected box: not available without a view or without the file');
+    // The words: the badge, the picture's period line and export_params.json's fields.
+    const d30 = E.dayView(vWin, '2026-10-30'), r95 = E.rangeView('2026-09-01', '2026-10-05');
+    check(E.viewBadge(d30) === 'Oct 30, 2026' && E.viewBadge(r95) === 'Sep 1, 2026 – Oct 5, 2026' && E.viewBadge(null) === null
+      && E.periodLine(d30) === 'Active on Oct 30, 2026' && E.periodLine(r95) === 'Detected Sep 1, 2026 to Oct 5, 2026'
+      && E.periodLine(null) === null,
+    'the words: the badge and the picture\'s period line for each view', [E.viewBadge(r95), E.periodLine(r95)]);
+    check(same(E.viewParams(d30), { view: 'on a day', day: '2026-10-30' }) && same(E.viewParams(r95), { view: 'between dates', detected_between: ['2026-09-01', '2026-10-05'] })
+      && same(E.viewParams(null), { view: null }),
+    'export_params.json: the view named, with its day or its two dates');
+    // The exports' and tables' words: Active and Closed (question 1).
+    const vEx = E.exportRows(vr, [], { rows: [], layers: [], leftOut: [] }, 'km', d30);
+    check(same([...new Set(vEx.positives.rows.map(r => r[1]))].sort(), ['Active', 'Closed', 'Not mapped'])
+      && E.positiveRows(vr, d30, COUNTIES).columns.includes('Active or closed'),
+    'the words: positives.csv\'s group and the positives table\'s column say Active and Closed');
+    // The Overview's counties box: On a day the counties with an active positive; Between dates those with a positive
+    // detected, "n with an active one".
+    const ovDay = E.overviewBoxes(vr, E.dayView(vWin, '2026-09-05'), COUNTIES, null).counties;
+    const ovRange = E.overviewBoxes(vr, E.rangeView('2025-07-01', '2026-10-05'), COUNTIES, null).counties;
+    check(same(ovDay, { value: 5, reason: null, label: 'Counties with an active positive', note: '9 counties since Nov 2024' })
+      && same(ovRange, { value: 9, reason: null, label: 'Counties with a positive detected', note: '5 with an active one' }),
+    'the Overview\'s counties box in each view', [ovDay, ovRange]);
+  }
+
   // ---- 9. The rules against the R reference ------------------------------------------------------------------
   const ORACLE = path.join(ROOT, 'local-test-artifacts', 'em', 'oracle_em.json');
   if (!fs.existsSync(ORACLE)) check(false, 'R reference missing: run Rscript tests/oracle/em_oracle.R first');
@@ -1494,6 +1652,69 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     }
   }
 
+  {   // The two views' scenario against R (2.5): each row's group, the counts and the last positive in every view.
+    const o = fs.existsSync(ORACLE) ? JSON.parse(fs.readFileSync(ORACLE, 'utf8')) : {};
+    const v = o.views;
+    const mine = view => { const b = E.valueBoxes(vr, null, view);
+      return { group: viewRow(view), active: b.positives.value, closed: b.past.value, last: b.last.value }; };
+    const theirs = x => ({ group: x.group, active: x.active, closed: x.closed, last: x.last });
+    check(v && v.days.length === VR.days.length && v.days.every((x, k) => x.day === VR.days[k] && same(theirs(x), mine(E.dayView(vWin, x.day)))),
+      'R reference: On a day, for each of six days: each row\'s group, the active and closed counts and the last positive',
+      v && v.days.map(x => [x.day, x.active, x.closed, x.last]));
+    check(v && v.ranges.length === VR.ranges.length && v.ranges.every((x, k) => same(x.range, VR.ranges[k])
+      && same(theirs(x), mine(E.rangeView(x.range[0], x.range[1])))),
+    'R reference: Between dates, for each of four ranges: each row\'s group, the active and closed counts and the last positive',
+      v && v.ranges.map(x => [x.range, x.active, x.closed, x.last]));
+  }
+
+  {   // The closing day's scenario against R (2.5): closed by Status without a
+    // Close Date, from the release date; with neither date, closed on a day not known (a line on a day before today).
+    const o = fs.existsSync(ORACLE) ? JSON.parse(fs.readFileSync(ORACLE, 'utf8')) : {};
+    const c = o.closedDay, CR = FX.RULES.closedDay;
+    const cRows = csvOf(CR.positives);
+    const cr = E.readPositives(cRows[0], cRows.slice(1), null, CR.today);
+    const cWin = E.windowOf(cr.positives);
+    const mine = (view, read = cr) => { const g = E.groups(read, view), b = E.valueBoxes(read, null, view);
+      return { group: read.positives.concat(read.dropped).sort((a, b) => a.line - b.line)
+        .map(p => p.index === null ? 'Not mapped' : g.outside.includes(p) ? 'Outside' : E.groupOf(p, view.end)),
+        active: b.positives.value, closed: b.past.value, day_not_known: g.closedDayNotKnown.length }; };
+    const theirs = x => ({ group: x.group, active: x.active, closed: x.closed, day_not_known: x.day_not_known });
+    check(c && c.days.length === CR.days.length && c.days.every((x, k) => x.day === CR.days[k] && same(theirs(x), mine(E.dayView(cWin, x.day)))),
+      'R reference: the closing day On a day, for each of six days: each row\'s group, the counts and those closed on a day not known',
+      c && c.days.map(x => [x.day, x.active, x.closed, x.day_not_known]));
+    check(c && c.ranges.length === CR.ranges.length && c.ranges.every((x, k) => same(x.range, CR.ranges[k])
+      && same(theirs(x), mine(E.rangeView(x.range[0], x.range[1])))),
+    'R reference: the closing day Between dates, for each of two ranges: each row\'s group, the counts and those closed on a day not known',
+      c && c.ranges.map(x => [x.range, x.active, x.closed, x.day_not_known]));
+    // Read on an earlier today (May 1, 2023): Yakima 11's release (Jun 1, 2023) is after it, so not its closing day:
+    // closed on every day, closed on a day not known, as R; its release date gives no "?" sentence of its own then.
+    const crEarly = E.readPositives(cRows[0], cRows.slice(1), null, CR.early.today);
+    const early = c && c.early;
+    const y11 = crEarly.positives.find(p => p.name === 'Yakima 11');
+    check(early && early.today === CR.early.today && early.days.length === CR.early.days.length
+      && early.days.every((x, k) => x.day === CR.early.days[k] && same(theirs(x), mine(E.dayView(cWin, x.day), crEarly)))
+      && y11.releaseAfterToday && E.closedDayNotKnown(y11) && E.isPast(y11, '2023-04-01')
+      && !cr.positives.find(p => p.name === 'Yakima 11').releaseAfterToday,
+    'R reference: the closing day read on an earlier today: a release date after today is not the closing day (closed on every day, on a day not known)',
+      early && early.days.map(x => [x.day, x.active, x.closed, x.day_not_known]));
+    // Read on Yakima 11's release day itself: that day is not after today, so it is the closing day.
+    const y11On = E.readPositives(cRows[0], cRows.slice(1), null, '2023-06-01').positives.find(p => p.name === 'Yakima 11');
+    check(!y11On.releaseAfterToday && !E.closedDayNotKnown(y11On) && !E.isPast(y11On, '2023-05-31') && E.isPast(y11On, '2023-06-01'),
+      'the closing day read on the release day itself: the release date is the closing day (active the day before, closed on it)', y11On);
+    // By hand: a positive closed by its release is active before the release, closed on its day.
+    const byName = (g, n) => g.current.some(p => p.name === n) ? 'Active' : g.past.some(p => p.name === n) ? 'Closed' : 'Outside';
+    const onDay = d => E.groups(cr, E.dayView(cWin, d));
+    check(byName(onDay('2023-04-01'), 'Yakima 11') === 'Active' && byName(onDay('2023-06-01'), 'Yakima 11') === 'Closed'
+      && byName(onDay('2025-05-01'), 'Yakima 13') === 'Closed' && byName(onDay('2026-10-30'), 'Yakima 16') === 'Active',
+    'the closing day: closed by Status, active until its release date and closed on it; a Close Date before the release decides; Active by Status stays active with a release date');
+    // The line under the boxes: on a view ending before today only.
+    const lines = d => E.valueBoxes(cr, null, E.dayView(cWin, d), CR.today).positives.lines;
+    check(lines('2025-10-01').includes('2 closed on a day not known') && !lines(CR.today).some(l => /day not known/.test(l))
+      && !E.valueBoxes(cr, null, E.dayView(cWin, '2025-10-01')).positives.lines.some(l => /day not known/.test(l)),
+    'the closing day: "2 closed on a day not known" under the boxes on a day before today; not on today, nor without today',
+      [lines('2025-10-01'), lines(CR.today)]);
+  }
+
   {   // The quarantine status scenario against R (2.4).
     const o = fs.existsSync(ORACLE) ? JSON.parse(fs.readFileSync(ORACLE, 'utf8')) : {};
     const q = o.quarantine;
@@ -1531,8 +1752,9 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
   }
 
   {   // The work-PC table check (tools/work-pc/check_hpai_table.R, base R, 2.4) against the page: its settings equal the
-    // HPAI type's and rules.js's, and its report's counts equal the page's reading of each synthetic HPAI table. The
-    // reports also hold no Case ID, address, coordinate, county name or full date from the table.
+    // HPAI type's and rules.js's, and its report's counts equal the page's reading of each synthetic HPAI table, on
+    // the last detection date and, from 2.5, on the day the page opens on (the script's third argument, the suite's
+    // fixed today). The reports also hold no Case ID, address, coordinate, county name or full date from the table.
     const SCRIPT = path.join(ROOT, 'tools', 'work-pc', 'check_hpai_table.R');
     const OUTD = path.join(ROOT, 'local-test-artifacts', 'em', 'table-check');
     fs.rmSync(OUTD, { recursive: true, force: true });
@@ -1556,11 +1778,19 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const waBox = /const WA = \{ south: ([\d.-]+), north: ([\d.-]+), west: ([\d.-]+), east: ([\d.-]+) \}/
       .exec(fs.readFileSync(path.join(SITE, 'emergency', 'rules.js'), 'utf8')).slice(1).map(Number);
     const countyNames = globalThis.CVIWA_GEO.counties.features.map(f => f.properties.name).sort();
+    // A date written with its month's name, as the table check reads one (a month and year alone is not a day).
+    const MONTH_DAY = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(st|nd|rd|th)?\b|\b\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
     const rCounties = [.../^WA_COUNTIES <- c\(([^)]*)\)/m.exec(rSource.replace(/\n\s+/g, ' '))[1].matchAll(/"([^"]*)"/g)]
       .map(x => x[1]);
     check(same(/^WA <- c\(south = ([\d.-]+), north = ([\d.-]+), west = ([\d.-]+), east = ([\d.-]+)\)$/m.exec(rSource)
       .slice(1).map(Number), waBox) && same(rCounties.slice().sort(), countyNames) && rCounties.length === 39,
     'table check: Washington\'s box is rules.js\'s and its 39 county names are the map\'s', rCounties.length);
+    // The .bat and the README open on Windows as they are: Windows' line ends and plain ASCII (as its ZIP requires).
+    for (const name of ['CHECK_HPAI_TABLE.bat', 'README.txt']) {
+      const text = fs.readFileSync(path.join(ROOT, 'tools', 'work-pc', name), 'latin1');
+      check(text.endsWith('\r\n') && !/[^\r]\n/.test(text) && !/[^\x20-\x7e\r\n]/.test(text),
+        'table check: ' + name + ' has Windows line ends and plain ASCII');
+    }
 
     // The report's parts, read back.
     const reportOf = text => {
@@ -1580,20 +1810,28 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
           const x = /^(.*): (\d+)(?: \((.+)\))?$/.exec(e); return [x[1], +x[2], x[3] || '']; });
       }
       const animals = /^Animals \((.+)\): (\d+) read, (\d+) not read, (\d+) blank$/m.exec(text);
-      const county = /^ {2}"Yakima" (\d+), "yakima" (\d+), "Yakima County" (\d+), not a Washington county (\d+), blank (\d+)$/m.exec(text);
+      const county = /^ {2}"Name" (\d+), "name" (\d+), "Name County" (\d+), not a Washington county (\d+), blank (\d+)$/m.exec(text);
       const coords = /^Coordinates: mapped (\d+) \(outside the box around Washington (\d+)\), not mapped (\d+)\r\n {2}not mapped because: no coordinates (\d+), no latitude (\d+), no longitude (\d+), not readable (\d+), look swapped (\d+)$/m.exec(text);
-      const groupsLine = /^ {2}current (\d+), past (\d+) \(still under quarantine (\d+), not known (\d+)\), not mapped (\d+)$/m.exec(text);
+      const GROUPS = / {2}active (\d+), closed (\d+) \(still under quarantine (\d+), not known (\d+)\), not mapped (\d+)/;
+      const groupsLine = new RegExp('^What the page would show on the last detection date .*:\\r\\n' + GROUPS.source + '$', 'm').exec(text);
+      const todayLine = new RegExp('^What the page opens on, today \\((\\w+ \\d+, \\d{4})\\), in both views:\\r\\n' + GROUPS.source + '\\r\\n'
+        + ' {2}\\("On a day" opens on today, "Between dates" from the first detection to today: the same positives\\.\\)$', 'm').exec(text);
       return { rows: num(/^Rows below the header: (\d+)/m), ncol: num(/^Columns: (\d+)/m), columns, dates, categories,
         missing: block(/^Not found \(/).map(l => l.trim().split(/\s{2,}/)[0]),
         animals: animals ? animals.slice(1).map((v, k) => k ? +v : v) : null,
         county: county ? county.slice(1).map(Number) : null, coords: coords ? coords.slice(1).map(Number) : null,
-        groups: groupsLine ? groupsLine.slice(1).map(Number) : null, undated: num(/without a readable detection date: (\d+)$/m),
+        groups: groupsLine ? groupsLine.slice(1).map(Number) : null,
+        today: todayLine ? todayLine.slice(2).map(Number) : null, todayWords: todayLine ? todayLine[1] : null,
+        afterToday: (/^What the page opens on: a detection is after today \((\w+ \d+, \d{4})\), so both views open on the last\r\ndetection date \((\w+ \d{4})\), the counts above\.$/m.exec(text) || []).slice(1),
+        noDay: /^What the page opens on: no readable detection date, so no day to open on \(the counts above\)\.$/m.test(text), undated: num(/without a readable detection date: (\d+)$/m),
         end: (/^What the page would show on the last detection date \((\w+ \d{4})\):$/m.exec(text) || [])[1] || null };
     };
-    const runCheck = file => {
-      const out = path.join(OUTD, path.basename(file).replace(/\.csv$/, '') + '.txt');
+    // The day the check takes as today: the suites' fixed today, unless named.
+    const TODAY = '2026-10-30';
+    const runCheck = (file, day) => {
+      const out = path.join(OUTD, path.basename(file).replace(/\.csv$/, '') + (day ? '_' + day : '') + '.txt');
       const hash = () => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'), before = hash();
-      try { execFileSync('Rscript', ['--vanilla', SCRIPT, file, out], { stdio: 'pipe' }); }
+      try { execFileSync('Rscript', ['--vanilla', SCRIPT, file, out, day || TODAY], { stdio: 'pipe' }); }
       catch (e) { return { failed: String(e.stderr || e.message).slice(0, 300) }; }
       if (hash() !== before) return { failed: 'the table changed' };
       return { text: fs.readFileSync(out, 'utf8') };
@@ -1618,9 +1856,9 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       return s.length > 24 ? s.slice(0, 24) + '...' : s; };
     const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
       'November', 'December'];
-    const pageOf = file => {
+    const pageOf = (file, day) => {
       const parsed = globalThis.CVIWA.csv.parse(fs.readFileSync(file, 'utf8'));
-      const header = parsed.header, read = E.readPositives(header, parsed.rows, null);
+      const header = parsed.header, read = E.readPositives(header, parsed.rows, null, day || TODAY);
       const rows = parsed.rows.filter(r => !r.every(v => txt(v) === '')).map(r => header.map((h, k) => txt(r[k])));
       const at = name => (name === null ? -1 : header.indexOf(name));
       const idx = names => [...new Set(names.map(n => header.findIndex(h => txt(h).toLowerCase() === n.toLowerCase()
@@ -1638,7 +1876,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       const idAt = at(read.columns.id), ids = idAt < 0 ? [] : rows.map(r => r[idAt]).filter(Boolean);
       const countyWord = new RegExp('\\b(' + countyNames.join('|') + ')\\b', 'i');
       const looksPrivate = v => /\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}|(^|[^0-9.])-?\d{1,3}\.\d{3,}/.test(v)
-        || countyWord.test(v) || ids.includes(v);
+        || MONTH_DAY.test(v) || countyWord.test(v) || ids.includes(v);
       const columns = header.map((h, i) => [txt(h) && looksPrivate(txt(h)) ? 'Column ' + (i + 1) + ' (name not shown)' : txt(h),
         roles[i], E.PRIVATE.test(h) ? '-' : String(rows.filter(r => r[i] === '').length)]);
       const missing = ALL_ROLES.filter(k => (k === 'detected' ? !detectedAt.length : k === 'shown' ? !shownAt.length
@@ -1691,30 +1929,49 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
         reasons('no coordinates'), reasons('no latitude'), reasons('no longitude'), reasons('coordinates not readable'),
         reasons('latitude and longitude look swapped')];
       const win = E.windowOf(read.positives), g = E.groups(read, win);
+      const counts = x => [x.current.length, x.past.length, x.stillQuarantined.length, x.notKnown.length, x.notMapped.length];
+      // The views the page opens on today (2.5): both on today, or on the last detection date when that is later.
+      const open = E.openingViews(win, day || TODAY);
+      const onDay = open ? counts(E.groups(read, open.day)) : null, onRange = open ? counts(E.groups(read, open.range)) : null;
+      const monthYear = d => MONTH[+d.slice(5, 7) - 1] + ' ' + d.slice(0, 4);
       return { read, header, rows, ncol: header.length, columns, missing, dates, animals, categories, county, coords,
-        groups: [g.current.length, g.past.length, g.stillQuarantined.length, g.notKnown.length, g.notMapped.length],
-        undated: g.undated.length, end: win ? MONTH[+win.end.slice(5, 7) - 1] + ' ' + win.end.slice(0, 4) : null };
+        groups: counts(g), undated: g.undated.length, end: win ? monthYear(win.end) : null,
+        today: open && open.day.end === (day || TODAY) && same(onDay, onRange) ? onDay : null,
+        moved: open && open.day.end !== (day || TODAY) ? monthYear(open.day.end) : null, noDay: !open };
     };
-    // Nothing from the table but its shape: no Case ID, address, coordinate, county name or full date.
+    // Nothing from the table but its shape: no Case ID, address, coordinate, county name or full date (the County
+    // forms' line names its forms "Name", so no county name is ever in the report, 2.5).
     const leaks = (text, page) => {
-      const body = text.split('\r\n').filter(l => !/^Made \d{4}-\d\d-\d\d\./.test(l)).join('\n')
-        .replace(/"Yakima" \d+, "yakima" \d+, "Yakima County" \d+/, '');
+      const body = text.split('\r\n').filter(l => !/^Made \d{4}-\d\d-\d\d\./.test(l)).join('\n');
       const ids = page.read.positives.concat(page.read.dropped).map(p => p.id).filter(Boolean);
       const latLon = ['lat', 'lon'].map(k => page.header.indexOf(page.read.columns[k])).filter(i => i >= 0)
         .flatMap(i => page.rows.map(r => r[i])).filter(v => /\d\.\d/.test(v));
       return ids.filter(v => body.includes(v)).concat(latLon.filter(v => body.includes(v)),
         countyNames.filter(n => new RegExp('\\b' + n + '\\b', 'i').test(body)),
         (body.match(/MARKED-ADDRESS|\b\d{1,2}\/\d{1,2}\/\d{4}\b|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/g) || [])
-          .filter(m => !/^[9/-]+$/.test(m)));   // an unread date's shape (each digit a 9) is not a date
+          .filter(m => !/^[9/-]+$/.test(m)),   // an unread date's shape (each digit a 9) is not a date
+        // A date written with its month's name, from the table's own cells (the report writes today's date so).
+        page.rows.flat().filter(v => MONTH_DAY.test(v) && body.includes(v)));
     };
 
     const TABLES = ['em_positives_agreed.csv', 'em_positives_times.csv', 'em_positives_agreed_header.csv',
       'em_positives_tool.csv', 'em_positives_demo.csv', 'em_positives_one_marker.csv', 'em_positives_no_date.csv',
       'em_sample_positives.csv', 'em_rules_positives.csv', 'em_rules_agreed.csv', 'em_rules_overview.csv',
-      'em_rules_quarantine.csv', 'em_table_check_edge.csv'];
+      'em_rules_quarantine.csv', 'em_rules_closed_day.csv', 'em_table_check_edge.csv'];
     for (const name of TABLES) {
       const file = path.join(FXD, name), page = pageOf(file), run = runCheck(file);
       check(!run.failed, 'table check: ' + name + ': R ran and the table is unchanged', run.failed);
+      // The closed positives by their closing day (2.5): the Close Date (whatever the Status), else the release date
+      // on or before today, else not known; the three add up to those closed by either column.
+      const days = /^ {2}of the mapped closed positives: closed on their Close Date (\d+), on their release date (\d+), on a day not known (\d+)$/m
+        .exec(run.text || '');
+      const mappedClosed = page.read.positives.filter(p => p.closed || p.closedDate);
+      const pageDays = !page.read.columns.closed ? null : [mappedClosed.filter(p => p.closedDate).length,
+        mappedClosed.filter(p => !p.closedDate && p.quarantine && !p.releaseAfterToday).length,
+        mappedClosed.filter(E.closedDayNotKnown).length];
+      check(same(days ? days.slice(1).map(Number) : null, pageDays),
+        'table check: ' + name + ': the closed positives by their closing day (Close Date, release date, not known), as the page',
+        { r: days && days.slice(1), page: pageDays });
       if (run.failed) continue;
       const r = reportOf(run.text);
       check(page.read.type.id === 'hpai' && r.rows === page.rows.length && r.ncol === page.ncol && same(r.columns, page.columns)
@@ -1729,8 +1986,11 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       check(same(r.county, page.county) && same(r.coords, page.coords), 'table check: ' + name + ': the County forms; the coordinates mapped and why not',
         { r: [r.county, r.coords], page: [page.county, page.coords] });
       check(same(r.groups, page.groups) && r.undated === page.undated && r.end === page.end,
-        'table check: ' + name + ': current, past, still under quarantine, not known and not mapped on the last detection date (as the page)',
+        'table check: ' + name + ': active, closed, still under quarantine, not known and not mapped on the last detection date (as the page)',
         { r: [r.groups, r.undated, r.end], page: [page.groups, page.undated, page.end] });
+      check(page.noDay ? r.noDay && r.today === null : page.today !== null && same(r.today, page.today) && r.todayWords === 'October 30, 2026' && !r.noDay,
+        'table check: ' + name + ': the counts the page opens on today (Oct 30, 2026), in both views, as the page',
+        { r: [r.today, r.todayWords, r.noDay], page: [page.today, page.noDay] });
       check(!leaks(run.text, page).length && !/[^\r]\n/.test(run.text), 'table check: ' + name + ': no Case ID, address, coordinate, county name or full date; Windows line ends',
         leaks(run.text, page));
     }
@@ -1750,6 +2010,29 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && /Rows below the header: 17 \(1 empty row not counted, as the page skips them\)/.test(edgeText),
     'table check: the edge table: unread dates by their shape only, the forms read, an unread quarantine status in one row by its shape, a long value counted not shown', edgeText.slice(0, 300));
 
+    // Made here: a table whose groups change after its last detection (Sep 1, 2026): a positive closed Sep 15 and
+    // released Oct 1, one closed Oct 20 (no release date: still under quarantine), one closing Nov 15, one closed
+    // by its Status with no Close Date and a release on Dec 1: on a day the page opens on before Dec 1 that date
+    // cannot be when it closed, so it is closed on every day; opened in 2030, it is active until Dec 1 (2.5). The
+    // day the page opens on decides; a day before the last detection opens on that date.
+    const later = path.join(OUTD, 'groups_after.csv');
+    fs.writeFileSync(later, ['Case ID,Confirmed Diagnosis,Latitude,Longitude,Status,Close Date,Quarantine Release',
+      'SYN-L-01,8/1/2026,46.55,-120.47,Closed,9/15/2026,10/1/2026', 'SYN-L-02,9/1/2026,46.60,-120.50,Closed,10/20/2026,',
+      'SYN-L-03,7/1/2026,46.61,-120.51,Open,11/15/2026,', 'SYN-L-04,6/1/2026,46.62,-120.52,Closed,,12/1/2026'].join('\n') + '\n');
+    const laterRuns = ['2026-09-20', TODAY, '2030-01-01', '2026-08-01'].map(day => {
+      const run = runCheck(later, day);
+      return { day, page: pageOf(later, day), r: run.text ? reportOf(run.text) : {} };
+    });
+    check(same(laterRuns.map(x => x.r.groups), [[3, 1, 1, 0, 0], [3, 1, 1, 0, 0], [4, 0, 0, 0, 0], [3, 1, 1, 0, 0]])
+      && laterRuns.every(x => same(x.r.groups, x.page.groups))
+      && same(laterRuns.slice(0, 3).map(x => x.r.today), [[2, 2, 2, 0, 0], [1, 3, 2, 0, 0], [0, 4, 2, 0, 0]])
+      && laterRuns.slice(0, 3).every(x => same(x.r.today, x.page.today))
+      && same(laterRuns.slice(0, 3).map(x => x.r.todayWords), ['September 20, 2026', 'October 30, 2026', 'January 1, 2030'])
+      && laterRuns[3].r.today === null && same(laterRuns[3].r.afterToday, ['August 1, 2026', 'September 2026'])
+      && laterRuns[3].page.moved === 'September 2026',
+    'table check: groups that change after the last detection: on Sep 20 2 active, 2 closed; on Oct 30 1 and 3; in 2030 0 and 4 (as the page); closed by Status with a release after the day closed on every day, before the release active once it is past; a day before the last detection opens on it',
+      laterRuns.map(x => [x.day, x.r.groups, x.r.today, x.page.today, x.r.afterToday]));
+
     // Made here: a column of 30 different values (counted, not listed) and a table without its header row.
     const many = path.join(OUTD, 'many_values.csv');
     fs.writeFileSync(many, ['Case ID,Confirmed Diagnosis,Latitude,Longitude,Production Type']
@@ -1761,7 +2044,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     fs.writeFileSync(headless, 'SYN-H-01,9/3/2026,46.5520,-120.4700,Yakima\nSYN-H-02,9/4/2026,46.4010,-120.3150,Benton\n');
     const headlessText = runCheck(headless).text || '';
     check(/The first row does not look like the header/.test(headlessText) && /^Column 1\s+not used/m.test(headlessText)
-      && !/SYN-H|46\.5520|Yakima\b(?!" \d)|Benton|9\/3\/2026/.test(headlessText.replace(/"Yakima" \d+, "yakima" \d+, "Yakima County" \d+/, '')),
+      && !/SYN-H|46\.5520|Yakima|Benton|9\/3\/2026/.test(headlessText),
     'table check: a table without its header row: the columns by their place only, no cell shown', headlessText.slice(0, 600));
     // A table without its header row whose first row ends in a Yes/No cell: "Y" is a latitude's name, but a one-letter
     // name alone does not make the row a header.
@@ -1769,7 +2052,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     fs.writeFileSync(headlessY, 'SYN-H-01,9/3/2026,46.5520,-120.4700,Yakima,Y\n');
     const headlessYText = runCheck(headlessY).text || '';
     check(/The first row does not look like the header/.test(headlessYText) && /^Column 6\s/m.test(headlessYText)
-      && !/SYN-H|46\.5520|120\.4700|Yakima\b(?!" \d)|9\/3\/2026/.test(headlessYText.replace(/"Yakima" \d+, "yakima" \d+, "Yakima County" \d+/, '')),
+      && !/SYN-H|46\.5520|120\.4700|Yakima|9\/3\/2026/.test(headlessYText),
     'table check: a table without its header row and a "Y" in its first row: still by place only, no cell shown', headlessYText.slice(0, 600));
     // Words typed into the category columns that are not category words: a name in one row, a date beside a status
     // word, a county's name in two rows, a coordinate, a Case ID in two rows; a column named with a date. Each by its shape (the
@@ -1793,6 +2076,18 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(same(Object.fromEntries(Object.entries(typedR.categories || {}).map(([k, v]) => [k, v.slice().sort()])),
       Object.fromEntries(Object.entries(typedPage.categories).map(([k, v]) => [k, v.slice().sort()]))),
     'table check: words typed into the category columns: the values as shown equal the page model\'s', [typedR.categories, typedPage.categories]);
+    // Dates written with their month's name, each in two rows (so not left out as a one-row value): by their shape.
+    const worded = path.join(OUTD, 'worded_dates.csv');
+    fs.writeFileSync(worded, ['Case ID,Confirmed Diagnosis,Latitude,Longitude,County,Status,Production Type,Species',
+      'SYN-W-01,9/3/2026,46.55,-120.47,Yakima,Open,"Oct 5, 2026",5 October',
+      'SYN-W-02,9/5/2026,46.60,-120.50,Yakima,Open,"Oct 5, 2026",5 October',
+      'SYN-W-03,9/6/2026,46.61,-120.51,Yakima,Open,October 2026,Chicken',
+      'SYN-W-04,9/7/2026,46.62,-120.52,Yakima,Open,October 2026,Chicken'].join('\n') + '\n');
+    const wordedPage = pageOf(worded), wordedRun = runCheck(worded), wordedText = wordedRun.text || '';
+    check(!wordedRun.failed && !leaks(wordedText, wordedPage).length && !/Oct 5|5 October/.test(wordedText)
+      && /"aaa 9, 9999": 2/.test(wordedText) && /"9 aaaaaaa": 2/.test(wordedText) && /October 2026: 2/.test(wordedText),
+    'table check: a date written with its month\'s name, in two rows, by its shape only; a month and year alone as written',
+      wordedText.split('\r\n').filter(l => /^ {2}(Production|Species)/.test(l)));
   }
 
   console.log(`Emergency unit tests: ${pass} passed, ${fail} failed`);
