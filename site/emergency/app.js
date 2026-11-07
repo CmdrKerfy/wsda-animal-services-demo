@@ -14,8 +14,10 @@
  * the status tick boxes when the file has a status column, the time views' switch (2.5: "On a day" with its one
  * date, "Between dates" with its two) with the play by week or month and its slider, "Show closed positives" (On a day
  * only) with its folded "Closed zones" ("Draw their rings"), the rings with the km | miles
- * switch, "Use a zone file" (a zone file that comes with the files replaces the rings at once only when the type's
- * zones come from a file), "Add a point on the map"); Layers to check (the type's suggestions ticked first); More
+ * switch and under them the switch "Rings | Zones | Both" (3b), "Use a zone file" (a zone file that comes with the
+ * files replaces the rings at once only when the type's zones come from a file), "Add a point on the map", "Draw a
+ * zone" (2.6: the shape switch, the drawing in draw.js, the list of drawn zones with a name box, Edit and Remove;
+ * drawn zones join the zone file's zones as one zone set, rules.js zoneSet)); Layers to check (the type's suggestions ticked first); More
  * options (basemap, neighboring regions, population, locations known only roughly); Export & Preview (the ZIP of
  * CSV files and the map picture). After a clean load every fold is
  * closed, so the map and the boxes are what shows first. "Inside the zones" starts with the "Zones" list (days since
@@ -42,13 +44,15 @@
     fileWindow: null, window: null, steps: { by: null, steps: [] }, stepAt: 0, picked: null, playing: false, playTimer: null,
     opening: null, views: null, viewKind: 'day', chartSteps: { by: null, steps: [] }, today: null,
     days: null,
-    zoneFile: null, useZones: false, points: [], pointsAdded: 0, picking: false,
+    zoneFile: null, show: 'rings', points: [], pointsAdded: 0, picking: false,
+    drawn: [], drawnCount: 0, drawShape: 'freehand', zonesVersion: 0, ringGuide: false,
     prepared: null, layers: Object.create(null), selectedLayers: [], includeCoarse: false, result: null,
     nameLayers: ['positives'],   // 2.4: the names on the map picture ("Name markers in PNG"), the positives' by default
     basemap: '', neighbors: Object.create(null), population: { on: { cities: false, places: false, density: false }, missing: {} },
     populationFor: null,   // the positives file the population layers were last turned on for (its path, name and size)
     tab: 'inside', view: 'map', fitNext: false,
-    master: null, masterReason: '', cvi: { years: [], quarters: QUARTERS.slice(), species: [] }, cviRes: null, cviKey: null
+    master: null, masterReason: '', cvi: { years: [], quarters: QUARTERS.slice(), species: [] }, cviRes: null, cviKey: null,
+    cviOn: false   // 2.6: the tick "CVI movements", off at every load
   };
   let pendingReply = null;
   W.emergencyIcons.fill();   // the time views' pin and span (icons.js)
@@ -250,14 +254,14 @@
     state.selectedLayers = E.suggestedLayers(state.type, state.read ? state.read.positives : [], usable);
     // A zone file that came with the files is read; it replaces the rings at once when the type's zones come from a
     // file (zones.source "file"), else one tick does it.
-    state.zoneFile = null;
-    state.useZones = false;
+    clearZoneFile();
     const zone = Object.values(datasets).find(d => d.kind === 'zone');
     if (zone) await readZoneFile(zone.file, 'bundle');
     // The CVI master (optional): read as the CVI page reads it; every year, quarter and species group ticked.
     state.master = null;
     state.masterReason = '';
     state.cviKey = null;
+    state.cviOn = false;
     if (datasets.master) {
       try {
         const m = C.master.load(await datasets.master.file.text());
@@ -396,7 +400,9 @@
     state.type = T.get($('em-type').value);
     state.typePicked = true;
     // A zone file sent with the files is used when the new type's zones come from a file (one chosen here stays).
-    if (state.zoneFile && state.zoneFile.source !== 'page') state.useZones = state.type.zones.source === 'file';
+    if (state.zoneFile && state.zoneFile.source !== 'page') {
+      state.show = state.type.zones.source === 'file' ? (state.show === 'both' ? 'both' : 'zones') : E.showOf(state.show, [], state.drawn);
+    }
     readPositives();
     state.selectedLayers = E.suggestedLayers(state.type, state.read ? state.read.positives : [], Object.keys(state.layers));
     syncControls();
@@ -455,7 +461,7 @@
     past.checked = !!state.ticks && state.ticks.pastShown;
     $('em-past-fold').hidden = !closedShown() || past.disabled;
     $('em-past-rings').checked = state.pastRings;
-    $('em-past-rings').disabled = state.useZones && !!state.zoneFile;
+    $('em-past-rings').disabled = shown() === 'zones';
     if (!state.read) { box.disabled = true; return; }
     box.disabled = false;
     for (const c of E.statusChoices(state.type, state.read.positives).filter(x => x.count)) {
@@ -639,7 +645,8 @@
   function advance() {
     if (!state.playing) return;
     goStep(state.stepAt + 1);
-    if (state.stepAt >= state.steps.steps.length - 1) { stopPlay(); return; }
+    state.stepMs = state.computeMs;   // test hook: this step's redraw (the stop's own, with the CVI movements, comes after)
+    if (state.stepAt >= state.steps.steps.length - 1) { stopPlay(true); return; }
     state.playTimer = root.setTimeout(advance, PLAY_MS);
   }
   function startPlay() {
@@ -649,14 +656,16 @@
     state.playing = true;
     advance();
   }
-  // Stops the play; the CVI movements are then worked out for the date shown.
-  function stopPlay() {
+  // Stops the play. With redraw (the Pause button, the play's end) the CVI movements are worked out for the date
+  // shown: the map's CVI premises come back, or the tab; every other caller redraws everything itself right after.
+  function stopPlay(redraw) {
     if (!state.playing) return;
     root.clearTimeout(state.playTimer);
     state.playing = false;
     state.playTimer = null;
     renderPlay();
-    if (state.tab === 'cvi') renderCvi();
+    if (redraw && cviOn()) compute();
+    else if (redraw && state.tab === 'cvi') renderCvi();
     fitShown();
   }
   // Fits the view to what is drawn now, or when the Map is next shown.
@@ -666,11 +675,15 @@
     EM.fit(state.map);
     state.fitNext = false;
   }
-  $('em-play').addEventListener('click', () => (state.playing ? stopPlay() : startPlay()));
+  $('em-play').addEventListener('click', () => (state.playing ? stopPlay(true) : startPlay()));
   // The slider's value is read before the play stops (stopping redraws the slider at the step shown).
+  let slideTimer = null;
   $('em-step').addEventListener('input', () => {
     const i = Number($('em-step').value);
     slidAt = Date.now();
+    state.sliding = true;   // 2.6: the map's CVI premises wait until the slider rests
+    root.clearTimeout(slideTimer);
+    slideTimer = root.setTimeout(() => { slideTimer = null; state.sliding = false; if (cviOn()) compute(); }, PEOPLE_IDLE_MS);
     stopPlay();
     goStep(i);
   });
@@ -700,6 +713,9 @@
     syncUnit();
     if (state.rings) renderRings();
     compute();
+    syncShapes();
+    renderDrawn();
+    draw.refresh();
   }
   document.querySelectorAll('.unit-switch [data-unit]').forEach(b => b.addEventListener('click', () => setUnit(b.dataset.unit)));
 
@@ -739,22 +755,48 @@
     compute();
   }
 
+  // ---- The zone set: a zone file's zones and the zones drawn on the map ------------------------------------------
+  // One set (rules.js zoneSet: the file's zones first), shown by the switch "Rings | Zones | Both" (3b): in the rings'
+  // place, with them, or not at all (rules.js showOf: Rings while no zone exists). zonesVersion counts every change of
+  // its shapes (the Overview's people are kept for it).
+  const fileZones = () => (state.zoneFile ? state.zoneFile.zones : []);
+  const allZones = () => E.zoneSet(fileZones(), state.drawn);
+  const shown = () => E.showOf(state.show, fileZones(), state.drawn);
+  // The fold's summary and the positives box's note: "zones from a file", "2 drawn zones", "1 zone from a file and 2
+  // drawn".
+  function zonesWords() {
+    const f = fileZones().length, d = state.drawn.length;
+    if (!d) return 'zones from a file';
+    return f ? plural(f, 'zone from a file', 'zones from a file') + ' and ' + d + ' drawn' : plural(d, 'drawn zone', 'drawn zones');
+  }
+  // The zone file gone (a new set of files, or one that could not be read): the drawn zones stay shown if they were.
+  function clearZoneFile() {
+    state.zoneFile = null;
+    state.show = E.showAfter('file cleared', { show: state.show, fileZones: [], drawn: state.drawn });
+    state.zonesVersion++;
+  }
+
   // ---- Use a zone file -----------------------------------------------------------------------------------------
   // A zone file read with shared/zones.js (GeoJSON, KML or a zipped shapefile, in longitude and latitude); from the
-  // landing page's bundle or chosen here. Its zones replace the rings while "Use the file's zones" is ticked.
+  // landing page's bundle or chosen here, shown as the switch "Rings | Zones | Both" says.
   async function readZoneFile(file, source) {
     try {
       const r = await Z.read(file);
       if (!r.zones.length) throw new Error('"' + file.name + '" holds no polygon zones.');
       state.zoneFile = { name: file.name, zones: r.zones, source };
-      // Chosen here: used at once. Sent with the files: used when the type's zones come from a file.
-      state.useZones = source === 'page' || state.type.zones.source === 'file';
+      state.zonesVersion++;
+      // Chosen here, or sent with the files for a type whose zones come from a file: shown at once (on Rings, Zones;
+      // rules.js showAfter). Otherwise sent with the files: shown when the drawn zones already were.
+      state.show = source === 'page' || state.type.zones.source === 'file'
+        ? E.showAfter('file', { show: state.show, fileZones: r.zones, drawn: state.drawn }) : E.showOf(state.show, [], state.drawn);
       const left = r.skipped + r.broken;
-      say('em-zone-status', 'ok', file.name + ': ' + plural(r.zones.length, 'zone', 'zones') + ' read'
-        + (left ? '; ' + plural(left, 'shape', 'shapes') + ' left out (not usable polygons)' : '') + '.');
+      // A name a drawn zone has too (a reopened Export's zones.geojson): the counts are kept by name, so it is said.
+      const twice = r.zones.map(z => z.name).filter(n => state.drawn.some(d => d.name === n));
+      say('em-zone-status', twice.length ? 'warn' : 'ok', file.name + ': ' + plural(r.zones.length, 'zone', 'zones') + ' read'
+        + (left ? '; ' + plural(left, 'shape', 'shapes') + ' left out (not usable polygons)' : '') + '.'
+        + (twice.length ? ' A drawn zone has the same name (' + listOf(twice) + '): remove or rename the drawn one.' : ''));
     } catch (e) {
-      state.zoneFile = null;
-      state.useZones = false;
+      clearZoneFile();
       say('em-zone-status', 'err', e.message);
     }
   }
@@ -768,12 +810,13 @@
     state.fitNext = true;
     compute();
   });
-  $('em-use-zones').addEventListener('change', () => {
-    state.useZones = $('em-use-zones').checked && !!state.zoneFile;
+  document.querySelectorAll('#em-show [data-show]').forEach(b => b.addEventListener('click', () => {
+    if (b.disabled || state.show === b.dataset.show) return;
+    state.show = b.dataset.show;
     syncControls();
     state.fitNext = true;
     compute();
-  });
+  }));
 
   // ---- Add a point on the map (Premise Lookup's Pick on map) ------------------------------------------------------
   // A picked point gets rings like a positive (no status, never closed); listed with a name box and a remove button.
@@ -781,6 +824,7 @@
   const POINT_NAME_MAX = 60;
   function setPicking(on) {
     state.picking = !!on;
+    if (state.picking && draw.mode()) { draw.cancel(); draw.done(); }
     $('em-pick').setAttribute('aria-pressed', String(state.picking));
     EM.setPicking(state.map, state.picking, (lon, lat) => {
       const n = ++state.pointsAdded;
@@ -853,8 +897,15 @@
       label.textContent = l.liveLabel + ': ' + l.reason;
       box.append(label);
     }
+    // The tick "CVI movements" (2.6), once a CVI master is read; All and Clear leave it as it is.
+    $('em-cvi-field').hidden = !state.master;
+    $('em-cvi').checked = state.cviOn;
     renderNameMarkers();
   }
+  $('em-cvi').addEventListener('change', () => {
+    state.cviOn = $('em-cvi').checked;
+    compute();
+  });
   $('em-layers-all').addEventListener('click', () => {
     state.selectedLayers = Object.keys(state.layers);
     renderLayers();
@@ -866,6 +917,18 @@
     compute();
   });
 
+  // The switch "Rings | Zones | Both" (3b; Zones and Both grayed until a zone exists), the rings' boxes hidden on
+  // Zones, and the closed positives' rings with them.
+  function syncZoneTick() {
+    const now = shown(), none = !allZones().length;
+    document.querySelectorAll('#em-show [data-show]').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.show === now));
+      b.disabled = none && b.dataset.show !== 'rings';
+      b.title = b.disabled ? 'Load a zone file or draw a zone first.' : '';
+    });
+    $('em-rings-field').hidden = now === 'zones' || !state.rings || !state.rings.length;
+    $('em-past-rings').disabled = now === 'zones';
+  }
   // Every control from the state, after a new load, a type change or a new zone file.
   function syncControls() {
     $('em-type').value = state.type.id;
@@ -874,10 +937,9 @@
     renderWindow();
     syncUnit();
     if (state.rings) renderRings();
-    $('em-use-zones').disabled = !state.zoneFile;
-    $('em-use-zones').checked = state.useZones;
-    $('em-rings-field').hidden = state.useZones || !state.rings || !state.rings.length;
+    syncZoneTick();
     renderPoints();
+    renderDrawn();
     renderLayers();
   }
 
@@ -889,6 +951,8 @@
 
   // ---- The results: rules, map, boxes, legend --------------------------------------------------------------------
   const NO_STATUS = '#636363';
+  // The CVI premises' colors on the map and in its legend: the map picture's (branded.js), an origin's and a destination's.
+  const CVI_COLORS = { origin: W.emergencyBranded.CVI_ORIGIN, dest: W.emergencyBranded.CVI_DEST };
   // The positives and the added points the zones are drawn around, as the rules take them: a ticked status, inside
   // the window and current on its end date.
   function zonePositives() {
@@ -904,41 +968,45 @@
     const started = root.performance.now();
     const read = state.read, targets = zonePositives(), unit = state.unit;
     if (read) read.targets = targets.filter(p => !p.added);
-    const zonesMode = state.useZones && !!state.zoneFile;
+    // What shows (3b): the rings, the zones in their place, or both (the ring sites first, rules.js bothSites).
+    const show = shown(), zonesMode = show === 'zones';
     const g = read ? E.groups(read, state.window) : null;
-    const sites = zonesMode ? E.zoneSites(state.zoneFile.zones) : state.rings ? E.ringSites(targets, state.rings, unit) : [];
+    const ringPart = !zonesMode && state.rings ? E.ringSites(targets, state.rings, unit) : [];
+    const sites = show === 'zones' ? E.zoneSites(allZones()) : show === 'both' ? E.bothSites(ringPart, E.zoneSites(allZones())) : ringPart;
     // Past positives' rings: drawn only, when asked for, at the current distances; they never add rows or counts.
     const pastSites = g && !zonesMode && state.rings && closedShown() && state.pastRings && g.past.length
       ? E.ringSites(g.past, state.rings, unit) : [];
     const layers = state.selectedLayers.map(k => state.layers[k]).filter(Boolean);
-    state.result = sites.length || layers.length ? E.inside(sites, layers, { mode: zonesMode ? 'zones' : 'rings',
+    state.result = sites.length || layers.length ? E.inside(sites, layers, { mode: show,
       rings: state.rings, unit, positives: targets, includeCoarse: state.includeCoarse }) : null;
     // Days since the last positive: every positive detected inside the window counts, whatever its group.
     const counted = g ? g.current.concat(g.past) : [];
-    state.days = { zonesMode, asOf: windowEnd(), sites: E.daysSince(sites, counted, windowEnd()),
+    state.days = { zonesMode, show, asOf: windowEnd(), sites: E.daysSince(sites, counted, windowEnd()),
       past: E.daysSince(pastSites, counted, windowEnd()) };
-    state.zoneParts = { zonesMode, sites, pastSites, counted };   // for zones.geojson and the map picture
+    state.zoneParts = { zonesMode, show, sites, ringCount: ringPart.length, pastSites, counted };   // for zones.geojson and the map picture
     // The legend before the map: the map's fit keeps the legend's width clear, so it must be shown first.
-    legendArgs = [zonesMode, g, pastSites.length > 0];
+    state.cviKey = null;   // the zones or files changed: the CVI movements are worked out again when shown
+    const cvi = cviMarks();
+    legendArgs = [show, g, pastSites.length > 0, cvi];
     renderLegend(...legendArgs);
-    drawMap(sites, pastSites, zonesMode, targets, layers);
+    drawMap(sites, pastSites, show, ringPart.length, targets, layers, cvi);
     renderBoxes();
     if (!read || state.view !== 'overview') renderChart();   // on the Overview it is drawn with the rest (renderView)
     renderTabs();
     renderInside();
-    state.cviKey = null;   // the zones or files changed: the CVI movements are worked out again when shown
     if (state.tab === 'cvi') renderCvi();
     // The fold's summary says its settings; the counts are in the boxes above the map (each said once).
     const sum = [];
     if (read) {
-      sum.push(zonesMode ? 'zones from a file' : !state.rings || !state.rings.length ? 'no rings'
-        : listOf(state.rings.map(r => shownDistance(r.distance))).replace(/ /g, '\u00a0') + '\u00a0' + E.UNITS[state.unit].label + ' rings');
+      const ringsWords = !state.rings || !state.rings.length ? 'no rings'
+        : listOf(state.rings.map(r => shownDistance(r.distance))).replace(/ /g, '\u00a0') + '\u00a0' + E.UNITS[state.unit].label + ' rings';
+      sum.push(zonesMode ? zonesWords() : show === 'both' ? ringsWords + ', ' + zonesWords() : ringsWords);
       if (g.past.length) sum.push(closedShown() ? 'closed shown' : 'closed hidden');
       const noStatus = read.columns.status ? read.positives.filter(p => !p.status && E.inWindow(p, state.window)).length : 0;
       if (noStatus) sum.push(noStatus.toLocaleString('en-US') + ' without a status');
     }
     setSum('positives-sum', sum.join(', '));
-    setSum('layers-sum', layers.length ? plural(layers.length, 'layer', 'layers') : '');
+    setSum('layers-sum', (layers.length ? [plural(layers.length, 'layer', 'layers')] : []).concat(cviOn() ? ['CVI movements'] : []).join(', '));
     $('em-zero').hidden = !!read;
     // The switch shows once a positives file is read; without one the page is the map.
     $('em-view').hidden = !read;
@@ -968,24 +1036,37 @@
 
   // The map's data: the zones (with their hover lines), the past rings, the positives, and the ticked layers' sites,
   // inside highlighted and the others faded.
-  function drawMap(sites, pastSites, zonesMode, targets, layers) {
-    const days = state.days, tips = [];
-    const zones = zonesMode ? EM.polygonFeatures(state.zoneFile.zones, '#cb181d') : EM.zoneFeatures(sites, state.rings, null, state.unit);
+  function drawMap(sites, pastSites, show, ringCount, targets, layers, cvi) {
+    const days = state.days, tips = [], zonesMode = show === 'zones';
+    // The rings' shapes (the first ringCount sites), then the zones' (3b: in Both, the rest).
+    const ringZones = zonesMode ? [] : EM.zoneFeatures(sites.slice(0, ringCount), state.rings || [], null, state.unit);
+    const polygons = show === 'rings' ? [] : EM.polygonFeatures(allZones(), '#cb181d');
+    const zones = ringZones.concat(polygons);
     // A ring's hover lines, under its positive's name: the ring under the pointer and the larger rings around the
     // same positive (a point in the Infection zone is also in the Control zone), each with its days since the last
-    // positive. A zone file's zone has no heading.
+    // positive. A zone's (2.6): its name as the heading, its days since, then drawn or from the file and its area.
+    const zoneTips = (s, d) => [{ km: 0, head: s.name, text: daysText(d.days) },
+      { km: 0.001, head: s.name, text: (s.source === 'drawn' ? 'Drawn' : 'From the file') + ' \u00b7 ' + E.areaText(s.areaM2) }];
     const ringTips = (f, list, past) => state.rings.slice(f.properties.ring).map((r, k) => ({ km: E.toKm(r.distance, state.unit),
       head: f.properties.name + (past ? ' (closed)' : ''),
       text: r.label + ' (' + ringDistance(r) + '): ' + daysText(list[f.properties.site].rings[f.properties.ring + k].days) }));
-    zones.forEach((f, i) => {
+    ringZones.forEach(f => {
       f.properties.zid = tips.length;
-      tips.push(zonesMode ? [{ km: 0, head: '', text: f.properties.label + ': ' + daysText(days.sites[i].days) }] : ringTips(f, days.sites, false));
+      tips.push(ringTips(f, days.sites, false));
+    });
+    polygons.forEach((f, i) => {
+      f.properties.zid = tips.length;
+      tips.push(zoneTips(sites[ringCount + i], days.sites[ringCount + i]));
     });
     const pastZones = EM.zoneFeatures(pastSites, state.rings || [], null, state.unit);
     pastZones.forEach(f => {
       f.properties.zid = tips.length;
       tips.push(ringTips(f, days.past, true));
     });
+    // While a zone is drawn with the zones in the rings' place (Zones), the rings stay on the map as a guide (2.6):
+    // drawn only, with no hover lines (none shows while drawing), never counted or exported. In Both they show already.
+    const guide = zonesMode && state.ringGuide && state.rings
+      ? EM.zoneFeatures(E.ringSites(targets, state.rings, state.unit), state.rings, null, state.unit) : [];
     const withZones = new Set(targets.map(p => p.index)), read = state.read, end = windowEnd();
     const shown = read ? read.positives.filter(p => E.inWindow(p, state.window) && (closedShown() || !E.isPast(p, end))) : [];
     const positives = shown.map(p => ({ lat: p.lat, lon: p.lon, label: positiveLabel(p),
@@ -1000,8 +1081,9 @@
         insideKeys.add(key);
         const l = state.layers[row.layer];
         inside.push({ lat: row.lat, lon: row.lon, shape: l.shape, color: l.color,
-          label: row.name + '\n' + l.label + ' · ' + E.round2(E.fromKm(row.exactKm, state.unit)) + ' ' +
-            E.UNITS[state.unit].label + ' from ' + row.siteName });
+          // A site matched to a zone polygon says it is inside the zone (3b), not "0 km from" it.
+          label: row.name + '\n' + l.label + ' · ' + (row.inZone ? 'inside ' + row.siteName : E.round2(E.fromKm(row.exactKm, state.unit)) + ' ' +
+            E.UNITS[state.unit].label + ' from ' + row.siteName) });
       }
     }
     for (const l of layers) {
@@ -1017,10 +1099,10 @@
     // The map is hidden while the Overview shows: a fit then waits until the Map is shown again. The play's steps ask
     // for no fit, so the view stays still while it plays; it fits once when the play stops (stopPlay).
     const fit = state.fitNext && state.view === 'map';
-    EM.draw(state.map, { zones, pastZones, zoneTips: tips, tipFoot, positives, inside, outside, bounds }, fit);
+    EM.draw(state.map, { zones: zones.concat(guide), pastZones, zoneTips: tips, tipFoot, positives, inside, outside, cvi, bounds }, fit);
     if (fit) state.fitNext = false;
-    state.mapData = { zones: zones.length, pastZones: pastZones.length, positives: positives.length,
-      past: positives.filter(p => p.past).length, inside: inside.length, outside: outside.length };   // test hook
+    state.mapData = { zones: zones.length, guide: guide.length, pastZones: pastZones.length, positives: positives.length,
+      past: positives.filter(p => p.past).length, inside: inside.length, outside: outside.length, cvi: cvi.length };   // test hook
   }
 
   // The four value boxes of the view (rules.js boxesOf): On a day Active, Closed, Last positive and Sites inside;
@@ -1040,8 +1122,7 @@
       card.querySelector('strong').textContent = value === null ? note : typeof value === 'number' ? value.toLocaleString('en-US') : value;
       card.querySelector('.card-note').textContent = value === null ? '' : note || '';
     };
-    const fromFile = state.useZones && !!state.zoneFile;
-    set('box-positives', v.positives.value, v.positives.value !== null && fromFile ? 'zones from a file' : v.positives.note);
+    set('box-positives', v.positives.value, v.positives.value !== null && shown() === 'zones' ? zonesWords() : v.positives.note);
     set('box-past', v.past.value, v.past.value === null ? v.past.reason : v.past.note);
     set('box-detected', v.detected.value, v.detected.value === null ? v.detected.reason : '');
     for (const id of ['box-detected', 'box-positives', 'box-past', 'box-last', 'box-inside']) {
@@ -1261,11 +1342,11 @@
     return tracts;
   }
   // The people inside the zones drawn on the map (the current positives' and added points' rings, or the zone
-  // file's zones; never the past zones), worked out again only when the zones change. While the play runs or the
+  // set's zones; never the past zones), worked out again only when the zones change. While the play runs or the
   // slider moves, the zones change at every step: the people are worked out once it stops (PEOPLE_IDLE_MS after the
   // last move), "Working out…" meanwhile, so a step never waits on them.
   const PEOPLE_IDLE_MS = 250;
-  let peopleMemo = { zoneFile: null, key: null, value: null }, peopleTimer = null, slidAt = 0;
+  let peopleMemo = { zones: null, key: null, value: null }, peopleTimer = null, slidAt = 0;
   const moving = () => state.playing || Date.now() - slidAt < PEOPLE_IDLE_MS;
   function peopleLater() {
     root.clearTimeout(peopleTimer);
@@ -1274,11 +1355,11 @@
   function peopleNow() {
     const zp = state.zoneParts, t = overviewTracts();
     if (!t.list) return { value: null, waiting: t.loading };
-    const zoneFile = zp.zonesMode ? state.zoneFile : null;
+    const zones = zp.show !== 'rings' ? state.zonesVersion : null;   // the zone set's shapes (an edit counts them again)
     const key = zp.sites.map(x => x.lat + ',' + x.lon + ',' + x.bufferKm).join(';');
-    if (peopleMemo.zoneFile !== zoneFile || peopleMemo.key !== key) {
+    if (peopleMemo.zones !== zones || peopleMemo.key !== key) {
       if (moving()) { peopleLater(); return { value: null, waiting: true }; }
-      peopleMemo = { zoneFile, key, value: E.peopleInside(zp.sites, t.list, { year: t.year, counties: root.CVIWA_GEO.counties.features }) };
+      peopleMemo = { zones, key, value: E.peopleInside(zp.sites, t.list, { year: t.year, counties: root.CVIWA_GEO.counties.features }) };
     }
     return { value: peopleMemo.value };
   }
@@ -1320,7 +1401,9 @@
     renderChart();
     // The bars by county: active solid in the type's first status color, closed hollow, as in the time chart.
     const color = state.type.statuses[0].color, countyBox = $('ov-county-chart'), layerBox = $('ov-layer-chart');
-    const valuesOf = r => ({ label: r.label, values: Object.fromEntries(r.parts.map(x => [x.key, x.value])), total: r.total });
+    // A part's key: a layer's ring or zone kept apart by its kind (3b: a zone named as a ring), a county's as it is.
+    const partKey = x => (x.ring === undefined ? '' : x.ring ? 'ring\r' : 'zone\r') + x.key;
+    const valuesOf = r => ({ label: r.label, values: Object.fromEntries(r.parts.map(x => [partKey(x), x.value])), total: r.total });
     const noneText = state.viewKind === 'range' ? 'No positives detected between these dates.' : 'No positives by this day.';
     if (!rows.length) countyBox.replaceChildren(el('p', 'muted', noneText));
     else {
@@ -1328,12 +1411,17 @@
         series: [{ key: 'current', label: 'active', name: 'Active', fill: color },
           { key: 'past', label: 'closed', name: 'Closed', outline: true, stroke: color }] }, { width: countyBox.clientWidth });
     }
-    // The bars by layer: one part per ring (in its color) or per zone of a zone file.
+    // The bars by layer: one part per ring (in its color) and per zone (Both, 3b: the rings' parts first, the zones in
+    // the colors the rings do not use).
     if (!bars.layers.length) layerBox.replaceChildren(el('p', 'muted', 'Not available: needs a facility layer'));
     else {
-      const zonesMode = state.useZones && !!state.zoneFile;
-      const series = bars.layers[0].parts.map((x, i) => ({ key: x.key, name: x.key, label: 'in ' + (zonesMode ? '' : 'the ') + x.key,
-        fill: zonesMode ? ZONE_COLORS[i % ZONE_COLORS.length] : (state.rings[i] && state.rings[i].color) || ZONE_COLORS[0] }));
+      const parts = bars.layers[0].parts, rings = parts.filter(x => x.ring).length;
+      const ringColors = rings ? (state.rings || []).map(r => r.color) : [];
+      // With every color a ring's (a type of six rings), the zones in the last, gray.
+      const free = ZONE_COLORS.filter(c => !ringColors.includes(c));
+      const zoneFill = k => (free.length ? free[k % free.length] : ZONE_COLORS[ZONE_COLORS.length - 1]);
+      const series = parts.map((x, i) => ({ key: partKey(x), name: x.key, label: 'in ' + (x.ring ? 'the ' : '') + x.key,
+        fill: x.ring ? ringColors[i] || ZONE_COLORS[0] : zoneFill(i - rings) }));
       // The key always, so a zone file's one zone is named too.
       layerBox.innerHTML = CH.bars({ title: 'Sites inside the zones by layer', series, key: true, rows: bars.layers.map(valuesOf) },
         { width: layerBox.clientWidth });
@@ -1359,7 +1447,7 @@
       '" fill="#ffffff" stroke="#444444" stroke-width="1.6" stroke-linejoin="round"/></svg>';
     return s;
   }
-  function renderLegend(zonesMode, g, pastRings) {
+  function renderLegend(show, g, pastRings, cvi) {
     const box = $('em-legend-content'), lines = [];
     const line = (mark, text) => { const p = document.createElement('p'); p.append(mark, document.createTextNode(text)); lines.push(p); };
     const swatch = (cls, color, fill) => {
@@ -1374,12 +1462,19 @@
       }
       if (closedShown() && g.past.length) line(swatch('lg-dot', NO_STATUS, '#ffffff'), 'Closed (hollow, faded)');
     }
-    if (zonesMode) {
-      const z = state.zoneFile.zones;
-      line(swatch('lg-ring', '#cb181d', 'rgba(203, 24, 29, 0.16)'), z.length === 1 ? z[0].name : plural(z.length, 'zone', 'zones'));
-    }
-    else if (state.rings && state.read) {
+    // The rings' rows (Rings and Both, 3b), then the zone file's row (its zone's name, or "n zones") and the drawn
+    // zones' row, dashed (2.6; Zones and Both).
+    if (show !== 'zones' && state.rings && state.read) {
       state.rings.forEach(r => line(swatch('lg-ring', r.color, 'transparent'), r.label + ' (' + ringDistance(r) + ')'));
+    }
+    if (show !== 'rings') {
+      const z = fileZones(), d = state.drawn;
+      if (z.length) line(swatch('lg-ring', '#cb181d', 'rgba(203, 24, 29, 0.16)'), z.length === 1 ? z[0].name : plural(z.length, 'zone', 'zones'));
+      if (d.length) {
+        const s = swatch('lg-ring', '#cb181d', 'rgba(203, 24, 29, 0.16)');
+        s.classList.add('dashed');
+        line(s, d.length === 1 ? d[0].name + ' (drawn)' : plural(d.length, 'drawn zone', 'drawn zones'));
+      }
     }
     if (pastRings) line(el('span', 'lg-past-ring'), 'Closed zones (dashed)');
     // The animals by the marks' shapes (2.4), for the kinds among the positives drawn.
@@ -1390,6 +1485,16 @@
       lines.push(head);
     }
     for (const k of kinds) line(animalMark(k.shape), k.label);
+    // The CVI premises drawn (2.6, with the tick on): hollow, an origin's and a destination's color (before the
+    // layers, as in the map picture's key); none while they wait or when none is in a zone.
+    const ends = (cvi || []).map(q => q.end);
+    if (ends.length) {
+      const head = el('p', 'lg-pc-head');
+      head.append(el('strong', '', 'CVI premises'));
+      lines.push(head);
+      if (ends.includes('origin')) line(swatch('lg-dot', CVI_COLORS.origin, '#ffffff'), 'Origin in a zone');
+      if (ends.includes('dest')) line(swatch('lg-dot', CVI_COLORS.dest, '#ffffff'), 'Destination in a zone');
+    }
     for (const k of state.selectedLayers) {
       const l = state.layers[k];
       if (l) line(F.markElement(l.layer, 14), l.label);
@@ -1439,7 +1544,7 @@
     const keep = allColumns.map((c, j) => j === 0 || allRows.some(r => !blank(r[j])));
     const columns = allColumns.filter((c, j) => keep[j]), rows = allRows.map(r => r.filter((v, j) => keep[j]));
     const wrap = el('div', 'table-wrap'), t = el('table'), head = el('tr');
-    columns.forEach((c, j) => head.append(el('th', rows.length && typeof rows[0][j] === 'number' ? 'num' : null, c)));
+    columns.forEach((c, j) => head.append(el('th', rows.some(r => typeof r[j] === 'number') ? 'num' : null, c)));
     const thead = el('thead'), body = el('tbody');
     thead.append(head);
     rows.slice(0, TABLE_ROWS).forEach(r => {
@@ -1481,7 +1586,7 @@
     // Ring zones are named by their positive, the ring said once in the header ("in each positive's Infection
     // zone (6 km)"); zone-file zones by their own names. The dates written out.
     const t = zoneTable(), first = t.rows[0];
-    const ring = !d.zonesMode && first && first[1]
+    const ring = d.show === 'rings' && first && first[1]
       ? first[2] + ' (' + Number(first[3].toFixed(2)) + ' ' + first[4] + ')' : null;
     sum.append(el('strong', null, 'Zones'), document.createTextNode(': days since the last positive' +
       (ring ? ' in each positive\'s ' + ring : '') + (d.asOf ? ', as of ' + E.dayLabel(d.asOf) : '')));
@@ -1551,11 +1656,13 @@
       d.open = true;
       d.dataset.layer = s.key;
       sum.append(countLine(s));
-      // Zones from a file: a site is inside a polygon (no distance), and the zone is the site it was matched to.
+      // Zones: a site is inside a polygon (no distance), and the zone is the site it was matched to. Both (3b): a
+      // zone's rows (rules.js inside's inZone) with no distance, under "Positive or zone".
+      const zoneRow = x => x.inZone;
       d.append(sum, ...(s.mode === 'zones'
         ? tableOf(['Site', 'Zone', 'County', 'Town'], rows.map(x => [x.name, x.zone, x.county, x.town]))
-        : tableOf(['Site', km, 'Zone', 'Positive', 'County', 'Town'],
-          rows.map(x => [x.name, shownKm(x), x.zone, x.siteName, x.county, x.town]))));
+        : tableOf(['Site', km, 'Zone', s.mode === 'both' ? 'Positive or zone' : 'Positive', 'County', 'Town'],
+          rows.map(x => [x.name, zoneRow(x) ? '' : shownKm(x), x.zone, x.siteName, x.county, x.town]))));
       box.append(d);
     }
     if (r.leftOut.length) {
@@ -1572,13 +1679,40 @@
   }
 
   // ---- CVI movements ---------------------------------------------------------------------------------------------
-  // The zones as Premise Lookup's sites: one per positive with zones and added point (its rings as the bands), or the
-  // zone file's polygons; then CVI's query, every endpoint counting, with the years, quarters and species ticked.
+  // The zones as Premise Lookup's sites: one per positive with zones and added point (its rings as the bands), the
+  // zone set's polygons, or both (3b; a zone site matches inside its polygon only, whatever the bands); then CVI's
+  // query, every endpoint counting, with the years, quarters and species ticked.
+  // 2.6: the CVI movements count only with the tick "CVI movements" on (off at every load), a master read and a
+  // positives file: the map, the picture and the Export then show them.
+  const cviOn = () => !!(state.cviOn && state.master && state.read);
+  // The CVI query's result for the map: worked out once per change; none with a filter left empty. While the play
+  // runs or the slider moves (state.sliding, until PEOPLE_IDLE_MS after its last move) the query over the whole
+  // master waits, as the tab's does; the play's stop and the slider's rest draw the map once more with them.
+  function cviResult() {
+    const c = state.cvi;
+    if (!cviOn() || state.playing || state.sliding || !c.years.length || !c.quarters.length || !c.species.length) return null;
+    if (state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }
+    return state.cviRes;
+  }
+  // The CVI premises the map draws (with the tick on): each matched movement's origin or destination inside a zone,
+  // a spot that is both drawn as two rings, the destination's around the origin's. The hover says its place and its
+  // CVIs' numbers as the CVI movements table writes them, so its rows can be found there (the first three, then how
+  // many more).
+  const CVI_IDS_SHOWN = 3;
+  function cviMarks() {
+    const res = cviResult(), ends = E.cviEnds(res ? res.matched : []);
+    const ids = s => s.ids.slice(0, CVI_IDS_SHOWN).join(', ') + (s.ids.length > CVI_IDS_SHOWN ? ' and ' + (s.ids.length - CVI_IDS_SHOWN) + ' more' : '');
+    const label = (end, s) => 'CVI premises\n' + end + ' in a zone' + (s.place ? ' \u00b7 ' + s.place : '') + '\n' +
+      plural(s.cvis, 'CVI', 'CVIs') + ': ' + ids(s);
+    const origins = new Set(ends.origins.map(s => s.lat + ',' + s.lon));
+    return ends.origins.map(s => ({ lat: s.lat, lon: s.lon, color: CVI_COLORS.origin, r: 10, end: 'origin', label: label('Origin', s) }))
+      .concat(ends.dests.map(s => ({ lat: s.lat, lon: s.lon, color: CVI_COLORS.dest, r: origins.has(s.lat + ',' + s.lon) ? 14 : 10,
+        end: 'dest', label: label('Destination', s) })));
+  }
   function cviQuery() {
-    const zonesMode = state.useZones && !!state.zoneFile, c = state.cvi;
-    const sites = zonesMode
-      ? state.zoneFile.zones.map(z => ({ name: z.name, lat: z.point[1], long: z.point[0], zone: z.geometry }))
-      : zonePositives().map(p => ({ name: p.name, lat: p.lat, long: p.lon }));
+    const show = shown(), zonesMode = show === 'zones', c = state.cvi;
+    const polygons = show === 'rings' ? [] : allZones().map(z => ({ name: z.name, lat: z.point[1], long: z.point[0], zone: z.geometry }));
+    const sites = (zonesMode ? [] : zonePositives().map(p => ({ name: p.name, lat: p.lat, long: p.lon }))).concat(polygons);
     const distances = (state.rings || []).map(r => E.toKm(r.distance, state.unit));
     const opts = { endpoint: 'either', filters: { year: c.years, quarter: c.quarters, species: c.species } };
     if (zonesMode) opts.defaultKm = 0;
@@ -1594,8 +1728,7 @@
       input.type = 'checkbox'; input.value = String(v); input.checked = picked.includes(v);
       input.addEventListener('change', () => {
         state.cvi[key] = values.filter(x => box.querySelector('input[value="' + CSS.escape(String(x)) + '"]').checked);
-        state.cviKey = null;
-        renderCvi();
+        compute();   // the map's CVI premises and the tab
       });
       label.append(input, document.createTextNode(' ' + v));
       box.append(label);
@@ -1605,7 +1738,8 @@
     const gate = $('cvi-gate'), body = $('cvi-body');
     const reason = !state.datasets.master ? 'CVI movements need a CVI master (CVI_Consolidated_Master.csv): load it under "Load your data".'
       : !state.master ? 'The CVI master could not be read: ' + state.masterReason
-        : !state.read ? 'Load a positives file first.' : null;
+        : !state.read ? 'Load a positives file first.'
+          : !state.cviOn ? 'CVI movements are off: tick "CVI movements" under "Layers to check" to include them.' : null;
     gate.hidden = !reason;
     gate.textContent = reason || '';
     body.hidden = !!reason;
@@ -1669,14 +1803,20 @@
     return X.csv(table.columns, rows, types, true);
   }
   // zones.geojson: every zone drawn, as rules.js zonesGeoJson writes it: the current positives' rings, the points
-  // added on the map, the past positives' rings when drawn, or the zone file's zones.
+  // added on the map, the past positives' rings when drawn, and the drawn zones; or the zone set's zones (a zone file's
+  // and the drawn ones); or (Both, 3b) the rings and the zone set's zones.
   const isAdded = s => String(s.positive).indexOf('added-') === 0;
   function zonesGeoJson() {
-    const zp = state.zoneParts;
-    const parts = zp.zonesMode ? { zones: zp.sites } : { rings: [{ sites: zp.sites.filter(s => !isAdded(s)), group: 'Active' },
-      { sites: zp.sites.filter(isAdded), group: 'Added point' }, { sites: zp.pastSites, group: 'Closed' }] };
+    const zp = state.zoneParts, ringSites = zp.sites.slice(0, zp.ringCount);
+    // With the rings only, the drawn zones are written too (2.6), so the file keeps them (they are not stored).
+    const parts = zp.zonesMode ? { zones: zp.sites } : { rings: [{ sites: ringSites.filter(s => !isAdded(s)), group: 'Active' },
+      { sites: ringSites.filter(isAdded), group: 'Added point' }, { sites: zp.pastSites, group: 'Closed' }],
+    zones: zp.show === 'both' ? zp.sites.slice(zp.ringCount) : state.drawn.length ? E.zoneSites(state.drawn) : [] };
     return E.zonesGeoJson(parts, { rings: state.rings || [], unit: state.unit, asOf: windowEnd(), positives: zp.counted });
   }
+  // export_params.json's zones: "zone file zones.geojson", "zones zones.geojson and 2 drawn", "zones 2 drawn zones".
+  const zonesParam = () => (state.drawn.length ? 'zones ' + E.zonesNamed(state.zoneFile ? state.zoneFile.name : null, state.drawn.length)
+    : 'zone file ' + state.zoneFile.name);
   $('em-export').addEventListener('click', () => {
     const now = new Date(), folder = X.localDate(now) + '_' + (EB.safeLabel($('em-png-label').value) || 'Emergency');
     if (!state.read) { say('em-export-result', 'warn', 'Load a positives file before exporting.'); return; }
@@ -1691,17 +1831,19 @@
     add('left_out.csv', csvOf(t.leftOut));
     add('zones.csv', csvOf(zoneTable()));
     add('zones.geojson', JSON.stringify(zonesGeoJson()) + '\n');
-    if (state.master && state.read) {
+    if (cviOn()) {
       if (state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }
       const header = state.master.header.filter(h => !E.PRIVATE.test(h));
       add('cvi_movements.csv', X.lookupMatchesCsv({ header, rows: state.master.rows }, state.cviRes).text);
     }
-    const zonesMode = state.useZones && !!state.zoneFile;
+    const show = shown(), zonesMode = show === 'zones';
+    const ringsParam = () => 'rings ' + (state.rings || []).map(x => x.label + ' ' + ringDistance(x)).join(', ');
     const params = {
       tool: 'emergency_response',
       emergency_type: state.type.name,
       positives_file: state.datasets.positives ? state.datasets.positives.name : '',
-      zones: zonesMode ? 'zone file ' + state.zoneFile.name : 'rings ' + state.rings.map(x => x.label + ' ' + ringDistance(x)).join(', '),
+      zones: zonesMode ? zonesParam() : show === 'both' ? ringsParam() + '; ' + zonesParam() : ringsParam(),
+      ...E.drawnParams(state.drawn, show),
       statuses_with_zones: state.ticks.statuses.map(k => k === 'none' ? 'No status' : k),
       ...E.viewParams(state.window),
       as_of: windowEnd(),
@@ -1712,9 +1854,10 @@
       layers_checked: state.selectedLayers.map(k => state.layers[k] ? state.layers[k].label : k),
       locations_known_only_roughly: state.includeCoarse ? 'included' : 'left out',
       cvi_master: state.datasets.master ? state.datasets.master.name : null,
-      cvi_years: state.master ? state.cvi.years : null,
-      cvi_quarters: state.master ? state.cvi.quarters : null,
-      cvi_species_groups: state.master ? state.cvi.species : null,
+      cvi_movements: state.master ? (cviOn() ? 'included' : 'off') : null,
+      cvi_years: cviOn() ? state.cvi.years : null,
+      cvi_quarters: cviOn() ? state.cvi.quarters : null,
+      cvi_species_groups: cviOn() ? state.cvi.species : null,
       positives: state.read.positives.length,
       sites_inside: r.total || 0,
       distances: (state.unit === 'mi' ? 'miles (1 mile = 1.609344 km)' : 'km') + ', on a sphere of 6,378,137 m (CVI\'s rule)',
@@ -1802,8 +1945,8 @@
   function pngInput(ch, background, streets, now) {
     const read = state.read, end = windowEnd(), zp = state.zoneParts;
     const shown = read.positives.filter(p => E.inWindow(p, state.window) && (closedShown() || !E.isPast(p, end)));
-    if (state.master && state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }
-    const res = state.master && state.cviRes && state.cviRes.summary ? state.cviRes : null;
+    if (cviOn() && state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }
+    const res = cviOn() && state.cviRes && state.cviRes.summary ? state.cviRes : null;
     // The CVI tab's years: a run of years as "2025–2026", else listed.
     const years = state.cvi.years.slice().sort((a, b) => a - b);
     const run = years.length > 1 && years.every((y, i) => i === 0 || Number(y) === Number(years[i - 1]) + 1);
@@ -1817,7 +1960,8 @@
       color: p.status ? p.status.color : NO_STATUS, status: p.status ? p.status.label : 'No status', past: E.isPast(p, end),
       shape: E.animalShapeOf(read.type, p) })), animals: E.animalKeys(read.type, shown),
     added: state.points.map(p => ({ name: p.name, lat: p.lat, lon: p.lon })), sites: zp.sites,
-    pastSites: zp.pastSites, zonesMode: zp.zonesMode, zoneName: zp.zonesMode ? state.zoneFile.name : null,
+    pastSites: zp.pastSites, zonesMode: zp.zonesMode, show: zp.show,
+    zoneName: zp.show !== 'rings' ? E.zonesNamed(state.zoneFile ? state.zoneFile.name : null, state.drawn.length) : null,
     rings: state.rings || [], unit: state.unit, result: state.result, layers, days: state.days.sites,
     window: state.window, current: E.groups(read, state.window).current.length,
     detected: E.valueBoxes(read, null, state.window).detected.value,
@@ -1928,6 +2072,153 @@
   state.map.onBasemapError = basemapChanged;
   state.map.onBasemapRecovered = basemapChanged;
   state.map.map.on('style.load', () => { if (state.map.ready) basemapChanged(); });
+
+  // ---- Draw a zone (2.6) -----------------------------------------------------------------------------------------
+  // The fold under "Add a point on the map": the shape switch (Freehand | Rectangle | Square | Circle, the size box in
+  // the unit shown for the square and the circle), "Draw on map" (while drawing a filled "Drawing", with Finish, Undo corner and Cancel beside it),
+  // then the drawn zones, each with its name box, Edit and Remove, and its area and shape under them. Drawing and "Add
+  // a point on the map" never run together. A finished zone joins the zone set; on Rings the switch goes to Both
+  // (rules.js showAfter); once no zone is left it goes back to Rings. Nothing is stored: while drawn
+  // zones exist the browser asks before the page is left.
+  const MODE_TEXT = { freehand: 'Click the map for each corner.', rectangle: 'Click two opposite corners.',
+    square: 'Click where the middle goes.', circle: 'Click where the middle goes.', edit: 'Drag a corner, or a side\u2019s middle to add a corner.' };
+  // The square's size (the circle's radius) from its box, or null with the reason said.
+  function squareSize() {
+    const r = E.readSize($('dz-size-in').value);
+    if (r.reason) { say('dz-status', 'err', r.reason); return null; }
+    return r.size;
+  }
+  const draw = W.emergencyDraw.create(state.map, {
+    unit: () => state.unit, size: squareSize, finished: addDrawn, edited: editDrawn, changed: drawChanged,
+    say: (kind, text) => say('dz-status', kind, text), label: $('dz-label'), badge: $('dz-badge'), startButton: $('dz-start')
+  });
+  // The fold's buttons by the mode: "Drawing" with its tools (Finish and Undo corner for freehand only).
+  function drawChanged(mode) {
+    const drawing = !!mode && mode !== 'edit';
+    $('dz-start').setAttribute('aria-pressed', String(drawing));
+    $('dz-start-text').textContent = drawing ? 'Drawing' : 'Draw on map';
+    $('dz-tools').hidden = !drawing;
+    $('dz-finish').hidden = $('dz-undo').hidden = mode !== 'freehand';
+    if (mode) say('dz-status', 'info', MODE_TEXT[mode]);
+    else if ($('dz-status').classList.contains('info')) $('dz-status').hidden = true;
+    renderDrawn();
+    // The rings as a guide while drawing, when the zones are in their place (drawMap).
+    if (drawing !== state.ringGuide) {
+      state.ringGuide = drawing;
+      if (shown() === 'zones' && state.rings) compute();
+    }
+  }
+  // A change of the zone set: the switch (rules.js showAfter: 'drawn', 'edited' or 'removed'), the list, the results.
+  function zonesChanged(change) {
+    state.zonesVersion++;
+    state.show = E.showAfter(change, { show: state.show, fileZones: fileZones(), drawn: state.drawn });
+    syncZoneTick();
+    renderDrawn();
+    compute();
+  }
+  // A finished shape as a drawn zone, "Drawn zone n" (rules.js drawnZone and drawnName); false when it cannot be one.
+  function addDrawn(corners, shape) {
+    if (state.drawn.length >= E.DRAW.maxZones) {
+      say('dz-status', 'warn', 'Up to ' + E.DRAW.maxZones + ' drawn zones: remove one to draw another.');
+      return false;
+    }
+    const n = E.drawnName(state.drawnCount, allZones().map(z => z.name));
+    const zone = E.drawnZone(corners, n.name, shape);
+    if (!zone) { say('dz-status', 'warn', W.emergencyDraw.CROSS + '.'); return false; }
+    state.drawnCount = n.count;
+    state.drawn.push(zone);
+    say('dz-status', 'ok', zone.name + ': ' + E.areaText(E.areaM2(zone.geometry)) + '.');
+    zonesChanged('drawn');
+    return true;
+  }
+  // A drag that ended: the zone with its new corners (rules.js editedZone), changed in place so the list and the
+  // drawing still know it as the zone being edited; null when it cannot be one.
+  function editDrawn(zone, corners) {
+    const k = state.drawn.indexOf(zone), z = k < 0 ? null : E.editedZone(zone, corners);
+    if (!z) return null;
+    Object.assign(zone, z);
+    zonesChanged('edited');
+    return zone;
+  }
+  // The list: a name box (rules.js zoneName: a name another zone has is refused, an emptied box gives the first name
+  // back), Edit (Done while editing; none for a circle, 3b: remove it and place it again) and Remove, then the area
+  // and the shape ("Square, 6.0 km across", "Circle, 3.0 km radius", "6 corners").
+  function renderDrawn() {
+    const editing = draw.editing();
+    $('dz-list').replaceChildren(...state.drawn.map(z => {
+      const li = document.createElement('li'), input = document.createElement('input'), edit = document.createElement('button'),
+        remove = document.createElement('button'), about = document.createElement('span');
+      input.type = 'text'; input.className = 'em-point-name'; input.value = z.name; input.maxLength = E.DRAW.nameMax;
+      input.setAttribute('aria-label', 'Name of ' + z.first);
+      input.addEventListener('change', () => {
+        const n = E.zoneName(input.value, z, allZones().filter(o => o !== z).map(o => o.name),
+          { ring: (state.rings || []).map(r => r.label), positive: (state.read ? state.read.positives.map(p => p.name) : []).concat(state.points.map(p => p.name)) });
+        const holder = { zone: 'Another zone', ring: 'A ring', positive: 'A positive' }[n.by];
+        if (n.taken) say('dz-status', 'warn', holder + ' is named "' + input.value.replace(/\s+/g, ' ').trim() + '": the name stays ' + z.name + '.');
+        else $('dz-status').hidden = true;
+        z.name = n.name;
+        input.value = z.name;
+        if (draw.editing() === z) draw.refresh();   // the badge "Editing …" with the new name
+        edit.setAttribute('aria-label', 'Edit ' + z.name);
+        remove.setAttribute('aria-label', 'Remove ' + z.name);
+        compute();
+      });
+      edit.type = remove.type = 'button';
+      edit.className = remove.className = 'btn';
+      edit.textContent = editing === z ? 'Done' : 'Edit';
+      edit.setAttribute('aria-pressed', String(editing === z));
+      edit.setAttribute('aria-label', (editing === z ? 'Done editing ' : 'Edit ') + z.name);
+      edit.addEventListener('click', () => {
+        if (draw.editing() === z) { draw.done(); return; }
+        if (state.picking) setPicking(false);
+        draw.edit(z);
+      });
+      remove.textContent = 'Remove';
+      remove.setAttribute('aria-label', 'Remove ' + z.name);
+      remove.addEventListener('click', () => {
+        if (draw.editing() === z) draw.done();
+        state.drawn.splice(state.drawn.indexOf(z), 1);
+        $('dz-status').hidden = true;
+        zonesChanged('removed');
+      });
+      about.className = 'dz-area';
+      about.textContent = E.areaText(E.areaM2(z.geometry)) + ' \u00b7 ' + E.shapeText(z, state.unit);
+      li.append(...(z.shape && z.shape.kind === 'circle' ? [input, remove, about] : [input, edit, remove, about]));
+      return li;
+    }));
+    const full = state.drawn.length >= E.DRAW.maxZones;
+    $('dz-start').disabled = full && !draw.mode();
+    $('dz-start').title = full ? 'Up to ' + E.DRAW.maxZones + ' drawn zones: remove one to draw another.' : '';
+  }
+  // The shape switch (one picked, kept until changed) and the size box of the square (each way) and the circle (its
+  // radius), labeled in the unit shown.
+  function syncShapes() {
+    document.querySelectorAll('#dz-shapes [data-shape]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.shape === state.drawShape)));
+    $('dz-size').hidden = state.drawShape !== 'square' && state.drawShape !== 'circle';
+    $('dz-size-unit').textContent = E.UNITS[state.unit].label + (state.drawShape === 'circle' ? ' radius' : ' each way');
+  }
+  document.querySelectorAll('#dz-shapes [data-shape]').forEach(b => b.addEventListener('click', () => {
+    state.drawShape = b.dataset.shape;
+    syncShapes();
+    if (draw.mode() && draw.mode() !== 'edit') draw.start(state.drawShape);
+  }));
+  $('dz-size-in').addEventListener('change', () => { if (squareSize() !== null) $('dz-status').hidden = !draw.mode(); draw.refresh(); });
+  $('dz-start').addEventListener('click', () => {
+    if (draw.mode() && draw.mode() !== 'edit') { draw.cancel(); return; }
+    if (state.picking) setPicking(false);
+    draw.done();
+    draw.start(state.drawShape);
+  });
+  $('dz-finish').addEventListener('click', () => draw.finish());
+  $('dz-undo').addEventListener('click', () => draw.undo());
+  $('dz-cancel').addEventListener('click', () => draw.cancel());
+  syncShapes();
+  // The browser's own "Leave this page?" while drawn zones exist (they are not stored).
+  root.addEventListener('beforeunload', e => {
+    if (!state.drawn.length) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
 
   B.LIST.forEach(b => {
     let group = $('em-basemap').querySelector('optgroup[label="' + b.group + '"]');
@@ -2040,7 +2331,7 @@
   });
 
   syncControls();
-  root.WSDA.emergency = { state, checklist, sample, run, compute };
+  root.WSDA.emergency = { state, checklist, sample, run, compute, draw };
 
   // Files from the landing page arrive in memory through the per-click hand-off; a local choice made first wins.
   let sentNothing = false;   // opened from the landing page with nothing loaded there

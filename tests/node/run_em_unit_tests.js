@@ -852,10 +852,11 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(feats.every(f => JSON.stringify(f.geometry.coordinates).match(/-?\d+\.?\d*/g).every(n => !/\.\d{7,}/.test(n))),
       'GeoJSON: coordinates to six decimals');
     check(feats.length === 21 && same(Object.keys(feats[0].properties), ['name', 'zone', 'positive', 'group', 'distance', 'unit', 'days_since_last_positive', 'as_of'])
+      && same(Object.keys(feats[20].properties).slice(-3), ['area_sq_mi', 'area_acres', 'source'])
       && same(feats[0].properties, { name: 'Infection zone (2 mi) around Positive 4 (Kittitas)', zone: 'Infection zone', positive: 'Positive 4 (Kittitas)', group: 'Current', distance: 2, unit: 'mi',
         days_since_last_positive: null, as_of: '2026-10-05' })
       && same(feats[20].properties, { name: 'Synthetic area with two positives', zone: 'Synthetic area with two positives', positive: null, group: null, distance: null, unit: null,
-        days_since_last_positive: 279, as_of: '2026-10-05' }), 'GeoJSON: the properties', feats.slice(0, 1).concat(feats.slice(20, 21)).map(f => f.properties));
+        days_since_last_positive: 279, as_of: '2026-10-05', area_sq_mi: 246.67, area_acres: 157869, source: 'file' }), 'GeoJSON: the properties (a zone\'s also its area and source, 2.6)', feats.slice(0, 1).concat(feats.slice(20, 21)).map(f => f.properties));
     check(feats.filter(f => f.properties.group === 'Past').length === 10 && (feats.find(f => f.properties.positive === 'Lewis 02'
       && f.properties.zone === 'Control zone') || { properties: {} }).properties.days_since_last_positive === 5, 'GeoJSON: past rings marked Past; days since per feature');
     check(!/MARKED-ADDRESS|Synthetic Town/.test(JSON.stringify(agGeo)) && feats.every(f => Object.keys(f.properties).every(k => !E.PRIVATE.test(k))),
@@ -867,14 +868,14 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
 
   {   // zones.csv and the "Zones" list: one row per positive's outer ring, or per zone-file zone, the longest-quiet last.
     const zr = E.zoneRows(agDays, { zonesMode: false, rings: AG.rings, unit: 'mi', asOf: agWin.end });
-    check(same(zr.columns, ['Zone', 'Positive', 'Ring', 'Distance', 'Unit', 'Last positive', 'Days since the last positive', 'As of'])
-      && same(zr.rows[0], ['Control zone (6 mi) around Skagit 01', 'Skagit 01', 'Control zone', 6, 'mi', '2026-10-05', 0, '2026-10-05'])
+    check(same(zr.columns, ['Zone', 'Positive', 'Ring', 'Distance', 'Unit', 'Last positive', 'Days since the last positive', 'As of', 'Area (sq mi)', 'Area (acres)'])
+      && same(zr.rows[0], ['Control zone (6 mi) around Skagit 01', 'Skagit 01', 'Control zone', 6, 'mi', '2026-10-05', 0, '2026-10-05', '', ''])
       && same(zr.rows.map(r => r[1]), ['Skagit 01', 'Lewis 02', 'Umatilla 01', 'Whatcom 01', 'Positive 4 (Kittitas)'])
-      && same(zr.rows[4].slice(5), ['', '', '2026-10-05']),
+      && same(zr.rows[4].slice(5), ['', '', '2026-10-05', '', '']),
     'zones.csv: each positive\'s outer ring in the unit shown, the longest-quiet last, a zone with no dated positive blank', zr.rows);
     const zz = E.zoneRows(agZoneDays, { zonesMode: true, rings: AG.rings, unit: 'mi', asOf: agWin.end });
-    check(same(zz.rows, [['Synthetic area with two positives', '', '', '', '', '2025-12-30', 279, '2026-10-05']]),
-      'zones.csv: a zone file\'s zone by its name, with no positive, ring, distance or unit', zz.rows);
+    check(same(zz.rows, [['Synthetic area with two positives', '', '', '', '', '2025-12-30', 279, '2026-10-05', 246.67, 157869]]),
+      'zones.csv: a zone file\'s zone by its name, with no positive, ring, distance or unit; its area (2.6)', zz.rows);
   }
 
   {   // The map picture (site/emergency/branded.js): the page's model, from the agreed scenario. The branded files need
@@ -998,9 +999,9 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(zf.meta.left === 'Zones: em_rules_zone_two.geojson' && zf.rings.length === 1 && zf.rings[0].zone && zf.rings[0].color === EB.ZONE_COLOR
       && zf.keyItems.some(i => i.label === 'Zone (from file)') && zf.keyItems.some(i => i.label === 'Added point')
       && zf.panel.rows[0].names.join(' ') === 'Synthetic area with two positives'
-      && zf.panel.rows[0].subLeft === null && same(zf.footer, [['Zones with a site inside', '0 of 1']]) && zf.panel.rows[0].nameSize === 3.1 * zf.panel.scl
+      && zf.panel.rows[0].subLeft === '246.7 sq mi, 157,869 acres' && same(zf.footer, [['Zones with a site inside', '0 of 1']]) && zf.panel.rows[0].nameSize === 3.1 * zf.panel.scl
       && zf.positives.some(q => q.name === 'Added point 1' && q.color === EB.PICK) && zf.panel.rows[0].days === '279 days since last positive',
-    'map picture: a zone file\'s zones in the zone color, the file named in the meta line; a zone\'s name whole at the row\'s size, no county line; an added point; days since per zone', zf.panel.rows);
+    'map picture: a zone file\'s zones in the zone color, the file named in the meta line; a zone\'s name whole at the row\'s size, its area in place of a county line (2.6); an added point; days since per zone', [zf.panel.rows, zf.panel.scl]);
     const longName = 'Synthetic positive with a very long name 01';
     const ln = EB.page(base({ sites: agSites.map((st, k) => (k === 0 ? Object.assign({}, st, { name: longName }) : st)) })).model;
     const lr = ln.panel.rows.find(r => r.site === 0);
@@ -1282,7 +1283,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       'animals box: active positives that all lack a count give no number, never zero');
     const bars = E.overviewBars(ovCounties, { layers: [{ label: 'Dairies', inside: 3, byZone: [{ label: 'Zone A', count: 2 }, { label: 'Zone B', count: 2 }] }] });
     check(same(bars.counties[0], { label: 'Skagit', parts: [{ key: 'current', value: 2 }, { key: 'past', value: 0 }], total: 2 })
-      && same(bars.layers, [{ label: 'Dairies', parts: [{ key: 'Zone A', value: 2 }, { key: 'Zone B', value: 2 }], total: 3 }])
+      && same(bars.layers, [{ label: 'Dairies', parts: [{ key: 'Zone A', value: 2, ring: false }, { key: 'Zone B', value: 2, ring: false }], total: 3 }])
       && same(E.overviewBars([], null).layers, []),
     'bars: by county (current, past) and by layer (one part per zone); a layer\'s total its distinct sites (a site in two overlapping zones once)', bars);
     // counties.csv: each animal word's exact total; blank where nothing is known, never zero for an unknown.
@@ -1528,6 +1529,296 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     'the Overview\'s counties box in each view', [ovDay, ovRange]);
   }
 
+  // ---- 8f. Drawn zones (2.6): the area, the crossing check, the set shapes, drawn zones as zones, the exports ------
+  const DR = FX.RULES.drawn, R_M = 6378137, toRad = d => d * Math.PI / 180;
+  const near = (a, b, tol) => Math.abs(a - b) <= tol * Math.abs(b);
+  // A box of latitudes and longitudes on the sphere: R² · Δλ · (sin φ2 - sin φ1), exactly.
+  const boxM2 = (w, s, e, n) => R_M * R_M * toRad(e - w) * (Math.sin(toRad(n)) - Math.sin(toRad(s)));
+  const poly = c => ({ type: 'Polygon', coordinates: [c.concat([c[0]])] });
+  const fileZone = Z.readGeoJson(fs.readFileSync(path.join(FXD, DR.fileZone), 'utf8'), DR.fileZone).zones;
+  const drawn = DR.zones.map(z => E.drawnZone(z.corners, z.name, z.shape));
+  {   // The area.
+    check(near(E.areaM2(poly([[0, 0], [1, 0], [1, 1], [0, 1]])), boxM2(0, 0, 1, 1), 1e-12)
+      && near(E.areaM2(poly([[-121, 47], [-120, 47], [-120, 48], [-121, 48]])), boxM2(-121, 47, -120, 48), 1e-12),
+    'area: a square degree at the equator and at 47 degrees north, exactly as the sphere gives it',
+    [E.areaM2(poly([[0, 0], [1, 0], [1, 1], [0, 1]])), boxM2(0, 0, 1, 1)]);
+    check(near(E.areaM2(poly([[-121.1, 46.0], [-119.6, 46.0], [-119.6, 46.9], [-121.1, 46.9]])), boxM2(-121.1, 46.0, -119.6, 46.9), 1e-12)
+      && Math.round(E.areaM2(poly([[-121.1, 46.0], [-119.6, 46.0], [-119.6, 46.9], [-121.1, 46.9]])) / 2589988.110336) === 4450,
+    'area: a county-sized box (1.5 by 0.9 degrees, about Yakima County\'s size) is 4,450 sq mi');
+    const cap = 2 * Math.PI * R_M * R_M * (1 - Math.cos(5000 / R_M)), ring200 = DR.zones.find(z => z.name === '200 corners').corners;
+    check(ring200.length === 200 && near(E.areaM2(poly(ring200)), cap, 1e-3),
+      'area: 200 corners 5 km from a point: within 0.1% of the circle\'s area on the sphere', [E.areaM2(poly(ring200)), cap]);
+    const box = [[-120.6, 46.45], [-120.34, 46.45], [-120.34, 46.65], [-120.6, 46.65]];
+    check(E.areaM2(poly(box)) === E.areaM2(poly(box.slice().reverse())) && E.areaM2(poly(box)) === E.areaM2({ type: 'Polygon', coordinates: [box] }),
+      'area: the same whichever way the corners run, and closed or not');
+    const hole = Z.readGeoJson(fs.readFileSync(path.join(FXD, 'em_zone_hole.geojson'), 'utf8'), 'h').zones[0];
+    check(near(E.areaM2(hole.geometry), boxM2(-120.6, 46.45, -120.34, 46.65) - boxM2(-120.5, 46.52, -120.44, 46.58), 1e-12)
+      && near(E.areaM2({ type: 'MultiPolygon', coordinates: [hole.geometry.coordinates, [poly([[0, 0], [1, 0], [1, 1], [0, 1]]).coordinates[0]]] }),
+        E.areaM2(hole.geometry) + boxM2(0, 0, 1, 1), 1e-12),
+    'area: a hole taken off its polygon; a MultiPolygon\'s polygons added');
+    check(same(E.areaOf(E.areaM2(poly(DR.zones[4].corners))), { sqMi: 16, acres: 10240 }) && same(E.areaOf(2589988.110336 * 0.125), { sqMi: 0.12, acres: 80 }),
+      'area: the exports\' square miles to two decimals (R\'s round, 0.125 to 0.12) and whole acres; a 2-mile square is 16 sq mi, 10,240 acres');
+    const sq = 2589988.110336;
+    check(E.areaText(12.44 * sq) === '12.4 sq mi, 7,962 acres' && E.areaText(0.1 * sq) === '0.1 sq mi, 64 acres' && E.areaText(0.099 * sq) === '63 acres'
+      && E.areaText(4046.8564224) === '1 acre' && E.areaText(3232.38 * sq) === '3,232.4 sq mi, 2,068,723 acres' && E.areaText(0.96 * sq) === '1.0 sq mi, 614 acres',
+    'area: "12.4 sq mi, 7,962 acres"; acres alone under 0.1 sq mi; "1 acre"', [E.areaText(12.44 * sq), E.areaText(0.099 * sq), E.areaText(3232.38 * sq)]);
+    check(E.lengthText(3.94, 'km') === '3.9 km' && E.lengthText(3.94, 'mi') === '2.4 mi' && E.lengthText(10, undefined) === '10.0 km',
+      'length: one decimal in the unit shown (km by default)');
+  }
+  {   // The crossing check (question 6), the closing rules and the limits.
+    const c = [[-120, 46], [-119.8, 46], [-119.8, 46.1]];
+    check(!E.crossesAt(c, [-120, 46.1]) && E.crossesAt(c, [-119.9, 45.9]) && E.crossesAt(c, [-119.9, 46]) && E.crossesAt(c, [-120.2, 45.9]),
+      'crossing: a next side crossing an earlier side, ending on it, or passing through its corner is refused; one clear of them kept');
+    check(E.crossesAt(c, [-119.8, 46.05]) && !E.crossesAt(c, [-119.8, 46.2]) && !E.crossesAt([[-120, 46]], [-119, 46]) && !E.crossesAt([], [-119, 46]),
+      'crossing: a side turning back along the last one is refused, one carrying straight on kept; the first and second corners never cross');
+    for (const s of DR.shapes) {
+      check(E.isSimple(s.corners) === ['A corner on a straight side', 'Arms close but apart'].includes(s.name), 'crossing: ' + s.name + ': ' +
+        (E.isSimple(s.corners) ? 'kept' : 'refused'), s.corners);
+    }
+    check(!E.canClose(c.slice(0, 2)) && E.canClose(c) && !E.canClose([[-120, 46], [-119.9, 46], [-119.8, 46]]),
+      'closing: fewer than three corners, or three on a line, cannot close');
+    const ring = n => Array.from({ length: n }, (_, k) => PX.destination(46.6, -120.5, 5, k * 360 / n));
+    check(E.DRAW.maxCorners === 200 && E.canClose(ring(200)) && !E.canClose(ring(201)) && E.DRAW.maxZones === 20 && E.DRAW.nameMax === 60,
+      'limits: 3 to 200 corners a zone, 20 drawn zones, 60-character names (question 10)');
+  }
+  {   // The live label (questions 3 and 4).
+    const c = [[-120.505, 46.598], [-120.43, 46.59], [-120.405, 46.553]];
+    const km = PX.distanceKm(46.598, -120.505, 46.515, -120.418);
+    const l3 = E.drawLabel(c, [-120.418, 46.515], 'km'), l2 = E.drawLabel(c.slice(0, 2), [-120.418, 46.515], 'mi');
+    check(same(l3.lines, [km.toFixed(1) + ' km from the first click', 'Area ' + E.areaText(E.areaM2(poly(c.concat([[-120.418, 46.515]]))))]) && !l3.cross,
+      'label: the distance from the first click and, from the third corner, the area with the pointer as the next corner', l3);
+    check(same(l2.lines, [(km / 1.609344).toFixed(1) + ' mi from the first click']) && same(E.drawLabel([], [-120, 46], 'km'), { lines: [], cross: false, closes: false }),
+      'label: in miles by the switch; no area before the third corner; nothing before the first click', l2);
+    check(same(E.drawLabel(c, [-120.47, 46.62], 'km'), { lines: ['Sides can’t cross'], cross: true, closes: false }), 'label: "Sides can’t cross" for a move that would cross');
+    // The next side fine, but the side back to the first corner would cross: no area.
+    const open = [[6.32, 1.44], [4.57, 5.93], [1.38, 9.22], [8.85, 8.91]], at = [8.85, 9.08], lo = E.drawLabel(open, at, 'km');
+    check(!lo.cross && !lo.closes && lo.lines[1] === 'Can’t close here: sides would cross' && !E.canClose(open.concat([at])) && l3.closes,
+      'label: when the side back to the first corner would cross, "Can’t close here: sides would cross" in place of the area', lo);
+    const tap = E.drawLabel(c, c[2], 'km');
+    check(tap.closes && tap.lines[1] === 'Area ' + E.areaText(E.areaM2(poly(c))),
+      'label: the pointer on the last corner (a phone, after a tap): the area of the corners alone', tap);
+  }
+  {   // The set shapes (3a).
+    const a = [-120.33, 46.43], b = [-120.29, 46.37];
+    check(same(E.rectangleCorners(a, b), [[-120.33, 46.43], [-120.29, 46.43], [-120.29, 46.37], [-120.33, 46.37]])
+      && E.areaM2(poly(E.rectangleCorners(b, a))) === E.areaM2(poly(E.rectangleCorners(a, b)))
+      && E.rectangleCorners(a, [-120.29, 46.43]) === null && E.rectangleCorners(a, [-120.33, 46.2]) === null,
+    'rectangle: four corners from two opposite clicks, either way round; none when the clicks share a latitude or longitude');
+    const z = E.rectangleSize(a, b);
+    check(z.eastKm === PX.distanceKm(46.4, -120.33, 46.4, -120.29) && z.northKm === PX.distanceKm(46.43, -120.33, 46.37, -120.33)
+      && near(E.areaM2(poly(E.rectangleCorners(a, b))), boxM2(-120.33, 46.37, -120.29, 46.43), 1e-12),
+    'rectangle: its size east-west along its middle latitude and north-south; its area', z);
+    check(same(E.rectangleLabel(a, b, 'km'), [z.eastKm.toFixed(1) + ' km by ' + z.northKm.toFixed(1) + ' km', 'Area 7.9 sq mi, 5,068 acres']),
+      'rectangle: the label "3.1 km by 6.7 km", "Area 7.9 sq mi, 5,068 acres"', E.rectangleLabel(a, b, 'km'));
+    const sides = (c, mid) => [[(c[0][0] + c[1][0]) / 2, c[0][1]], [c[1][0], mid[1]], [(c[2][0] + c[3][0]) / 2, c[2][1]], [c[3][0], mid[1]]]
+      .map(p => PX.distanceKm(mid[1], mid[0], p[1], p[0]));
+    let worst = 0;
+    for (const [mid, n, unit] of [[[-120.47, 46.552], 3, 'km'], [[-122.96, 46.66], 2, 'mi'], [[-117.4, 48.9], 100, 'km'], [[-120.5, 47], 0.1, 'mi'], [[-120.5, 46.0], 100, 'mi']]) {
+      const c = E.squareCorners(mid, n, unit), km = E.toKm(n, unit);
+      for (const d of sides(c, mid)) worst = Math.max(worst, Math.abs(d / km - 1));
+      worst = Math.max(worst, Math.abs(PX.distanceKm(c[0][1], c[0][0], c[3][1], c[3][0]) / (2 * km) - 1));
+    }
+    check(worst < 1e-3, 'square: each side its size from the middle, north, south, east and west (and its west side twice the size), within 0.1%, in km and miles, 0.1 to 100', worst);
+    const r5 = read.positives.find(p => p.name === 'R-005'), c5 = E.squareCorners([r5.lon, r5.lat], 3, 'km');
+    check((c5[0][0] + c5[2][0]) / 2 === r5.lon && near((c5[0][1] + c5[2][1]) / 2, r5.lat, 1e-15) && c5[0][0] < c5[1][0] && c5[0][1] > c5[3][1],
+      'square: centered on a positive, its middle is the positive\'s place', c5);
+    check(same(E.squareLabel([r5.lon, r5.lat], 3, 'km', 'R-005'), ['Around R-005', '6.0 km across (3.0 km each way)', 'Area 13.9 sq mi, 8,896 acres'])
+      && same(E.squareLabel([-122.96, 46.66], 2, 'mi'), ['4.0 mi across (2.0 mi each way)', 'Area 16.0 sq mi, 10,240 acres']),
+    'square: the label, with "Around R-005" when centered on a positive', E.squareLabel([r5.lon, r5.lat], 3, 'km', 'R-005'));
+    check(same(['3', ' 2.5 ', '0.1', '100', '.5'].map(t => E.readSize(t).size), [3, 2.5, 0.1, 100, 0.5])
+      && ['0.05', '100.5', '', 'abc', '-1', '1e2', '3 km', null].every(t => E.readSize(t).reason === 'Type a size from 0.1 to 100.'),
+    'square: the size box takes a plain number from 0.1 to 100');
+  }
+  {   // A drawn zone is a zone: built as a zone file holding the same polygon would read.
+    const d1 = drawn[0];
+    check(drawn.every(Boolean) && drawn.every(z => z.source === 'drawn' && Z.signedArea(z.geometry.coordinates[0]) > 0 && same(z.geometry.coordinates[0][0], z.geometry.coordinates[0][z.geometry.coordinates[0].length - 1]))
+      && PX.inZone(d1.point[0], d1.point[1], d1.geometry) && d1.vertices === 7 && d1.first === 'Drawn zone 1',
+    'drawn zone: closed, counterclockwise (a square\'s clockwise corners reversed), its point inside, its vertices counted closed', drawn.map(z => z && z.vertices));
+    const wobbly = E.drawnZone([[-120.1234567, 46.1], [-120, 46.1000004], [-120, 46.2]], 'W', null);
+    check(same(wobbly.geometry.coordinates[0].slice(0, 3).sort(), [[-120.123457, 46.1], [-120, 46.1], [-120, 46.2]].sort())
+      && E.drawnZone(DR.shapes[0].corners, 'X', null) === null && E.drawnZone([[-120, 46], [-119.9, 46]], 'X', null) === null,
+    'drawn zone: corners to six decimals; none from sides that cross or from two corners', wobbly.geometry);
+    const asFile = Z.readGeoJson(JSON.stringify({ type: 'FeatureCollection', features: drawn.map(z => ({ type: 'Feature',
+      properties: { name: z.name }, geometry: z.geometry })) }), 'drawn.geojson').zones;
+    check(same(drawn.map(z => [z.name, z.geometry, z.point, z.vertices]), asFile.map(z => [z.name, z.geometry, z.point, z.vertices])),
+      'drawn zone: the same name, geometry, point and vertices as a zone file holding the same polygons');
+    const counted = read.positives.filter(p => p.detected);
+    const ds = E.zoneSites(drawn), fs2 = E.zoneSites(asFile);
+    const rd = E.inside(ds, layers, { mode: 'zones', positives: read.targets }), rf = E.inside(fs2, layers, { mode: 'zones', positives: read.targets });
+    check(same(rd, rf) && rd.rows.length === 12 && rd.total === 9, 'drawn zone: the same sites inside, counts by zone and left out as the same zones from a file (12 rows, 9 sites: three inside two zones)', rd.total);
+    const dd = E.daysSince(ds, counted, DR.asOf), df = E.daysSince(fs2, counted, DR.asOf);
+    check(same(dd.map(d => Object.assign({}, d, { source: null })), df.map(d => Object.assign({}, d, { source: null })))
+      && same(dd.map(d => d.days), [33, null, null, 0, 5, null, null, 33]) && ds.every(s => s.source === 'drawn') && fs2.every(s => s.source === 'file'),
+    'drawn zone: the same days since the last positive as from a file (R-001\'s 33 days, R-005\'s 0, R-007\'s 5)', dd.map(d => d.days));
+    check(same(E.zoneRows(dd, { zonesMode: true, asOf: DR.asOf }), E.zoneRows(df, { zonesMode: true, asOf: DR.asOf })),
+      'drawn zone: the same "Zones" rows and zones.csv as from a file');
+    const gd = E.zonesGeoJson({ zones: ds }, { asOf: DR.asOf, positives: counted }), gf = E.zonesGeoJson({ zones: fs2 }, { asOf: DR.asOf, positives: counted });
+    const strip = g => JSON.stringify(g, (k, v) => (k === 'source' || k === 'zone' ? undefined : v));
+    check(strip(gd) === strip(gf) && gd.features.every(f => f.properties.source === 'drawn' && f.properties.zone === 'Drawn zone')
+      && gf.features.every(f => f.properties.source === 'file' && f.properties.zone === f.properties.name),
+    'drawn zone: zones.geojson byte for byte as from a file, apart from source ("drawn") and zone ("Drawn zone")');
+    const back = Z.readGeoJson(JSON.stringify(gd), 'zones.geojson').zones;
+    check(same(back.map(z => z.name), drawn.map(z => z.name)) && same(E.inside(E.zoneSites(back), layers, { mode: 'zones', positives: read.targets }), rd),
+      'drawn zone: the exported zones.geojson reopens as a zone file with the zones\' names and the same sites inside (question 9)');
+  }
+  {   // Drawn and file zones together, and the rings giving way (question 1, A).
+    const set = E.zoneSet(fileZone, drawn);
+    check(same(set.map(z => z.name), ['Synthetic control area'].concat(DR.zones.map(z => z.name))) && same(E.zoneSet(null, drawn), drawn) && same(E.zoneSet(fileZone, []), fileZone),
+      'zone set: the zone file\'s zones first, then the drawn ones');
+    const both = E.inside(E.zoneSites(set), layers, { mode: 'zones', positives: read.targets });
+    const d10 = both.rows.filter(r => r.name === 'Rules Dairy 10').map(r => r.zone);
+    const dairy = both.layers.find(l => l.key === 'dairies');
+    check(same(d10, ['Synthetic control area', 'Rectangle by the file zone']) && dairy.byZone.find(z => z.label === 'Synthetic control area').count === 1
+      && dairy.byZone.find(z => z.label === 'Rectangle by the file zone').count === 1 && both.rows.length === 13 && both.total === 9,
+    'zone set: a site inside a file zone and a drawn zone is listed in each, counted once in all', d10);
+    check(E.showOf('zones', fileZone, []) === 'zones' && E.showOf('both', null, drawn) === 'both' && E.showOf('rings', fileZone, drawn) === 'rings'
+      && E.showOf('both', null, []) === 'rings' && E.showOf('zones', [], []) === 'rings' && E.showOf('other', fileZone, drawn) === 'rings',
+    'the switch (3b): its pick shows while a zone (from the file or drawn) exists; with none, the rings');
+    const after = (change, show, f, d) => E.showAfter(change, { show, fileZones: f, drawn: d });
+    check(after('drawn', 'rings', null, drawn) === 'both' && after('file', 'rings', fileZone, []) === 'zones' && after('file', 'rings', fileZone, drawn) === 'zones'
+      && after('drawn', 'zones', fileZone, drawn) === 'zones' && after('drawn', 'both', null, drawn) === 'both' && after('file', 'both', fileZone, drawn) === 'both'
+      && after('edited', 'rings', fileZone, drawn) === 'rings' && after('removed', 'rings', fileZone, drawn) === 'rings'
+      && after('removed', 'both', null, []) === 'rings' && after('removed', 'zones', fileZone, []) === 'zones'
+      && after('file cleared', 'zones', null, []) === 'rings' && after('file cleared', 'zones', null, drawn) === 'zones',
+    'the switch (3b): on Rings a finished drawn zone picks Both and a zone file Zones; otherwise the pick stays; with no zone left, Rings');
+    check(E.zonesNamed('zones.geojson', 2) === 'zones.geojson and 2 drawn' && E.zonesNamed(null, 2) === '2 drawn zones' && E.zonesNamed(null, 1) === '1 drawn zone'
+      && E.zonesNamed('zones.geojson', 0) === 'zones.geojson' && E.zonesNamed(null, 0) === null,
+    'the picture\'s meta line and export_params: "<file> and 2 drawn", "2 drawn zones", "1 drawn zone"');
+    check(same(E.drawnParams(drawn, 'both'), { drawn_zones: 8, zones_shown: 'both' }) && same(E.drawnParams(null, 'rings'), { drawn_zones: 0, zones_shown: 'rings' }),
+      'export_params.json: the drawn zones\' count and what showed (rings, zones or both)');
+  }
+  {   // The tick "CVI movements" (3c): the CVI premises the map draws, as the picture draws them.
+    const row = (cvi, ho, hd, oLat, oLon, dLat, dLon) => ({ CVI: cvi, hitOrigin: ho, hitDest: hd,
+      'Origin.Lat': oLat, 'Origin.Long': oLon, 'Dest.Lat': dLat, 'Dest.Long': dLon,
+      'Origin.County': 'Yakima', 'Origin.State': 'WA', 'Dest.County': cvi === 'C' ? '' : 'Franklin', 'Dest.State': 'WA' });
+    const ends = E.cviEnds([row('A', true, false, '46.5', '-120.5', '45.5', '-122.6'), row('B', true, true, '46.5', '-120.5', '46.4', '-119.0'),
+      row('B', true, false, '46.5', '-120.5', '', ''), row('C', false, true, '', '', '46.4', '-119.0'), row('D', true, true, '95', '-120', 'x', '-119'),
+      row('E', false, false, '47', '-121', '47', '-121')]);
+    check(same(ends, { origins: [{ lat: 46.5, lon: -120.5, cvis: 2, ids: ['A', 'B'], place: 'Yakima, WA' }],
+      dests: [{ lat: 46.4, lon: -119, cvis: 2, ids: ['B', 'C'], place: 'Franklin, WA' }] }),
+      'the CVI premises (3c, 3d): each matched movement\'s end inside a zone once per spot, with its CVIs counted once, their numbers in order and the place of the first movement there (as the CVI movements table writes it); an end outside, blank or out of range left out', ends);
+    const many = E.cviEnds(['CVI-10', 'CVI-9', 'CVI-2'].map(id => row(id, true, false, '46.5', '-120.5', '', '')));
+    const blank = E.cviEnds([Object.assign(row('Z', true, false, '46.5', '-120.5', '', ''), { 'Origin.County': '', 'Origin.State': 'WA' })]);
+    check(same(many.origins[0].ids, ['CVI-2', 'CVI-9', 'CVI-10']) && blank.origins[0].place === 'WA',
+      'the CVI premises (3d): the numbers in their natural order (2 before 10); a blank county leaves the state', [many.origins, blank.origins]);
+    check(same(E.cviEnds(null), { origins: [], dests: [] }) && same(E.cviEnds([]), { origins: [], dests: [] }),
+      'the CVI premises (3c): none without matched movements');
+  }
+  {   // Both (3b): the rings and the zones together, each site counted once.
+    const set = E.zoneSet(fileZone, drawn);
+    const rs = E.ringSites(read.targets, rings), zs = E.zoneSites(set);
+    const bs = E.bothSites(E.ringSites(read.targets, rings), E.zoneSites(set));
+    const idsOwn = bs.length === rs.length + zs.length && new Set(bs.map(x => x.id)).size === bs.length;
+    check(idsOwn && same(bs.slice(rs.length).map(x => x.id), zs.map((x, k) => rs.length + k + 1)) && bs.slice(rs.length).every(x => x.source),
+    'both: the ring sites, then the zone sites numbered on after them (every id its own)', bs.map(x => x.id));
+    // With ids not their own the counts cannot be kept apart: the checks below then fail rather than stop the suite.
+    const insideBoth = (sites, o) => (idsOwn ? E.inside(sites, layers, o) : { rows: [], layers: [], leftOut: [], total: -1 });
+    const noLayer = { label: '', byZone: [], inside: 0, usable: 0 };
+    const rRes = E.inside(rs, layers, { mode: 'rings', rings, positives: read.targets });
+    const zRes = E.inside(zs, layers, { mode: 'zones', positives: read.targets });
+    const bRes = insideBoth(bs, { mode: 'both', rings, positives: read.targets });
+    const keys = res => new Set(res.rows.map(r => r.layer + '\r' + r.lat + '\r' + r.lon + '\r' + r.name));
+    const union = new Set([...keys(rRes), ...keys(zRes)]);
+    check(bRes.rows.length === rRes.rows.length + zRes.rows.length && bRes.total === union.size && bRes.total < rRes.total + zRes.total,
+      'both: every ring row and every zone row; a site inside a ring and a zone counted once in all', [rRes.total, zRes.total, bRes.total]);
+    check(bRes.layers.every((l, i) => same(l.byZone.filter(z => z.ring), rRes.layers[i].byZone.map(z => Object.assign({}, z, { ring: true })))
+      && same(l.byZone.filter(z => !z.ring), zRes.layers[i].byZone) && l.mode === 'both'
+      && l.inside === new Set([...keys({ rows: rRes.rows.filter(r => r.layer === l.key) }), ...keys({ rows: zRes.rows.filter(r => r.layer === l.key) })]).size),
+    'both: by ring as the rings alone (each site in its smallest ring), by zone as the zones alone, the rings first');
+    const dairy = bRes.layers.find(l => l.key === 'dairies') || noLayer;
+    check(/in the Infection zone|in the Control zone/.test(E.countLine(dairy)) && !/the Synthetic control area|the Drawn/.test(E.countLine(dairy))
+      && /in Synthetic control area/.test(E.countLine(dairy)),
+    'both: the count line says "the" before a ring\'s label, not before a zone\'s name', E.countLine(dairy));
+    const named = E.zoneSites([Object.assign({}, fileZone[0], { name: rings[1].label })]);
+    const clash = insideBoth(E.bothSites(E.ringSites(read.targets, rings), named), { mode: 'both', rings, positives: read.targets });
+    const cl = clash.layers.find(l => l.key === 'dairies') || noLayer;
+    check(cl.byZone.filter(z => z.label === rings[1].label).length === 2 && same(cl.byZone.filter(z => z.ring), rRes.layers.find(l => l.key === 'dairies').byZone.map(z => Object.assign({}, z, { ring: true }))),
+    'both: a zone named as a ring ("' + rings[1].label + '") is counted apart from the ring', cl.byZone);
+    const bDays = E.daysSince(bs, read.positives.filter(p => p.detected), DR.asOf);
+    const zr = E.zoneRows(bDays, { zonesMode: false, rings, unit: 'km', asOf: DR.asOf });
+    check(zr.rows.length === bs.length && zr.rows.filter(r => r[1] === '').length === zs.length
+      && zr.rows.filter(r => r[1] !== '').every(r => / around /.test(r[0]) && r[8] === '') && zr.rows.filter(r => r[1] === '').every(r => r[8] !== ''),
+    'both: the "Zones" rows and zones.csv hold each positive\'s outer ring and each zone (its area), the longest-quiet last');
+    const bEx = E.exportRows(read, read.targets, bRes, 'km');
+    check(bRes.rows.every(r => r.inZone === (r.site > rs.length)) && bEx.inside.rows.every((row, k) => (bRes.rows[k].inZone ? row[3] === '' : typeof row[3] === 'number'))
+      && E.exportRows(read, read.targets, zRes, 'km').inside.rows.every(row => row[3] === ''),
+    'both: inside_the_zones.csv gives a ring\'s rows their distance and a zone\'s none (in Zones too: no "0")', bEx.inside.rows.slice(0, 3));
+    let noRings = null;
+    try { noRings = E.inside(zs, layers, { mode: 'both', rings: null, positives: [] }); } catch (e) { noRings = e.message; }
+    check(noRings && noRings.total === zRes.total, 'both: with no rings list yet (layers loaded before a positives file), the zones are counted alone', noRings && noRings.total);
+    const g = E.zonesGeoJson({ rings: [{ sites: rs, group: 'Active' }], zones: zs }, { rings, unit: 'km', asOf: DR.asOf, positives: read.positives.filter(p => p.detected) });
+    check(g.features.length === rs.length * rings.length + zs.length && g.features.filter(f => f.properties.source).length === zs.length,
+      'both: zones.geojson holds every ring and every zone');
+    check(bRes.layers.length > 0 && same(E.overviewBars([], bRes).layers[0].parts.map(x => x.ring), bRes.layers[0].byZone.map(z => z.ring)),
+      'both: the Overview\'s bars by layer, the rings\' parts marked (for their colors)');
+  }
+  {   // The circle (3b): its corners on the rings' distance rule, its label, its row.
+    const mid = [-120.47, 46.552];
+    const km3 = E.circleCorners(mid, 3, 'km'), mi2 = E.circleCorners(mid, 2, 'mi');
+    const far = (c, km) => Math.max(...c.map(q => Math.abs(PX.distanceKm(mid[1], mid[0], q[1], q[0]) - km)));
+    check(km3.length === E.CIRCLE_SIDES && E.CIRCLE_SIDES === 120 && far(km3, 3) < 1e-6 && far(mi2, 2 * E.KM_PER_MILE) < 1e-6
+      && Math.abs(km3[0][0] - mid[0]) < 1e-9 && km3[0][1] > mid[1] && km3[30][0] > mid[0],
+    'circle: 120 corners, each the radius from the middle by the rings\' distance (both units), from the north, clockwise', [far(km3, 3), far(mi2, 2 * E.KM_PER_MILE)]);
+    const a3 = E.areaM2(poly(km3));
+    check(near(a3, Math.PI * 9e6, 0.001) && a3 < Math.PI * 9e6,
+    'circle: its area within 0.1% of pi r squared (the 120 sides inside the true circle)', a3);
+    check(same(E.circleLabel(mid, 3, 'km', 'SYN-HPAI-001'), ['Around SYN-HPAI-001', '3.0 km radius', 'Area 10.9 sq mi, 6,984 acres'])
+      && same(E.circleLabel(mid, 2, 'mi'), ['2.0 mi radius', 'Area 12.6 sq mi, 8,039 acres']),
+    'circle: the label, with "Around SYN-HPAI-001" when centered on a positive', [E.circleLabel(mid, 3, 'km'), E.circleLabel(mid, 2, 'mi')]);
+    const cz = E.drawnZone(km3, 'Drawn zone 1', { kind: 'circle', km: 3 });
+    check(cz && cz.vertices === 121 && cz.source === 'drawn' && E.shapeText(cz, 'km') === 'Circle, 3.0 km radius' && E.shapeText(cz, 'mi') === 'Circle, 1.9 mi radius'
+      && PX.inZone(mid[0], mid[1], cz.geometry),
+    'circle: a drawn zone of 120 corners; its row "Circle, 3.0 km radius" (1.9 mi)', cz && E.shapeText(cz, 'mi'));
+    // A site just inside the radius is inside both the circle and the ring of the same distance around the same point.
+    const ring = E.ringSites([{ index: 0, name: 'P', lat: mid[1], lon: mid[0] }], [{ label: 'R', distance: 3 }], 'km');
+    const circle = E.zoneSites([cz]);
+    const pts = [0, 45, 90, 180, 270].map(b => { const c = E.circleCorners(mid, 2.99, 'km')[b / 3]; return { name: 'S' + b, lat: c[1], lon: c[0] }; });
+    const lay = [{ key: 't', label: 'T', points: pts }];
+    check(E.inside(circle, lay, { mode: 'zones', positives: [] }).total === 5 && E.inside(ring, lay, { mode: 'rings', rings: [{ label: 'R', distance: 3 }], positives: [] }).total === 5,
+    'circle: sites 10 m inside its radius are inside the circle and inside the ring of the same distance');
+  }
+  {   // Names, shapes in the list, editing.
+    check(same(E.drawnName(0, []), { name: 'Drawn zone 1', count: 1 }) && same(E.drawnName(3, ['Drawn zone 2']), { name: 'Drawn zone 4', count: 4 })
+      && same(E.drawnName(0, ['Drawn zone 1', 'Drawn zone 2']), { name: 'Drawn zone 3', count: 3 }),
+    'names: "Drawn zone n" counting every zone drawn, skipping a name a zone already has (a reopened zones.geojson)');
+    const z = { name: 'Drawn zone 2', first: 'Drawn zone 2' };
+    check(same(E.zoneName('  Along   the  river ', z, ['Drawn zone 1']), { name: 'Along the river', taken: false, by: null }) && E.zoneName('x'.repeat(70), z, []).name.length === 60
+      && same(E.zoneName('  ', { name: 'River', first: 'Drawn zone 2' }, []), { name: 'Drawn zone 2', taken: false, by: null })
+      && same(E.zoneName('Synthetic control area', { name: 'River', first: 'Drawn zone 2' }, ['Synthetic control area']), { name: 'River', taken: true, by: 'zone' }),
+    'names: spaces squeezed, at most 60 characters, blank gives the first name back, another zone\'s name refused');
+    const reserved = { ring: ['Infection zone', 'Control zone'], positive: ['SYN-HPAI-001'] };
+    check(same(E.zoneName('Control zone', z, [], reserved), { name: 'Drawn zone 2', taken: true, by: 'ring' })
+      && same(E.zoneName(' SYN-HPAI-001 ', z, [], reserved), { name: 'Drawn zone 2', taken: true, by: 'positive' })
+      && same(E.zoneName('Control zone east', z, [], reserved), { name: 'Control zone east', taken: false, by: null }),
+    'names (3b): a ring\'s label or a positive\'s name refused for a drawn zone, with what has it; a name only like one kept');
+    const rect = drawn.find(x => x.name === 'Rectangle by the file zone'), sq2 = drawn.find(x => x.name === 'Square around R-007');
+    check(E.shapeText(drawn[4 - 1], 'km') === 'Square, 6.0 km across' && E.shapeText(sq2, 'mi') === 'Square, 4.0 mi across' && E.shapeText(sq2, 'km') === 'Square, 6.4 km across'
+      && E.shapeText(rect, 'km') === 'Rectangle, 3.1 km by 6.7 km' && E.shapeText(drawn[0], 'km') === '6 corners',
+    'list: the shape and size ("Square, 6.0 km across", "Rectangle, 3.1 km by 6.7 km"), or the corners', drawn.map(x => E.shapeText(x, 'km')));
+    const moved = E.cornersOf(rect);
+    moved[0] = [moved[0][0] - 0.01, moved[0][1]];
+    const ed = E.editedZone(Object.assign({}, rect, { name: 'Renamed' }), moved);
+    check(ed.shape === null && ed.name === 'Renamed' && ed.first === 'Rectangle by the file zone' && E.shapeText(ed, 'km') === '4 corners'
+      && E.areaM2(ed.geometry) > E.areaM2(rect.geometry) && E.cornersOf(rect).length === 4,
+    'editing: a moved corner gives the same zone with its new area and no shape; its name and first name kept');
+    const crossed = E.cornersOf(rect);
+    crossed[0] = [crossed[3][0] + 0.04, 46.40];   // the northwest corner dragged past the east side
+    check(E.editedZone(rect, crossed) === null, 'editing: a drag that would cross sides gives no zone (the page puts it back)');
+  }
+  {   // The exports' new fields (question 11).
+    const sites = E.zoneSites(E.zoneSet(fileZone, drawn.slice(0, 1))), days = E.daysSince(sites, read.positives.filter(p => p.detected), DR.asOf);
+    const zr = E.zoneRows(days, { zonesMode: true, asOf: DR.asOf });
+    check(same(zr.columns.slice(-2), ['Area (sq mi)', 'Area (acres)']) && same(zr.rows, [['Drawn zone 1', '', '', '', '', '2026-09-02', 33, '2026-10-05', 14.88, 9520],
+      ['Synthetic control area', '', '', '', '', '', '', '2026-10-05', 27.8, 17792]]),
+    'zones.csv: the drawn and file zones\' rows end with the area in sq mi and acres', zr.rows);
+    const g = E.zonesGeoJson({ zones: sites }, { asOf: DR.asOf, positives: [] });
+    check(same(Object.keys(g.features[0].properties), ['name', 'zone', 'positive', 'group', 'distance', 'unit', 'days_since_last_positive', 'as_of', 'area_sq_mi', 'area_acres', 'source'])
+      && same(g.features.map(f => [f.properties.area_sq_mi, f.properties.area_acres, f.properties.source]), [[27.8, 17792, 'file'], [14.88, 9520, 'drawn']]),
+    'zones.geojson: every zone with area_sq_mi, area_acres and source', g.features.map(f => f.properties));
+    check(JSON.stringify(E.zonesGeoJson({ zones: E.zoneSites(E.zoneSet(fileZone, drawn)) }, { asOf: DR.asOf, positives: [] })) + '\n'
+      === fs.readFileSync(path.join(FXD, DR.geojson), 'utf8'), 'zones.geojson: the page writes the same drawn zones\' file the R reference read');
+  }
+
   // ---- 9. The rules against the R reference ------------------------------------------------------------------
   const ORACLE = path.join(ROOT, 'local-test-artifacts', 'em', 'oracle_em.json');
   if (!fs.existsSync(ORACLE)) check(false, 'R reference missing: run Rscript tests/oracle/em_oracle.R first');
@@ -1614,7 +1905,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
         'R reference: agreed scenario: days since for the zone file\'s zone (sf and GEOS)', a.zone_days);
       const gc = a.geojson.check;
       check(a.geojson.features === agGeo.features.length && gc.every(c => c.valid && c.closed && c.ccw)
-        && gc.filter(c => c.positive !== null).every(c => c.points === 361) && same(a.geojson.properties, Object.keys(agGeo.features[0].properties))
+        && gc.filter(c => c.positive !== null).every(c => c.points === 361) && same(a.geojson.properties, [...new Set(agGeo.features.flatMap(f => Object.keys(f.properties)))])
         && gc.every((c, k) => same(c.days, agGeo.features[k].properties.days_since_last_positive)),
       'R reference: zones.geojson read with sf: every polygon valid, closed and counterclockwise, every circle 361 points, the same properties', gc.filter(c => !(c.valid && c.closed && c.ccw)));
       // Six decimals hold a position to about 0.1 m, so each vertex is within 1e-4 km of its ring's distance.
@@ -1727,6 +2018,37 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && same(q.earlier.group, groupRow(qr, qByLine, early)) && same(q.asOf.quarantine, quarRow(qr, qByLine, qWin))
       && same(q.earlier.quarantine, quarRow(qr, qByLine, early)),
     'R reference: quarantine status scenario: each row\'s group and quarantine on both end dates, and the statuses not read', q);
+    // The drawn zones (2.6): the areas against an equal-area projection, the sites inside, the squares, the crossing
+    // check against GEOS's validity, and the page's zones.geojson read with sf.
+    const od = o.drawn;
+    if (!od) check(false, 'R reference: no drawn zones\' scenario (run Rscript tests/oracle/em_oracle.R again)');
+    else {
+      const worstArea = Math.max(...od.zones.map((z, k) => Math.abs(E.areaM2(drawn[k].geometry) / z.area_m2 - 1)));
+      check(od.zones.length === 8 && worstArea < 2e-3 && od.zones.every(z => z.valid),
+        'R reference: drawn zones: every area within 0.2% of NAD83 / Conus Albers (EPSG:5070), each polygon valid', worstArea);
+      check(od.zones.every((z, k) => same(z.rows.map(r => r.layer + '|' + r.name).sort(),
+        E.inside(E.zoneSites([drawn[k]]), layers, { mode: 'zones', positives: read.targets }).rows.map(r => r.layer + '|' + r.name).sort())),
+      'R reference: drawn zones: the same sites inside each (sf and GEOS)', od.zones.map(z => z.rows.length));
+      const halves = od.zones.filter(z => z.half_km).map(z => [z.half_km, E.toKm(DR.zones.find(x => x.name === z.name).square.size, DR.zones.find(x => x.name === z.name).square.unit)]);
+      check(halves.length === 2 && halves.every(([h, km]) => h.every(d => Math.abs(d / km - 1) < 1e-3)),
+        'R reference: the squares\' sides their size from the middle within 0.1% (distHaversine)', halves);
+      check(same(od.shapes.map(x => [x.name, x.valid]), DR.shapes.map(x => [x.name, E.isSimple(x.corners)])),
+        'R reference: the crossing check refuses exactly the shapes GEOS calls invalid', od.shapes);
+      check(od.geojson.length === 9 && od.geojson.every(f => f.valid) && same(od.geojson.map(f => f.source), ['file'].concat(drawn.map(() => 'drawn')))
+        && od.geojson.every(f => Math.abs(f.area_sq_mi * 2589988.110336 / f.area_m2 - 1) < 2e-3 || f.area_sq_mi < 1)
+        && od.geojson.every(f => Math.abs(f.area_acres * 4046.8564224 - f.area_m2) <= 2e-3 * f.area_m2 + 0.5 * 4046.8564224),
+      'R reference: zones.geojson with drawn zones: valid polygons, their source, and their area_sq_mi and area_acres within 0.2% of the projection\'s', od.geojson);
+      // The circles (3b), checked alone.
+      const oc = od.circles || [], circles = DR.circles.map(z => E.drawnZone(z.corners, z.name, z.shape));
+      check(oc.length === 2 && oc.every((z, k) => z.valid && Math.abs(E.areaM2(circles[k].geometry) / z.area_m2 - 1) < 2e-3
+        && Math.abs(z.area_m2 / (Math.PI * Math.pow(1000 * E.toKm(DR.circles[k].circle.size, DR.circles[k].circle.unit), 2)) - 1) < 2e-3),
+      'R reference: the circles: each area within 0.2% of EPSG:5070\'s, and EPSG:5070\'s within 0.2% of pi r squared; each polygon valid', oc.map(z => z.area_m2));
+      check(oc.length === 2 && oc.every((z, k) => { const km = E.toKm(DR.circles[k].circle.size, DR.circles[k].circle.unit); return z.radius_km.every(d => Math.abs(d / km - 1) < 1e-4); }),
+      'R reference: the circles: every corner its radius from the middle within 0.01% (distHaversine; the corners kept to six decimals, about 0.1 m)', oc.map(z => z.radius_km));
+      check(oc.length === 2 && oc.every((z, k) => same(z.rows.map(r => r.layer + '|' + r.name).sort(),
+        E.inside(E.zoneSites([circles[k]]), layers, { mode: 'zones', positives: read.targets }).rows.map(r => r.layer + '|' + r.name).sort())),
+      'R reference: the circles: the same sites inside each (sf and GEOS)', oc.map(z => z.rows.length));
+    }
   }
 
   {   // The synthetic screwworm outbreak (test-tables/, for trying the switch between outbreaks): the type, the groups,

@@ -8,44 +8,56 @@
  * distance and the one inside it, in its ring's color) or as a zone file's polygons; the past positives' rings, when
  * asked for, gray and dashed; the sites of the ticked layers outside the zones, small and faded; the sites inside the
  * zones, in their layer's mark; the positives on top, each in its animal's shape and its status color with a white
- * halo and a dark outline (a past positive hollow and faded, a positive without zones smaller); the spot picked with "Add a point on the map" (a hollow ring). Hover, set as text
+ * halo and a dark outline (a past positive hollow and faded, a positive without zones smaller); the spot picked with "Add a point on the map" (a hollow ring);
+ * 2.6: with the tick "CVI movements", the CVI premises with a matched movement's origin or destination in a zone,
+ * a ring in the end's color (the map picture's) on a white halo, over the sites (a site at the same spot shows inside it);
+ * 2.6: a zone drawn on the map with a dashed outline (a zone file's solid), and the drawing's sketch on top (draw.js:
+ * the shape so far faintly filled, its sides, the side to the pointer dashed, the corners and the edit handles; in
+ * the kind's sources, so it comes back after a background change). Hover, set as text
  * (file values are never read as HTML): every positive under the pointer (marks can share a spot); else the site on
  * top; each with its name in bold, then its other lines. Else every zone under the pointer, smallest ring first,
  * under its positive's name (named once, in bold), each with its days since the last positive; then the "as of"
- * line. Never wider than the screen. The view fits what is drawn (the zones, the past zones and the positives shown),
+ * line. Never wider than the screen; none while drawing or editing (st.drawing, set by draw.js). The view fits what is drawn (the zones, the past zones and the positives shown),
  * with the legend's width kept clear, when the page asks.
  *
  * create(container, geo, onReady, onError) -> the map's state (map.js create with this kind)
  * draw(st, data, fit) -> draws data: { zones and pastZones: [GeoJSON Feature with properties { color, label, zid }],
  *   zoneTips: for each zid, [{ km, head, text }] (the hover's lines for that zone, each under its heading head, the
  *   positive's name, or '' for none), tipFoot (the hover's last line, the "as of" date), positives: [{ lat, lon, label (lines split by "\n"), color, past, withZones, shape (rules.js animalShapeOf) }], inside and outside:
- *   [{ lat, lon, label (lines split by "\n"), shape, color }], bounds: [west, south, east, north] or null }; fit: true fits the view to the
+ *   [{ lat, lon, label (lines split by "\n"), shape, color }], cvi: [{ lat, lon, label, color, r (the ring's radius) }] (2.6), bounds: [west, south, east, north] or null }; fit: true fits the view to the
  *   bounds
  * viewBounds(zones, pastZones, positives) -> the bounds that take in all of them, or null
  * setPicking(st, on, onPick) -> while on, a click on the map calls onPick(lon, lat), with a crosshair cursor
  * setPick(st, [lon, lat] | null) -> marks the picked spot
+ * setSketch(st, features) -> the drawing's sketch: features with properties { kind: 'fill' | 'side' | 'next' | 'mid' |
+ *   'corner', color, r (a corner's radius) }
  * hoverAt(st, point) (as st.hoverAt) -> the hover at a point of the screen, or null: { items: [{ head, lines }],
  *   foot, points } (foot the "as of" line under the zones, else ''; points true for positives or a site)
  * zoneFeatures(sites, rings, n, unit) -> the ring shapes of ring sites (proximity.bandShapes), each with its ring's
  *   color, label, site and ring number; the ring distances in unit ("km" or "mi"), turned into km by rules.js toKm;
- *   polygonFeatures(zones, color) -> a zone file's polygons as features */
+ *   polygonFeatures(zones, color) -> zone polygons as features (drawn true for a zone drawn on the map) */
 (function (root) {
   'use strict';
   const M = () => root.CVIWA.map;
   const SRC = { zones: 'em_zones', pastZones: 'em_past_zones', outside: 'em_outside', inside: 'em_inside',
-    positives: 'em_positives', pick: 'em_pick' };
-  // What the hover looks at, topmost first: the positives over the sites inside over the others; then the zones.
-  const POINT_LAYERS = ['em_positives', 'em_inside', 'em_outside'];
+    positives: 'em_positives', pick: 'em_pick', draw: 'em_draw', cvi: 'em_cvi' };
+  // What the hover looks at, topmost first: the positives over the CVI premises over the sites inside over the
+  // others; then the zones.
+  const POINT_LAYERS = ['em_positives', 'em_cvi', 'em_inside', 'em_outside'];
   const ZONE_LAYERS = ['em_zone_fill', 'em_past_fill'];
-  const PICK = '#c0392b', PAST = '#737373';
+  const PICK = '#c0392b', PAST = '#737373', SKETCH = '#1c5a83';
+  const isDrawn = ['==', ['get', 'drawn'], true];
+  const sketchKind = k => ['==', ['get', 'kind'], k];
   const empty = () => ({ type: 'FeatureCollection', features: [] });
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const marks = list => ({ type: 'FeatureCollection', features: list.map((p, i) => ({ type: 'Feature', id: i + 1,
     geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
     properties: { label: p.label, mark: M().markId(p.shape || 'circle', p.color) } })) });
+  const hollow = list => ({ type: 'FeatureCollection', features: list.map((p, i) => ({ type: 'Feature', id: i + 1,
+    geometry: { type: 'Point', coordinates: [p.lon, p.lat] }, properties: { label: p.label, color: p.color, r: p.r || 10 } })) });
   const dots = list => ({ type: 'FeatureCollection', features: list.map((p, i) => ({ type: 'Feature', id: i + 1,
     geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-    properties: { label: p.label, mark: positiveId(p), opacity: p.past ? 0.55 : 1 } })) });
+    properties: { label: p.label, mark: positiveId(p), opacity: p.past ? 0.55 : 1, lon: p.lon, lat: p.lat } })) });
 
   // A positive's mark (2.4, the owner's look D): its animal's shape (rules.js animalShapeOf) filled in its status
   // color, with a white halo and a near-black outline, half larger than the circle before (radius 7 with zones, else
@@ -82,6 +94,10 @@
     if (m && !map.hasImage(id)) map.addImage(id, positiveImage(m[1], m[2] === 'past', m[3] === 'zones', m[4]), { pixelRatio: 2 });
   }
 
+  // The CVI premises' size by the zoom: 0.4 of full at the state's view (zoom 6 and out), full from zoom 10 in.
+  const CVI_ZOOM = [6, 0.4, 10, 1];
+  const cviSize = full => ['interpolate', ['linear'], ['zoom'], CVI_ZOOM[0], ['*', full, CVI_ZOOM[1]], CVI_ZOOM[2], ['*', full, CVI_ZOOM[3]]];
+
   const KIND = {
     isOwn: id => /^em_/.test(String(id)),
     scaleCorner: 'bottom-left',   // the legend covers the bottom right
@@ -94,23 +110,43 @@
         [SRC.outside]: { type: 'geojson', data: d.outside || empty() },
         [SRC.inside]: { type: 'geojson', data: d.inside || empty() },
         [SRC.positives]: { type: 'geojson', data: d.positives || empty() },
-        [SRC.pick]: { type: 'geojson', data: d.pick || empty() }
+        [SRC.pick]: { type: 'geojson', data: d.pick || empty() },
+        [SRC.draw]: { type: 'geojson', data: d.draw || empty() },
+        [SRC.cvi]: { type: 'geojson', data: d.cvi || empty() }
       });
     },
     layers(st) {
       return M().WA_KIND.layers(st).concat([
         { id: 'em_zone_fill', type: 'fill', source: SRC.zones,
           paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.16 } },
-        { id: 'em_zone_line', type: 'line', source: SRC.zones,
+        { id: 'em_zone_line', type: 'line', source: SRC.zones, filter: ['!', isDrawn],
           paint: { 'line-color': ['get', 'color'], 'line-width': 2 } },
+        { id: 'em_zone_dash', type: 'line', source: SRC.zones, filter: isDrawn,
+          paint: { 'line-color': ['get', 'color'], 'line-width': 2.5, 'line-dasharray': [3, 2] } },
         { id: 'em_past_fill', type: 'fill', source: SRC.pastZones, paint: { 'fill-color': PAST, 'fill-opacity': 0.05 } },
         { id: 'em_past_line', type: 'line', source: SRC.pastZones,
           paint: { 'line-color': PAST, 'line-width': 1.5, 'line-opacity': 0.8, 'line-dasharray': [3, 2] } },
         M().markLayer('em_outside', SRC.outside, ['get', 'mark'], { size: 0.7, opacity: 0.35 }),
         M().markLayer('em_inside', SRC.inside, ['get', 'mark'], { size: 1, opacity: 1 }),
+        // A CVI premises: a ring in its end's color on a white halo, so it shows over a site and the shading; small at
+        // the state's view, where many can lie close together, and full size from a county's view in (CVI_ZOOM).
+        { id: 'em_cvi_halo', type: 'circle', source: SRC.cvi, paint: { 'circle-radius': cviSize(['get', 'r']), 'circle-opacity': 0,
+          'circle-stroke-color': '#ffffff', 'circle-stroke-width': cviSize(6) } },
+        { id: 'em_cvi', type: 'circle', source: SRC.cvi, paint: { 'circle-radius': cviSize(['get', 'r']), 'circle-opacity': 0,
+          'circle-stroke-color': ['get', 'color'], 'circle-stroke-width': cviSize(3.5) } },
         M().markLayer('em_positives', SRC.positives, ['get', 'mark'], { size: 1, opacity: ['get', 'opacity'] }),
         { id: 'em_pick', type: 'circle', source: SRC.pick, paint: { 'circle-radius': 9, 'circle-color': '#ffffff',
-          'circle-opacity': 0.35, 'circle-stroke-color': PICK, 'circle-stroke-width': 2.5 } }
+          'circle-opacity': 0.35, 'circle-stroke-color': PICK, 'circle-stroke-width': 2.5 } },
+        { id: 'em_draw_fill', type: 'fill', source: SRC.draw, filter: sketchKind('fill'),
+          paint: { 'fill-color': SKETCH, 'fill-opacity': 0.1 } },
+        { id: 'em_draw_side', type: 'line', source: SRC.draw, filter: sketchKind('side'),
+          paint: { 'line-color': SKETCH, 'line-width': 2.5 } },
+        { id: 'em_draw_next', type: 'line', source: SRC.draw, filter: sketchKind('next'),
+          paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2, 1.5] } },
+        { id: 'em_draw_mid', type: 'circle', source: SRC.draw, filter: sketchKind('mid'), paint: { 'circle-radius': 4,
+          'circle-color': '#ffffff', 'circle-opacity': 0.9, 'circle-stroke-color': ['get', 'color'], 'circle-stroke-width': 1.5 } },
+        { id: 'em_draw_corner', type: 'circle', source: SRC.draw, filter: sketchKind('corner'), paint: { 'circle-radius': ['get', 'r'],
+          'circle-color': '#ffffff', 'circle-stroke-color': ['get', 'color'], 'circle-stroke-width': 2.5 } }
       ]);
     },
     draw: (st, d) => draw(st, d, false),
@@ -121,7 +157,7 @@
   function create(container, geo, onReady, onError) {
     const st = M().create(container, geo, onReady, onError, KIND);
     st.em = { zones: empty(), pastZones: empty(), outside: empty(), inside: empty(), positives: empty(), pick: empty(),
-      tips: [], tipFoot: '' };
+      draw: empty(), cvi: empty(), tips: [], tipFoot: '' };
     st.onFit = () => fit(st);
     M().setLines(st, true);
     return st;
@@ -139,7 +175,9 @@
       outside: marks(d.outside || []),
       inside: marks(d.inside || []),
       positives: dots(d.positives || []),
+      cvi: hollow(d.cvi || []),
       pick: st.em.pick,
+      draw: st.em.draw,
       tips: d.zoneTips || [],
       tipFoot: d.tipFoot || ''
     };
@@ -150,7 +188,7 @@
     st.bounds = d.bounds || null;
     st.drawn = { zones: st.em.zones.features.length, pastZones: st.em.pastZones.features.length,
       outside: st.em.outside.features.length,
-      inside: st.em.inside.features.length, positives: st.em.positives.features.length };   // test hook
+      inside: st.em.inside.features.length, positives: st.em.positives.features.length, cvi: st.em.cvi.features.length };   // test hook
     if (fitView || st.fitPending) { st.fitPending = false; fit(st); }
   }
 
@@ -192,6 +230,12 @@
     if (st.ready && !st.failed && st.map.getSource(SRC.pick)) st.map.getSource(SRC.pick).setData(st.em.pick);
   }
 
+  // The drawing's sketch (draw.js), kept for a background change.
+  function setSketch(st, features) {
+    st.em.draw = { type: 'FeatureCollection', features: features || [] };
+    if (st.ready && !st.failed && st.map.getSource(SRC.draw)) st.map.getSource(SRC.draw).setData(st.em.draw);
+  }
+
   // The hover under a point of the screen: every positive there; else the site on top; each its label's first line
   // as the heading. Else every zone there, smallest ring first, grouped under their positive's name, then the "as
   // of" line. Null when nothing is there.
@@ -204,6 +248,12 @@
     const points = query(POINT_LAYERS);
     const item = label => { const lines = String(label).split('\n'); return { head: lines[0], lines: lines.slice(1) }; };
     if (points.length) {
+      // A CVI premises' ring (2.6): every end at that spot, then the site under it, so the ring hides no site.
+      if (points[0].layer.id === 'em_cvi') {
+        const ends = [...new Set(points.filter(f => f.layer.id === 'em_cvi').map(f => String(f.properties.label)))];
+        const site = points.find(f => f.layer.id !== 'em_cvi');
+        return { items: ends.concat(site ? [String(site.properties.label)] : []).map(item), foot: '', points: true };
+      }
       if (points[0].layer.id !== 'em_positives') return { items: [item(points[0].properties.label)], foot: '', points: true };
       const labels = [...new Set(points.filter(f => f.layer.id === 'em_positives').map(f => String(f.properties.label)))];
       return { items: labels.map(item), foot: '', points: true };
@@ -265,6 +315,7 @@
     st.hoverAt = point => hoverAt(st, point);   // test hook: the lines a hover there shows
     map.on('mousemove', e => {
       if (st.switching) return;
+      if (st.drawing) { st.clearHover(); return; }
       const hover = hoverAt(st, e.point);
       if (!hover) { st.clearHover(); return; }
       map.getCanvas().style.cursor = st.picking ? '' : 'default';
@@ -293,12 +344,13 @@
     }));
   }
 
-  // A zone file's polygons as features in one color.
+  // Zone polygons as features in one color; a zone drawn on the map (2.6) marked drawn, for its dashed outline.
   function polygonFeatures(zones, color) {
     return zones.map((z, i) => ({ type: 'Feature', id: i + 1, geometry: z.geometry,
-      properties: { color, label: z.name } }));
+      properties: { color, label: z.name, drawn: z.source === 'drawn' } }));
   }
 
   root.WSDA = root.WSDA || {};
-  root.WSDA.emergencyMap = { create, draw, fit, viewBounds, setPicking, setPick, hoverAt, zoneFeatures, polygonFeatures, KIND, SRC };
+  root.WSDA.emergencyMap = { create, draw, fit, viewBounds, setPicking, setPick, setSketch, hoverAt, zoneFeatures, polygonFeatures,
+    KIND, SRC };
 })(typeof window !== 'undefined' ? window : globalThis);

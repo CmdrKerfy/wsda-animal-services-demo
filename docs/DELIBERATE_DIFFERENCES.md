@@ -57,9 +57,13 @@ backgrounds this document mentions.
   end; the panel "POSITIVES" (one row per positive with zones, or per zone-file zone, with its days since the last
   positive) in place of "QUERY SITES"; each ring in the key in both units ("Infection zone (3 km / 1.9 mi)"); the
   layers' counts in a right-hand column under "SITES INSIDE" (CVI: "Layer: 8 inside" after the name), the key taking
-  smaller text, then room from the panel, before it lists fewer layers. With a CVI master, the CVI premises with an
-  origin or a destination in a zone are drawn hollow (CVI: filled dots), under "CVI PREMISES" with the CVI tab's years,
-  and the boxes read "CVIs in or out" and "Animals moved".
+  smaller text, then room from the panel, before it lists fewer layers. With a CVI master and (2.6) the tick "CVI
+  movements" on, the CVI premises with an origin or a destination in a zone are drawn hollow (CVI: filled dots), under
+  "CVI PREMISES" with the CVI tab's years, and the boxes read "CVIs in or out" and "Animals moved"; with the tick off
+  (as at every load) the picture has none of them, as the live map, and the Export has no `cvi_movements.csv`
+  (`export_params.json`: `cvi_movements` "off"). The live map draws the same premises when ticked, a ring on a white
+  halo in the picture's colors, small at the state's view and full size from zoom 10 in, its hover giving the place
+  and the CVIs' numbers as the CVI movements table writes them (CVI's own map has no such hover) (2.6).
 - **Emergency Response's `zones.geojson` (version 2.1):** every zone drawn, each with a `name` property ("Infection
   zone (3 km) around SYN-HPAI-001", as `zones.csv`'s "Zone"), so loaded again as a zone file it reopens with its zones
   named (CVI writes no zone file).
@@ -94,6 +98,17 @@ backgrounds this document mentions.
   buttons; the house button reads "Fit to the positives shown". In the map picture's Streets background, place names
   stay off the positives' marks and a river's name is written only where it fits clear of names and marks (CVI's
   County Focus writes it at the river's middle point).
+- **Emergency Response's drawn zones (version 2.6):** a "Draw a zone" fold under "Add a point on the map": a zone
+  drawn on the live map, freehand (a click a corner, a live label with the distance from the first click and the area),
+  as a rectangle by two clicks, or as a square or a circle of a set size (centered on a positive when its mark is
+  clicked; a circle's 120 corners each its radius away by the rings' distance rule, no Edit); sides that cross or
+  touch are refused. A drawn zone is a zone as a zone file's is: it joins the file's zones, shown by a switch "Rings |
+  Zones | Both" under the rings in place of CVI's and 2.5's tick "Use the file's zones in place of the rings" (in
+  Both a site inside a ring and a zone counts once). A drawn zone's outline is dashed, a file zone's solid, on the live map and the
+  picture. Every zone's area in square miles and acres (on CVI's sphere) in the list, the hover, the picture,
+  `zones.csv` and `zones.geojson` (with `source`, "drawn" or "file"). Nothing is stored: the browser asks before the
+  page is left while drawn zones exist, and the Export's `zones.geojson` reopens under "Use a zone file". CVI's
+  Premise Lookup has no drawing.
 - **Emergency Response's time views (version 2.5):** a switch "On a day" | "Between dates" with a pin and a span, in
   place of CVI's and Infrastructure's single date window. On a day shows every positive active on the day, whenever it
   was detected (closed ones when ticked); Between dates every positive detected between the two dates, active and

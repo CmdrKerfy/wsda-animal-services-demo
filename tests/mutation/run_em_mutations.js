@@ -3,16 +3,17 @@
 // Emergency Response spot mutations: changes to the rules (which positives get zones, names, the coarse-location
 // rule, the edge, the counts, the "nearest" line, the boxes, dates; from E1b the groups, quarantine, the window, the
 // weeks and months, the flock sizes and numbers, miles, days since and the GeoJSON; zones.csv and the map picture's
-// model, site/emergency/branded.js; the chart's counts and drawing, site/emergency/chart.js), the types, recognition
-// and the page must each fail a suite.
+// model, site/emergency/branded.js; the chart's counts and drawing, site/emergency/chart.js; from 2.6 the drawn
+// zones: the area, the crossing check, the set shapes, the names, the zone set and the exports' area and source), the
+// types, recognition and the page must each fail a suite.
 //
 // Each mutant changes one exact piece of code in a temporary copy of the repository; the suite named for its group
 // must then report failed checks. A suite that stops early does not count as catching it.
 //   unit   site/emergency/rules.js, types.js, datasets.js, branded.js, chart.js, map.js's viewBounds (2.4) and site/shared/recognize.js, against the Emergency unit
 //          suite (which also compares the rules with the R reference); from 2.4 also tools/work-pc/check_hpai_table.R
-//   page   site/emergency/app.js, map.js and index.html, against the Emergency Chrome suite's parts named with the
-//          mutant ("page" and "results" unless it names others; from E1b also "e1b", "png", "chart" and "speed"; from 2.3
-//          "overview")
+//   page   site/emergency/app.js, map.js and index.html (from 2.6 also draw.js and the picture's key row in branded.js),
+//          against the Emergency Chrome suite's parts named with the mutant ("page" and "results" unless it names
+//          others; from E1b also "e1b", "png", "chart" and "speed"; from 2.3 "overview"; from 2.6 "draw")
 //          (foreground only; about 40 seconds a mutant, so run a few numbers at a time to stay under 600 seconds)
 //
 // Usage (repository root): node tests/mutation/run_em_mutations.js unit|page [numbers ...]
@@ -33,6 +34,7 @@ const RU = 'site/emergency/rules.js', TY = 'site/emergency/types.js', DS = 'site
 const RE = 'site/shared/recognize.js', AP = 'site/emergency/app.js', HT = 'site/emergency/index.html';
 const BRD = 'site/emergency/branded.js', CHT = 'site/emergency/chart.js', MP = 'site/emergency/map.js';
 const TC = 'tools/work-pc/check_hpai_table.R';
+const DW = 'site/emergency/draw.js';
 
 // [name, file, exact original text, replacement, the Chrome parts that must catch it (page mutants only; default
 // "page" and "results")]
@@ -109,7 +111,7 @@ const GROUPS = {
       'ring(r.color, r.label);'],
     ['map picture: the other unit left out', BRD, "return { shown: distance(d, u), other: String(Number(x.toFixed(1))) + ' ' + E().UNITS[o].label };",
       "return { shown: distance(d, u), other: distance(d, u) };"],
-    ['map picture: a zone\'s long name not wrapped', BRD, 'if (!r.county) names = wrap(full, fullPt, nameRoom, 3);',
+    ['map picture: a zone\'s long name not wrapped', BRD, 'if (!r.county || r.zone) names = wrap(full, fullPt, nameRoom, 3);',
       'if (false) names = wrap(full, fullPt, nameRoom, 3);'],
     ['map picture: the key\'s counts not drawn', BRD, "const countOf = (it, yy, pt) => (it.count === undefined ? '' :", "const countOf = (it, yy, pt) => (true ? '' :"],
     ['map picture: the Positives box counts every positive drawn', BRD, "{ label: 'Active positives', value: S().comma(input.current || 0), color: TEAL }",
@@ -354,12 +356,83 @@ const GROUPS = {
     ['the Overview Between dates counts only the active outside Washington', RU,
       "(win && win.view === 'range' ? cur.concat(g.past) : cur).filter(", 'cur.filter('],
     ['the play from a Saturday drops the week ending on it', RU, '(!from || s.end >= from)', '(!from || s.end > from)'],
+    // 2.6, drawn zones: the area, the crossing check, the set shapes, drawn zones as zones, the exports.
+    ['area: a hole added instead of taken off', RU, 'u + (i ? -1 : 1) * ringAreaM2(r)', 'u + ringAreaM2(r)'],
+    ['area: one end of each side read twice', RU, '(2 + Math.sin(rad(p[1])) + Math.sin(rad(q[1])))', '(2 + 2 * Math.sin(rad(p[1])))'],
+    ['area: acres alone under 1 sq mi', RU, 'return sqMi < 0.1 ? a :', 'return sqMi < 1 ? a :'],
+    ['area: the exports\' acres from square miles', RU, "acres: Math.round(m2 / M2_PER_ACRE) });", "acres: Math.round(m2 / M2_PER_SQ_MI * 640.1) });"],
+    ['crossing: touching allowed', RU, "    return (d1 === 0 && within(r, s, p)) || (d2 === 0 && within(r, s, q)) || (d3 === 0 && within(p, q, r))\n      || (d4 === 0 && within(p, q, s));",
+      '    return false;'],
+    ['crossing: a side turning back allowed while drawing', RU, '    if (doublesBack(corners[n - 2], last, p)) return true;\n', ''],
+    ['crossing: the side before the last not checked', RU, 'for (let i = 0; i + 2 < n; i++) if (sidesMeet(', 'for (let i = 0; i + 3 < n; i++) if (sidesMeet('],
+    ['closing: a shape turning back closes', RU, '      if (doublesBack(corners[i], corners[(i + 1) % n], corners[(i + 2) % n])) return false;\n', ''],
+    ['closing: more than 200 corners close', RU, 'corners.length >= DRAW.minCorners && corners.length <= DRAW.maxCorners && isSimple(corners)',
+      'corners.length >= DRAW.minCorners && isSimple(corners)'],
+    ['label: the area from the second corner', RU, 'if (corners.length >= DRAW.minCorners) lines.push(', 'if (corners.length >= 2) lines.push('],
+    ['label: the distance from the last corner', RU, "lengthText(kmBetween(corners[0], pointer), unit) + ' from the first click'",
+      "lengthText(kmBetween(corners[corners.length - 1], pointer), unit) + ' from the first click'"],
+    ['rectangle: a flat one kept', RU, '    if (a[0] === b[0] || a[1] === b[1]) return null;\n', ''],
+    ['rectangle: its width along its first corner\'s latitude', RU, 'eastKm: kmBetween([a[0], mid], [b[0], mid])', 'eastKm: kmBetween([a[0], a[1]], [b[0], a[1]])'],
+    ['square: a km east the same degrees as a km north', RU, 'dx = km * KM_LAT / Math.cos(rad(mid[1]))', 'dx = km * KM_LAT'],
+    ['square: a size in miles read as km', RU, 'const km = toKm(size, unit), dy = km * KM_LAT,', 'const km = size, dy = km * KM_LAT,'],
+    ['square: the size box takes over 100', RU, 'v >= DRAW.minSize && v <= DRAW.maxSize ? { size: v }', 'v >= DRAW.minSize ? { size: v }'],
+    ['drawn zone: the outline left clockwise', RU, "const outline = root.WSDA.zones.signedArea(ring) > 0 ? ring : ring.reverse();", 'const outline = ring;'],
+    ['drawn zone: corners not rounded', RU, 'const c = corners.map(p => [round6(p[0]), round6(p[1])]);', 'const c = corners.map(p => [p[0], p[1]]);'],
+    ['drawn zone: crossing corners make a zone', RU, '    if (!canClose(c)) return null;\n', ''],
+    ['editing: the shape kept after an edit', RU, 'const z = drawnZone(corners, zone.name, null);', 'const z = drawnZone(corners, zone.name, zone.shape);'],
+    ['names: a name a zone has given again', RU, "    while (has.has('Drawn zone ' + n)) n++;\n", ''],
+    ['names: another zone\'s name taken', RU, "const by = (taken || []).includes(want) ? 'zone'", "const by = false ? 'zone'"],
+    ['zone set: drawn zones before the file\'s', RU, 'const zoneSet = (fileZones, drawn) => (fileZones || []).concat(drawn || []);',
+      'const zoneSet = (fileZones, drawn) => (drawn || []).concat(fileZones || []);'],
+    ['switch (3b): a zone finished on Rings leaves Rings', RU, "    if (o.show === 'rings' && change === 'drawn') return 'both';\n", ''],
+    ['switch (3b): the pick shows with no zone', RU, "const showOf = (show, fileZones, drawn) => (zoneSet(fileZones, drawn).length && SHOWS.includes(show) ? show : 'rings');",
+      "const showOf = (show, fileZones, drawn) => (SHOWS.includes(show) ? show : 'rings');"],
+    ['meta line: "and 2 drawn zones" after the file', RU, "if (fileName) return fileName + ' and ' + drawnCount + ' drawn';",
+      "if (fileName) return fileName + ' and ' + drawnCount + ' drawn zones';"],
+    ['zones.geojson: every zone marked "file"', RU, "area_sq_mi: area.sqMi, area_acres: area.acres, source: s.source === 'drawn' ? 'drawn' : 'file' });",
+      "area_sq_mi: area.sqMi, area_acres: area.acres, source: 'file' });"],
+    ['zones.geojson: a drawn zone\'s zone its name', RU, "zone: s.source === 'drawn' ? 'Drawn zone' : text(s.name),", 'zone: text(s.name),'],
+    ['zones.csv: a zone\'s area left blank', RU, "o.asOf || ''].concat(area(z))));", "o.asOf || '', '', '']));"],
+    ['zone sites: drawn zones read as file zones', RU, "s.source = zones[k].source === 'drawn' ? 'drawn' : 'file';", "s.source = 'file';"],
+    // 2.6's review (230 onward).
+    ['label: an area for a shape that cannot close', RU, 'const closes = corners.length >= DRAW.minCorners && isSimple(shape);',
+      'const closes = corners.length >= DRAW.minCorners;'],
+    ['label: after a tap, the last corner counted twice', RU, 'const shape = sameSpot(pointer, last) ? corners.slice() : corners.concat([pointer]);',
+      'const shape = corners.concat([pointer]);'],
+    // 2.6's section 3b, the circle and "Rings | Zones | Both" (232 onward).
+    ['switch: a zone file on Rings leaves Rings', RU, "    if (o.show === 'rings' && change === 'file') return 'zones';\n", ''],
+    ['both: the zone sites counted as rings', RU, "const isZone = s => mode === 'zones' || (mode === 'both' && !!s.source);", "const isZone = s => mode === 'zones';"],
+    ['both: the zone sites numbered from 1 again', RU, '    zoneList.forEach((s, k) => { s.id = ringList.length + k + 1; });\n', ''],
+    ['both: a zone named as a ring counted with the ring', RU, "if (zoneIds.has(r.site)) byZone.get('zone\\r' + r.zone).keys.add(k);",
+      "if (zoneIds.has(r.site)) (byZone.get('ring\\r' + r.zone) || byZone.get('zone\\r' + r.zone)).keys.add(k);"],
+    ['both: a zone\'s row in the "Zones" list written as a ring\'s', RU, 'const rows = byQuiet(days).map(z => (outer && !z.source', 'const rows = byQuiet(days).map(z => (outer'],
+    ['count line: "the" before a zone\'s name', RU, "z.count + ' in ' + (z.ring ? 'the ' : '') + z.label", "z.count + ' in ' + (s.mode !== 'zones' ? 'the ' : '') + z.label"],
+    ['circle: the corners on another radius of the Earth', RU, 'const d = toKm(size, unit) * 1000 / EARTH_M, lat = rad(mid[1])', 'const d = toKm(size, unit) * 1000 / 6371008.8, lat = rad(mid[1])'],
+    ['circle: the label without "Around"', RU, "    return (around ? ['Around ' + around] : []).concat([lengthText(toKm(size, unit), unit) + ' radius',",
+      "    return [].concat([lengthText(toKm(size, unit), unit) + ' radius',"],
+    ['circle: the row says its corners', RU, "    if (s && s.kind === 'circle') return 'Circle, ' + lengthText(s.km, unit) + ' radius';\n", ''],
+    ['overview bars: the rings\' parts not marked', RU, 'parts: l.byZone.map(z => ({ key: z.label, value: z.count, ring: !!z.ring })),',
+      'parts: l.byZone.map(z => ({ key: z.label, value: z.count, ring: false })),'],
+    ['export_params: what showed not written', RU, 'zones_shown: shown });', 'zones_shown: !!shown });'],
+    // 3b's review (243 onward).
+    ['names: a ring\'s label given to a drawn zone', RU, "(r.ring || []).includes(want) ? 'ring'", "false ? 'ring'"],
+    ['inside_the_zones.csv: a zone\'s row a distance of 0', RU, "r.inZone ? '' : km(r.exactKm)", 'km(r.exactKm)'],
+    ['counting: no rings list stops the count', RU, "(o.rings || []).map(r => ['ring\\r' + r.label,", "o.rings.map(r => ['ring\\r' + r.label,"],
+    // 2.6's section 3c, the tick "CVI movements" (246 onward).
+    ['CVI premises: an end outside the zones drawn', RU, '        if (!r[flag]) continue;\n', ''],
+    ['CVI premises: a spot once per row, not per spot', RU, '        const key = lat + \',\' + lon;', '        const key = lat + \',\' + lon + \',\' + spots.size;'],
+    ['CVI premises: the rows counted, not the CVIs', RU, 'spots.get(key).ids.add(String(r.CVI));', 'spots.get(key).ids.add(String(spots.get(key).ids.size));'],
+    ['CVI premises: a latitude out of range kept', RU, 'Math.abs(lat) > 90 || ', ''],
+    // 3d, the hover's place and CVI numbers (250 onward).
+    ['CVI premises: the numbers in the rows\' order', RU, "ids: [...s.ids].sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), place", 'ids: [...s.ids], place'],
+    ['CVI premises: the place from the last movement', RU, '        if (!spots.has(key)) {\n          const place', '        {\n          const place'],
+    ['CVI premises: a blank county kept in the place', RU, ".filter(v => v !== null && v !== undefined && v !== '').join(', ');\n          spots.set", ".join(', ');\n          spots.set"],
   ],
   page: [
     ['the loader stays open after a clean load', AP, "if (ready && !failed && !notes.length) $('load-fold').open = false;",
       'void ready;'],
     ['a zone file in the files replaces the rings at once', AP,
-      "state.useZones = source === 'page' || state.type.zones.source === 'file';", 'state.useZones = true;'],
+      "state.show = source === 'page' || state.type.zones.source === 'file'\n", "state.show = true\n"],
     ['rings in the wrong order accepted', AP, 'next.every((r, i) => i === 0 || r.distance > next[i - 1].distance);', 'true;'],
     ['the sites outside the zones not drawn', AP,
       "outside.push({ lat: p.lat, lon: p.lon, shape: l.shape, color: l.color, label: name + '\\n' + l.label });", 'void name;'],
@@ -386,10 +459,10 @@ const GROUPS = {
     ['the play starts where it rests, not at the first step', AP,
       '    if (state.stepAt >= steps.length - 1) state.stepAt = -1;   // from the first step\n', '', ['e1b']],
     ['the play loops instead of stopping at the end', AP,
-      'if (state.stepAt >= state.steps.steps.length - 1) { stopPlay(); return; }',
+      'if (state.stepAt >= state.steps.steps.length - 1) { stopPlay(true); return; }',
       'if (state.stepAt >= state.steps.steps.length - 1) state.stepAt = -1;', ['e1b']],
-    ['the slider leaves the play running', AP, "    slidAt = Date.now();\n    stopPlay();\n",
-      "    slidAt = Date.now();\n", ['e1b']],
+    ['the slider leaves the play running', AP, "    stopPlay();\n    goStep(i);\n",
+      "    goStep(i);\n", ['e1b']],
     ['the CVI movements worked out during the play', AP,
       "    if (state.playing) {\n      out.append(el('p', 'muted', 'The CVI movements are worked out when the play stops.'));",
       "    if (false) {\n      out.append(el('p', 'muted', 'The CVI movements are worked out when the play stops.'));", ['e1b', 'speed']],
@@ -434,7 +507,7 @@ const GROUPS = {
     ['"Not mapped" not in the warning color', HT, '  details.em-notmapped > summary strong { color: var(--notice-text); }\n', '', ['e1b']],
     ['the results tables the full width again', HT, '  .em-results table { width: auto; max-width: 100%;', '  .em-results table { width: 100%;', ['results']],
     ['a number\'s heading at its column\'s left', AP,
-      "columns.forEach((c, j) => head.append(el('th', rows.length && typeof rows[0][j] === 'number' ? 'num' : null, c)));",
+      "columns.forEach((c, j) => head.append(el('th', rows.some(r => typeof r[j] === 'number') ? 'num' : null, c)));",
       "columns.forEach(c => head.append(el('th', null, c)));", ['results']],
     // E1b (version 2.1): a zone without a dated positive; the population key and the zone hover's lines
     ['a zone without a dated positive: empty cells again', AP, "E.dayLabel(r[5]) : 'no date', r[5] ? r[6] : 'unknown']",
@@ -449,7 +522,7 @@ const GROUPS = {
     ['the past box\'s quarantine not in the warning color', AP, "    $('box-past').classList.toggle('quar', !!v.past.quarantined);\n", '', ['e1b']],
     ['a wide date cut off its box on a phone again', HT,
       '  #box-last:not(.na) strong { font-size: clamp(15px, calc(((100cqi - 0.5rem) / 2 - 1.15rem - 2px) * 0.135), 30px); }\n', '', ['e1b']],
-    ['the sidebar summary counts the positives again', AP, "zonesMode ? 'zones from a file' : !state.rings", "zonesMode ? 'zones from a file' : targets.length ? targets.length + ' with zones' : !state.rings", ['page']],
+    ['the sidebar summary counts the positives again', AP, "      const ringsWords = !state.rings", "      const ringsWords = targets.length ? targets.length + ' with zones' : !state.rings", ['page']],
     // The boxes' icons in brand colors; the map picture's box named as the page's
     ['the active positives\' box without its brand color', HT, '  #box-detected, #box-positives { --box: var(--wsda-crimson); }\n',
       '  #box-detected { --box: var(--wsda-crimson); }\n', ['e1b']],
@@ -467,13 +540,13 @@ const GROUPS = {
     ['the "?" silent on positives closed on a day not known (2.5: the closing day)', AP,
       "(noDay ? ' ' + NO_CLOSE_DAY : '')", "''", ['e1b']],
     ['a type change keeps the bundle\'s zone file as it was', AP,
-      "    if (state.zoneFile && state.zoneFile.source !== 'page') state.useZones = state.type.zones.source === 'file';\n", '', ['e1b']],
+      "      state.show = state.type.zones.source === 'file' ? (state.show === 'both' ? 'both' : 'zones') : E.showOf(state.show, [], state.drawn);\n", '', ['e1b']],
     // 2.3, the Overview (62 onward)
     ['the switch shown before a load', AP, "    $('em-view').hidden = !read;", "    $('em-view').hidden = false;", ['overview']],
     ['the Overview not drawn again when the window changes', AP, "    $('em-view').hidden = !read;\n    renderView();\n",
       "    $('em-view').hidden = !read;\n", ['overview']],
     ['the people not worked out again when the zones change', AP,
-      'if (peopleMemo.zoneFile !== zoneFile || peopleMemo.key !== key) {', 'if (peopleMemo.key === null) {', ['overview']],
+      'if (peopleMemo.zones !== zones || peopleMemo.key !== key) {', 'if (peopleMemo.key === null) {', ['overview']],
     ['the people\'s "~" read aloud', AP, "    tilde.setAttribute('aria-hidden', 'true');\n", '', ['overview']],
     ['the people\'s "?" silent on human cases', HT, " Human cases are the Department of Health's.</p>", '</p>', ['overview']],
     ['the county bars without the past', AP, "          { key: 'past', label: 'closed', name: 'Closed', outline: true, stroke: color }] }",
@@ -505,7 +578,7 @@ const GROUPS = {
     ['"Draw their rings" does not fit', AP, "    state.pastRings = $('em-past-rings').checked;\n    state.fitNext = true;\n",
       "    state.pastRings = $('em-past-rings').checked;\n", ['view']],
     ['a date box does not fit', AP, '    setSteps();\n    state.fitNext = true;\n    renderWindow();', '    setSteps();\n    renderWindow();', ['view']],
-    ['no fit when the play stops', AP, "    if (state.tab === 'cvi') renderCvi();\n    fitShown();\n", "    if (state.tab === 'cvi') renderCvi();\n", ['view']],
+    ['no fit when the play stops', AP, "    else if (redraw && state.tab === 'cvi') renderCvi();\n    fitShown();\n", "    else if (redraw && state.tab === 'cvi') renderCvi();\n", ['view']],
     ['no room kept for the legend', MP, 'const right = EDGE + (st.legendWidth ? st.legendWidth() : 0);', 'const right = EDGE;', ['view']],
     ['on a phone room kept for the legend above the map', AP, "if (lg.hidden || css.position !== 'absolute') return 0;",
       'if (lg.hidden) return 0;', ['view']],
@@ -530,8 +603,8 @@ const GROUPS = {
     ['the streets\' data never loaded', AP, '      streets = await loadStreets();', '      streets = null;', ['png']],
     ['no Streets in the background list', HT, '<option value="vector:streets">Streets (vector)</option>\n', '', ['png']],
     ['the legend made after the map\'s fit', AP,
-      '    renderLegend(...legendArgs);\n    drawMap(sites, pastSites, zonesMode, targets, layers);\n    renderBoxes();\n',
-      '    drawMap(sites, pastSites, zonesMode, targets, layers);\n    renderLegend(...legendArgs);\n    renderBoxes();\n', ['view']],
+      '    renderLegend(...legendArgs);\n    drawMap(sites, pastSites, show, ringPart.length, targets, layers, cvi);\n    renderBoxes();\n',
+      '    drawMap(sites, pastSites, show, ringPart.length, targets, layers, cvi);\n    renderLegend(...legendArgs);\n    renderBoxes();\n', ['view']],
     ['the legend\'s room its width now, not its full width', AP,
       'return (lg.open ? Math.max(lg.offsetWidth, parseFloat(css.maxWidth) || 0) : lg.offsetWidth) + 8;',
       'return lg.offsetWidth + 8;', ['view']],
@@ -582,7 +655,99 @@ const GROUPS = {
     ['the slider leaves the picked column picked', AP,
       '    state.picked = null;   // the slider or the play moves the day\'s line; no chart column stays picked\n', '', ['chart']],
     ['Between dates the first column starts on its Sunday', AP, 'column.start < from ? Object.assign({}, column, { start: from }) : column',
-      'column', ['chart']]
+      'column', ['chart']],
+    // 2.6, Draw a zone: draw.js, the page's zone set, the map's drawn outline and sketch, the picture's key row (138
+    // onward), against the part "draw".
+    ['a click whose side would cross another places a corner', DW, '        if (E().crossesAt(c, p)) { m.pointer = p; render(); return; }\n', '', ['draw']],
+    ['the double-click zoom left on while drawing', DW, '      if (mode && !was) map.doubleClickZoom.disable();\n', '', ['draw']],
+    ['the second click of a double-click adds a corner', DW,
+      '        if (c.length && (near(c[c.length - 1], point) || near(c[0], point))) return;   // on a corner already placed\n', '', ['draw']],
+    ['Backspace takes back no corner', DW, "      } else if (e.key === 'Backspace' && mode.kind !== 'edit') {", '      } else if (false) {', ['draw']],
+    ['Esc does not drop the shape', DW, "      } else if (e.key === 'Escape') {", '      } else if (false) {', ['draw']],
+    ['a click on the first corner does not close the shape', DW,
+      '        if (c.length >= E().DRAW.minCorners && near(c[0], point)) { finish(); return; }\n', '', ['draw']],
+    ['"Sides can’t cross" not in crimson', DW, "      l.classList.toggle('warn', !!warn);", "      l.classList.toggle('warn', false);", ['draw']],
+    ['a drag that crosses sides kept', AP, 'z = k < 0 ? null : E.editedZone(zone, corners);',
+      "z = k < 0 ? null : Object.assign({}, zone, { geometry: { type: 'Polygon', coordinates: [corners.concat([corners[0]])] } });", ['draw']],
+    ['a side\'s middle handle adds no corner', DW,
+      'if (hit.mid) { index = hit.index + 1; mode.corners.splice(index, 0, [e.lngLat.lng, e.lngLat.lat]); }', 'if (hit.mid) { index = hit.index; }', ['draw']],
+    ['the square not centered on the positive clicked', DW, 'const on = positiveAt(point), mid = on ? on.lonlat : p;', 'const on = null, mid = p;', ['draw']],
+    ['the hover shown while drawing', MP, '      if (st.drawing) { st.clearHover(); return; }\n', '', ['draw']],
+    ['a drawn zone\'s outline not dashed', MP, "drawn: z.source === 'drawn' } }));", 'drawn: false } }));', ['draw']],
+    ['the sketch dropped when the page redraws', MP, '      draw: st.em.draw,\n', '      draw: empty(),\n', ['draw']],
+    ['finishing a drawn zone does not tick the zones', AP, "    zonesChanged('drawn');", "    zonesChanged('edited');", ['draw']],
+    ['a name another zone has accepted', AP, 'allZones().filter(o => o !== z).map(o => o.name)', '[]', ['draw']],
+    ['the legend without the drawn zones\' row', AP, "        line(s, d.length === 1 ? d[0].name + ' (drawn)' : plural(d.length, 'drawn zone', 'drawn zones'));\n", '', ['draw']],
+    ['no "Leave this page?" while drawn zones exist', AP, "    e.preventDefault();\n    e.returnValue = '';\n", '', ['draw']],
+    ['the hover without the zone\'s area', AP, "+ ' \\u00b7 ' + E.areaText(s.areaM2) }];", "}];", ['draw']],
+    ['"Pick on map" does not end the drawing', AP, '    if (state.picking && draw.mode()) { draw.cancel(); draw.done(); }\n', '', ['draw']],
+    ['export_params.json without the drawn zones', AP, '      ...E.drawnParams(state.drawn, show),\n', '', ['draw']],
+    ['the drawn zones left out of the results', AP, "show === 'zones' ? E.zoneSites(allZones())", "show === 'zones' ? E.zoneSites(fileZones())", ['draw']],
+    ['the picture\'s key without "Zone (drawn)"', BRD, '      if (kinds.drawn) {', '      if (false) {', ['draw']],
+    ['a click on an earlier corner placed beside it', DW, '        p = onCorner(c, p, point);\n', '', ['draw']],
+    // 2.6's review (162 onward).
+    ['the Export with the rings shown leaves out the drawn zones', AP, "state.drawn.length ? E.zoneSites(state.drawn) : [] };", '[] };', ['draw']],
+    ['an edit puts a new zone in the list (the button forgets the edit)', AP, "    Object.assign(zone, z);\n    zonesChanged('edited');\n    return zone;",
+      "    state.drawn[state.drawn.indexOf(zone)] = z;\n    zonesChanged('edited');\n    return z;", ['draw']],
+    ['the double-click zoom back on at once', DW, '        root.setTimeout(() => { if (!mode && t === zoomBack) map.doubleClickZoom.enable(); }, ZOOM_BACK_MS);',
+      '        map.doubleClickZoom.enable();', ['draw']],
+    ['a click on an edit handle changes the zone', DW, '      if (!d.moved) { mode.corners = d.base; renderEdit(); return; }\n', '', ['draw']],
+    ['a rectangle from a double-click on its first corner', DW, '        if (near(m.corners[0], point)) return;   // the second click of a double-click on the first corner\n', '', ['draw']],
+    ['a reopened file\'s names repeating a drawn zone\'s not said', AP, "(twice.length ? ' A drawn zone has the same name", "(false ? ' A drawn zone has the same name", ['draw']],
+    ['the population hover shown while drawing', HT, '  #em-map.drawing .maplibregl-popup, #em-map.editing .maplibregl-popup { display: none; }\n', '', ['draw']],
+    ['no rings as a guide while drawing with the zones in their place', AP, 'const guide = zonesMode && state.ringGuide && state.rings', 'const guide = false && state.ringGuide && state.rings', ['draw']],
+    // 2.6's section 3b, the circle and "Rings | Zones | Both" (169 onward).
+    ['the switch\'s Zones and Both free with no zone', AP, "b.disabled = none && b.dataset.show !== 'rings';", 'b.disabled = false;', ['draw']],
+    ['Both draws no zones', AP, "const polygons = show === 'rings' ? [] : EM.polygonFeatures(allZones(), '#cb181d');",
+      "const polygons = show === 'zones' ? EM.polygonFeatures(allZones(), '#cb181d') : [];", ['draw']],
+    ['Both counts the rings only', AP, "show === 'both' ? E.bothSites(ringPart, E.zoneSites(allZones())) : ringPart;", 'ringPart;', ['draw']],
+    ['the legend without the rings in Both', AP, "if (show !== 'zones' && state.rings && state.read) {", "if (show === 'rings' && state.rings && state.read) {", ['draw']],
+    ['the hover in Both takes the zones\' lines from the ring sites', AP, 'tips.push(zoneTips(sites[ringCount + i], days.sites[ringCount + i]));',
+      'tips.push(zoneTips(sites[i], days.sites[i]));', ['draw']],
+    ['zones.geojson in Both without the zones', AP, "zones: zp.show === 'both' ? zp.sites.slice(zp.ringCount) :", "zones: zp.show === 'both' ? [] :", ['draw']],
+    ['the circle\'s row keeps Edit', AP, "li.append(...(z.shape && z.shape.kind === 'circle' ? [input, remove, about] : [input, edit, remove, about]));",
+      'li.append(input, edit, remove, about);', ['draw']],
+    ['the circle\'s size box says "each way"', AP, "(state.drawShape === 'circle' ? ' radius' : ' each way')", "' each way'", ['draw']],
+    ['the circle drawn as a square', DW, "const setCorners = (kind, mid, size) => (kind === 'circle' ? E().circleCorners : E().squareCorners)(mid, size, unit());",
+      'const setCorners = (kind, mid, size) => E().squareCorners(mid, size, unit());', ['draw']],
+    ['the picture\'s meta line in Both without the rings', BRD, "show === 'both' ? ringsText + '; ' + (input.zoneName || 'a zone file')",
+      "show === 'both' ? (input.zoneName || 'a zone file')", ['draw']],
+    ['the picture\'s key in Both without the zones', BRD, "    if (show !== 'rings') {\n      const kinds", "    if (show === 'zones') {\n      const kinds", ['draw']],
+    ['the Overview\'s bars in Both: the zones in the rings\' colors', AP, 'const free = ZONE_COLORS.filter(c => !ringColors.includes(c));', 'const free = ZONE_COLORS;', ['draw']],
+    // 3b's review (181 onward).
+    ['the Overview\'s bars: a zone named as a ring merged with it', AP, "const partKey = x => (x.ring === undefined ? '' : x.ring ? 'ring\\r' : 'zone\\r') + x.key;",
+      'const partKey = x => x.key;', ['draw']],
+    ['the CVI movements in Both without the zones', AP, "const polygons = show === 'rings' ? [] : allZones().map(", "const polygons = show !== 'zones' ? [] : allZones().map(", ['draw']],
+    ['the layer table in Both heads "Positive"', AP, "s.mode === 'both' ? 'Positive or zone' : 'Positive'", "'Positive'", ['draw']],
+    ['a site in a zone "0 km from" it on its mark', AP, "(row.inZone ? 'inside ' + row.siteName :", "(false ? 'inside ' + row.siteName :", ['draw']],
+    // 2.6's section 3c, the tick "CVI movements" (185 onward).
+    ['the CVI tick on at the load', AP, '    state.cviKey = null;\n    state.cviOn = false;\n', '    state.cviKey = null;\n    state.cviOn = true;\n', ['results']],
+    ['the CVI tick hidden with a master', AP, "$('em-cvi-field').hidden = !state.master;", "$('em-cvi-field').hidden = true;", ['results']],
+    ['the CVI tick does nothing', AP, '    state.cviOn = $(\'em-cvi\').checked;\n', '', ['results']],
+    ['the map without the CVI premises', AP, 'positives, inside, outside, cvi, bounds }, fit);', 'positives, inside, outside, cvi: [], bounds }, fit);', ['results']],
+    ['the CVI premises in one color', AP, "lon: s.lon, color: CVI_COLORS.dest, r:", "lon: s.lon, color: CVI_COLORS.origin, r:", ['results']],
+    ['the legend without the CVI premises', AP, "      if (ends.includes('dest')) line(swatch('lg-dot', CVI_COLORS.dest, '#ffffff'), 'Destination in a zone');\n", '', ['results']],
+    ['the fold\'s summary without "CVI movements"', AP, ".concat(cviOn() ? ['CVI movements'] : [])", '', ['results']],
+    ['the tab with the tick off shows the movements', AP, "          : !state.cviOn ? 'CVI movements are off:", "          : false ? 'CVI movements are off:", ['results']],
+    ['the Export\'s cvi_movements.csv with the tick off', AP, '    if (cviOn()) {\n      if (state.cviKey === null)', '    if (state.master && state.read) {\n      if (state.cviKey === null)', ['results']],
+    ['export_params: the tick not said', AP, "cvi_movements: state.master ? (cviOn() ? 'included' : 'off') : null,", '', ['results']],
+    ['the picture\'s CVI with the tick off', AP, "    if (cviOn() && state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }\n    const res = cviOn() && state.cviRes",
+      "    if (state.master && state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }\n    const res = state.master && state.cviRes", ['png']],
+    ['the CVI filters leave the map as it was', AP, '        compute();   // the map\'s CVI premises and the tab', '        state.cviKey = null;\n        renderCvi();', ['results']],
+    ['the CVI premises stay off after the play', AP, '    if (redraw && cviOn()) compute();\n    else if (redraw && state.tab', '    if (redraw && state.tab', ['e1b']],
+    ['the CVI premises drawn while the play runs', AP, "if (!cviOn() || state.playing || state.sliding ||", "if (!cviOn() || state.sliding ||", ['e1b']],
+    ['the CVI premises under the sites, no hover', MP, "const POINT_LAYERS = ['em_positives', 'em_cvi', 'em_inside', 'em_outside'];", "const POINT_LAYERS = ['em_positives', 'em_inside', 'em_outside'];", ['results']],
+    // 3c's review (200 onward).
+    ['a new load keeps the CVI tick on', AP, '    state.cviKey = null;\n    state.cviOn = false;\n', '    state.cviKey = null;\n', ['results']],
+    ['the CVI box out of step with the tick', AP, "    $('em-cvi').checked = state.cviOn;\n", '', ['results']],
+    ['a CVI ring hides the site under it', MP, "if (points[0].layer.id === 'em_cvi') {", 'if (false) {', ['results']],
+    ['both ends at one spot drawn as one ring', AP, "r: origins.has(s.lat + ',' + s.lon) ? 14 : 10,", 'r: 10,', ['results']],
+    ['the legend names CVI premises none drawn', AP, '    if (ends.length) {\n      const head', '    if (cviOn()) {\n      const head', ['e1b']],
+    ['the CVI query runs while the slider moves', AP, '    state.sliding = true;   // 2.6: the map\'s CVI premises wait until the slider rests\n', '', ['speed']],
+    // 3d, the rings by the zoom and the hover (206 onward).
+    ['the CVI rings one size at every zoom', MP, 'const CVI_ZOOM = [6, 0.4, 10, 1];', 'const CVI_ZOOM = [6, 1, 10, 1];', ['results']],
+    ['the hover without the CVI numbers', AP, "plural(s.cvis, 'CVI', 'CVIs') + ': ' + ids(s);", "plural(s.cvis, 'CVI', 'CVIs');", ['results']],
+    ['the hover without the place', AP, "(s.place ? ' \\u00b7 ' + s.place : '')", "''", ['results']]
   ]
 };
 

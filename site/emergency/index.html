@@ -165,6 +165,11 @@
   #em-legend { position: absolute; right: 8px; bottom: 32px; z-index: 3; background: white; border: 1px solid var(--border); padding: 6px 8px; max-width: 210px; max-height: 50%; overflow-x: hidden; overflow-y: auto; font-size: 12px; line-height: 1.3; }
   #em-legend summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; }
   #em-legend p { margin: .2rem 0; overflow-wrap: anywhere; display: flex; align-items: flex-start; }
+  /* 2.6: the tick "CVI movements": its two hollow dots, an origin and a destination in a zone (the map's colors). */
+  .lg-cvi { display: inline-flex; gap: 2px; margin-top: 0.15rem; flex: 0 0 auto; }
+  .lg-cvi span { width: 11px; height: 11px; box-sizing: border-box; border-radius: 50%; border: 2px solid; background: #ffffff; }
+  .lg-cvi .cvi-o { border-color: #F0A06E; }
+  .lg-cvi .cvi-d { border-color: #1C9CD9; }
   #em-legend .lg-dot { display: inline-block; flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; margin: 0.05em 5px 0 0; border: 2px solid; }
   #em-legend .lg-ring { display: inline-block; flex: 0 0 14px; width: 14px; height: 10px; margin: 0.15em 5px 0 0; border: 2px solid; }
   #em-legend .facility-mark-box { margin: 0 5px 0 0; }
@@ -182,6 +187,44 @@
   .tool-switch .btn + .btn { margin-left: -1px; border-radius: 0 4px 4px 0; }
   .tool-switch .btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; position: relative; z-index: 1; }
   #em-pick[aria-pressed=true] { background: var(--primary); border-color: var(--primary); color: #fff; }
+  /* Draw a zone (2.6): the shape switch, the size box, the Drawing button and its tools, the list's rows; over the map
+     the badge under the time badge, the label beside the pointer (a crossing side's in crimson), the crosshair. */
+  /* The four shapes (3b: Circle added) in two rows of two, one switch: its outer corners rounded. */
+  .dz-shapes { display: grid; grid-template-columns: 1fr 1fr; margin: 0.2rem 0 0.45rem; }
+  .dz-shapes .btn { margin: 0; padding: 0.2rem 0.3rem; font-size: 0.85rem; font-weight: 400; border-color: var(--primary);
+    color: var(--primary); background: #fff; display: inline-flex; gap: 0.3rem; align-items: center; justify-content: center; white-space: nowrap;
+    border-radius: 0; }
+  .dz-shapes .btn:nth-child(even) { margin-left: -1px; }
+  .dz-shapes .btn:nth-child(n+3) { margin-top: -1px; }
+  .dz-shapes .btn:nth-child(1) { border-radius: 4px 0 0 0; }
+  .dz-shapes .btn:nth-child(2) { border-radius: 0 4px 0 0; }
+  .dz-shapes .btn:nth-child(3) { border-radius: 0 0 0 4px; }
+  .dz-shapes .btn:nth-child(4) { border-radius: 0 0 4px 0; }
+  .dz-shapes .btn[aria-pressed="true"] { background: var(--primary); color: #fff; font-weight: 600; position: relative; z-index: 1; }
+  .dz-shapes .btn:focus-visible { position: relative; z-index: 2; }
+  .dz-shapes .em-ic, #dz-start .em-ic, .dz-badge .em-ic { flex: none; }
+  .dz-size { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; margin: 0 0 0.45rem; }
+  .dz-size[hidden] { display: none; }
+  .dz-size input { width: 4.5em; font: inherit; padding: 0.15rem 0.3rem; border: 1px solid var(--border-input); border-radius: 4px; }
+  .dz-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+  #dz-start { display: inline-flex; gap: 0.3rem; align-items: center; }
+  #dz-start[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+  .dz-tools { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .dz-tools[hidden], .dz-tools .btn[hidden] { display: none; }
+  .dz-tools .btn { font-size: 0.85rem; padding: 0.2rem 0.5rem; margin: 0; }
+  .dz-list .dz-area { color: var(--muted); flex-basis: 100%; }
+  .dz-list .btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .dz-badge { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); z-index: 3; display: inline-flex; gap: 6px;
+    align-items: center; background: #fff; color: var(--primary); border: 2px solid var(--primary); border-radius: 14px;
+    padding: 2px 10px; font-size: 13px; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); pointer-events: none; }
+  .dz-badge[hidden], .dz-label[hidden] { display: none; }
+  .dz-label { position: absolute; z-index: 4; background: #fff; border-radius: 3px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    padding: 4px 8px; font-size: 13px; line-height: 1.35; white-space: nowrap; pointer-events: none; color: var(--text); }
+  .dz-label.warn { color: var(--wsda-crimson); font-weight: 600; border: 1px solid var(--wsda-crimson); }
+  #em-map.drawing canvas { cursor: crosshair; }
+  /* No hover while drawing or editing: the shared map's population hover (.pc-tip) hidden too (map.js pauses its own). */
+  #em-map.drawing .maplibregl-popup, #em-map.editing .maplibregl-popup { display: none; }
+  #em-legend .lg-ring.dashed { border-style: dashed; }
   /* The Emergency page's own: the type picker in the fold's header, the ring inputs, the "as of" lines. */
   #positives-fold > summary .type-line { display: flex; align-items: center; margin-top: 0.35rem; font-weight: 400; }
   #em-type { flex: 1 1 auto; min-width: 0; font-size: 0.8rem; padding: 0.2rem; border: 1px solid var(--border-input); border-radius: 4px; }
@@ -227,6 +270,10 @@
   .unit-switch .btn:first-child { border-radius: 4px 0 0 4px; }
   .unit-switch .btn + .btn { margin-left: -1px; border-radius: 0 4px 4px 0; }
   .unit-switch .btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; position: relative; z-index: 1; }
+  /* The switch "Rings | Zones | Both" (3b): three buttons as km | miles; Zones and Both grayed until a zone exists. */
+  .show-switch .btn + .btn { border-radius: 0; }
+  .show-switch .btn:last-child { border-radius: 0 4px 4px 0; }
+  .show-switch .btn:disabled { opacity: 1; color: var(--disabled); border-color: var(--border); background: var(--panel); cursor: not-allowed; }
   #em-past-fold { margin: 0.2rem 0 0 1.4rem; }
   #em-past-fold label { display: flex; align-items: flex-start; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; }
   .lg-past-ring { display: inline-block; flex: 0 0 14px; width: 14px; height: 10px; margin: 0.15em 5px 0 0; border: 2px dashed #737373; }
@@ -372,9 +419,9 @@
 <details class="refine" id="em-past-fold" hidden><summary>Closed zones</summary>
 <label><input type="checkbox" id="em-past-rings"> Draw their rings</label></details></div>
 <div class="field" id="em-rings-field"><div class="ctl-row"><span class="ctl">Rings</span><span class="unit-switch" role="group" aria-label="Distance unit"><button type="button" class="btn" id="em-unit-km" data-unit="km" aria-pressed="true">km</button><button type="button" class="btn" id="em-unit-mi" data-unit="mi" aria-pressed="false">miles</button></span></div><div id="em-rings"></div><p class="status err" id="em-rings-msg" role="alert" hidden></p></div>
+<div class="field" id="em-show-field"><div class="ctl-row"><span class="ctl">Show</span><span class="unit-switch show-switch" id="em-show" role="group" aria-label="Show the rings, the zones or both"><button type="button" class="btn" data-show="rings" aria-pressed="true">Rings</button><button type="button" class="btn" data-show="zones" aria-pressed="false" disabled>Zones</button><button type="button" class="btn" data-show="both" aria-pressed="false" disabled>Both</button></span></div></div>
 <details class="refine" id="em-zone-fold"><summary>Use a zone file</summary>
 <div class="field"><label class="ctl" for="em-zone-file">GeoJSON, KML or zipped shapefile</label><input type="file" id="em-zone-file" accept=".geojson,.json,.kml,.zip"></div>
-<div class="field check"><label><input type="checkbox" id="em-use-zones" disabled> Use the file's zones in place of the rings</label></div>
 <div class="live" role="status" aria-live="polite"><div class="status" id="em-zone-status" hidden></div></div>
 </details>
 <details class="refine" id="em-pick-fold"><summary>Add a point on the map</summary>
@@ -382,11 +429,21 @@
 <ul class="em-points" id="em-points"></ul>
 <div class="live" role="status" aria-live="polite"><div class="status" id="em-pick-status" hidden></div></div>
 </details>
+<details class="refine" id="dz-fold"><summary>Draw a zone</summary>
+<div class="dz-shapes" id="dz-shapes" role="group" aria-label="Shape"><button type="button" class="btn" data-shape="freehand" aria-pressed="true"><span data-em-icon="draw"></span>Freehand</button><button type="button" class="btn" data-shape="rectangle" aria-pressed="false"><span data-em-icon="rectangle"></span>Rectangle</button><button type="button" class="btn" data-shape="square" aria-pressed="false"><span data-em-icon="square"></span>Square</button><button type="button" class="btn" data-shape="circle" aria-pressed="false"><span data-em-icon="circle"></span>Circle</button></div>
+<div class="dz-size" id="dz-size" hidden><label for="dz-size-in">Size</label><input id="dz-size-in" type="number" min="0.1" max="100" step="0.1" value="3"><span id="dz-size-unit">km each way</span></div>
+<div class="dz-row"><button type="button" class="btn" id="dz-start" aria-pressed="false"><span data-em-icon="draw"></span><span id="dz-start-text">Draw on map</span></button><span class="dz-tools" id="dz-tools" hidden><button type="button" class="btn" id="dz-finish">Finish</button><button type="button" class="btn" id="dz-undo">Undo corner</button><button type="button" class="btn" id="dz-cancel">Cancel</button></span><button type="button" class="tip" aria-expanded="false" data-help="dz" aria-controls="help-dz" aria-label="About drawing a zone" title="Freehand: click the map for each corner; the label shows the distance from the first click and the area. Finish with a double-click, a click on the first corner, Enter or Finish; Backspace or Undo corner takes back a corner, Esc or Cancel drops the shape. Sides can’t cross. Rectangle: click two opposite corners. Square: type its size, each way from its middle, and click where the middle goes (on a positive to center it there). Circle: the same, with its radius; a circle has no Edit (remove it and place it again). Edit drags a corner, or a side’s middle to add one. A drawn zone lasts until the page is closed: the Export ZIP’s zones.geojson keeps it, to load again under “Use a zone file”.">?</button></div>
+<p class="help-note" id="help-dz" hidden>Freehand: click the map for each corner; the label shows the distance from the first click and the area. Finish with a double-click, a click on the first corner, Enter or Finish; Backspace or Undo corner takes back a corner, Esc or Cancel drops the shape. Sides can’t cross. Rectangle: click two opposite corners. Square: type its size, each way from its middle, and click where the middle goes (on a positive to center it there). Circle: the same, with its radius; a circle has no Edit (remove it and place it again). Edit drags a corner, or a side’s middle to add one. A drawn zone lasts until the page is closed: the Export ZIP’s zones.geojson keeps it, to load again under “Use a zone file”.</p>
+<ul class="em-points dz-list" id="dz-list"></ul>
+<div class="live" role="status" aria-live="polite"><div class="status" id="dz-status" hidden></div></div>
+</details>
 </div></details>
 <details class="section" id="layers-fold" data-section="layers"><summary>Layers to check<span class="fold-sum" id="layers-sum"></span></summary><div class="section-body">
 <p class="muted em-note">The ticked layers are checked against the zones.</p>
 <div class="ctl-row"><span class="ctl">Layers</span><span class="links"><button type="button" id="em-layers-all">All</button> &middot; <button type="button" id="em-layers-clear">Clear</button></span></div>
 <fieldset class="checklist" id="em-layers" aria-label="Layers to check"></fieldset>
+<div id="em-cvi-field" hidden><div class="ctl-row"><span class="ctl">Animal movements</span></div>
+<fieldset class="checklist" aria-label="Animal movements"><label title="The CVI premises a movement left from or went to inside the zones: on the map, in the map picture and in the Export. Off each time files are loaded."><input type="checkbox" id="em-cvi"><span class="lg-cvi" aria-hidden="true"><span class="cvi-o"></span><span class="cvi-d"></span></span>CVI movements</label></fieldset></div>
 </div></details>
 <details class="section" id="options-fold" data-section="options"><summary>More options</summary><div class="section-body">
 <div class="field"><label class="ctl" for="em-basemap">Basemap</label><select id="em-basemap" class="export-input"></select><p id="basemap-note" class="muted"></p></div>
@@ -447,7 +504,7 @@
 <button type="button" class="btn" id="show-overview" data-view="overview" aria-pressed="false" aria-controls="view-overview"><span class="btn-icon" data-icon="bar-chart" aria-hidden="true"></span>Overview</button>
 </div>
 <div id="view-map">
-<div class="map-frame"><div class="ts-badge" id="em-badge" hidden></div><div id="em-map" role="region" aria-label="Emergency map" aria-describedby="em-map-alt"></div><div id="basemap-status" class="status warn" hidden><span></span> <button id="offline-back" type="button" class="btn"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div><details id="em-legend" open><summary>Legend</summary><div id="em-legend-content"></div></details></div>
+<div class="map-frame"><div class="ts-badge" id="em-badge" hidden></div><div class="dz-badge" id="dz-badge" hidden></div><div class="dz-label" id="dz-label" hidden></div><div id="em-map" role="region" aria-label="Emergency map" aria-describedby="em-map-alt"></div><div id="basemap-status" class="status warn" hidden><span></span> <button id="offline-back" type="button" class="btn"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div><details id="em-legend" open><summary>Legend</summary><div id="em-legend-content"></div></details></div>
 <div class="live" role="status" aria-live="polite"><div id="screenshot-status" class="status info" hidden></div></div>
 <div id="em-zero" class="status warn" role="status">Load a positives file to see the positives and their zones.</div>
 <p class="muted map-alt" id="em-map-alt" hidden>The map's results are listed in the tabs below.</p>
@@ -498,7 +555,7 @@
 </section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.5 (2026-11-04)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.6 (2026-11-06)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="../shared/release.js"></script>
 <script src="../shared/zip.js"></script>
@@ -544,6 +601,7 @@
 <script src="rules.js"></script>
 <script src="icons.js"></script>
 <script src="map.js"></script>
+<script src="draw.js"></script>
 <script src="../cvi/app/previews.js"></script>
 <script src="branded.js"></script>
 <script src="chart.js"></script>

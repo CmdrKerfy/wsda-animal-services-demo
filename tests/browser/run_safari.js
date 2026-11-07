@@ -107,6 +107,15 @@ async function launch() {
       { type: 'pointerMove', duration: 0, origin: 'viewport', x: Math.round(x), y: Math.round(y) }] }] }),
     key: value => call('POST', sid + '/actions', { actions: [{ type: 'key', id: 'keyboard', actions: [
       { type: 'keyDown', value }, { type: 'pause', duration: 50 }, { type: 'keyUp', value }] }] }),
+    // 2.6: a real double-click (two presses close together) and a real drag with the button held, in steps.
+    double: (x, y) => call('POST', sid + '/actions', { actions: [{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+      { type: 'pointerMove', duration: 0, origin: 'viewport', x: Math.round(x), y: Math.round(y) },
+      { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }, { type: 'pause', duration: 60 },
+      { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }] }),
+    drag: (x1, y1, x2, y2) => call('POST', sid + '/actions', { actions: [{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+      { type: 'pointerMove', duration: 0, origin: 'viewport', x: Math.round(x1), y: Math.round(y1) }, { type: 'pointerDown', button: 0 },
+      ...[1, 2, 3, 4].map(k => ({ type: 'pointerMove', duration: 60, origin: 'viewport', x: Math.round(x1 + (x2 - x1) * k / 4), y: Math.round(y1 + (y2 - y1) * k / 4) })),
+      { type: 'pointerUp', button: 0 }] }] }),
     pointer: (x, y) => call('POST', sid + '/actions', { actions: [{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
       { type: 'pointerMove', duration: 0, origin: 'viewport', x: Math.round(x), y: Math.round(y) },
       { type: 'pause', duration: 50 }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 50 }, { type: 'pointerUp', button: 0 }] }] }),
@@ -2990,7 +2999,10 @@ if (process.argv.includes('--ch')) runCH().catch(e => { console.error(e.stack); 
 // "Show past positives"; "Detected between" as Safari's date box; real clicks on Play and Pause; a real arrow key on
 // the slider; real clicks on km | miles; the zone hover by a real pointer move; a real click on a column of "Positives
 // over time"; a real click on "Map picture (PNG)", the picture drawn and encoded by Safari (its blob read, nothing
-// saved); the synthetic screwworm outbreak picking its type and zones. Needs node tests/synthetic/make_em_fixtures.js and the
+// saved); 2.6, "Draw a zone": real clicks for the corners, the label, Backspace, a real double-click finishing with the
+// zoom unchanged, the zones in place of the rings, the hover by a real pointer move, a corner dragged under Edit,
+// Enter and Esc, Remove (every drawn zone removed, so closing the window asks nothing); the synthetic screwworm
+// outbreak picking its type and zones. Needs node tests/synthetic/make_em_fixtures.js and the
 // Emergency Chrome suite's sample (local-test-artifacts/em/sample/). Writes local-test-artifacts/em/safari_em_<mode>.json.
 async function runEM() {
   const mode = PAGE.startsWith('file:') ? 'file' : 'http';
@@ -3071,6 +3083,15 @@ async function runEM() {
       v0 = await d.run('return WSDA.emergency.state.version;');
       await d.run(SET_FILES, '#files-input', [b64(samplePath), b64(path.join(tables, 'em_cvi_master.csv'))]);
       await d.waitFor('WSDA.emergency.state.version > ' + v0 + ' && !WSDA.emergency.state.loading', 20000, 'master loaded');
+      // 3c: the tick "CVI movements", off at the load, ticked by a real click; the map then draws the four CVI premises.
+      const tickOff = await d.run(`return { shown: !document.getElementById('em-cvi-field').hidden, on: document.getElementById('em-cvi').checked,
+        map: WSDA.emergency.state.mapData.cvi };`);
+      await d.run(`document.getElementById('layers-fold').open = true; document.getElementById('em-cvi').scrollIntoView({ block: 'center' }); return true;`);
+      await d.click('#em-cvi');
+      await d.waitFor('WSDA.emergency.state.mapData.cvi > 0', 10000, 'CVI premises drawn');
+      const tickOn = await d.run(`return { on: document.getElementById('em-cvi').checked, map: WSDA.emergency.state.mapData.cvi };`);
+      check(tickOff.shown && !tickOff.on && tickOff.map === 0 && tickOn.on && tickOn.map === 4,
+        'EM Safari: the tick "CVI movements" shows off at the load; a real click on it draws the four CVI premises (3c)', [tickOff, tickOn]);
       await d.click('#show-cvi');
       const cvi = await d.run(`return { line: (document.querySelector('#cvi-result .result-line') || {}).textContent,
         cvis: Array.from(document.querySelectorAll('#cvi-result tbody tr')).map(function(r){return r.cells[0].textContent;}).sort() };`);
@@ -3221,13 +3242,88 @@ async function runEM() {
       'EM Safari: Streets (vector), "All" name markers and the two fields: the streets and place names, every name, the title typed and the file named from it', named);
       await d.run(`var s=document.getElementById('em-png-background');s.value='standard';s.dispatchEvent(new Event('change'));
         document.getElementById('em-png-title').value='';document.getElementById('em-png-label').value='';return true;`);
+      {
+      // ---- 2.6, Draw a zone, by real pointer input and keys ----
+      await d.run(`document.getElementById('positives-fold').open = true; document.getElementById('dz-fold').open = true;
+        ${S}.map.map.getCanvas().scrollIntoView({block:'center'}); ${S}.map.map.fitBounds([[-120.53, 46.355], [-120.25, 46.61]], { padding: 40, animate: false }); return true;`);
+      await sleep(500);
+      const CORNERS = [[-120.505, 46.598], [-120.43, 46.59], [-120.405, 46.553], [-120.418, 46.515], [-120.47, 46.508], [-120.52, 46.54]];
+      const atLL = ll => d.run(`var m=${S}.map.map,q=m.project(args[0]),r=m.getCanvas().getBoundingClientRect();return [r.left+q.x, r.top+q.y];`, ll);
+      await d.click('#dz-start');
+      const dz0 = await d.run(`var m=${S}.map.map;return { mode: WSDA.emergency.draw.mode(), zoom: m.getZoom(), dbl: m.doubleClickZoom.isEnabled() };`);
+      for (const c of CORNERS.slice(0, 5)) { const q = await atLL(c); await d.pointer(q[0], q[1]); await sleep(150); }
+      // Whole pixels, as the pointer actions place the pointer.
+      const mv = (await atLL([-120.49, 46.53])).map(Math.round);
+      await d.move(mv[0], mv[1]);
+      await sleep(200);
+      const dzl = await d.run(`var m=${S}.map.map,r=m.getCanvas().getBoundingClientRect(),ll=m.unproject([args[0]-r.left,args[1]-r.top]);
+        return { text: document.getElementById('dz-label').innerText, want: WSDA.emergencyRules.drawLabel(WSDA.emergency.draw.corners(), [ll.lng, ll.lat], ${S}.unit).lines.join('\\n'),
+          corners: WSDA.emergency.draw.corners().length };`, mv[0], mv[1]);
+      check(dz0.mode === 'freehand' && !dz0.dbl && dzl.corners === 5 && /^\d+\.\d km from the first click\nArea /.test(dzl.text) && dzl.text === dzl.want,
+        'EM Safari: a real click on "Draw on map", five real clicks on the map: five corners, the label as the rules give it, the double-click zoom off', [dz0, dzl]);
+      await foreground();
+      await d.key('');
+      const backed = await d.run('return WSDA.emergency.draw.corners().length;');
+      let q5 = await atLL(CORNERS[4]); await d.pointer(q5[0], q5[1]); await sleep(150);
+      q5 = await atLL(CORNERS[5]);
+      await d.double(q5[0], q5[1]);
+      await sleep(700);   // the double-click zoom comes back on half a second after the shape closes
+      const dz1 = await d.run(`var s=${S},m=s.map.map;return { mode: WSDA.emergency.draw.mode(), drawn: s.drawn.map(function(z){return [z.name, z.vertices];}),
+        zoom: m.getZoom(), dbl: m.doubleClickZoom.isEnabled(), show: s.show, zones: s.mapData.zones };`);
+      check(backed === 4 && dz1.mode === null && dz1.drawn.length === 1 && dz1.drawn[0][0] === 'Drawn zone 1' && dz1.drawn[0][1] === 7
+        && dz1.zoom === dz0.zoom && dz1.dbl && dz1.show === 'both' && dz1.zones === 14,
+      'EM Safari: a real Backspace takes back a corner; a real double-click closes the six-corner zone with the zoom unchanged; on Rings it picks Both (the rings and the zones)', [backed, dz1]);
+      const hv = await atLL([-120.452, 46.523]);
+      await d.move(hv[0], hv[1]);
+      await sleep(500);
+      const dzTip = await d.run(`return (document.querySelector('.maplibregl-popup')||{}).textContent||'';`);
+      check(/^Drawn zone 1\d+ days?Drawn · [\d.]+ sq mi, [\d,]+ acres/.test(dzTip), 'EM Safari: a real pointer move over the drawn zone: its name, days since, "Drawn" and its area', dzTip);
+      await d.move(5, 5);
+      await d.click('#dz-list li button');
+      const ed = await d.run(`var c=WSDA.emergencyRules.cornersOf(${S}.drawn[0]);return { mode: WSDA.emergency.draw.mode(), c: c };`);
+      const k2 = ed.c.findIndex(c => Math.abs(c[0] - CORNERS[2][0]) < 0.002 && Math.abs(c[1] - CORNERS[2][1]) < 0.002);
+      const dzFrom = await atLL(ed.c[k2]);
+      await d.drag(dzFrom[0], dzFrom[1], dzFrom[0] + 40, dzFrom[1] + 10);
+      await sleep(400);
+      const ed2 = await d.run(`var c=WSDA.emergencyRules.cornersOf(${S}.drawn[0]);return { c: c[args[0]], n: c.length };`, k2);
+      check(ed.mode === 'edit' && k2 >= 0 && ed2.n === 6 && (ed2.c[0] !== ed.c[k2][0] || ed2.c[1] !== ed.c[k2][1]),
+        'EM Safari: a real click on Edit, a real drag of a corner: the corner moves, still six corners', [ed.c[k2], ed2]);
+      await d.click('#dz-list li button');
+      const tri = [[-120.36, 46.47], [-120.3, 46.47], [-120.33, 46.43]];
+      await d.click('#dz-start');
+      for (const c of tri) { const q = await atLL(c); await d.pointer(q[0], q[1]); await sleep(150); }
+      await foreground();
+      await d.key('');
+      await d.click('#dz-start');
+      { const q = await atLL(tri[0]); await d.pointer(q[0], q[1]); await sleep(150); }
+      await foreground();
+      await d.key('');
+      const dz2 = await d.run(`var s=${S};return { mode: WSDA.emergency.draw.mode(), drawn: s.drawn.map(function(z){return z.name;}) };`);
+      check(dz2.mode === null && dz2.drawn.join() === 'Drawn zone 1,Drawn zone 2', 'EM Safari: a real Enter closes a three-corner zone; a real Esc drops a shape', dz2);
+      await d.click('#dz-list li:nth-child(2) button:nth-of-type(2)');
+      await d.click('#dz-list li button:nth-of-type(2)');
+      const dz3 = await d.run(`var s=${S};return { drawn: s.drawn.length, show: s.show, zones: s.mapData.zones };`);
+      check(dz3.drawn === 0 && dz3.show === 'both' && dz3.zones === 13, 'EM Safari: real clicks on Remove take both drawn zones out (the sample\'s zone file stays, with the rings: Both)', dz3);
+      // The switch and the circle (3b): a real click on Zones; Circle, then a real click places it, its row without Edit.
+      await d.click('#em-show [data-show="zones"]');
+      await d.click('#dz-shapes [data-shape="circle"]');
+      await d.click('#dz-start');
+      { const q = await atLL([-120.36, 46.5]); await d.pointer(q[0], q[1]); await sleep(300); }
+      const dz4 = await d.run(`var s=${S},z=s.drawn[0];return { show: s.show, zones: s.mapData.zones, kind: z && z.shape && z.shape.kind, vertices: z && z.vertices,
+        buttons: [].map.call(document.querySelectorAll('#dz-list li button'), function(b){return b.textContent;}).join(), unit: document.getElementById('dz-size-unit').textContent };`);
+      check(dz4.show === 'zones' && dz4.zones === 2 && dz4.kind === 'circle' && dz4.vertices === 121 && dz4.buttons === 'Remove' && dz4.unit === 'km radius',
+        'EM Safari: real clicks on Zones and Circle, a real click places a 3 km circle (120 corners) with Zones kept; its row Remove only', dz4);
+      await d.click('#dz-list li button');
+      await d.click('#dz-shapes [data-shape="freehand"]');
+      await d.click('#em-show [data-show="rings"]');
+      }
       // The synthetic screwworm outbreak: its type and its dispersal areas as the zones.
       v0 = await d.run(`return ${S}.version;`);
       await d.run(SET_FILES, '#files-input', [b64(path.join(tables, 'em_nws_synthetic.zip'))]);
       await d.waitFor(`${S}.version > ` + v0 + ` && !${S}.loading && ${S}.map.drawn && ${S}.map.drawn.positives > 0`, 20000, 'screwworm drawn');
-      const nws = await d.run(`var s=${S};return { type: document.getElementById('em-type').value, useZones: s.useZones, zones: s.mapData.zones,
+      const nws = await d.run(`var s=${S};return { type: document.getElementById('em-type').value, show: s.show, zones: s.mapData.zones,
         box: document.querySelector('#box-positives strong').textContent };`);
-      check(nws.type === 'nws' && nws.useZones && nws.zones === 2 && nws.box === '8',
+      check(nws.type === 'nws' && nws.show === 'zones' && nws.zones === 2 && nws.box === '8',
         'EM Safari: the screwworm outbreak picks New World screwworm and uses its two dispersal areas; eight active positives', nws);
       fs.writeFileSync(path.join(out, 'safari_em_' + mode + '.png'), Buffer.from(await d.screenshot(), 'base64'));
       const errors = await d.run('var e = window.__errors || []; window.__errors = []; return e;');

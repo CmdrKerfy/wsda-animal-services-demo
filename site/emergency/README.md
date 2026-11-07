@@ -9,13 +9,14 @@ premises sites inside them, and the CVI movements that touch them. HPAI is the f
 |---|---|
 | `index.html` | The page |
 | `app.js` | The page's code: loading (chosen here or sent by the landing page), the five folds, the value boxes, the "Map \| Overview" switch; on the Map the map's data, the legend, the tabs; the Overview (2.3: its three boxes, with the people inside the zones from the 2020 Census tracts of `site/geo/tracts-wa.js`, the charts, the counties and positives tables) |
-| `map.js` | The Emergency map kind of the shared map: zones, the sites inside and outside, the positives, the picked spot |
+| `map.js` | The Emergency map kind of the shared map: zones (a drawn zone's outline dashed, 2.6), the sites inside and outside, the positives, the picked spot, the drawing's sketch |
+| `draw.js` | 2.6, "Draw a zone": the drawing and editing mode on the live map (the map's events, the sketch, the label beside the pointer, the badge, the keys); the rules it uses are `rules.js`'s |
 | `datasets.js` | The files the dashboard recognizes: positives, facility layers and their manifest, zone files, the CVI master |
 | `sample.js` | The synthetic sample offered under "Load your data" |
 | `types.js` | The emergency types' list: checks each type's fields and picks the type for a positives file |
 | `types/hpai.js` | The HPAI type; its top comment explains every field. Copy it to add a type |
 | `types/nws.js` | The New World screwworm type: zones from a file, with an example ring until one is loaded |
-| `rules.js` | The rules, with no page work: the positives and their names, which get zones, the locations left out, what lies inside, the "nearest" line, the value boxes, the chart's counts, the Overview's counties, positives, boxes, bars and people inside the zones, the export rows (with `counties.csv`), `zones.csv` and `zones.geojson` (each zone with a `name` property, as `zones.csv`'s "Zone", so the file reopens under "Use a zone file" with its zones named) |
+| `rules.js` | The rules, with no page work: the positives and their names, which get zones, the locations left out, what lies inside, the "nearest" line, the value boxes, the chart's counts, the Overview's counties, positives, boxes, bars and people inside the zones, the export rows (with `counties.csv`), `zones.csv` and `zones.geojson` (each zone with a `name` property, as `zones.csv`'s "Zone", so the file reopens under "Use a zone file" with its zones named); from 2.6 the drawn zones: the area, the crossing check, the rectangle's and the square's corners, the names, the zone set with the rings giving way, and the exports' area and source |
 | `branded.js` | The map picture (PNG): the branded 11 x 8.5 in page of the map as shown, with no page work (a copy of Premise Lookup's, below); with a CVI master, the CVI premises in a zone drawn hollow under "CVI PREMISES" with the CVI tab's years |
 | `chart.js` | The charts, drawn as SVG with no page work: "Positives over time" (stacked columns, one per week or month), its counts from `rules.js` `overTime`; the Overview's horizontal bars ("Positives by county", "Sites inside the zones by layer"); E2's chart view is meant to add its charts here |
 
@@ -38,6 +39,7 @@ fix to the original can be carried over on purpose:
 | `map.js`: the kind's sources, layers, hover and Pick on map | `site/cvi/app/lookupmap.js`, v1.1 |
 | `rules.js`: the inside rows and counts (`facilitiesInside`, `facilityCounts`, `facilityTable`, grouped by layer and with the unit added) and `round2` | `site/cvi/app/lookup.js`, v1.1 |
 | `rules.js`: the blank-line rule a layer's points are numbered by (`isBlankLine`) | `site/shared/facilities.js`, v1.1 |
+| `rules.js`: the area on the sphere (`ringAreaM2`, 2.6), written from the formula, not copied: the spherical-polygon area of Chamberlain and Duquette, "Some Algorithms for Polygons on a Sphere" (JPL Publication 07-03, 2007), in the form Leaflet.draw's `L.GeometryUtil.geodesicArea` uses (MIT; Turf's `area` is the same sum), on CVI's radius of 6,378,137 m | the formula's paper; Leaflet.draw |
 | `branded.js`: Premise Lookup's branded proximity page (`proximity()` and the helpers it does not export or that change: the panel's rows and drawing, the key's lines and column, the WA inset, the shape sizes, `touchesBox`, `boxesMeet`), with the Emergency changes listed at its top | `site/cvi/app/brandedmaps.js`, v2.0 |
 | `app.js`: the map picture's background, quality and tile loading (with Default and a notice when tiles cannot be loaded) | `site/infrastructure/app.js`, v2.0 |
 | `branded.js`: the Streets background (`streetsParts`, `streetsNames`) | `site/cvi/app/brandedmaps.js`, v2.3 |

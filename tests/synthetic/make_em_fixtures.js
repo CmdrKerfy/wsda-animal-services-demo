@@ -67,6 +67,10 @@
 //   em_rules_zone_two.geojson a zone holding two positives, written clockwise (the page writes it counterclockwise)
 //   em_rules_zones_out.geojson  the page's own zones.geojson for this scenario (site/emergency/rules.js zonesGeoJson:
 //                             the current and past positives' rings in miles, and the zone), read by the R reference
+// The drawn zones' scenario (2.6; rules.json "drawn"), checked by the unit suite and the R reference:
+//   em_rules_drawn_out.geojson  the page's zones.geojson for em_zone.geojson's zone and eight drawn zones (freehand,
+//                             concave, a rectangle, two squares, a small triangle, a whole degree, 200 corners); and
+//                             (3b) two circles of a set radius, checked alone ("circles")
 // The Overview's scenario (2.3), checked by the unit suite and the R reference in the same way:
 //   em_rules_overview.csv     the agreed scenario's twelve rows and two more, both with a blank County: Skagit 02,
 //                             3 miles from Skagit 01 (so their rings overlap, and its county comes from its location),
@@ -507,6 +511,53 @@ function parseLine(line) {
   return out;
 }
 RULES_FILES['em_rules_zones_out.geojson'] = agreedGeoJson();
+// The drawn zones' scenario (2.6): corner lists as a user would draw them near the rules positives, to six decimals as
+// the page keeps them: a freehand shape and a concave one, a rectangle from two clicks over the file zone
+// (em_zone.geojson), two squares of a set size centered on positives (in km and in miles), a triangle too small for
+// square miles, a whole degree and 200 corners; and test shapes whose sides cross, touch or turn back (refused)
+// beside ones that only come close (kept), for GEOS's st_is_valid. Then (3b) two circles of a set radius, one in km
+// centered on R-005 and one in miles, checked alone so the eight zones' counts stay as they are.
+const DRAWN_RULES = (() => {
+  const E = sandbox.WSDA.emergencyRules;
+  const six = c => c.map(p => [Number(p[0].toFixed(6)), Number(p[1].toFixed(6))]);
+  const rect = E.rectangleCorners([-120.33, 46.43], [-120.29, 46.37]), size = E.rectangleSize([-120.33, 46.43], [-120.29, 46.37]);
+  const square = (mid, n, unit) => ({ corners: six(E.squareCorners(mid, n, unit)), square: { mid, size: n, unit },
+    shape: { kind: 'square', km: E.toKm(n, unit) } });
+  const circle = (mid, n, unit) => ({ corners: six(E.circleCorners(mid, n, unit)), circle: { mid, size: n, unit },
+    shape: { kind: 'circle', km: E.toKm(n, unit) } });
+  return {
+    asOf: '2026-10-05', fileZone: 'em_zone.geojson', geojson: 'em_rules_drawn_out.geojson',
+    zones: [
+      { name: 'Drawn zone 1', corners: [[-120.53, 46.63], [-120.47, 46.625], [-120.43, 46.6], [-120.45, 46.575], [-120.5, 46.57], [-120.535, 46.59]] },
+      { name: 'Along the river', corners: [[-120.52, 46.565], [-120.44, 46.565], [-120.44, 46.545], [-120.48, 46.545], [-120.48, 46.49], [-120.52, 46.49]] },
+      { name: 'Rectangle by the file zone', corners: six(rect), shape: { kind: 'rectangle', eastKm: size.eastKm, northKm: size.northKm } },
+      Object.assign({ name: 'Square around R-005' }, square([-119.29, 45.84], 3, 'km')),
+      Object.assign({ name: 'Square around R-007' }, square([-122.96, 46.66], 2, 'mi')),
+      { name: 'Small triangle', corners: [[-120, 47], [-119.995, 47], [-119.9975, 47.004]] },
+      { name: 'A whole degree', corners: [[-121.5, 47], [-120.5, 47], [-120.5, 48], [-121.5, 48]] },
+      { name: '200 corners', corners: six(Array.from({ length: 200 }, (_, k) => PX.destination(46.6, -120.5, 5, k * 1.8))) }],
+    circles: [
+      Object.assign({ name: 'Circle around R-005' }, circle([-119.29, 45.84], 3, 'km')),
+      Object.assign({ name: 'Circle near Yakima' }, circle([-120.47, 46.552], 2, 'mi'))],
+    shapes: [
+      { name: 'Sides cross', corners: [[-120, 46], [-119.9, 46.1], [-119.9, 46], [-120, 46.1]] },
+      { name: 'A corner on a side', corners: [[-120, 46], [-119.8, 46], [-119.8, 46.1], [-119.9, 46], [-120, 46.1]] },
+      { name: 'Turns back', corners: [[-120, 46], [-119.8, 46], [-119.9, 46], [-119.9, 46.1]] },
+      { name: 'The same corner twice', corners: [[-120, 46], [-119.9, 46], [-119.9, 46.1], [-120, 46], [-120.1, 46.05]] },
+      { name: 'Three on a line', corners: [[-120, 46], [-119.9, 46], [-119.8, 46]] },
+      { name: 'A corner on a straight side', corners: [[-120, 46], [-119.9, 46], [-119.8, 46], [-119.8, 46.1], [-120, 46.1]] },
+      { name: 'Arms close but apart', corners: [[-120, 46], [-119.8, 46], [-119.8, 46.1], [-119.85, 46.1], [-119.85, 46.02],
+        [-119.95, 46.02], [-119.95, 46.1], [-120, 46.1]] }]
+  };
+})();
+// The page's zones.geojson for the file zone and the drawn zones, read by the R reference.
+function drawnGeoJson() {
+  const E = sandbox.WSDA.emergencyRules, Z = sandbox.WSDA.zones;
+  const file = Z.readGeoJson(FILES[DRAWN_RULES.fileZone], DRAWN_RULES.fileZone).zones;
+  const drawn = DRAWN_RULES.zones.map(z => E.drawnZone(z.corners, z.name, z.shape));
+  return JSON.stringify(E.zonesGeoJson({ zones: E.zoneSites(E.zoneSet(file, drawn)) }, { asOf: DRAWN_RULES.asOf, positives: [] })) + '\n';
+}
+RULES_FILES['em_rules_drawn_out.geojson'] = drawnGeoJson();
 // The Emergency sample's positives, as the page holds them (site/emergency/sample.js), for the CVI movement case.
 const sampleBox = { TextEncoder, TextDecoder };
 sampleBox.window = sampleBox;
@@ -528,6 +579,7 @@ const RULES = {
   quarantine: QUARANTINE_RULES,
   views: VIEWS_RULES,
   closedDay: CLOSED_DAY_RULES,
+  drawn: DRAWN_RULES,
   counties: { positives: 'em_rules_counties.csv', nearKm: 2 }
 };
 

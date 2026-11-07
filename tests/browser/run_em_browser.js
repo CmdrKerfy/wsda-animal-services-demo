@@ -29,6 +29,15 @@
 //          that week, the picked column again giving the opening dates, the hover box, the line following the play, the
 //          screwworm outbreak by week, 320 pixels wide; pictures in
 //          local-test-artifacts/em/chart/
+//   draw   2.6, "Draw a zone", by real input on the map: the fold's buttons, the clicks (a corner each), the live
+//          label (distance, area, "Sides can't cross" in crimson), a crossing click refused, Backspace and "Undo
+//          corner", a double-click finishing with the map's zoom unchanged, a click on the first corner, Enter, Esc;
+//          the zones in place of the rings (and back when unticked, or when the last zone goes), the hover, the legend
+//          row, the fold's summary, the name box (a name taken refused), Edit by dragging a corner and a side's middle
+//          (a crossing drag going back), Remove; the rectangle and the square (centered on a positive's mark); drawing
+//          and "Add a point" never together; a background change keeping the sketch; the Overview's chart; the
+//          picture; the Export's zones.geojson, zones.csv and export_params.json, the zones.geojson reopened under
+//          "Use a zone file" giving the same results; the browser's "Leave this page?"; touch taps; 320 pixels wide
 //   speed  the one-second step at full size: 40 positives against 30,000 points, every step of a whole play timed by
 //          the page's own hook, without a master, with the 50,000-row synthetic master (make_scale_master.js) and with
 //          the CVI movements tab open
@@ -54,7 +63,7 @@ const FIXED_TODAY = 'window.WSDA_EMERGENCY_TODAY = ' + JSON.stringify(TODAY) + '
 const PAGE = process.env.EM_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'index.html')).href;
 const SITE = new URL('.', PAGE).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'view', 'overview', 'speed'];
+const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'view', 'overview', 'draw', 'speed'];
 const asked = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const PARTS = asked.length ? asked : ALL_PARTS;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -111,10 +120,15 @@ async function launch() {
     ws.send(JSON.stringify({ id: i, method, params: params || {}, sessionId }));
   });
   // Every tab's requests, exceptions and policy reports go into the same log (each dashboard opens in its own tab).
-  const log = { requests: [], exceptions: [], csp: [] };
+  const log = { requests: [], exceptions: [], csp: [], dialogs: [] };
   const watch = sid => listeners.push(m => {
     if (m.sessionId !== sid) return;
     if (m.method === 'Network.requestWillBeSent') log.requests.push(m.params.request.url);
+    // A dialog (2.6: the browser's "Leave this page?" while drawn zones exist) is recorded and accepted.
+    else if (m.method === 'Page.javascriptDialogOpening') {
+      log.dialogs.push(m.params.type);
+      send('Page.handleJavaScriptDialog', { accept: true }, sid).catch(() => null);
+    }
     else if (m.method === 'Runtime.exceptionThrown') {
       log.exceptions.push((m.params.exceptionDetails.exception || {}).description || m.params.exceptionDetails.text);
     } else if (m.method === 'Log.entryAdded' && /content security policy|refused to/i.test(m.params.entry.text)) {
@@ -388,11 +402,11 @@ async function partPage(b) {
     folds: ['load-fold', 'positives-fold', 'layers-fold', 'options-fold'].map(id => document.getElementById(id).open),
     boxes: ['box-positives', 'box-past', 'box-last', 'box-inside'].map(id => document.getElementById(id).textContent.trim()),
     lines: document.getElementById('em-box-lines').hidden ? null : document.getElementById('em-box-lines').textContent,
-    useZones: s.useZones, layers: s.selectedLayers, rows: s.result && s.result.rows.length,
+    show: s.show, layers: s.selectedLayers, rows: s.result && s.result.rows.length,
     sums: ['load-summary', 'positives-sum', 'layers-sum'].map(id => document.getElementById(id).textContent) }; })()`);
   check(same(st.folds, [false, false, false, false]), 'page: after a clean load every fold is closed (the map and boxes show first)', st.folds);
-  check(st.useZones === false && st.data.zones === 12 && st.drawn.positives === 6 && st.drawn.inside > 0 && st.drawn.outside > 0,
-    'page: HPAI\'s rings (two around each of six positives; the sample\'s zone file waits for its tick); six current positives (the past one hidden); sites inside highlighted and others faded', st);
+  check(st.show === 'rings' && st.data.zones === 12 && st.drawn.positives === 6 && st.drawn.inside > 0 && st.drawn.outside > 0,
+    'page: HPAI\'s rings (two around each of six positives; the sample\'s zone file waits for the switch); six current positives (the past one hidden); sites inside highlighted and others faded', st);
   check(st.boxes[0] === '6Active' && st.boxes[1] === '1Closednone under quarantine'
     && st.lines === null
     && st.boxes[2] === 'Oct 5, 2026Last positiveAs of Oct 30, 2026' && /^\d+Sites inside the zones/.test(st.boxes[3]),
@@ -420,15 +434,15 @@ async function partPage(b) {
   check(Object.values(d.sections).every(x => x.sentences <= 1 && x.words <= 25), 'density: folds open: still at most one sentence per section', d.sections);
   await shot('sample_1280_open');
   // The zone file's tick: its zone replaces the rings; unticked, the rings come back. Then a ring distance.
-  await p.click(`document.getElementById('em-zone-fold').open = true; document.getElementById('em-use-zones').click()`);
-  await p.waitFor('WSDA.emergency.state.useZones === true', 5000, 'zone file');
+  await p.click(`document.getElementById('em-zone-fold').open = true; document.querySelector('#em-show [data-show="zones"]').click()`);
+  await p.waitFor("WSDA.emergency.state.show === 'zones'", 5000, 'zone file');
   const zoned = await p.eval(`({ zones: WSDA.emergency.state.mapData.zones, rows: WSDA.emergency.state.result.rows.map(r => r.name),
     sum: document.getElementById('positives-sum').textContent, legend: document.getElementById('em-legend-content').textContent })`);
   check(zoned.zones === 1 && zoned.sum === 'zones from a file, closed hidden' && /Synthetic control area/.test(zoned.legend),
-    'page: ticking "Use the file\'s zones" draws the control area in place of the rings, named in the legend', zoned);
+    'page: Zones (the switch) draws the control area in place of the rings, named in the legend', zoned);
   await shot('sample_1280_zonefile');
-  await p.click(`document.getElementById('em-use-zones').click()`);
-  await p.waitFor('WSDA.emergency.state.useZones === false', 5000, 'rings');
+  await p.click(`document.querySelector('#em-show [data-show="rings"]').click()`);
+  await p.waitFor("WSDA.emergency.state.show === 'rings'", 5000, 'rings');
   const rings = await p.eval(`({ zones: WSDA.emergency.state.mapData.zones, rows: WSDA.emergency.state.result.rows.length })`);
   check(rings.zones === 12 && rings.rows > 0, 'page: unticked, the two rings around each of the six positives come back', rings);
   await p.eval(`(() => { const i = document.getElementById('em-ring-1'); i.value = '20'; i.dispatchEvent(new Event('change')); return true; })()`);
@@ -466,6 +480,7 @@ async function partPage(b) {
 
 
 async function partResults(b) {
+  const S = 'WSDA.emergency.state';
   const p = b.page, samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip');
   const T = n => path.join(TABLES, n);
   const ZIPJS = (() => { const box = { TextDecoder, TextEncoder }; box.window = box; require('vm').createContext(box);
@@ -511,9 +526,62 @@ async function partResults(b) {
   const boxes = await p.eval(`['box-positives', 'box-last', 'box-inside'].map(id => document.querySelector('#' + id + ' strong').textContent)`);
   check(same(boxes, ['2', 'Not available: needs Confirmed Diagnosis', 'Not available: needs a facility layer']),
     'results: the boxes say what they need, never zero', boxes);
-  // The sample with a CVI master: the movements, and a year filter.
+  // The sample with a CVI master: the tick "CVI movements" (3c), off at the load: nothing of the CVI anywhere.
   await loadPage([samplePath, T('em_cvi_master.csv')]);
+  const cviState = () => p.eval(`(() => { const s = ${S}, g = id => document.getElementById(id);
+    return { shown: !g('em-cvi-field').hidden, on: g('em-cvi').checked, sum: g('layers-sum').textContent, map: s.mapData.cvi, drawn: s.map.drawn.cvi,
+      legend: [...document.querySelectorAll('#em-legend-content p')].map(x => x.textContent).filter(x => /CVI|in a zone$/.test(x)),
+      gate: g('cvi-gate').hidden ? null : g('cvi-gate').textContent, body: !g('cvi-body').hidden }; })()`);
   await p.click(`document.getElementById('show-cvi').click()`);
+  const cviOff = await cviState();
+  check(cviOff.shown && !cviOff.on && !/CVI/.test(cviOff.sum) && cviOff.map === 0 && cviOff.drawn === 0 && !cviOff.legend.length && !cviOff.body
+    && cviOff.gate === 'CVI movements are off: tick "CVI movements" under "Layers to check" to include them.',
+  'results: with a CVI master loaded, the tick "CVI movements" shows, off: no CVI premises on the map or in the legend; the tab says how to turn them on (3c)', cviOff);
+  const exportOff = await p.eval(`(async () => { const s = ${S}, n = s.exported || 0, keep = WSDA.sample.download; WSDA.sample.download = function () {};
+    document.getElementById('em-export').click();
+    for (let i = 0; i < 100 && (s.exported || 0) === n; i++) await new Promise(r => setTimeout(r, 100));
+    WSDA.sample.download = keep;
+    const files = (s.lastExport || []).filter(e => !e.dir), params = files.find(e => e.name.endsWith('export_params.json'));
+    return { names: files.map(e => e.name.slice(e.name.indexOf('/') + 1)), params: params ? JSON.parse(params.data) : null }; })()`);
+  check(!exportOff.names.includes('cvi_movements.csv') && exportOff.names.includes('zones.geojson') && exportOff.params
+    && exportOff.params.cvi_movements === 'off' && exportOff.params.cvi_master === 'em_cvi_master.csv' && same(exportOff.params.cvi_years, {})
+    && same(exportOff.params.cvi_quarters, {}) && same(exportOff.params.cvi_species_groups, {}),
+  'results: the tick off, the Export has no cvi_movements.csv and export_params.json says cvi_movements "off" (3c)',
+    [exportOff.names, Object.fromEntries(Object.entries(exportOff.params || {}).filter(([k]) => /cvi/.test(k)))]);
+  await p.eval(`document.getElementById('layers-fold').open = true; true`);
+  // A real click on the tick (the label's box, as a person clicks it).
+  const tickAt = await p.eval(`(() => { const e = document.getElementById('em-cvi'); e.scrollIntoView({ block: 'center' });
+    const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+  await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: tickAt.x, y: tickAt.y, button: 'left', buttons: 1, clickCount: 1 }, p.sid);
+  await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tickAt.x, y: tickAt.y, button: 'left', buttons: 0, clickCount: 1 }, p.sid);
+  await p.waitFor(`${S}.mapData.cvi > 0`, 10000, 'CVI premises drawn');
+  await p.eval('scrollTo(0, 0); true');
+  const cviOnNow = await cviState();
+  check(cviOnNow.on && /, CVI movements$/.test(cviOnNow.sum) && cviOnNow.map === 4 && cviOnNow.drawn === 4 && cviOnNow.body && cviOnNow.gate === null
+    && same(cviOnNow.legend, ['CVI premises', 'Origin in a zone', 'Destination in a zone']),
+  'results: ticked, the map draws the four CVI premises with an end in a zone, the legend names them and the fold\'s summary says so (3c)', cviOnNow);
+  const cviColors = await p.eval(`${S}.map.em.cvi.features.map(f => f.properties.label.split('\\n')[1].split(' ')[0] + ' ' + f.properties.color).sort()`);
+  check(same(cviColors, ['Destination #1C9CD9', 'Destination #1C9CD9', 'Origin #F0A06E', 'Origin #F0A06E']),
+    'results: the CVI premises in the picture\'s colors, an origin orange and a destination blue (3c)', cviColors);
+  // The hover close in (at the whole view the origin lies under SYN-HPAI-001's mark), the view put back after.
+  const cviTip = await p.eval(`(async () => { const st = ${S}.map, f = st.em.cvi.features.find(x => x.properties.label.includes('Origin'));
+    const was = { center: st.map.getCenter(), zoom: st.map.getZoom() }, idle = () => new Promise(r => st.map.once('idle', r));
+    st.map.jumpTo({ center: f.geometry.coordinates, zoom: 13 }); await idle();
+    const q = st.map.project(f.geometry.coordinates), h = st.hoverAt([q.x, q.y]);
+    st.map.jumpTo(was); await idle(); return h ? h.items[0] : null; })()`);
+  check(same(cviTip, { head: 'CVI premises', lines: ['Origin in a zone · Yakima, WA', '1 CVI: EM-0001'] }),
+    'results: the hover on a CVI premises: its end, its place and its CVIs\' numbers, as the CVI movements table writes them (3c, 3d)', cviTip);
+  // 3d: the rings small at the state's view and full size close in: a point 9 pixels from a ring's middle is on it
+  // at zoom 12 (radius 10 and its line), off it at zoom 6 (0.4 of that).
+  const ringAt = await p.eval(`(async () => { const st = ${S}.map, f = st.em.cvi.features[0], idle = () => new Promise(r => st.map.once('idle', r));
+    const was = { center: st.map.getCenter(), zoom: st.map.getZoom() }, out = {};
+    for (const z of [6, 12]) {
+      st.map.jumpTo({ center: f.geometry.coordinates, zoom: z }); await idle();
+      const q = st.map.project(f.geometry.coordinates);
+      out['z' + z] = st.map.queryRenderedFeatures([q.x + 9, q.y], { layers: ['em_cvi'] }).length > 0;
+    }
+    st.map.jumpTo(was); await idle(); return out; })()`);
+  check(ringAt.z12 && !ringAt.z6, 'results: the CVI rings small at the state\'s view and full size close in (3d)', ringAt);
   let cvi = await p.eval(`({ line: (document.querySelector('#cvi-result .result-line') || {}).textContent, rows: document.querySelectorAll('#cvi-result tbody tr').length,
     cvis: Array.from(document.querySelectorAll('#cvi-result tbody tr')).map(r => r.cells[0].textContent) })`);
   check(cvi.line === '3 CVIs, 1,265 animals, left from or arrived inside the zones: 2 origins and 2 destinations inside.'
@@ -521,6 +589,8 @@ async function partResults(b) {
   await p.click(`document.querySelector('#cvi-years input[value="2026"]').click()`);
   cvi = await p.eval(`({ line: (document.querySelector('#cvi-result .result-line') || {}).textContent, cvis: Array.from(document.querySelectorAll('#cvi-result tbody tr')).map(r => r.cells[0].textContent) })`);
   check(same(cvi.cvis, ['EM-0003']) && /^1 CVI, 25 animals/.test(cvi.line), 'results: unticking 2026 leaves the 2025 movement', cvi);
+  const oneYear = await p.eval(`${S}.mapData.cvi`);
+  check(oneYear === 2, 'results: the year filter redraws the map\'s CVI premises: the 2025 movement\'s two ends (3c)', oneYear);
   await p.click(`document.querySelector('#cvi-years input[value="2026"]').click()`);
   // The Export ZIP.
   const DL = path.join(OUT, 'download');
@@ -568,6 +638,8 @@ async function partResults(b) {
     && params.view === 'on a day' && params.day === '2026-10-30' && !('detected_between' in params) && params.closed_shown === false
     && !('past_shown' in params),
   'results: export_params.json says what was exported: the view On a day and its day (today), the unit, the as-of date, closed_shown', params);
+  check(params.cvi_movements === 'included' && same(params.cvi_years, [2025, 2026]), 'results: ticked, export_params.json says cvi_movements "included" with the years (3c)',
+    [params.cvi_movements, params.cvi_years]);
   check(/^"?Positive"?,/.test(files['positives.csv'] || '') && (files['positives.csv'] || '').split('\n').length === 9
     && /^"?CVI"?,/.test(files['cvi_movements.csv'] || '') && !/Origin\.Address/.test(files['cvi_movements.csv'] || ''),
   'results: the CSVs: seven positives; the CVI rows without the address column', [files['positives.csv'], (files['cvi_movements.csv'] || '').split('\n')[0]]);
@@ -575,6 +647,31 @@ async function partResults(b) {
     'results: the line under Export says what was saved');
   await b.send('Browser.setDownloadBehavior', { behavior: 'default' });
   fs.rmSync(DL, { recursive: true, force: true });
+  // 3c: the same files loaded again on the same page, the tick on: it starts off again.
+  const v0 = await p.eval(`${S}.version`);
+  await p.setFiles('#files-input', [samplePath, T('em_cvi_master.csv')]);
+  await p.waitFor(`${S}.version > ${v0}`, 20000, 'loaded again');
+  await emReady(p);
+  const reloaded = await cviState();
+  check(!reloaded.on && reloaded.map === 0 && !reloaded.legend.length && /^CVI movements are off/.test(reloaded.gate || ''),
+    'results: the files loaded again on the same page, the tick "CVI movements" is off again: no premises, no legend rows, the tab says so (3c)', reloaded);
+  // 3c: a spot that is both an origin and a destination, at a market inside the zones: two rings, the hover naming
+  // both ends and the market under them.
+  const both = path.join(OUT, 'cvi_master_both_ends.csv');
+  fs.writeFileSync(both, ['CVI,Species.Group,Species,Reporting.Year,Reporting.Quarter,Movement,Total.Animals,Origin.State,Origin.County,Origin.County.Lat,Origin.County.Long,Dest.State,Dest.County,Dest.County.Lat,Dest.County.Long,Origin.City,Origin.Lat,Origin.Long,Dest.City,Dest.Lat,Dest.Long',
+    'EM-B1,Poultry,Chickens,2026,Q3,Outbound,100,WA,Yakima,46.5,-120.5,OR,Multnomah,45.5,-122.6,Synthetic Town,46.53049,-120.55592,Synthetic Town,45.5,-122.6',
+    'EM-B2,Poultry,Chickens,2026,Q3,Inbound,50,ID,Ada,43.6,-116.2,WA,Yakima,46.5,-120.5,Synthetic Town,43.6,-116.2,Synthetic Town,46.53049,-120.55592'].join('\n') + '\n');
+  await loadPage([samplePath, both]);
+  await p.click(`document.getElementById('em-cvi').click()`);
+  const twoEnds = await p.eval(`(async () => { const st = ${S}.map, f = st.em.cvi.features;
+    const idle = () => new Promise(r => st.map.once('idle', r));
+    st.map.jumpTo({ center: [-120.55592, 46.53049], zoom: 13 }); await idle();
+    const q = st.map.project([-120.55592, 46.53049]), h = st.hoverAt([q.x, q.y]);
+    return { rings: f.map(x => x.properties.r).sort(), items: h ? h.items.map(i => i.head + ' / ' + i.lines.join(' / ')) : null }; })()`);
+  check(same(twoEnds.rings, [10, 14]) && twoEnds.items && twoEnds.items.length === 3
+    && same(twoEnds.items.slice(0, 2).sort(), ['CVI premises / Destination in a zone · Yakima, WA / 1 CVI: EM-B2', 'CVI premises / Origin in a zone · Yakima, WA / 1 CVI: EM-B1'])
+    && /^Synthetic Valley Market \/ /.test(twoEnds.items[2]),
+  'results: a spot both an origin and a destination: two rings, the destination\'s around the origin\'s; the hover names both ends and the site under them (3c)', twoEnds);
   // Add a point on the map: a real click near SYN-HPAI-001 while picking, then a typed name used on the map, in the
   // results and in the export; an emptied name goes back to the first one; a removed point's name is not given again.
   await loadPage([samplePath]);
@@ -611,6 +708,7 @@ async function partResults(b) {
     'results: an emptied name goes back to "Added point 1"; Remove takes the point out; the next point is "Added point 2"', { emptied, removed, second });
   // The marked addresses (the tool-form positives, a premises file, the master's address column) reach nothing.
   await loadPage([T('em_positives_tool.csv'), T('em_premises_location.csv'), T('em_cvi_master.csv')]);
+  await p.click(`document.getElementById('em-cvi').click()`);
   await p.click(`document.getElementById('show-cvi').click()`);
   const scan = await p.eval(`(() => { const s = WSDA.emergency.state; return { page: document.body.innerText.includes('MARKED-ADDRESS'),
     map: JSON.stringify(s.map.em).includes('MARKED-ADDRESS'), result: JSON.stringify(s.result || {}).includes('MARKED-ADDRESS'),
@@ -979,12 +1077,30 @@ async function partE1b(b) {
   await p.eval(`scrollTo(0, 0); ${S}.map.map.resize(); true`);
   // The CVI movements wait while the play runs.
   await load([samplePath, path.join(TABLES, 'em_cvi_master.csv')]);
+  await tick('em-cvi');
   await tick('show-cvi');
   await p.waitFor(`${S}.cviRes && ${S}.cviRes.status === 'ok'`, 10000, 'CVI result');
+  const before = await p.eval(`${S}.mapData.cvi`);
   await tick('em-play');
   const during = await p.eval(`({ text: document.getElementById('cvi-result').textContent, playing: ${S}.playing })`);
   check(during.playing && /worked out when the play stops/.test(during.text), 'e1b: while the play runs, the CVI movements wait', during);
+  const whilePlaying = await p.eval(`${S}.cviKey !== null ? 'the CVI query ran during the play'
+    : [...document.querySelectorAll('#em-legend-content p')].some(x => x.textContent === 'CVI premises') ? 'the legend names CVI premises' : ${S}.mapData.cvi`);
   await tick('em-play');
+  // After the stop, the premises for the day shown (the play stops on an early week, so perhaps none are in a zone).
+  const after = await p.eval(`(() => { const s = ${S}, e = WSDA.emergencyRules.cviEnds(s.cviRes ? s.cviRes.matched : []);
+    return { drawn: s.mapData.cvi, expected: s.cviRes ? e.origins.length + e.dests.length : null, day: s.window.end }; })()`);
+  check(before > 0 && whilePlaying === 0 && after.expected !== null && after.drawn === after.expected,
+    'e1b: the map\'s CVI premises are not drawn while the play runs and come back for the day shown when it stops (3c)', { before, whilePlaying, after });
+  // From the week before the last, so the stop lands on the last week, where the premises are in their zones.
+  await p.eval(`(() => { const r = document.getElementById('em-step'); r.value = String(Number(r.max) - 1); r.dispatchEvent(new Event('input')); return true; })()`);
+  // The slider at rest first (its own redraw done), so only the play's end can draw the premises again.
+  await p.waitFor(`!${S}.sliding`, 3000, 'the slider at rest');
+  await sleep(300);
+  await tick('em-play');
+  await p.waitFor(`!${S}.playing`, 10000, 'the play ends on the last week');
+  const late = await p.eval(`${S}.mapData.cvi`);
+  check(late > 0, 'e1b: the play ending on the last week by itself, the CVI premises are drawn again (3c)', late);
   check(await p.eval(`!${S}.playing && !!${S}.cviRes && !/worked out when the play stops/.test(document.getElementById('cvi-result').textContent)`),
     'e1b: when the play stops, the CVI movements are worked out for the date shown');
   await tick('show-inside');
@@ -1097,9 +1213,9 @@ async function partE1b(b) {
   await open();
   await load([path.join(TABLES, 'em_nws_synthetic.zip')]);
   v = await view();
-  const nws = await p.eval(`({ type: document.getElementById('em-type').value, useZones: ${S}.useZones, layers: ${S}.selectedLayers,
+  const nws = await p.eval(`({ type: document.getElementById('em-type').value, show: ${S}.show, layers: ${S}.selectedLayers,
     synthetic: ${S}.synthetic, zones: Array.from(document.querySelectorAll('#tab-inside .em-zones-list tbody tr')).map(r => Array.from(r.cells).map(c => c.textContent)) })`);
-  check(nws.type === 'nws' && nws.useZones && v.data.zones === 2 && nws.synthetic && same(nws.layers, ['markets', 'feedlots', 'fairgrounds']),
+  check(nws.type === 'nws' && nws.show === 'zones' && v.data.zones === 2 && nws.synthetic && same(nws.layers, ['markets', 'feedlots', 'fairgrounds']),
     'e1b: the screwworm bundle picks New World screwworm, uses its dispersal areas at once, ticks its livestock layers; marked synthetic', nws);
   check(v.positives === '8 Active zones from a file' && v.past === '2 Closed 1 still under quarantine'
     && v.lines === '1 not mapped: no coordinates' && v.last === 'Oct 9, 2026 Last positive As of Oct 30, 2026'
@@ -1119,12 +1235,12 @@ async function partE1b(b) {
     && await p.eval(`document.getElementById('em-type').value`) === 'hpai',
   'e1b: switching the type picker to HPAI reads the same file as HPAI (its words: cattle and other animals, no birds)', animals);
   // The bundle's zone file follows the type: HPAI draws its rings, screwworm the file's zones again.
-  check(!await p.eval(`${S}.useZones`) && v.data.zones > 2, 'e1b: switched to HPAI, the bundle\'s zone file gives way to HPAI\'s rings', v.data);
+  check(await p.eval(`${S}.show`) === 'rings' && v.data.zones > 2, 'e1b: switched to HPAI, the bundle\'s zone file gives way to HPAI\'s rings', v.data);
   await p.eval(`(() => { const s = document.getElementById('em-type'); s.value = 'nws'; s.dispatchEvent(new Event('change')); return true; })()`);
   v = await view();
-  check(await p.eval(`${S}.useZones`) && v.data.zones === 2, 'e1b: switched back to screwworm, its dispersal areas are the zones again', v.data);
+  check(await p.eval(`${S}.show`) === 'zones' && v.data.zones === 2, 'e1b: switched back to screwworm, its dispersal areas are the zones again', v.data);
   await load([samplePath]);
-  check(await p.eval(`document.getElementById('em-type').value`) === 'hpai' && !await p.eval(`${S}.useZones`),
+  check(await p.eval(`document.getElementById('em-type').value`) === 'hpai' && await p.eval(`${S}.show`) === 'rings',
     'e1b: loading the HPAI sample after it: HPAI, its rings');
   await load([path.join(TABLES, 'em_nws_synthetic.zip')]);
   check(await p.eval(`document.getElementById('em-type').value`) === 'nws',
@@ -1144,7 +1260,7 @@ async function partE1b(b) {
   // The screwworm positives alone: its one example ring until a zone file comes, its distance said once.
   await load([path.join(TABLES, 'em_nws_synthetic_positives.csv')]);
   v = await view();
-  check(!await p.eval(`${S}.useZones`) && v.legend.includes('Example area (20 km)'),
+  check(await p.eval(`${S}.show`) === 'rings' && v.legend.includes('Example area (20 km)'),
     'e1b: the screwworm positives alone: the example ring, "Example area (20 km)" in the legend', v.legend);
   await tick('em-unit-mi');
   v = await view();
@@ -1604,7 +1720,8 @@ async function partSpeed(b) {
     let cviWhilePlaying = false;
     await p.click(`document.getElementById('em-play').click()`);
     for (let i = 0; i < 400; i++) {
-      const s = await p.eval(`({ at: ${S}.stepAt, ms: ${S}.computeMs, playing: ${S}.playing,
+      // Each step's own redraw (stepMs): the stop's redraw, which works out the CVI movements when ticked, is not a step.
+      const s = await p.eval(`({ at: ${S}.stepAt, ms: ${S}.stepMs, playing: ${S}.playing,
         waits: /worked out when the play stops/.test(document.getElementById('cvi-result').textContent) })`);
       times[s.at] = s.ms;
       if (!s.playing) break;
@@ -1638,6 +1755,7 @@ async function partSpeed(b) {
   check(withMaster.steps === set.steps && withMaster.max < 1000,
     'speed: with the 50,000-row master loaded, every step still redraws in under one second', withMaster);
 
+  await p.click(`document.getElementById('em-cvi').click()`);   // 3c: ticked, the query runs
   await p.click(`document.getElementById('show-cvi').click()`);
   await p.waitFor(`${S}.cviRes && ${S}.cviRes.status === 'ok'`, 60000, 'CVI result');
   const onTab = await play();
@@ -1645,6 +1763,20 @@ async function partSpeed(b) {
     'speed: with the CVI movements tab open, every step redraws in under one second; the query waits for the play to stop', onTab);
   const cviMs = await p.eval(`(() => { const t = performance.now(); ${S}.cviKey = null; document.getElementById('show-inside').click();
     document.getElementById('show-cvi').click(); return performance.now() - t; })()`);
+  await p.click(`document.getElementById('show-inside').click()`);
+  // 3c: ticked, the slider dragged across every week: each step quick, the CVI query only after the last move.
+  const drag = await p.eval(`(async () => { const s = ${S}, r = document.getElementById('em-step'), times = [];
+    let ran = false;
+    for (let i = 0; i <= Number(r.max); i++) {
+      r.value = String(i); r.dispatchEvent(new Event('input')); times.push(s.computeMs);
+      if (s.cviKey !== null) ran = true;
+      await new Promise(q => setTimeout(q, 40));
+    }
+    await new Promise(q => setTimeout(q, 1500));
+    return { steps: times.length, max: Math.round(Math.max(...times)), ran, after: s.cviKey !== null }; })()`);
+  check(drag.max < 1000 && !drag.ran && drag.after,
+    'speed: ticked, dragging the slider across every week redraws each step in under one second; the CVI query waits for the last move, then runs once (3c)', drag);
+  console.log(`  speed: the slider dragged over ${drag.steps} weeks, slowest step ${drag.max} ms`);
   console.log(`  speed: steps ${set.steps}; slowest step ${alone.max} ms alone, ${onOverview.max} ms on the Overview, ${withMaster.max} ms with the master, ${onTab.max} ms on the CVI tab; the CVI query over 50,000 rows ${Math.round(cviMs)} ms`);
   await p.click(`document.getElementById('show-inside').click()`);
 }
@@ -1874,6 +2006,10 @@ async function partPng(b) {
   await load([samplePath, path.join(TABLES, 'em_cvi_master.csv')]);
   await p.click(`document.getElementById('em-past').click()`);
   await p.click(`document.getElementById('em-past-rings').click()`);
+  v = await picture('hpai_cvi_master_off_200dpi');
+  check(v.boxes.length === 2 && !v.keyCounts.some(l => /^CVI PREMISES/.test(l)) && v.cvi.length === 0,
+    'png: with a CVI master but the tick "CVI movements" off, no CVI boxes, no "CVI PREMISES" and no CVI premises drawn (3c)', [v.boxes, v.cvi]);
+  await p.click(`document.getElementById('em-cvi').click()`);
   v = await picture('hpai_cvi_master_200dpi');
   const head = v.keyCounts.find(l => /^CVI PREMISES/.test(l)) || '';
   check(same(v.boxes.slice(2), [['CVIs in or out', v.boxes[2] && v.boxes[2][1]], ['Animals moved', v.boxes[3] && v.boxes[3][1]]])
@@ -1960,7 +2096,7 @@ async function partOverview(b) {
   const rules = () => p.eval(`(() => { const s = ${S}, E = WSDA.emergencyRules, C = CVIWA_GEO.counties.features, d = WSDA.population.loaded('density');
     const tracts = d.tracts.map(t => ({ geoid: t.geoid, pop: t.pop, coordinates: WSDA.population.geometry(t).coordinates }));
     const added = s.points.map((q, k) => ({ index: 'added-' + k, name: q.name, lat: q.lat, lon: q.lon }));
-    const sites = s.useZones && s.zoneFile ? E.zoneSites(s.zoneFile.zones) : E.ringSites(s.read.targets.concat(added), s.rings, s.unit);
+    const sites = s.show === 'zones' && s.zoneFile ? E.zoneSites(s.zoneFile.zones) : E.ringSites(s.read.targets.concat(added), s.rings, s.unit);
     const people = sites.length ? E.peopleInside(sites, tracts, { year: d.year, counties: C }) : null;
     return { boxes: E.overviewBoxes(s.read, s.window, C, people), rows: E.countyRows(s.read, s.window, C).length,
       positives: E.positiveRows(s.read, s.window, C).rows.length, total: people && people.total }; })()`);
@@ -2095,12 +2231,12 @@ async function partOverview(b) {
   await p.click(`document.getElementById('em-past').click()`);
   await settled();
   // The sample's zone file: its one zone named in the layer chart's key.
-  await p.click(`document.getElementById('em-use-zones').click()`);
+  await p.click(`document.querySelector('#em-show [data-show="zones"]').click()`);
   await settled();
   v = await view();
   check(/^Synthetic control area/.test(v.layer.text) && same(v.layer.marks, ['Commercial Poultry: 1 in Synthetic control area', 'Premise PINs by Species: 1 in Synthetic control area']),
     'overview: with the sample\'s zone file, the layer bars by its zone, named in the key', v.layer);
-  await p.click(`document.getElementById('em-use-zones').click()`);
+  await p.click(`document.querySelector('#em-show [data-show="rings"]').click()`);
   await settled();
   // The Map again, at its size.
   await show('map');
@@ -2133,7 +2269,7 @@ async function partOverview(b) {
   [v.total, R.people.rings.total, v.tracts, R.people.rings.tracts.length, v.people.note]);
   // The zone file ticked while the Overview shows: the map's fit to the zone waits for the Map.
   const zoomBefore = await p.eval(`${S}.map.map.getZoom()`);
-  await p.click(`document.getElementById('em-use-zones').click()`);
+  await p.click(`document.querySelector('#em-show [data-show="zones"]').click()`);
   await settled();
   v = await view();
   check(near(v.total, R.people.zone.total) && v.tracts === R.people.zone.tracts.length && /^Not available: needs a facility layer$/.test(v.layer.text),
@@ -2178,6 +2314,620 @@ async function partOverview(b) {
     && v.counties.shown === '5', 'overview: the tracts\' file not loaded: the people box says so (never zero), the other boxes as before', [v.people, v.counties]);
 }
 
+// 2.6, "Draw a zone", by real input: mouse presses and releases, moves, drags and keys through the DevTools protocol
+// (the map's own events, as a user's), and touch taps with Chrome's touch emulation. The sample loaded, near Yakima:
+// a six-corner zone around SYN-HPAI-001 beside the sample's zone file.
+async function partDraw(b) {
+  const p = b.page, S = 'WSDA.emergency.state', D = 'WSDA.emergency.draw', R = 'WSDA.emergencyRules';
+  const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip'), DIR = path.join(OUT, 'draw');
+  fs.mkdirSync(DIR, { recursive: true });
+  const VIEW = [[-120.53, 46.355], [-120.25, 46.61]];
+  const CORNERS = [[-120.505, 46.598], [-120.43, 46.59], [-120.405, 46.553], [-120.418, 46.515], [-120.47, 46.508], [-120.52, 46.54]];
+  const HOVER_AT = [-120.452, 46.523];
+  const mouse = (type, q, extra) => b.send('Input.dispatchMouseEvent', Object.assign({ type, x: q.x, y: q.y,
+    button: type === 'mouseMoved' ? 'none' : 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, extra || {}), p.sid);
+  // A click (count 2: a double-click, sent as Chrome sends one: two presses and releases, the second with clickCount 2).
+  const click = async (q, count) => {
+    for (let k = 1; k <= (count || 1); k++) {
+      await mouse('mousePressed', q, { clickCount: k });
+      await mouse('mouseReleased', q, { clickCount: k });
+    }
+    await sleep(150);
+  };
+  const move = async q => { await mouse('mouseMoved', q); await sleep(100); };
+  // A drag with the button held, in steps.
+  const dragTo = async (from, to) => {
+    await mouse('mouseMoved', from);
+    await mouse('mousePressed', from);
+    for (let k = 1; k <= 4; k++) {
+      await mouse('mouseMoved', { x: Math.round(from.x + (to.x - from.x) * k / 4), y: Math.round(from.y + (to.y - from.y) * k / 4) },
+        { button: 'left', buttons: 1 });
+      await sleep(40);
+    }
+    await mouse('mouseReleased', to);
+    await sleep(200);
+  };
+  const KEYS = { Enter: ['Enter', 13], Escape: ['Escape', 27], Backspace: ['Backspace', 8] };
+  const key = async k => {
+    const [code, vk] = KEYS[k];
+    await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: k, code, windowsVirtualKeyCode: vk }, p.sid);
+    await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: vk }, p.sid);
+    await sleep(150);
+  };
+  // A [lon, lat] as a point of the window, and an element's middle.
+  const at = ll => p.eval(`(() => { const m = ${S}.map.map, r = m.getCanvas().getBoundingClientRect(), q = m.project(${JSON.stringify(ll)});
+    return { x: Math.round(r.left + q.x), y: Math.round(r.top + q.y) }; })()`);
+  const middle = sel => p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.scrollIntoView({ block: 'nearest' });
+    const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+  const press = async sel => click(await middle(sel));
+  // The label as shown, and the rules' lines for the corners placed and the pointer at a window point.
+  const label = q => p.eval(`(() => { const l = document.getElementById('dz-label'), m = ${S}.map.map, r = m.getCanvas().getBoundingClientRect();
+    const ll = m.unproject([${q ? q.x : 0} - r.left, ${q ? q.y : 0} - r.top]);
+    return { shown: !l.hidden, text: l.innerText, warn: l.classList.contains('warn'),
+      want: ${R}.drawLabel(${D}.corners(), [ll.lng, ll.lat], ${S}.unit).lines.join('\\n'), corners: ${D}.corners().length }; })()`);
+  const view = () => p.eval(`(() => { ${S}.map.map.fitBounds(${JSON.stringify(VIEW)}, { padding: 40, animate: false }); return true; })()`)
+    .then(() => sleep(400));
+  const open = async files => {
+    await p.goto(new URL('emergency/index.html', SITE).href);
+    await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+    await p.setFiles('#files-input', files);
+    await emReady(p);
+    await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn');
+    await p.eval(`document.getElementById('positives-fold').open = true; document.getElementById('dz-fold').open = true; scrollTo(0, 0); true`);
+    await view();
+  };
+  const zoneState = () => p.eval(`(() => { const s = ${S}, m = s.map.map; return { mode: ${D}.mode(), drawn: s.drawn.map(z => ({ name: z.name,
+      vertices: z.vertices, shape: z.shape })), show: s.show,
+    pressed3: [...document.querySelectorAll('#em-show [data-show]')].filter(x => x.getAttribute('aria-pressed') === 'true').map(x => x.dataset.show).join(),
+    switchOff: [...document.querySelectorAll('#em-show [data-show]')].filter(x => x.disabled).map(x => x.dataset.show).join(),
+    ringsHidden: document.getElementById('em-rings-field').hidden,
+    zones: s.mapData.zones, guide: s.mapData.guide, zonesMode: s.days.zonesMode, zoom: m.getZoom(), center: m.getCenter().toArray(),
+    dblZoom: m.doubleClickZoom.isEnabled(), badge: document.getElementById('dz-badge').hidden ? null : document.getElementById('dz-badge').textContent,
+    label: !document.getElementById('dz-label').hidden, start: document.getElementById('dz-start').textContent,
+    pressed: document.getElementById('dz-start').getAttribute('aria-pressed'), tools: !document.getElementById('dz-tools').hidden,
+    status: document.getElementById('dz-status').hidden ? null : document.getElementById('dz-status').textContent,
+    list: [...document.querySelectorAll('#dz-list li')].map(li => [li.querySelector('input').value, ...[...li.querySelectorAll('button')].map(x => x.textContent),
+      li.querySelector('.dz-area').textContent]),
+    sketch: s.map.em.draw.features.map(f => f.properties.kind), crosshair: m.getContainer().classList.contains('drawing') }; })()`);
+
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await open([samplePath]);
+  let z = await zoneState();
+  check(z.mode === null && z.show === 'rings' && z.pressed3 === 'rings' && z.switchOff === '' && z.zones === 12 && z.list.length === 0 && z.start === 'Draw on map'
+    && z.pressed === 'false' && !z.tools && z.dblZoom, 'draw: the sample loaded: the rings, the switch on Rings with Zones and Both free (the sample has a zone file), no drawn zone', z);
+
+  // ---- Freehand: the clicks, the label, a crossing refused, Backspace and Undo, the double-click ----------------------
+  await press('#dz-start');
+  z = await zoneState();
+  check(z.mode === 'freehand' && z.start === 'Drawing' && z.pressed === 'true' && z.tools && z.badge === 'Drawing a zone' && z.crosshair
+    && !z.dblZoom && z.status === 'Click the map for each corner.' && z.zones === 12 && z.guide === 0,
+  'draw: a real click on "Draw on map": "Drawing" filled, Finish, Undo corner and Cancel beside it, the badge, the crosshair, the double-click zoom off, the rings kept as a guide', z);
+  const zoom0 = z.zoom, center0 = z.center;
+  const px = [];
+  for (const c of CORNERS) px.push(await at(c));
+  await click(px[0]);
+  const toward = (a, c, t) => ({ x: Math.round(a.x + (c.x - a.x) * t), y: Math.round(a.y + (c.y - a.y) * t) });
+  let q = toward(px[1], px[2], 0.4);
+  await move(q);
+  let l = await label(q);
+  check(l.shown && l.corners === 1 && /^\d+\.\d km from the first click$/.test(l.text) && l.text === l.want && !l.warn,
+    'draw: after the first corner the label beside the pointer says the distance from the first click, as the rules give it', l);
+  for (const k of [1, 2, 3]) await click(px[k]);
+  q = toward(px[3], px[4], 0.9);
+  await move(q);
+  l = await label(q);
+  check(l.corners === 4 && /^\d+\.\d km from the first click\nArea \d+\.\d sq mi, [\d,]+ acres$/.test(l.text) && l.text === l.want,
+    'draw: from the third corner the label also says the area the shape would have if closed at the pointer', l);
+  z = await zoneState();
+  check(same(z.sketch.filter(k => k !== 'corner'), ['fill', 'side', 'next']) && z.sketch.filter(k => k === 'corner').length === 4,
+    'draw: the sketch: the shape so far filled, its sides, the side to the pointer, each corner', z.sketch);
+  // No hover while drawing.
+  await move(await at(HOVER_AT));
+  check(await p.eval(`${S}.map.hoverLabel === null && !document.querySelector('.maplibregl-popup')`), 'draw: no hover while drawing');
+  await click(px[4]);
+  const crossAt = await at([-120.462, 46.606]);
+  await move(crossAt);
+  l = await label(crossAt);
+  check(l.text === 'Sides can’t cross' && l.warn && l.want === l.text, 'draw: a pointer whose side would cross another: the label says "Sides can’t cross", in crimson', l);
+  await click(crossAt);
+  l = await label(crossAt);
+  check(l.corners === 5, 'draw: a click whose side would cross another places no corner', l);
+  // A click on an earlier corner (the third), a few pixels short of it toward the last corner: without landing on
+  // the corner it would be placed (its side ends inside the shape); on the corner the sides touch, refused as crossing.
+  const toLast = Math.hypot(px[4].x - px[2].x, px[4].y - px[2].y);
+  const onThird = { x: Math.round(px[2].x + 4 * (px[4].x - px[2].x) / toLast), y: Math.round(px[2].y + 4 * (px[4].y - px[2].y) / toLast) };
+  await move(onThird);
+  const touchLabel = await label(onThird);
+  await click(onThird);
+  const onEarlier = await label(onThird);
+  check(touchLabel.text === 'Sides can’t cross' && touchLabel.warn && onEarlier.corners === 5,
+    'draw: a click on an earlier corner (sides touching) is refused: "Sides can’t cross", no corner placed', [touchLabel, onEarlier.corners]);
+  await key('Backspace');
+  const afterBack = (await label(crossAt)).corners;
+  await press('#dz-undo');
+  const afterUndo = (await label(crossAt)).corners;
+  check(afterBack === 4 && afterUndo === 3, 'draw: Backspace takes back the last corner; a real click on "Undo corner" another', [afterBack, afterUndo]);
+  await click(px[3]); await click(px[4]);
+  await move(px[5]);
+  await click(px[5], 2);
+  const zoomRightAfter = await p.eval(`${S}.map.map.doubleClickZoom.isEnabled()`);
+  await sleep(600);
+  z = await zoneState();
+  check(zoomRightAfter === false, 'draw: the double-click zoom stays off for the double-click\'s window after a shape closes', zoomRightAfter);
+  const area1 = await p.eval(`${R}.areaText(${R}.areaM2(${S}.drawn[0].geometry))`);
+  check(z.mode === null && z.drawn.length === 1 && z.drawn[0].name === 'Drawn zone 1' && z.drawn[0].vertices === 7 && z.dblZoom
+    && z.zoom === zoom0 && same(z.center, center0) && z.badge === null && !z.label && z.start === 'Draw on map' && !z.tools && !z.crosshair,
+  'draw: a double-click places the sixth corner and closes the zone ("Drawn zone 1", six corners), the map\'s zoom and center unchanged, the zoom back on', z);
+  check(z.show === 'both' && z.pressed3 === 'both' && !z.ringsHidden && !z.zonesMode && z.zones === 14
+    && same(z.list, [['Drawn zone 1', 'Edit', 'Remove', area1 + ' · 6 corners']]) && z.status === 'Drawn zone 1: ' + area1 + '.',
+  'draw: the zone finished on Rings picks Both (3b): the rings, the drawn zone and the file\'s zone together; its row: name box, Edit, Remove, its area and corners', z);
+  // Zones, for the checks of the zone on its own (Both is checked below, with the switch).
+  await press('#em-show [data-show="zones"]');
+  await view();   // the switch fits the map to what shows; the checks' fixed view again
+  z = await zoneState();
+  check(z.show === 'zones' && z.pressed3 === 'zones' && z.ringsHidden && z.zonesMode && z.zones === 2,
+    'draw: a real click on Zones: the drawn zone and the file\'s zone in the rings\' place, the rings\' boxes hidden', z);
+
+  // ---- The zone on the page: the hover, the legend, the fold's summary, the results -------------------------------
+  await move(await at(HOVER_AT));
+  const hover = await p.eval(`${S}.map.hoverLabel`);
+  const days1 = await p.eval(`(() => { const s = ${S}, k = s.days.sites.findIndex(d => d.name === 'Drawn zone 1'); return s.days.sites[k].days; })()`);
+  check(new RegExp('^Drawn zone 1\\n' + days1 + ' days?\\nDrawn · ' + area1.replace(/[.]/g, '\\.') + '\\n\\nDays since the last positive inside each zone, as of ').test(hover || ''),
+    'draw: the hover over the drawn zone: its name, its days since the last positive, "Drawn" and its area, then the "as of" line', hover);
+  await move({ x: 5, y: 5 });
+  const page = await p.eval(`(() => ({ legend: [...document.querySelectorAll('#em-legend-content p')].map(x => [x.textContent, !!x.querySelector('.lg-ring.dashed')]),
+    sum: document.getElementById('positives-sum').textContent, box: document.querySelector('#box-positives .card-note').textContent,
+    zones: [...document.querySelectorAll('#tab-inside .em-zones-list tbody tr')].map(tr => tr.children[0].textContent),
+    dash: ${S}.map.map.getLayer('em_zone_dash') ? ${S}.map.map.queryRenderedFeatures({ layers: ['em_zone_dash'] }).map(f => f.properties.label) : null }))()`);
+  check(page.legend.some(x => same(x, ['Synthetic control area', false])) && page.legend.some(x => same(x, ['Drawn zone 1 (drawn)', true]))
+    && page.sum === '1 zone from a file and 1 drawn, closed hidden' && page.box === '1 zone from a file and 1 drawn'
+    && page.zones.includes('Drawn zone 1') && page.zones.includes('Synthetic control area') && same([...new Set(page.dash)], ['Drawn zone 1']),
+  'draw: the legend\'s file row and dashed drawn row, the fold\'s summary, the box\'s note, the "Zones" list; only the drawn zone\'s outline dashed on the map', page);
+  // The name box: a typed name used everywhere; a name another zone has refused.
+  const rename = async name => p.eval(`(() => { const i = document.querySelector('#dz-list .em-point-name'); i.value = ${JSON.stringify(name)};
+    i.dispatchEvent(new Event('change')); return { box: i.value, name: ${S}.drawn[0].name, status: document.getElementById('dz-status').textContent,
+      legend: document.getElementById('em-legend-content').textContent, list: document.getElementById('tab-inside').textContent }; })()`);
+  const named = await rename('  Along   the river ');
+  const taken = await rename('Synthetic control area');
+  check(named.name === 'Along the river' && named.box === 'Along the river' && /Along the river \(drawn\)/.test(named.legend) && named.list.includes('Along the river'),
+    'draw: a typed name (spaces tidied) is used in the legend and the results', named);
+  check(taken.name === 'Along the river' && taken.box === 'Along the river' && /^Another zone is named "Synthetic control area": the name stays Along the river\.$/.test(taken.status),
+    'draw: a name another zone has is refused, with a line saying so; the name stays', taken);
+
+  // ---- Edit: a corner dragged, a side's middle dragged, a crossing drag going back ----------------------------------
+  await press('#dz-list li button');
+  z = await zoneState();
+  check(z.mode === 'edit' && z.badge === 'Editing Along the river' && z.list[0][1] === 'Done' && z.sketch.filter(k => k === 'corner').length === 6
+    && z.sketch.filter(k => k === 'mid').length === 6 && z.status === 'Drag a corner, or a side’s middle to add a corner.',
+  'draw: a real click on Edit: a handle on each corner and at each side\'s middle, "Done", the badge "Editing …"', z);
+  const cornersNow = () => p.eval(`${R}.cornersOf(${S}.drawn[0])`);
+  const before = await cornersNow();
+  // A click on a corner handle, and on a middle handle, without moving: nothing changes.
+  const version00 = await p.eval(`${S}.zonesVersion`);
+  await click(await at(before[0]));
+  await click(await at([(before[0][0] + before[1][0]) / 2, (before[0][1] + before[1][1]) / 2]));
+  const still = await cornersNow();
+  check(same(still, before) && await p.eval(`${S}.zonesVersion`) === version00 && await p.eval(`${S}.map.em.draw.features.filter(f => f.properties.kind === 'corner').length`) === 6,
+    'draw: a click on a corner or a middle handle without a drag changes nothing', [still.length, before.length]);
+  const version0 = await p.eval(`${S}.zonesVersion`);
+  const k2 = before.findIndex(c => Math.abs(c[0] - CORNERS[2][0]) < 0.002 && Math.abs(c[1] - CORNERS[2][1]) < 0.002);
+  const from = await at(before[k2]), to = { x: from.x + 40, y: from.y + 10 };
+  await dragTo(from, to);
+  const moved = await cornersNow();
+  const want = await p.eval(`(() => { const m = ${S}.map.map, r = m.getCanvas().getBoundingClientRect(), ll = m.unproject([${to.x} - r.left, ${to.y} - r.top]);
+    return [Number(ll.lng.toFixed(6)), Number(ll.lat.toFixed(6))]; })()`);
+  z = await zoneState();
+  check(moved.length === 6 && Math.abs(moved[k2][0] - want[0]) < 2e-6 && Math.abs(moved[k2][1] - want[1]) < 2e-6
+    && await p.eval(`${S}.zonesVersion`) > version0 && same(z.center, center0) && z.mode === 'edit',
+  'draw: dragging a corner moves it to where the drag ends (the map does not pan); the results are worked out again', [moved[k2], want, z.center]);
+  check(z.list[0][1] === 'Done' && await p.eval(`document.querySelector('#dz-list li button').getAttribute('aria-pressed')`) === 'true',
+    'draw: after a drag the zone is still being edited: its button still reads "Done"', z.list[0]);
+  const mid = [(moved[0][0] + moved[1][0]) / 2, (moved[0][1] + moved[1][1]) / 2], midFrom = await at(mid);
+  await dragTo(midFrom, { x: midFrom.x, y: midFrom.y - 30 });
+  const added = await cornersNow();
+  z = await zoneState();
+  check(added.length === 7 && /· 7 corners$/.test(z.list[0][3]), 'draw: dragging a side\'s middle handle adds a corner there', [added.length, z.list[0]]);
+  // A corner dragged across the far side: the sides would cross, so it goes back.
+  const c0 = await at(added[0]), far = await at([added[3][0] + 0.03, added[3][1]]);
+  await dragTo(c0, far);
+  const back = await cornersNow();
+  l = await p.eval(`({ text: document.getElementById('dz-label').innerText, warn: document.getElementById('dz-label').classList.contains('warn'),
+    handles: ${S}.map.em.draw.features.filter(f => f.properties.kind === 'corner').map(f => f.geometry.coordinates) })`);
+  check(same(back, added) && same(l.handles, added) && l.text === 'Sides can’t cross' && l.warn,
+    'draw: a drag that would make sides cross goes back (the zone and its handles), and the label says so', [back.length, l.text, l.warn]);
+  await press('#dz-list li button');
+  z = await zoneState();
+  check(z.mode === null && z.sketch.length === 0 && z.list[0][1] === 'Edit' && z.badge === null, 'draw: a real click on Done ends the edit; the handles go', z);
+
+  // ---- Esc, Enter, a click on the first corner, Remove ------------------------------------------------------------
+  const tri = [[-120.36, 46.47], [-120.3, 46.47], [-120.33, 46.43]];
+  const tpx = [];
+  for (const c of tri) tpx.push(await at(c));
+  await press('#dz-start');
+  z = await zoneState();
+  const rendered = await p.eval(`new Set(${S}.map.map.queryRenderedFeatures({ layers: ['em_zone_line'] }).map(f => f.properties.label)).size`);
+  check(z.mode === 'freehand' && z.zonesMode && z.zones === 2 && z.guide === 12 && rendered > 2,
+    'draw: drawing again with the zones in the rings\' place: the rings come back on the map as a guide, not counted', [z.zones, z.guide, rendered]);
+  await click(tpx[0]); await click(tpx[1]);
+  await key('Escape');
+  await sleep(600);
+  z = await zoneState();
+  check(z.mode === null && z.drawn.length === 1 && z.sketch.length === 0 && z.dblZoom && z.guide === 0 && z.zones === 2,
+    'draw: Esc drops the shape and leaves the mode; the rings\' guide goes', z);
+  await press('#dz-start');
+  for (const t of tpx) await click(t);
+  await key('Enter');
+  z = await zoneState();
+  check(z.mode === null && z.drawn.length === 2 && z.drawn[1].name === 'Drawn zone 2' && z.drawn[1].vertices === 4, 'draw: Enter closes a shape of three corners ("Drawn zone 2")', z.drawn);
+  await press('#dz-start');
+  for (const t of tpx) await click({ x: t.x + 60, y: t.y });
+  const zoomFirst = await p.eval(`${S}.map.map.getZoom()`);
+  // One click on the first corner closes the shape; the double-click's second click then lands on a closed shape.
+  const firstAgain = { x: tpx[0].x + 63, y: tpx[0].y + 2 };
+  await mouse('mousePressed', firstAgain, { clickCount: 1 }); await mouse('mouseReleased', firstAgain, { clickCount: 1 });
+  await sleep(150);
+  const afterOne = await p.eval(`({ mode: ${D}.mode(), drawn: ${S}.drawn.length })`);
+  await mouse('mousePressed', firstAgain, { clickCount: 2 }); await mouse('mouseReleased', firstAgain, { clickCount: 2 });
+  await sleep(600);
+  z = await zoneState();
+  check(afterOne.mode === null && afterOne.drawn === 3 && z.drawn.length === 3 && z.drawn[2].name === 'Drawn zone 3' && z.drawn[2].vertices === 4
+    && z.zoom === zoomFirst && z.dblZoom,
+  'draw: one click on the first corner closes the shape; a double-click there does not zoom the map', [afterOne, z.drawn, z.zoom, zoomFirst]);
+  await press('#dz-start');
+  await click(tpx[0]); await click(tpx[1]);
+  await press('#dz-finish');
+  z = await zoneState();
+  check(z.mode === 'freehand' && z.drawn.length === 3 && z.status === 'A zone needs at least 3 corners.', 'draw: Finish with two corners says a zone needs three, and keeps drawing', z);
+  await press('#dz-cancel');
+  await press('#dz-list li:nth-child(3) button:nth-of-type(2)');
+  await press('#dz-list li:nth-child(2) button:nth-of-type(2)');
+  z = await zoneState();
+  check(z.mode === null && z.drawn.length === 1 && z.list.length === 1 && z.show === 'zones', 'draw: Cancel leaves the mode; Remove takes a zone out (no confirm); drawing on Zones stays on Zones', z);
+
+  // ---- The rectangle and the square ----------------------------------------------------------------------------
+  await press('#dz-shapes [data-shape="rectangle"]');
+  await press('#dz-start');
+  z = await zoneState();
+  check(z.mode === 'rectangle' && z.status === 'Click two opposite corners.' && !await p.eval(`document.getElementById('dz-finish').hidden === false`)
+    && await p.eval(`document.getElementById('dz-size').hidden`), 'draw: Rectangle picked: "Click two opposite corners.", Cancel only, no size box', z);
+  const ra = await at([-120.36, 46.45]), rb = await at([-120.28, 46.4]);
+  // A double-click on the first corner that moved a few pixels between its clicks.
+  await mouse('mousePressed', ra, { clickCount: 1 }); await mouse('mouseReleased', ra, { clickCount: 1 });
+  const ra2 = { x: ra.x + 3, y: ra.y + 2 };
+  await mouse('mousePressed', ra2, { clickCount: 2 }); await mouse('mouseReleased', ra2, { clickCount: 2 });
+  await sleep(200);
+  const onFirst = await p.eval(`({ mode: ${D}.mode(), corners: ${D}.corners().length, drawn: ${S}.drawn.length })`);
+  check(onFirst.mode === 'rectangle' && onFirst.corners === 1 && onFirst.drawn === 1, 'draw: a double-click on the rectangle\'s first corner makes no zone', onFirst);
+  await move(rb);
+  const rl = await p.eval(`(() => { const m = ${S}.map.map, r = m.getCanvas().getBoundingClientRect();
+    const a = m.unproject([${ra.x} - r.left, ${ra.y} - r.top]), b = m.unproject([${rb.x} - r.left, ${rb.y} - r.top]);
+    return { text: document.getElementById('dz-label').innerText, want: ${R}.rectangleLabel([a.lng, a.lat], [b.lng, b.lat], ${S}.unit).join('\\n') }; })()`);
+  check(/^\d+\.\d km by \d+\.\d km\nArea \d+\.\d sq mi, [\d,]+ acres$/.test(rl.text) && rl.text === rl.want, 'draw: the rectangle\'s label: its size and its area', rl);
+  await click(rb);
+  z = await zoneState();
+  check(z.drawn.length === 2 && z.drawn[1].shape.kind === 'rectangle' && z.drawn[1].vertices === 5 && /· Rectangle, \d+\.\d km by \d+\.\d km$/.test(z.list[1][3]) && z.mode === null,
+    'draw: the second click makes the rectangle, its row "Rectangle, … km by … km"', z.list);
+  await press('#dz-list li:nth-child(2) button:nth-of-type(2)');
+  await press('#dz-shapes [data-shape="square"]');
+  const sizeBox = await p.eval(`({ shown: !document.getElementById('dz-size').hidden, value: document.getElementById('dz-size-in').value, unit: document.getElementById('dz-size-unit').textContent })`);
+  check(sizeBox.shown && sizeBox.value === '3' && sizeBox.unit === 'km each way', 'draw: Square picked: the size box, "3 km each way"', sizeBox);
+  await press('#dz-start');
+  // No hover of any kind while drawing: the shared map's population hover (on after a load) over a tract too.
+  await move(await at([-120.36, 46.5]));
+  const popups = await p.eval(`[...document.querySelectorAll('.maplibregl-popup')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.textContent)`);
+  check(popups.length === 0, 'draw: no hover shows while drawing, the population layers\' hover included', popups);
+  const p001 = await p.eval(`(() => { const q = ${S}.read.positives.find(x => x.name === 'SYN-HPAI-001'); return [q.lon, q.lat]; })()`);
+  const onMark = await at(p001);
+  await move({ x: onMark.x + 2, y: onMark.y + 1 });
+  const sl = await p.eval(`document.getElementById('dz-label').innerText`);
+  check(sl === 'Around SYN-HPAI-001\n6.0 km across (3.0 km each way)\nArea 13.9 sq mi, 8,896 acres', 'draw: the square over a positive\'s mark: "Around SYN-HPAI-001", its size and area', sl);
+  await click({ x: onMark.x + 2, y: onMark.y + 1 });
+  const sq = await p.eval(`(() => { const z = ${S}.drawn[1], c = ${R}.cornersOf(z);
+    return { shape: z.shape, mid: [(c[0][0] + c[2][0]) / 2, (c[0][1] + c[2][1]) / 2], row: document.querySelectorAll('#dz-list .dz-area')[1].textContent }; })()`);
+  check(sq.shape.kind === 'square' && sq.shape.km === 3 && Math.abs(sq.mid[0] - p001[0]) <= 1e-6 && Math.abs(sq.mid[1] - p001[1]) <= 1e-6
+    && sq.row === '13.9 sq mi, 8,896 acres · Square, 6.0 km across', 'draw: a click on the mark centers the square on the positive exactly; its row "Square, 6.0 km across"', [sq, p001]);
+  await press('#dz-list li:nth-child(2) button:nth-of-type(2)');
+  await p.eval(`(() => { const i = document.getElementById('dz-size-in'); i.value = '0'; i.dispatchEvent(new Event('change')); return true; })()`);
+  await press('#dz-start');
+  z = await zoneState();
+  check(z.mode === null && z.status === 'Type a size from 0.1 to 100.', 'draw: a square size out of bounds: no drawing, and a line saying the sizes allowed', z);
+  await p.eval(`(() => { const i = document.getElementById('dz-size-in'); i.value = '3'; i.dispatchEvent(new Event('change')); return true; })()`);
+  // The circle (3b): the size box as its radius, centered on a positive's mark, a row with no Edit.
+  await press('#dz-shapes [data-shape="circle"]');
+  const radiusBox = await p.eval(`({ shown: !document.getElementById('dz-size').hidden, value: document.getElementById('dz-size-in').value, unit: document.getElementById('dz-size-unit').textContent,
+    rows: [...document.querySelectorAll('#dz-shapes .btn')].map(x => Math.round(x.getBoundingClientRect().top)) })`);
+  check(radiusBox.shown && radiusBox.value === '3' && radiusBox.unit === 'km radius' && new Set(radiusBox.rows).size === 2,
+    'draw: Circle picked: the size box, "3 km radius"; the four shapes in two rows', radiusBox);
+  await press('#dz-start');
+  z = await zoneState();
+  check(z.mode === 'circle' && z.status === 'Click where the middle goes.', 'draw: drawing a circle: "Click where the middle goes."', z);
+  const onMark2 = await at(p001);
+  await move({ x: onMark2.x + 2, y: onMark2.y + 1 });
+  const cl = await p.eval(`document.getElementById('dz-label').innerText`);
+  check(cl === 'Around SYN-HPAI-001\n3.0 km radius\nArea 10.9 sq mi, 6,984 acres', 'draw: the circle over a positive\'s mark: "Around SYN-HPAI-001", its radius and area', cl);
+  await click({ x: onMark2.x + 2, y: onMark2.y + 1 });
+  const ci = await p.eval(`(() => { const z = ${S}.drawn[1], c = ${R}.cornersOf(z);
+    return { shape: z.shape, vertices: z.vertices, far: c.map(q => WSDA.proximity.distanceKm(${p001[1]}, ${p001[0]}, q[1], q[0])),
+      row: [...document.querySelectorAll('#dz-list li')][1] ? [...[...document.querySelectorAll('#dz-list li')][1].querySelectorAll('button')].map(x => x.textContent) : null,
+      area: document.querySelectorAll('#dz-list .dz-area')[1].textContent }; })()`);
+  check(ci.shape.kind === 'circle' && ci.shape.km === 3 && ci.vertices === 121 && ci.far.every(d => Math.abs(d - 3) < 2e-4)
+    && same(ci.row, ['Remove']) && ci.area === '10.9 sq mi, 6,984 acres · Circle, 3.0 km radius',
+  'draw: a click on the mark places the circle around the positive (120 corners, each 3 km away); its row Remove only, "Circle, 3.0 km radius"', [ci.row, ci.area, Math.max(...ci.far.map(d => Math.abs(d - 3)))]);
+  await press('#dz-list li:nth-child(2) button');
+  await press('#dz-shapes [data-shape="freehand"]');
+
+  // ---- Drawing and "Add a point" never together; a background change keeps the sketch -----------------------------
+  await p.eval(`document.getElementById('em-pick-fold').open = true; true`);
+  await press('#dz-start');
+  await press('#em-pick');
+  const ex1 = await p.eval(`({ mode: ${D}.mode(), picking: ${S}.picking })`);
+  await press('#dz-start');
+  const ex2 = await p.eval(`({ mode: ${D}.mode(), picking: ${S}.picking, pick: document.getElementById('em-pick').getAttribute('aria-pressed') })`);
+  check(ex1.mode === null && ex1.picking && ex2.mode === 'freehand' && !ex2.picking && ex2.pick === 'false',
+    'draw: "Pick on map" ends the drawing, and "Draw on map" ends picking', [ex1, ex2]);
+  await click(px[0]); await click(px[1]);
+  await p.eval(`(() => { const s = document.getElementById('em-basemap'); s.value = ''; s.dispatchEvent(new Event('change')); return true; })()`);
+  // Redrawn: the new style in place and the sketch's corners rendered again.
+  await p.waitFor(`${S}.map.ready && !${S}.map.switching && ${S}.map.map.getLayer('em_draw_corner')
+    && ${S}.map.map.queryRenderedFeatures({ layers: ['em_draw_corner'] }).length > 0`, 15000, 'background redrawn');
+  await sleep(300);
+  const kept = await p.eval(`(() => { const m = ${S}.map.map; return { layers: ['em_draw_fill', 'em_draw_side', 'em_draw_next', 'em_draw_corner', 'em_zone_dash'].every(id => !!m.getLayer(id)),
+    corners: m.queryRenderedFeatures({ layers: ['em_draw_corner'] }).length, mode: ${D}.mode() }; })()`);
+  check(kept.layers && kept.corners === 2 && kept.mode === 'freehand', 'draw: a background change keeps the sketch and its two corners', kept);
+  await press('#dz-cancel');
+
+  // ---- The switch (3b): Rings with the drawn zone kept, Both, then Zones again --------------------------------------
+  await press('#em-show [data-show="rings"]');
+  await view();
+  const off = await zoneState();
+  await p.eval(`WSDA.sample.download = function () {}; document.getElementById('export-fold').open = true; document.getElementById('em-export').click(); true`);
+  const ringsGeo = await p.eval(`(() => { const e = (${S}.lastExport || []).find(x => /zones\.geojson$/.test(x.name)); return e ? JSON.parse(e.data).features.map(f => [f.properties.source || f.properties.group, f.properties.name]) : []; })()`);
+  check(ringsGeo.some(f => f[0] === 'drawn' && f[1] === 'Along the river') && ringsGeo.some(f => f[0] === 'Active'),
+    'draw: with the rings shown, the Export\'s zones.geojson keeps the drawn zone beside the rings', ringsGeo.filter(f => f[0] === 'drawn'));
+  await p.eval(`document.getElementById('export-fold').open = false; scrollTo(0, 0); true`);
+  const ringsBox = await p.eval(`document.querySelector('#box-inside strong').textContent`);
+  await press('#em-show [data-show="both"]');
+  await view();
+  const both = await zoneState();
+  const bp = await p.eval(`(() => { const s = ${S}, E = ${R}; const keys = res => new Set(res.rows.map(r => r.layer + '|' + r.lat + '|' + r.lon + '|' + r.name));
+    const layers = s.selectedLayers.map(k => s.layers[k]);
+    const rr = E.inside(E.ringSites(s.read.targets, s.rings, s.unit), layers, { mode: 'rings', rings: s.rings, unit: s.unit, positives: s.read.targets });
+    const zr = E.inside(E.zoneSites(E.zoneSet(s.zoneFile.zones, s.drawn)), layers, { mode: 'zones', positives: s.read.targets });
+    return { box: document.querySelector('#box-inside strong').textContent, union: new Set([...keys(rr), ...keys(zr)]).size, total: s.result.total,
+      legend: [...document.querySelectorAll('#em-legend-content p')].map(x => x.textContent),
+      zones: [...document.querySelectorAll('#tab-inside .em-zones-list tbody tr')].map(tr => tr.children[0].textContent),
+      sum: document.getElementById('positives-sum').textContent }; })()`);
+  check(both.show === 'both' && both.pressed3 === 'both' && !both.ringsHidden && both.zones === 14 && bp.total === bp.union && bp.box === String(bp.union)
+    && Number(bp.box) >= Number(ringsBox),
+  'draw: Both: the rings and the zones on the map; "Sites inside the zones" each site once (the rings\' and the zones\' sites together)', [both.zones, bp, ringsBox]);
+  check(bp.legend.includes('Infection zone (3 km)') && bp.legend.includes('Synthetic control area') && bp.legend.includes('Along the river (drawn)')
+    && bp.legend.indexOf('Control zone (10 km)') < bp.legend.indexOf('Synthetic control area')
+    && bp.zones.includes('Along the river') && bp.zones.some(t => /^Control zone \(10 km\) around SYN-HPAI-\d+$/.test(t))
+    && bp.sum === '3\u00a0and\u00a010\u00a0km rings, 1 zone from a file and 1 drawn, closed hidden',
+  'draw: Both: the legend\'s rings then zones; the "Zones" list with each positive\'s outer ring and each zone; the fold\'s summary', bp);
+  await move(await at(HOVER_AT));
+  const bothHover = await p.eval(`${S}.map.hoverLabel`);
+  await move({ x: 5, y: 5 });
+  check(/^Along the river\n/.test(bothHover || '') && /\nSYN-HPAI-001\n/.test(bothHover || '') && /Control zone \(10 km\): /.test(bothHover || ''),
+    'draw: Both: the hover inside the drawn zone and a ring names the zone, then the positive\'s ring', bothHover);
+  await p.eval(`(document.getElementById('show-overview').click(), true)`);
+  await p.waitFor(`${S}.view === 'overview' && ${S}.overview && ${S}.overview.people !== null`, 20000, 'the Overview worked out');
+  const bothOv = await p.eval(`({ chart: document.getElementById('ov-layer-chart').textContent, people: ${S}.overview.people.total,
+    key: [...document.querySelectorAll('#ov-layer-chart svg rect[width="11"]')].map(r => [r.nextElementSibling ? r.nextElementSibling.textContent : '', r.getAttribute('fill')]),
+    rings: ${S}.rings.map(r => [r.label, r.color]) })`);
+  await p.eval(`(document.getElementById('show-map').click(), true)`);
+  await view();
+  check(bothOv.chart.includes('Infection zone') && bothOv.chart.includes('Along the river') && bothOv.chart.includes('Synthetic control area') && bothOv.people > 0
+    && bothOv.rings.every(([l, c]) => bothOv.key.some(k => k[0] === l && k[1] === c)) && new Set(bothOv.key.map(k => k[1])).size === bothOv.key.length,
+  'draw: Both: the Overview\'s "Sites inside the zones by layer" has the rings\' parts (in their colors) and the zones\' (in other colors); the people inside counted', bothOv);
+  await p.eval(`document.getElementById('export-fold').open = true; true`);
+  await p.eval(`${S}.lastPreview = null; true`);
+  await p.click(`document.getElementById('em-preview').click()`);
+  await p.waitFor(`${S}.lastPreview`, 60000, 'preview drawn in Both');
+  const bothPic = await p.eval(`(() => { const m = ${S}.lastPreview.model; CVIWA.previews.close && CVIWA.previews.close();
+    return { meta: m.meta.left, keys: m.keyItems.map(i => i.label), rows: m.panel.rows.map(r => [r.name, r.subLeft]) }; })()`);
+  check(/^Zones: Infection zone 3 km \([\d.]+ mi\), Control zone 10 km \([\d.]+ mi\); synthetic_control_area\.geojson and 1 drawn$/.test(bothPic.meta)
+    && bothPic.keys.some(k => /^Infection zone/.test(k)) && bothPic.keys.includes('Zone (from file)') && bothPic.keys.includes('Zone (drawn)')
+    && bothPic.rows.some(r => r[0] === 'Along the river' && /sq mi, [\d,]+ acres$/.test(r[1])) && bothPic.rows.some(r => /^SYN-HPAI-/.test(r[0])),
+  'draw: Both: the map picture\'s meta line names the rings, then the zones; the key has the rings\' and the zones\' rows; the panel the positives and the zones', bothPic);
+  await p.eval(`WSDA.sample.download = function () {}; document.getElementById('export-fold').open = true; document.getElementById('em-export').click(); true`);
+  const bothFiles = await p.eval(`(() => { const out = {}; (${S}.lastExport || []).filter(e => !e.dir).forEach(e => { out[e.name.replace(/^.*\\//, '')] = e.data; }); return out; })()`);
+  const bothGeo = JSON.parse(bothFiles['zones.geojson'] || '{"features":[]}'), bothParams = JSON.parse(bothFiles['export_params.json'] || '{}');
+  const bothCsv = (bothFiles['zones.csv'] || '').trim().split('\n');
+  check(bothGeo.features.filter(f => f.properties.source).length === 2 && bothGeo.features.filter(f => f.properties.group === 'Active').length === 12
+    && bothParams.zones_shown === 'both' && /^rings Infection zone 3 km, Control zone 10 km; zones synthetic_control_area\.geojson and 1 drawn$/.test(bothParams.zones)
+    && bothCsv.length === 1 + 6 + 2,
+  'draw: Both: the Export\'s zones.geojson holds the rings and both zones, zones.csv a row each, export_params.json zones_shown "both"', [bothParams.zones, bothParams.zones_shown, bothCsv.length]);
+  await p.eval(`document.getElementById('export-fold').open = false; scrollTo(0, 0); true`);
+  await press('#em-show [data-show="zones"]');
+  await view();   // the switch fits the map to what shows; the checks' fixed view again
+  const on = await zoneState();
+  check(off.show === 'rings' && off.zones === 12 && !off.ringsHidden && off.drawn.length === 1 && on.show === 'zones' && on.zones === 2,
+    'draw: Rings: the rings come back with the drawn zone kept; Zones again, the zones', [off, on]);
+
+  // ---- The Overview, the picture, the Export --------------------------------------------------------------------
+  await p.eval(`(document.getElementById('show-overview').click(), true)`);
+  await p.waitFor(`${S}.view === 'overview' && ${S}.overview && ${S}.overview.people !== null`, 20000, 'the Overview worked out');
+  const ov = await p.eval(`({ chart: document.getElementById('ov-layer-chart').textContent, people: ${S}.overview.people.total })`);
+  check(ov.chart.includes('Along the river') && ov.chart.includes('Synthetic control area') && ov.people > 0,
+    'draw: the Overview\'s "Sites inside the zones by layer" names the drawn zone and the file\'s; the people inside the zones counted', ov);
+  await p.eval(`(document.getElementById('show-map').click(), true)`);
+  await p.eval(`document.getElementById('export-fold').open = true; true`);
+  await p.eval(`${S}.lastPreview = null; true`);
+  await p.click(`document.getElementById('em-preview').click()`);
+  await p.waitFor(`${S}.lastPreview`, 60000, 'preview drawn');
+  const pic = await p.eval(`(() => { const m = ${S}.lastPreview.model; CVIWA.previews.close && CVIWA.previews.close();
+    return { meta: m.meta.left, keys: m.keyItems.map(i => i.label), dashed: m.keyItems.filter(i => i.glyph && i.glyph.dashed).map(i => i.label),
+      rows: m.panel.rows.map(r => [r.name, r.subLeft]) }; })()`);
+  check(pic.meta === 'Zones: synthetic_control_area.geojson and 1 drawn' && pic.keys.includes('Zone (from file)') && same(pic.dashed, ['Zone (drawn)'])
+    && pic.rows.some(r => r[0] === 'Along the river' && /sq mi, [\d,]+ acres$/.test(r[1])),
+  'draw: the map picture: the meta line "Zones: <file> and 1 drawn", the key\'s rows "Zone (from file)" and "Zone (drawn)" (dashed), each zone\'s area in the panel', pic);
+  await p.eval(`WSDA.sample.download = function () {}; document.getElementById('em-export').click(); true`);
+  const files = await p.eval(`(() => { const out = {}; (${S}.lastExport || []).filter(e => !e.dir).forEach(e => { out[e.name.replace(/^.*\\//, '')] = e.data; }); return out; })()`);
+  const geo = JSON.parse(files['zones.geojson'] || '{"features":[]}'), params = JSON.parse(files['export_params.json'] || '{}');
+  const dz = geo.features.find(f => f.properties.name === 'Along the river') || { properties: {} };
+  const csv = (files['zones.csv'] || '').trim().split('\n');
+  check(geo.features.length === 2 && dz.properties.zone === 'Drawn zone' && dz.properties.source === 'drawn' && dz.properties.area_sq_mi > 0
+    && dz.properties.area_acres > 0 && geo.features.some(f => f.properties.source === 'file') && dz.geometry.coordinates[0].length === 8,
+  'draw: zones.geojson: the drawn zone (zone "Drawn zone", source "drawn", its area) and the file\'s zone', dz.properties);
+  check(/"?Area \(sq mi\)"?,"?Area \(acres\)"?$/.test(csv[0]) && csv.some(r => /^"?Along the river"?,/.test(r)) && params.drawn_zones === 1
+    && params.zones_shown === 'zones' && params.zones === 'zones synthetic_control_area.geojson and 1 drawn',
+  'draw: zones.csv\'s two area columns and the drawn zone\'s row; export_params.json: drawn_zones 1, zones_shown "zones", the zones named', [csv[0], params.zones, params.drawn_zones]);
+  // Reopened under "Use a zone file" (the drawn zone removed first): the same sites inside each zone, the same days.
+  const byZone = () => p.eval(`(() => { const s = ${S}, out = {}; s.days.sites.forEach(d => { out[d.name] = { days: d.days,
+    inside: [...new Set(s.result.rows.filter(r => r.zone === d.name).map(r => r.layer + ' ' + r.name))].sort() }; }); return out; })()`);
+  const was = await byZone();
+  fs.writeFileSync(path.join(DIR, 'zones.geojson'), files['zones.geojson']);
+  // Opened while the drawn zone still exists: the status line says a drawn zone has the same name.
+  await p.eval(`document.getElementById('em-zone-fold').open = true; true`);
+  await p.setFiles('#em-zone-file', [path.join(DIR, 'zones.geojson')]);
+  await p.waitFor(`${S}.zoneFile && ${S}.zoneFile.name === 'zones.geojson'`, 10000, 'zones.geojson read');
+  const twice = await p.eval(`({ text: document.getElementById('em-zone-status').textContent, warn: document.getElementById('em-zone-status').classList.contains('warn') })`);
+  check(twice.warn && twice.text === 'zones.geojson: 2 zones read. A drawn zone has the same name (Along the river): remove or rename the drawn one.',
+    'draw: a zone file read while a drawn zone has one of its names says so', twice);
+  await press('#dz-list li button:nth-of-type(2)');
+  const gone = await zoneState();
+  const reopened = await byZone();
+  check(gone.drawn.length === 0 && gone.show === 'zones' && gone.zones === 2 && same(reopened, was) && Object.keys(was).length === 2 && was['Along the river'].inside.length > 0,
+    'draw: the Export\'s zones.geojson reopened under "Use a zone file" gives the same sites inside and days since for each zone, by name', [was, reopened]);
+
+  // ---- No zone file: removing the last drawn zone brings the rings back; the "Leave this page?" prompt ----------
+  await open([path.join(TABLES, 'em_positives_tool.csv')]);
+  // The page's own "Leave this page?" handler, asked by a cancelable beforeunload event (a real navigation's dialog
+  // would hold every later call while it is open): it asks only while a drawn zone exists.
+  const asks = () => p.eval(`(() => { const e = new Event('beforeunload', { cancelable: true }); dispatchEvent(e); return e.defaultPrevented; })()`);
+  const asked0 = await asks();
+  await press('#dz-start');
+  for (const t of tpx) await click(t);
+  await key('Enter');
+  const one = await zoneState();
+  await press('#dz-list li button:nth-of-type(2)');
+  const none = await zoneState();
+  check(one.show === 'both' && one.zones === none.zones + 1 && !one.ringsHidden && none.show === 'rings' && none.pressed3 === 'rings' && none.zones > 1
+    && !none.ringsHidden && none.switchOff === 'zones,both',
+  'draw: with no zone file, a drawn zone picks Both; removing it goes back to Rings and grays Zones and Both', [one, none]);
+  const asked1 = one.drawn.length === 1 ? await (async () => {
+    await press('#dz-start');
+    for (const t of tpx) await click(t);
+    await key('Enter');
+    const a = await asks();
+    await press('#dz-list li button:nth-of-type(2)');
+    return a;
+  })() : null;
+  const asked2 = await asks();
+  check(asked0 === false && asked1 === true && asked2 === false && b.log.dialogs.length === 0,
+    'draw: leaving the page asks first ("Leave this page?") while a drawn zone exists, and not when none does', [asked0, asked1, asked2, b.log.dialogs]);
+
+  // ---- Both, further (3b's review): the CVI movements, the layer table, the marks, the closed rings, a type change, a
+  // file zone named as a ring in the Overview ------------------------------------------------------------------------
+  await open([samplePath, path.join(TABLES, 'em_cvi_master.csv')]);
+  await p.eval(`document.getElementById('em-cvi').click(); true`);
+  const cviSites = () => p.eval(`(() => { const s = ${S}; document.getElementById('show-cvi').click();
+    return s.cviRes && s.cviRes.siteCvis ? s.cviRes.siteCvis.length : null; })()`);
+  const ringN = await p.eval(`${S}.read.targets.length`);
+  const cR = await cviSites();
+  await press('#em-show [data-show="zones"]'); await view();
+  const cZ = await cviSites();
+  const zoneMark = await p.eval(`${S}.map.em.inside.features.map(f => f.properties.label).filter(l => / · inside Synthetic control area$/.test(l)).length`);
+  await press('#em-show [data-show="both"]'); await view();
+  const cB = await cviSites();
+  await p.eval(`(document.getElementById('show-inside').click(), true)`);
+  check(cR === ringN && cZ === 1 && cB === ringN + 1, 'draw: Both: the CVI movements are looked up around the positives (their rings) and in the zone together', [cR, cZ, cB, ringN]);
+  check(zoneMark > 0, 'draw: a site matched to a zone says "inside <zone>" on its mark, not "0 km from" it', zoneMark);
+  const table = await p.eval(`(() => { const d = document.querySelector('#tab-inside details.em-layer[data-layer="poultry"]');
+    const heads = [...d.querySelectorAll('thead th')].map(th => th.textContent), rows = [...d.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.textContent));
+    const k = heads.indexOf('Distance (km)'), z = heads.indexOf('Zone');
+    return { heads, zoneRows: rows.filter(r => r[z] === 'Synthetic control area').map(r => r[k]), ringRows: rows.filter(r => r[z] !== 'Synthetic control area').map(r => r[k]) }; })()`);
+  check(table.heads.includes('Positive or zone') && table.zoneRows.length > 0 && table.zoneRows.every(d => d === '') && table.ringRows.every(d => /^\d/.test(d)),
+    'draw: Both: a layer\'s table heads "Positive or zone"; a zone\'s rows have no distance, a ring\'s have theirs', table);
+  // The closed positives' rings ("Draw their rings") in Both, not on Zones.
+  await p.eval(`(() => { const e = document.getElementById('em-past'); if (!e.checked) e.click(); document.getElementById('em-past-fold').open = true;
+    const r = document.getElementById('em-past-rings'); if (!r.checked) r.click(); return true; })()`);
+  await sleep(500);
+  const pastBoth = await p.eval(`({ past: ${S}.mapData.pastZones, off: document.getElementById('em-past-rings').disabled })`);
+  await press('#em-show [data-show="zones"]'); await view();
+  const pastZones = await p.eval(`({ past: ${S}.mapData.pastZones, off: document.getElementById('em-past-rings').disabled })`);
+  await press('#em-show [data-show="both"]'); await view();
+  await p.eval(`(() => { document.getElementById('em-past-rings').click(); document.getElementById('em-past').click(); return true; })()`);
+  check(pastBoth.past > 0 && !pastBoth.off && pastZones.past === 0 && pastZones.off,
+    'draw: "Draw their rings" draws the closed positives\' rings in Both; on Zones it is grayed and draws none', [pastBoth, pastZones]);
+  // A type change on Both with the bundle's zone file: screwworm (zones from a file) keeps Both; HPAI again, with no
+  // drawn zone, gives the bundle's zone file way to the rings, as before 3b.
+  const type = async id => { await p.eval(`(() => { const t = document.getElementById('em-type'); t.value = '${id}'; t.dispatchEvent(new Event('change')); return true; })()`); await sleep(800); };
+  await type('nws');
+  const onNws = await p.eval(`${S}.show`);
+  await type('hpai');
+  const onHpai = await p.eval(`${S}.show`);
+  check(onNws === 'both' && onHpai === 'rings', 'draw: a type change on Both: screwworm keeps Both; HPAI again (no drawn zone) the rings', [onNws, onHpai]);
+  // A zone file whose zone is named as a ring: in Both the Overview's bars keep the ring's count and the zone's apart.
+  // The sample's zone file as read (its one zone), written again under the ring's name.
+  const asRingFile = await p.eval(`({ type: 'FeatureCollection', features: ${S}.zoneFile.zones.map(z => ({ type: 'Feature', properties: { name: 'Control zone' }, geometry: z.geometry })) })`);
+  fs.writeFileSync(path.join(DIR, 'zone_named_as_a_ring.geojson'), JSON.stringify(asRingFile));
+  await p.eval(`document.getElementById('em-zone-fold').open = true; true`);
+  await p.setFiles('#em-zone-file', [path.join(DIR, 'zone_named_as_a_ring.geojson')]);
+  await p.waitFor(`${S}.zoneFile && ${S}.zoneFile.name === 'zone_named_as_a_ring.geojson'`, 10000, 'zone named as a ring read');
+  await press('#em-show [data-show="both"]');
+  await p.eval(`(document.getElementById('show-overview').click(), true)`);
+  await p.waitFor(`${S}.view === 'overview' && ${S}.overview && ${S}.overview.people !== null`, 20000, 'the Overview worked out');
+  const ovClash = await p.eval(`(() => { const l = ${S}.result.layers.find(x => x.key === 'poultry'), ring = l.byZone.find(z => z.ring && z.label === 'Control zone'), zone = l.byZone.find(z => !z.ring && z.label === 'Control zone');
+    const hovers = [...document.querySelectorAll('#ov-layer-chart [data-hover]')].map(e => e.getAttribute('data-hover'));
+    return { ring: ring.count, zone: zone.count, hovers: hovers.filter(h => /^Commercial Poultry: /.test(h)) }; })()`);
+  await p.eval(`(document.getElementById('show-map').click(), true)`);
+  check(ovClash.ring !== ovClash.zone && ovClash.hovers.includes('Commercial Poultry: ' + ovClash.ring + ' in the Control zone') && ovClash.hovers.includes('Commercial Poultry: ' + ovClash.zone + ' in Control zone'),
+    'draw: Both: a file zone named as a ring ("Control zone") keeps its own bar in the Overview, beside the ring\'s', ovClash);
+  // A drawn zone cannot take a ring's or a positive's name.
+  await press('#dz-start');
+  for (const t of tpx) await click(t);
+  await key('Enter');
+  const refuse = async name => p.eval(`(() => { const i = document.querySelector('#dz-list .em-point-name'); i.value = ${JSON.stringify(name)};
+    i.dispatchEvent(new Event('change')); return { name: ${S}.drawn[0].name, status: document.getElementById('dz-status').textContent }; })()`);
+  const asRing = await refuse('Infection zone'), asPositive = await refuse('SYN-HPAI-001');
+  check(asRing.name === 'Drawn zone 1' && asRing.status === 'A ring is named "Infection zone": the name stays Drawn zone 1.'
+    && asPositive.name === 'Drawn zone 1' && asPositive.status === 'A positive is named "SYN-HPAI-001": the name stays Drawn zone 1.',
+  'draw: a drawn zone\'s name a ring or a positive has is refused, with a line saying which', [asRing, asPositive]);
+  await press('#dz-list li button:nth-of-type(2)');
+
+  // ---- Touch taps (Chrome's touch emulation): three taps and Finish; the label at the last tap ---------------------
+  await open([samplePath]);
+  await b.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 }, p.sid);
+  const tap = async q => {
+    await b.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: q.x, y: q.y }] }, p.sid);
+    await b.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }, p.sid);
+    await sleep(450);
+  };
+  await tap(await middle('#dz-start'));
+  for (const c of tri) await tap(await at(c));
+  const touched = await p.eval(`(() => { const l = document.getElementById('dz-label'), m = ${S}.map.map, r = m.getCanvas().getBoundingClientRect(),
+    q = m.project(${D}.corners().slice(-1)[0]), b = l.getBoundingClientRect();
+    return { corners: ${D}.corners().length, shown: !l.hidden, near: Math.abs(b.left - (r.left + q.x)) < 40 && Math.abs(b.top - (r.top + q.y)) < 40, text: l.innerText }; })()`);
+  await tap(await middle('#dz-finish'));
+  const tz = await zoneState();
+  await b.send('Emulation.setTouchEmulationEnabled', { enabled: false }, p.sid);
+  check(touched.corners === 3 && touched.shown && touched.near && /^\d+\.\d km from the first click\nArea /.test(touched.text) && tz.drawn.length === 1 && tz.mode === null,
+    'draw: by touch: a tap for each corner, the label at the last tap (no pointer moving), Finish closes the zone', [touched, tz.drawn]);
+  await press('#dz-list li button:nth-of-type(2)');
+
+  // ---- 320 pixels wide: the fold fits, the label inside the map ------------------------------------------------------
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 900, deviceScaleFactor: 1, mobile: true }, p.sid);
+  await sleep(400);
+  await p.eval(`document.getElementById('dz-fold').scrollIntoView(); true`);
+  await press('#dz-start');
+  await p.eval(`document.getElementById('em-map').scrollIntoView({ block: 'center' }); true`);
+  await sleep(300);
+  const nb = await p.eval(`${S}.map.map.getBounds().toArray()`);
+  const n0 = [nb[0][0] + (nb[1][0] - nb[0][0]) * 0.3, nb[0][1] + (nb[1][1] - nb[0][1]) * 0.6];
+  const n1 = [nb[0][0] + (nb[1][0] - nb[0][0]) * 0.9, nb[0][1] + (nb[1][1] - nb[0][1]) * 0.55];
+  await click(await at(n0));
+  await move(await at(n1));
+  const narrow = await p.eval(`(() => { const f = document.querySelector('.map-frame').getBoundingClientRect(), l = document.getElementById('dz-label').getBoundingClientRect(),
+    fold = [...document.querySelectorAll('#dz-fold button, #dz-fold input')].filter(e => e.getClientRects().length).map(e => e.getBoundingClientRect());
+    return { scroll: document.documentElement.scrollWidth, inside: l.left >= f.left && l.right <= f.right, shown: !document.getElementById('dz-label').hidden,
+      fold: fold.every(r => r.right <= 320) }; })()`);
+  check(narrow.scroll <= 321 && narrow.shown && narrow.inside && narrow.fold, 'draw: at 320 pixels wide nothing scrolls sideways; the fold\'s buttons fit; the label stays inside the map', narrow);
+  await press('#dz-cancel');
+  await b.send('Emulation.clearDeviceMetricsOverride', {}, p.sid);
+}
+
 async function shot2(b, name) {
   fs.mkdirSync(path.join(OUT, 'page'), { recursive: true });
   fs.writeFileSync(path.join(OUT, 'page', name + '.png'),
@@ -2203,6 +2953,7 @@ async function shot2(b, name) {
       else if (part === 'chart') await partChart(b);
       else if (part === 'view') await partView(b);
       else if (part === 'overview') await partOverview(b);
+      else if (part === 'draw') await partDraw(b);
       else if (part === 'speed') await partSpeed(b);
       else check(false, 'unknown part ' + part);
     }

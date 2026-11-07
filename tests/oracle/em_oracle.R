@@ -45,6 +45,11 @@
 #   - the closing day's scenario (2.5; rules.json "closedDay"): each row's group
 #     in six days and two ranges when the Status says Closed without a Close Date: closed from its release date, or,
 #     with neither date, on any day (counted as closed on a day not known).
+#   - the drawn zones' scenario (2.6; rules.json "drawn"): each corner list's area in an equal-area projection (NAD83
+#     / Conus Albers, EPSG:5070), its sides followed as straight lines in longitude and latitude; the sites inside
+#     (sf and GEOS); the squares' half-widths; each test shape's validity (st_is_valid); and the page's zones.geojson
+#     for a file zone and the drawn zones read with sf, each polygon valid; then (3b) each circle's area, its sites
+#     inside and each corner's distance from its middle (distHaversine on CVI's sphere).
 # The Node suite (tests/node/run_em_unit_tests.js) compares the row sets and distances within 1e-6, not counts alone.
 # RAD's and the fixtures' files are only read; nothing is installed.
 #
@@ -474,10 +479,79 @@ overview_out <- list(
   geo_sha = list(tracts = sha256(file.path(repo_root, "site", "geo", "tracts-wa.js")),
                  counties = sha256(file.path(repo_root, "site", "geo", "wa-counties.js"))))
 
+# ── The drawn zones' scenario (2.6) ───────────────────────────────────────────────────────────────
+# Each drawn corner list's area in NAD83 / Conus Albers (EPSG:5070, equal-area), each side followed as a straight line
+# in longitude and latitude (100 points a side), as the page's inside test reads a side; its sites inside (GEOS,
+# planar, as zones from a file); a square's half-widths (distHaversine on CVI's sphere from its middle to each side's
+# middle); each test shape's validity (st_is_valid: a crossing, touching or turning-back ring is invalid); and the
+# page's zones.geojson for a file zone and the drawn zones, read with sf: each polygon valid, its area worked out here.
+dr <- rules$drawn
+corners_of <- function(z) do.call(rbind, lapply(z$corners, function(p) c(as.numeric(p[[1]]), as.numeric(p[[2]]))))
+close_ring <- function(m) if (all(m[1, ] == m[nrow(m), ])) m else rbind(m, m[1, ])
+dense <- function(m) {
+  t <- seq(0, 1, length.out = 101)[-101]
+  out <- do.call(rbind, lapply(seq_len(nrow(m) - 1), function(i)
+    cbind(m[i, 1] + t * (m[i + 1, 1] - m[i, 1]), m[i, 2] + t * (m[i + 1, 2] - m[i, 2]))))
+  rbind(out, m[1, ])
+}
+polygon_of <- function(rings) st_sfc(st_polygon(rings), crs = 4326)
+area_5070 <- function(rings) as.numeric(st_area(st_transform(polygon_of(lapply(rings, function(r) dense(close_ring(r)))), 5070)))
+drawn_zones <- lapply(dr$zones, function(z) {
+  m <- corners_of(z)
+  poly <- polygon_of(list(close_ring(m)))
+  rows <- list()
+  for (l in layers) {
+    ok <- which(l$eligible)
+    pts <- st_as_sf(data.frame(x = l$lon[ok], y = l$lat[ok]), coords = c("x", "y"), crs = 4326)
+    hit <- lengths(suppressMessages(st_intersects(pts, poly))) > 0
+    for (k in which(hit)) rows[[length(rows) + 1]] <- list(layer = l$key, name = l$name[ok][k])
+  }
+  half <- NULL
+  if (!is.null(z$square)) {
+    mid <- c(as.numeric(z$square$mid[[1]]), as.numeric(z$square$mid[[2]]))
+    sides <- rbind((m[1, ] + m[2, ]) / 2, (m[2, ] + m[3, ]) / 2, (m[3, ] + m[4, ]) / 2, (m[4, ] + m[1, ]) / 2)
+    half <- distHaversine(sides, mid, r = 6378137) / 1000
+  }
+  list(name = z$name, area_m2 = area_5070(list(m)), valid = isTRUE(st_is_valid(poly)), rows = rows,
+       half_km = if (is.null(half)) NULL else I(half))
+})
+drawn_shapes <- lapply(dr$shapes, function(z) list(name = z$name,
+  valid = isTRUE(suppressWarnings(st_is_valid(polygon_of(list(close_ring(corners_of(z)))))))))
+dgj <- suppressWarnings(st_read(file.path(fx_dir, dr$geojson), quiet = TRUE))
+drawn_geojson <- lapply(seq_len(nrow(dgj)), function(i) {
+  xy <- st_coordinates(dgj[i, ])
+  rings_i <- lapply(split(seq_len(nrow(xy)), xy[, "L1"]), function(k) xy[k, c("X", "Y"), drop = FALSE])
+  list(name = dgj$name[i], zone = dgj$zone[i], source = dgj$source[i], valid = isTRUE(st_is_valid(dgj[i, ])),
+       area_m2 = area_5070(rings_i), area_sq_mi = dgj$area_sq_mi[i], area_acres = dgj$area_acres[i])
+})
+# The circles (3b): each one's area as the drawn zones', its sites inside, and each corner's distance from its middle.
+drawn_circles <- lapply(dr$circles, function(z) {
+  m <- corners_of(z)
+  poly <- polygon_of(list(close_ring(m)))
+  rows <- list()
+  for (l in layers) {
+    ok <- which(l$eligible)
+    pts <- st_as_sf(data.frame(x = l$lon[ok], y = l$lat[ok]), coords = c("x", "y"), crs = 4326)
+    hit <- lengths(suppressMessages(st_intersects(pts, poly))) > 0
+    for (k in which(hit)) rows[[length(rows) + 1]] <- list(layer = l$key, name = l$name[ok][k])
+  }
+  mid <- c(as.numeric(z$circle$mid[[1]]), as.numeric(z$circle$mid[[2]]))
+  list(name = z$name, area_m2 = area_5070(list(m)), valid = isTRUE(st_is_valid(poly)), rows = rows,
+       radius_km = I(range(distHaversine(m, mid, r = 6378137) / 1000)))
+})
+cat(sprintf("drawn circles: %s\n", paste(vapply(drawn_circles, function(z) sprintf("%s %.6g m2 %d inside, radius %.6f to %.6f km",
+            z$name, z$area_m2, length(z$rows), z$radius_km[1], z$radius_km[2]), ""), collapse = "; ")))
+drawn_out <- list(zones = drawn_zones, shapes = drawn_shapes, geojson = drawn_geojson, circles = drawn_circles)
+cat(sprintf("drawn: %d zones (%s), %d test shapes, %d zones.geojson features, all valid %s\n", length(drawn_zones),
+            paste(vapply(drawn_zones, function(z) sprintf("%s %.4g m2 %d inside", z$name, z$area_m2, length(z$rows)), ""),
+                  collapse = "; "),
+            length(drawn_shapes), length(drawn_geojson), all(vapply(drawn_geojson, function(x) x$valid, logical(1)))))
+
 # ── Written out ────────────────────────────────────────────────────────────────────────────────────
 inputs <- c("rules.json", rules$positives, cv$positives, cv$master, vapply(rules$layers, function(l) l$file, character(1)),
             unlist(rules$zoneFiles), ag$positives, ag$layer$file, ag$zoneFile, ag$geojson, ov$positives,
-            rules$counties$positives, rules$views$positives, rules$closedDay$positives)
+            rules$counties$positives, rules$views$positives, rules$closedDay$positives, dr$fileZone, dr$geojson)
+inputs <- unique(inputs)
 # ── The quarantine status scenario (2.4) ───────────────────────────────────────────────────────────────
 # Each row's group and quarantine on two end dates, from the scope's rule: a past positive's readable Quarantine
 # Release decides (after the end: still under quarantine; else released); without one, its Quarantine Status
@@ -618,7 +692,8 @@ out <- list(
   overview = overview_out,
   quarantine = quarantine_out,
   views = views_out,
-  closedDay = closed_day_out
+  closedDay = closed_day_out,
+  drawn = drawn_out
 )
 dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)
 writeLines(toJSON(out, auto_unbox = TRUE, digits = NA, null = "null", na = "null", pretty = FALSE), out_file)

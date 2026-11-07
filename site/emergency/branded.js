@@ -16,10 +16,11 @@
  *   - each positive in its status color and its animal's shape (CVI: one red bullseye), the shapes on one row of the
  *     key under the positives' rows; past ones hollow and faded (only when shown), added
  *     points in the page's pick color; the rings in the type's colors (CVI: three ring colors by radius), past rings
- *     gray and dashed, a zone file's zones in the live map's zone color; the key's ring rows "Infection zone (3 km)"
+ *     gray and dashed, a zone file's zones in the live map's zone color (2.6: a zone drawn on the map dashed, its key
+ *     row "Zone (drawn)" under "Zone (from file)", the meta line "Zones: zones.geojson and 2 drawn"); the key's ring rows "Infection zone (3 km)"
  *     in both units (the page's first), the key's layer rows with their counts in a right-hand column under "SITES
  *     INSIDE" (CVI: "Layer: 8 inside" after the name); in the panel each row as tall as its lines, at most 1.2 times
- *     CVI's size, the days in italics, a zone's long name on up to three lines and no county line for a zone, a
+ *     CVI's size, the days in italics, a zone's long name on up to three lines and its area in place of a county line (2.6), a
  *     positive's long name drawn smaller before it is cut;
  *   - the boxes: the current positives and the sites inside, with a CVI master also the CVIs and animals matched
  *     (CVI's facilities-only page: sites, facilities and layers), drawn here (valueBoxes): starting after the period line,
@@ -38,8 +39,9 @@
  * page(input, styleOpts?) -> { model, parts, style }. input: { type, positives: [{ name, lat, lon, color, status,
  * past, shape }] (the positives shown, shape rules.js animalShapeOf), animals (rules.js animalKeys for them: the key's
  * animals row), added: [{ name, lat, lon }] (points added on the map), sites (the prepared ring or
- * zone sites: the current positives with zones and the added points), pastSites (the past positives' rings, when
- * drawn), zonesMode, zoneName, rings, unit, result (rules.js inside()'s, or null), layers ({ key: { label, pngLabel,
+ * zone sites: the current positives with zones and the added points; a zone site's source 'drawn' or 'file' and its
+ * areaM2, rules.js zoneSites), pastSites (the past positives' rings, when drawn), zonesMode, show ('rings', 'zones' or
+ * 'both', 3b: in Both the ring sites and the zone sites together), zoneName (rules.js zonesNamed), rings, unit, result (rules.js inside()'s, or null), layers ({ key: { label, pngLabel,
  * color, shape } }), days (rules.js daysSince for sites), window ({ start, end }), current (the current positives'
  * count), cvi ({ cvis, animals, matched (the CVI query's matched rows, with hitOrigin and hitDest), years } or null), counties (GeoJSON features), date, background, streets (geo/streets-wa.js's data, with the
  * background 'vector:streets'), nameLayers (the keys named: 'positives' and layer keys; the positives when left
@@ -195,7 +197,7 @@
       let names = [full];
       const fullPt = BR.textPt(nameSize);
       if (BR.textWidth(full, fullPt, true) > nameRoom) {
-        if (!r.county) names = wrap(full, fullPt, nameRoom, 3);
+        if (!r.county || r.zone) names = wrap(full, fullPt, nameRoom, 3);   // a zone's name wraps over its area line
         else {
           nameSize = Math.max(3.1 * MIN_SCL, 3.1 * scl * nameRoom / BR.textWidth(full, fullPt, true));
           names = [fitTo(full, BR.textPt(nameSize), nameRoom, true)];
@@ -299,14 +301,20 @@
     animalRows(o.animals || []).forEach(row => items.push({ type: 'row', glyph: row, label: row.first }));
     const ring = (color, label, dashed) => items.push({ type: 'row', glyph: { shape: 22, size: 6, stroke: 0.9,
       fill: color, opacity: dashed ? 0.05 : RING_OPACITY, border: color }, label });
-    if (o.zonesMode) ring(ZONE_COLOR, 'Zone (from file)');
-    else {
+    // The rings' rows (Rings and Both, 3b), then the zones' (Zones and Both).
+    const show = o.show || (o.zonesMode ? 'zones' : 'rings');
+    if (show !== 'zones') {
       o.rings.forEach(r => {
         const b = bothUnits(r.distance, o.unit);
         ring(r.color, r.label + ' (' + b.shown + ' / ' + b.other + ')');
         // Two lines in the key: the ring's name, then its distance in both units.
         items[items.length - 1].lines = [r.label, b.shown + ' / ' + b.other];
       });
+    }
+    if (show !== 'rings') {
+      const kinds = o.zoneKinds || { file: 1, drawn: 0 };   // zoneKinds: the zone set's file and drawn zones
+      if (kinds.file) ring(ZONE_COLOR, 'Zone (from file)');
+      if (kinds.drawn) { ring(ZONE_COLOR, 'Zone (drawn)'); items[items.length - 1].glyph.dashed = true; }
     }
     if (o.pastRings) ring(PAST, 'Closed positives\' rings', true);
     // With a CVI master: the premises a matched movement left from or went to inside a zone, each count on the right.
@@ -333,7 +341,9 @@
     : g.shape === 'animal' ? animalGlyph(g, x, y)
     : g.shape === 'animals' ? g.marks.map(m => animalGlyph({ size: g.size, stroke: g.stroke, mark: m.mark }, x + m.dx, y)).join('') +
       g.words.map(w => B().text(w.label, x + w.dx, y, { pt: g.pt, color: '#444444' })).join('')
-      : BM().shapeMark(g.shape, x, y, g.size, g.stroke, g.fill, g.opacity, g.border));
+      : dashedMark(BM().shapeMark(g.shape, x, y, g.size, g.stroke, g.fill, g.opacity, g.border), g.dashed));
+  // A drawn zone's key mark: its outline dashed, as the zone's own on the map.
+  const dashedMark = (mark, dashed) => (dashed ? mark.replace(/\/>/g, ' stroke-dasharray="2.4 1.6"/>') : mark);
 
   // The animals' rows: each row's first shape at the row's mark (the key's u(0.14)) and its word at u(0.28), each
   // later one after the word before it, while it ends inside the key's right edge (u(0.94)); else on the next row.
@@ -689,9 +699,11 @@
     const pageTitle = title(type, input.title);
     const win = input.window || {};
     const period = periodOf(win);
-    const zonesText = input.zonesMode ? 'Zones: ' + (input.zoneName || 'from a zone file')
-      : 'Zones: ' + rings.map(r => { const b = bothUnits(r.distance, unit); return r.label + ' ' + b.shown + ' (' + b.other + ')'; })
-        .join(', ');
+    // The meta line: the rings, the zones' names, or (Both, 3b) the rings and then the zones.
+    const show = input.show || (input.zonesMode ? 'zones' : 'rings');
+    const ringsText = rings.map(r => { const b = bothUnits(r.distance, unit); return r.label + ' ' + b.shown + ' (' + b.other + ')'; }).join(', ');
+    const zonesText = 'Zones: ' + (show === 'zones' ? input.zoneName || 'from a zone file'
+      : show === 'both' ? ringsText + '; ' + (input.zoneName || 'a zone file') : ringsText);
     const meta = { left: zonesText, right: (win.end ? 'As of ' + R.dayLabel(win.end) + ' · ' : '') + BR.updated(input.date) };
 
     // The sites inside: one per layer, place and name (however many zones hold it), in the layers' order.
@@ -733,12 +745,14 @@
     }
     const daysText = days => (days === null || days === undefined ? null
       : days + (days === 1 ? ' day' : ' days') + ' since last positive');
+    // A zone's area in place of the county (2.6), as the list and the hover say it; in Both (3b) each row by its kind.
     const rowsIn = sites.map(s => ({ name: s.name, count: insideBy.has(s.id) ? insideBy.get(s.id).size : 0,
-      county: input.zonesMode ? null : BM().siteCounty(s, input.counties), days: daysText(daysOf.get(s.id)) }));
+      county: s.zone ? (s.areaM2 ? E().areaText(s.areaM2) : null) : BM().siteCounty(s, input.counties),
+      zone: !!s.zone, days: daysText(daysOf.get(s.id)) }));
     // The footer: how many of the rows have a site inside (the sites inside are in a box, the layers in the key).
-    const footer = [[(input.zonesMode ? 'Zones' : 'Positives') + ' with a site inside',
+    const footer = [[({ zones: 'Zones', both: 'Positives and zones' }[show] || 'Positives') + ' with a site inside',
       S().comma(rowsIn.filter(r => r.count > 0).length) + ' of ' + S().comma(rowsIn.length)]];
-    const panelOf = h => panelRows(rowsIn, BR.px(L.gutterW), input.zonesMode ? 'zone' : 'positive', footer.length, h);
+    const panelOf = h => panelRows(rowsIn, BR.px(L.gutterW), { zones: 'zone', both: 'row' }[show] || 'positive', footer.length, h);
 
     // The key.
     const statuses = [];
@@ -757,15 +771,17 @@
         .filter(q => !seen.has(q.lat + ',' + q.lon) && seen.add(q.lat + ',' + q.lon));
     };
     const cviOrigins = ends('hitOrigin', 'Origin'), cviDests = ends('hitDest', 'Dest');
-    const items = keyItems({ statuses, pastColors, added: added.length > 0, zonesMode: !!input.zonesMode,
-      zoneName: input.zoneName, rings, unit, pastRings: pastSites.length > 0, animals: input.animals || [],
+    const items = keyItems({ statuses, pastColors, added: added.length > 0, zonesMode: !!input.zonesMode, show,
+      zoneName: input.zoneName, rings, unit,
+      zoneKinds: { file: sites.filter(s => s.zone && s.source !== 'drawn').length, drawn: sites.filter(s => s.zone && s.source === 'drawn').length }, pastRings: pastSites.length > 0, animals: input.animals || [],
       cvi: input.cvi ? { years: input.cvi.years || null, origins: cviOrigins.length, dests: cviDests.length } : null,
       facilities: facLayers.map(l => ({ label: l.label, color: l.color, shape: l.shape, n: l.points.length })) });
 
     // ── Drawing ──
     const ringParts = input.zonesMode ? [] : ringShapes(sites.filter(s => !s.zone), rings, unit);
     const pastParts = ringShapes(pastSites, rings, unit, PAST);
-    const zoneParts = sites.filter(s => s.zone).map(s => ({ geometry: s.zone, km: 0, color: ZONE_COLOR, site: s.id, zone: true }));
+    const zoneParts = sites.filter(s => s.zone).map(s => ({ geometry: s.zone, km: 0, color: ZONE_COLOR, site: s.id, zone: true,
+      dashed: s.source === 'drawn' }));
     const marksIn = positives.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, color: p.color, past: !!p.past,
       shape: p.shape || 'circle' }))
       .concat(added.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, color: PICK, past: false })));
@@ -807,7 +823,8 @@
     const drawn = ringParts.slice().sort((a, b) => b.km - a.km).concat(zoneParts);
     for (const r of drawn) {
       mapParts.push('<path d="' + BR.pathData(r.geometry, P) + '" fill="' + r.color + '" fill-opacity="' + RING_OPACITY +
-        '" fill-rule="evenodd" stroke="' + r.color + '" stroke-width="' + BR.num(BR.linePt(0.7)) + '" stroke-linejoin="round"/>');
+        '" fill-rule="evenodd" stroke="' + r.color + '" stroke-width="' + BR.num(BR.linePt(0.7)) + '"' +
+        (r.dashed ? ' stroke-dasharray="4 2.5"' : '') + ' stroke-linejoin="round"/>');
     }
     const facilities = facLayers.map(l => Object.assign({}, l, { points: l.points.map(q => {
       const [x, y] = P(q.lon, q.lat);

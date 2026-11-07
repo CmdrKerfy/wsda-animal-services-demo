@@ -181,6 +181,20 @@ scope and approval when its time comes.
     scheduled export to a CSV without the reporters' personal fields, run by an account allowed to read the layer,
     could feed a reports layer on the page. A live layer in the page itself would need a sign-in and an https
     address, ending the offline design.
+22. **More shapes for zones on the Emergency page.** Version 2.6 draws a zone freehand, as a rectangle by two clicks
+    or as a square of a typed size. Shapes for later, each when a response asks for it:
+    - **A rectangle of a set size** (a width and a height typed), if control areas are given as "X by Y".
+    - **A circle of a set size as a zone**, apart from the rings (today "Add a point on the map" gives circles at the
+      ring distances).
+    - **A band along a road or river** (a set width each side of a drawn line): needs the outward-grown footprint's
+      geometry (see "Noted for other work").
+    - **Counties or survey sections as zones**: counties picked from a list (the "zones by county" idea); sections
+      (the 1-square-mile survey grid) need a sections map layer the page does not have.
+    - **Square rings in place of the circles**: a Circle | Square switch beside the km | miles switch; each ring a
+      north-up square whose edges are the ring distance north, south, east and west of the positive, so a site is
+      inside when both its east-west and its north-south distance are within the ring distance (a square's corners
+      reach about 1.41 times the distance). It changes how every ring counts, so only once square control areas are
+      confirmed in use.
 
 ## Noted for other work
 

@@ -103,7 +103,9 @@
  * and fromKm(km, unit) turns an exact km into the unit shown):
  *   ringSites(targets, rings, unit?) -> prepared sites (proximity.prepareSites): one per positive with zones, its
  *     radii the rings' distances in km; each site also has positive (the positive's index).
- *   zoneSites(zones) -> prepared sites from a zone file's zones (zones.js read()): each a polygon, matched inside only.
+ *   zoneSites(zones) -> prepared sites from a zone file's zones (zones.js read()) or drawn zones: each a polygon,
+ *     matched inside only, with its source ("file" or "drawn") and areaM2. bothSites(ringSites, zoneSites) -> the
+ *     two together for Both (3b), the zone sites' ids numbered on after the rings'.
  *   ringLabel(rings, km, unit?) -> the label of the smallest ring at least km (the ring a point lies in).
  *   daysSince(sites, list, asOf) -> for each site and each of its rings, the latest detection among the dated
  *     positives in list inside it, and the days from it to asOf: [{ site, name, positive, rings: [{ km, latest,
@@ -114,6 +116,45 @@
  *     exteriors counterclockwise and holes clockwise): a whole 360-step circle per ring per positive, and each zone
  *     file zone as read, never merged; properties name (as zones.csv's "Zone", so the file reopens named here and
  *     in a GIS), zone, positive, group, distance, unit, days_since_last_positive, as_of. A ring's direction is read by shared/zones.js signedArea (positive when counterclockwise).
+ *     Since 2.6 a zone's feature also has area_sq_mi, area_acres and source ("file" or "drawn"), a drawn zone's zone
+ *     "Drawn zone"; zones.csv's rows end with "Area (sq mi)" and "Area (acres)" (blank for a ring).
+ *
+ * Drawn zones (2.6, "Draw a zone"). Corners are [lon, lat]; a side is the straight line between two
+ * corners in longitude and latitude, as the inside test reads it:
+ *   areaM2(geometry) -> the area in m² on the sphere of 6,378,137 m (the spherical-polygon formula Leaflet.draw and
+ *     Turf use), a polygon's holes taken off; areaOf(m2) -> { sqMi (two decimals), acres (whole) }; areaText(m2) ->
+ *     "12.4 sq mi, 7,936 acres" (acres alone under 0.1 sq mi); lengthText(km, unit) -> "3.9 km" or "2.4 mi".
+ *   DRAW: the limits (3 to 200 corners, 20 drawn zones, 60-character names, a square's size 0.1 to 100).
+ *   crossesAt(corners, p) -> the next side, from the last corner to p, would meet a side drawn before it or turn back
+ *     along the last one; isSimple(corners) -> the closed shape's sides meet only where they follow each other;
+ *     canClose(corners) -> 3 to 200 corners and isSimple. sidesMeet(p, q, r, s): crossing or touching.
+ *   drawLabel(corners, pointer, unit) -> { lines, cross, closes }: "8.8 km from the first click" and, from the third
+ *     corner, "Area ..." with the pointer as the next corner (or "Can’t close here: sides would cross" when the side
+ *     back to the first corner would cross, closes false); ["Sides can’t cross"] with cross true.
+ *   rectangleCorners(a, b) (null for a flat one), rectangleSize(a, b) -> { eastKm, northKm }, rectangleLabel(a, b,
+ *     unit) -> ["9.9 km by 4.8 km", "Area ..."]; squareCorners(mid, size, unit) (its edges size away from mid, north,
+ *     south, east and west; KM_LAT degrees a km north), squareLabel(mid, size, unit, around) -> ["Around
+ *     SYN-HPAI-001", "6.0 km across (3.0 km each way)", "Area ..."]; circleCorners(mid, size, unit) (3b: CIRCLE_SIDES
+ *     corners, each size from mid on the sphere), circleLabel(mid, size, unit, around) -> ["Around SYN-HPAI-001",
+ *     "3.0 km radius", "Area ..."]; readSize(text) -> { size } or { reason }.
+ *   drawnZone(corners, name, shape) -> { name, first, geometry, point, vertices, source: 'drawn', shape } (the
+ *     corners to six decimals, the outline counterclockwise, the point from zones.js pointInside: what a zone file
+ *     holding the same polygon gives, with source and shape), or null when not canClose; editedZone(zone, corners)
+ *     (no shape); cornersOf(zone); shapeText(zone, unit) -> "Square, 6.0 km across", "Rectangle, 9.9 km by 4.8 km",
+ *     "Circle, 3.0 km radius" or "6 corners".
+ *   drawnName(count, taken) -> { name: "Drawn zone n", count: n }, skipping a name taken; zoneName(typed, zone,
+ *     taken, reserved) -> { name, taken, by }: a typed name as the added points' (blank gives the first name), refused
+ *     when another zone, a ring or a positive has it (by: 'zone', 'ring' or 'positive').
+ *   zoneSet(fileZones, drawn) -> the file's zones, then the drawn ones; SHOWS ('rings', 'zones', 'both');
+ *     showOf(show, fileZones, drawn) -> what shows ('rings' while no zone exists); showAfter(change, { show,
+ *     fileZones, drawn }) -> the switch after 'drawn' (Rings becomes Both), 'file' (Rings becomes Zones), 'edited',
+ *     'removed' or 'file cleared' (Rings once no zone is left); zonesNamed(fileName, n) -> "zones.geojson and 2
+ *     drawn", "2 drawn zones"; drawnParams(drawn, shown) -> export_params.json's { drawn_zones, zones_shown }.
+ *   cviEnds(matched) -> the CVI premises the map draws with the tick "CVI movements" (2.6): { origins, dests }, each
+ *     [{ lat, lon, cvis, ids, place }], a matched movement's origin (hitOrigin) or destination (hitDest) inside a zone
+ *     with usable coordinates, each spot once per end (as the map picture draws them, branded.js) with its number of
+ *     CVIs, their numbers in order, and its place as the CVI movements table writes it ("Yakima, WA": the county and
+ *     state of the first movement there).
  *
  * Locations too coarse for zone results ("Left out"), checked on each point before the inside list is made:
  *   coarseReason(point) -> null, or why the point is left out: located only to a town (geo_source "google_city", the
@@ -127,13 +168,16 @@
  * What is inside:
  *   inside(sites, layers, opts) -> { rows, layers, leftOut, total }
  *     layers: [{ key, label, color, points: [{ name, display, lat, lon, county, town, geoSource, precision }] }]
- *     opts: { mode ('rings' or 'zones'), rings (rings mode: the rings, for the labels), unit (the rings' unit, km by
+ *     opts: { mode ('rings', 'zones' or 'both': the ring sites and the zone sites, a zone site by its source),
+ *       rings (rings and both: the rings, for the labels), unit (the rings' unit, km by
  *       default), positives (the positives the "nearest" line measures from), includeCoarse (true: no point is left
  *       out) }.
  *     rows: layer by layer, then site by site, nearest first (then by name): { site, siteName, layer, layerLabel, name, lat,
- *       lon, exactKm, km (R's round(x, 2)), bandKm, zone (the ring's label, or the zone's name), county, town }.
- *     layers: per layer { key, label, color, mode, inside (distinct sites inside any zone), byZone: [{ label, count }] (each
- *       site once, in the smallest ring that holds it, or in each zone polygon that holds it), nearest ({ name, km,
+ *       lon, exactKm, km (R's round(x, 2)), bandKm, inZone (3b: matched to a zone polygon, so no distance is said), zone
+ *       (the ring's label, or the zone's name), county, town }.
+ *     layers: per layer { key, label, color, mode, inside (distinct sites inside any ring or zone), byZone: [{ label,
+ *       count, ring }] (each site once in the smallest ring that holds it, and in each zone polygon that holds it; the
+ *       rings first), nearest ({ name, km,
  *       from, county, town } for a layer with nothing inside, null otherwise), leftOut (count), usable (points
  *       checked) }.
  *     leftOut: [{ layer, layerLabel, name, reason, county, town }]. total: distinct sites inside, over every layer.
@@ -689,7 +733,8 @@
   // positives inside it (the edge counting; inside a zone file's polygon by proximity.inZone), and the days from
   // it to the as-of date. list: the positives that count (those detected inside the window, whatever their group).
   // -> [{ site, name, positive (a ring site's positive index, else null), rings: [{ km, latest, days }], latest, days
-  // (the outer ring's) }]; latest and days are null when no dated positive is inside.
+  // (the outer ring's), source and areaM2 (a zone site's, else null) }]; latest and days are null when no dated
+  // positive is inside.
   function daysSince(sites, list, asOf) {
     const dated = list.filter(p => p.detected && (!asOf || p.detected <= asOf));
     return sites.map(s => {
@@ -703,7 +748,7 @@
       });
       const outer = rings[rings.length - 1];
       return { site: s.id, name: text(s.name), positive: s.positive === undefined ? null : s.positive, rings,
-        latest: outer.latest, days: outer.days };
+        latest: outer.latest, days: outer.days, source: s.source || null, areaM2: s.areaM2 === undefined ? null : s.areaM2 };
     });
   }
 
@@ -715,16 +760,20 @@
   }
 
   // The "Zones" list and zones.csv: one row per positive with zones (its outer ring: "Control zone (10 km) around
-  // SYN-HPAI-001") or per zone-file zone (its name), the longest-quiet last. days: daysSince's rows; o: { zonesMode,
-  // rings (distances in unit), unit, asOf }. A zone-file zone has no positive, ring, distance or unit.
+  // SYN-HPAI-001") or per zone (its name; in Both, 3b, the rings' rows and the zones' together), the longest-quiet
+  // last. days: daysSince's rows (a zone's has its source); o: { zonesMode, rings (distances in unit), unit, asOf }. A
+  // zone (from a file or drawn) has no positive, ring, distance or unit; its area (2.6) is in the last two columns,
+  // blank for a ring.
   function zoneRows(days, o) {
     const unit = o.unit || 'km', outer = !o.zonesMode && o.rings && o.rings.length ? o.rings[o.rings.length - 1] : null;
     const shown = d => String(Number(d.toFixed(2)));
-    const columns = ['Zone', 'Positive', 'Ring', 'Distance', 'Unit', 'Last positive', 'Days since the last positive', 'As of'];
-    const rows = byQuiet(days).map(z => (outer
+    const columns = ['Zone', 'Positive', 'Ring', 'Distance', 'Unit', 'Last positive', 'Days since the last positive', 'As of',
+      'Area (sq mi)', 'Area (acres)'];
+    const area = z => (z.areaM2 === null || z.areaM2 === undefined ? ['', ''] : [areaOf(z.areaM2).sqMi, areaOf(z.areaM2).acres]);
+    const rows = byQuiet(days).map(z => (outer && !z.source
       ? [outer.label + ' (' + shown(outer.distance) + ' ' + UNITS[unit].label + ') around ' + z.name, z.name, outer.label,
-        outer.distance, UNITS[unit].label, z.latest || '', z.days === null ? '' : z.days, o.asOf || '']
-      : [z.name, '', '', '', '', z.latest || '', z.days === null ? '' : z.days, o.asOf || '']));
+        outer.distance, UNITS[unit].label, z.latest || '', z.days === null ? '' : z.days, o.asOf || '', '', '']
+      : [z.name, '', '', '', '', z.latest || '', z.days === null ? '' : z.days, o.asOf || ''].concat(area(z))));
     return { columns, rows };
   }
 
@@ -751,7 +800,8 @@
   // (zoneSites, or none) }; opts: { rings (the ring list, distances in unit), unit, asOf, positives (those that count
   // for days since) }. Properties: name ("Infection zone (3 km) around SYN-HPAI-001", or the zone file zone's name: the
   // property shared/zones.js reads a zone's name from), zone, positive, group, distance, unit, days_since_last_positive,
-  // as_of; never an address, location, street or premise.
+  // as_of; a zone's also area_sq_mi, area_acres and source ('file' or 'drawn'; 2.6), a drawn zone's zone "Drawn zone";
+  // never an address, location, street or premise.
   function zonesGeoJson(parts, opts) {
     const o = opts || {}, features = [];
     const feature = (geometry, props) => features.push({ type: 'Feature', properties: props, geometry });
@@ -768,8 +818,12 @@
     }
     const zones = parts.zones || [];
     const zoneDays = daysSince(zones, o.positives || [], o.asOf);
-    zones.forEach((s, k) => feature(writeGeometry(s.zone), { name: text(s.name), zone: text(s.name), positive: null, group: null,
-      distance: null, unit: null, days_since_last_positive: zoneDays[k].days, as_of: o.asOf || null }));
+    zones.forEach((s, k) => {
+      const area = areaOf(s.areaM2 !== undefined ? s.areaM2 : areaM2(s.zone));
+      feature(writeGeometry(s.zone), { name: text(s.name), zone: s.source === 'drawn' ? 'Drawn zone' : text(s.name), positive: null,
+        group: null, distance: null, unit: null, days_since_last_positive: zoneDays[k].days, as_of: o.asOf || null,
+        area_sq_mi: area.sqMi, area_acres: area.acres, source: s.source === 'drawn' ? 'drawn' : 'file' });
+    });
     return { type: 'FeatureCollection', features };
   }
 
@@ -781,9 +835,261 @@
     return prepared.sites;
   }
 
+  // Each zone site also has its source ('file', or 'drawn' for a zone drawn on the map) and its area in m² (areaM2).
   function zoneSites(zones) {
-    return P().prepareSites(zones.map(z => ({ name: z.name, lat: z.point[1], long: z.point[0], zone: z.geometry })),
+    const sites = P().prepareSites(zones.map(z => ({ name: z.name, lat: z.point[1], long: z.point[0], zone: z.geometry })),
       { defaultKm: 0 }).sites;
+    sites.forEach((s, k) => { s.source = zones[k].source === 'drawn' ? 'drawn' : 'file'; s.areaM2 = areaM2(zones[k].geometry); });
+    return sites;
+  }
+
+  // Both (3b): the ring sites, then the zone sites numbered on after them, so each site's id is its own (each
+  // prepareSites call numbers from 1).
+  function bothSites(ringList, zoneList) {
+    zoneList.forEach((s, k) => { s.id = ringList.length + k + 1; });
+    return ringList.concat(zoneList);
+  }
+
+  // ---- Drawn zones (2.6) -------------------------------------------------------------------------------------------
+  // A zone drawn on the map is a zone as a zone file's (zones.js read()): { name, geometry, point, vertices }, with
+  // source 'drawn', its first name and its shape. Corners are [lon, lat]; a side is the straight line between two
+  // corners in longitude and latitude, as the inside test (proximity.js inZone) reads it.
+
+  // The area on the sphere of CVI's distance rule (6,378,137 m), by the spherical-polygon formula of Chamberlain and
+  // Duquette (JPL, 2007), as Leaflet.draw's geodesicArea writes it (Turf's area is the same sum): each ring's area, a
+  // polygon's outline less its holes, a MultiPolygon's polygons added. A ring may be closed or not.
+  const EARTH_M = 6378137, M2_PER_SQ_MI = 2589988.110336, M2_PER_ACRE = 4046.8564224;
+  const rad = d => d * Math.PI / 180;
+  function ringAreaM2(ring) {
+    const a = ring[0], z = ring[ring.length - 1];
+    const pts = ring.length > 1 && a[0] === z[0] && a[1] === z[1] ? ring.slice(0, -1) : ring;
+    let sum = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i], q = pts[(i + 1) % pts.length];
+      sum += rad(q[0] - p[0]) * (2 + Math.sin(rad(p[1])) + Math.sin(rad(q[1])));
+    }
+    return Math.abs(sum * EARTH_M * EARTH_M / 2);
+  }
+  function areaM2(g) {
+    const polygons = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+    return polygons.reduce((t, rings) => t + rings.reduce((u, r, i) => u + (i ? -1 : 1) * ringAreaM2(r), 0), 0);
+  }
+  // The exports' area: square miles to two decimals (R's round), whole acres.
+  const areaOf = m2 => ({ sqMi: round2(m2 / M2_PER_SQ_MI), acres: Math.round(m2 / M2_PER_ACRE) });
+  // "12.4 sq mi, 7,936 acres", whatever the km | miles switch says; acres alone under 0.1 sq mi.
+  function areaText(m2) {
+    const sqMi = m2 / M2_PER_SQ_MI, acres = Math.round(m2 / M2_PER_ACRE);
+    const a = acres.toLocaleString('en-US') + (acres === 1 ? ' acre' : ' acres');
+    return sqMi < 0.1 ? a : Number(sqMi.toFixed(1)).toLocaleString('en-US', { minimumFractionDigits: 1 }) + ' sq mi, ' + a;
+  }
+  // A length in the unit shown, to one decimal: "3.9 km", "2.4 mi".
+  const lengthText = (km, unit) => fromKm(km, unit).toFixed(1) + ' ' + UNITS[unit || 'km'].label;
+  const kmBetween = (a, b) => P().distanceKm(a[1], a[0], b[1], b[0]);
+
+  // The limits: 3 to 200 corners a zone, up to 20 drawn zones, names as the added points' (60 characters); a
+  // square's size from 0.1 to 100 in the unit shown, each way from its middle.
+  const DRAW = { minCorners: 3, maxCorners: 200, maxZones: 20, nameMax: 60, minSize: 0.1, maxSize: 100 };
+
+  // Sides that cross. turn: which way c lies from the line a-b (1, -1, or 0 on it); within: c inside a-b's box.
+  const turn = (a, b, c) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  const within = (a, b, c) => Math.min(a[0], b[0]) <= c[0] && c[0] <= Math.max(a[0], b[0])
+    && Math.min(a[1], b[1]) <= c[1] && c[1] <= Math.max(a[1], b[1]);
+  // The sides p-q and r-s meet: they cross, or one's end lies on the other (touching counts: ArcGIS and QGIS mark a
+  // ring that touches itself invalid).
+  function sidesMeet(p, q, r, s) {
+    const d1 = turn(r, s, p), d2 = turn(r, s, q), d3 = turn(p, q, r), d4 = turn(p, q, s);
+    if (d1 * d2 < 0 && d3 * d4 < 0) return true;
+    return (d1 === 0 && within(r, s, p)) || (d2 === 0 && within(r, s, q)) || (d3 === 0 && within(p, q, r))
+      || (d4 === 0 && within(p, q, s));
+  }
+  // Two sides in a row, a-b then b-c, where c turns straight back along a-b.
+  const doublesBack = (a, b, c) => turn(a, b, c) === 0 && (a[0] - b[0]) * (c[0] - b[0]) + (a[1] - b[1]) * (c[1] - b[1]) > 0;
+  const sameSpot = (a, b) => a[0] === b[0] && a[1] === b[1];
+  // While drawing: the side from the last corner to p would meet a side drawn before it, or turn back along the last
+  // one. (A click on the first corner finishes the shape and a click on the last adds nothing; the page checks those
+  // first.)
+  function crossesAt(corners, p) {
+    const n = corners.length, last = corners[n - 1];
+    if (n < 2) return false;
+    if (doublesBack(corners[n - 2], last, p)) return true;
+    for (let i = 0; i + 2 < n; i++) if (sidesMeet(last, p, corners[i], corners[i + 1])) return true;
+    return false;
+  }
+  // A closed shape whose sides meet only where they follow each other, without turning back: what a zone needs.
+  function isSimple(corners) {
+    const n = corners.length;
+    if (n < DRAW.minCorners) return false;
+    const side = i => [corners[i], corners[(i + 1) % n]];
+    for (let i = 0; i < n; i++) {
+      if (doublesBack(corners[i], corners[(i + 1) % n], corners[(i + 2) % n])) return false;
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        if (sidesMeet(...side(i), ...side(j))) return false;
+      }
+    }
+    return true;
+  }
+  const canClose = corners => corners.length >= DRAW.minCorners && corners.length <= DRAW.maxCorners && isSimple(corners);
+
+  // The live label beside the pointer: the distance from the first click and, from the third corner on, the area the
+  // shape would have if closed at the pointer (closes true); "Sides can’t cross" (cross true) when the next side would
+  // cross.
+  function drawLabel(corners, pointer, unit) {
+    if (!corners.length) return { lines: [], cross: false, closes: false };
+    if (crossesAt(corners, pointer)) return { lines: ['Sides can’t cross'], cross: true, closes: false };
+    const lines = [lengthText(kmBetween(corners[0], pointer), unit) + ' from the first click'];
+    // From the third corner: the area if closed with the pointer as the next corner (the corners alone when the
+    // pointer is on the last one, as on a phone after a tap), unless the side back to the first corner would cross.
+    const last = corners[corners.length - 1];
+    const shape = sameSpot(pointer, last) ? corners.slice() : corners.concat([pointer]);
+    const closes = corners.length >= DRAW.minCorners && isSimple(shape);
+    if (corners.length >= DRAW.minCorners) lines.push(closes ? 'Area ' + areaText(ringAreaM2(shape)) : 'Can’t close here: sides would cross');
+    return { lines, cross: false, closes };
+  }
+
+  // The set shapes (3a). A rectangle from two opposite corners, its sides north-south and east-west (null when the
+  // two clicks share a longitude or a latitude); its size along its middle latitude and its west side.
+  function rectangleCorners(a, b) {
+    if (a[0] === b[0] || a[1] === b[1]) return null;
+    return [[a[0], a[1]], [b[0], a[1]], [b[0], b[1]], [a[0], b[1]]];
+  }
+  function rectangleSize(a, b) {
+    const mid = (a[1] + b[1]) / 2;
+    return { eastKm: kmBetween([a[0], mid], [b[0], mid]), northKm: kmBetween([a[0], a[1]], [a[0], b[1]]) };
+  }
+  function rectangleLabel(a, b, unit) {
+    const c = rectangleCorners(a, b), z = rectangleSize(a, b);
+    return [lengthText(z.eastKm, unit) + ' by ' + lengthText(z.northKm, unit)].concat(c ? ['Area ' + areaText(ringAreaM2(c))] : []);
+  }
+  // A square of a set size around its middle: its edges the size away north, south, east and west (a 3 km square is
+  // 6 km across, as the ring distances read), on the sphere of CVI's radius: a kilometer north is KM_LAT degrees
+  // everywhere, a kilometer east KM_LAT / cos(latitude). Corners from the northwest, clockwise.
+  const KM_LAT = 180 / (Math.PI * EARTH_M / 1000);
+  function squareCorners(mid, size, unit) {
+    const km = toKm(size, unit), dy = km * KM_LAT, dx = km * KM_LAT / Math.cos(rad(mid[1]));
+    return [[mid[0] - dx, mid[1] + dy], [mid[0] + dx, mid[1] + dy], [mid[0] + dx, mid[1] - dy], [mid[0] - dx, mid[1] - dy]];
+  }
+  // around: the positive's name when the square is centered on it (its mark clicked).
+  function squareLabel(mid, size, unit, around) {
+    const km = toKm(size, unit);
+    return (around ? ['Around ' + around] : []).concat([lengthText(2 * km, unit) + ' across (' + lengthText(km, unit) + ' each way)',
+      'Area ' + areaText(ringAreaM2(squareCorners(mid, size, unit)))]);
+  }
+  // A circle of a set radius around its middle (3b): CIRCLE_SIDES corners, each the radius from the middle on the
+  // sphere of CVI's radius (the destination along a great circle, as the ring distances are measured), from the north,
+  // clockwise. Each side bows in at most r (1 - cos(pi / 120)), about 1 m at 3 km.
+  const CIRCLE_SIDES = 120;
+  function circleCorners(mid, size, unit) {
+    const d = toKm(size, unit) * 1000 / EARTH_M, lat = rad(mid[1]), lon = rad(mid[0]), out = [];
+    for (let i = 0; i < CIRCLE_SIDES; i++) {
+      const b = rad(i * 360 / CIRCLE_SIDES);
+      const to = Math.asin(Math.sin(lat) * Math.cos(d) + Math.cos(lat) * Math.sin(d) * Math.cos(b));
+      const by = Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(lat), Math.cos(d) - Math.sin(lat) * Math.sin(to));
+      out.push([(lon + by) * 180 / Math.PI, to * 180 / Math.PI]);
+    }
+    return out;
+  }
+  // around: the positive's name when the circle is centered on it (its mark clicked).
+  function circleLabel(mid, size, unit, around) {
+    return (around ? ['Around ' + around] : []).concat([lengthText(toKm(size, unit), unit) + ' radius',
+      'Area ' + areaText(ringAreaM2(circleCorners(mid, size, unit)))]);
+  }
+  // The size box: a plain number from 0.1 to 100 -> { size }, else { reason }.
+  function readSize(t) {
+    const s = text(t), v = /^\d*\.?\d+$/.test(s) ? Number(s) : null;
+    return v !== null && v >= DRAW.minSize && v <= DRAW.maxSize ? { size: v }
+      : { reason: 'Type a size from ' + DRAW.minSize + ' to ' + DRAW.maxSize + '.' };
+  }
+
+  // A drawn zone from its corners (not closed), rounded to six decimals (as added points and zones.geojson are) and
+  // its outline counterclockwise; null when the rounded corners do not make a shape a zone can be (canClose). name:
+  // its name, also its first name; shape: { kind: 'rectangle', eastKm, northKm }, { kind: 'square', km } or
+  // { kind: 'circle', km } (its radius), or null.
+  function drawnZone(corners, name, shape) {
+    const c = corners.map(p => [round6(p[0]), round6(p[1])]);
+    if (!canClose(c)) return null;
+    const ring = c.concat([c[0].slice()]);
+    const outline = root.WSDA.zones.signedArea(ring) > 0 ? ring : ring.reverse();
+    const geometry = { type: 'Polygon', coordinates: [outline] };
+    return { name, first: name, geometry, point: root.WSDA.zones.pointInside(geometry), vertices: outline.length,
+      source: 'drawn', shape: shape || null };
+  }
+  // The corners of a drawn zone, for editing (its outline without the closing point).
+  const cornersOf = zone => zone.geometry.coordinates[0].slice(0, -1).map(p => p.slice());
+  // After an edit: the same zone with new corners and no shape (its first name kept); null as drawnZone.
+  function editedZone(zone, corners) {
+    const z = drawnZone(corners, zone.name, null);
+    if (z) z.first = zone.first;
+    return z;
+  }
+  // The list row's shape: "Square, 6.0 km across", "Rectangle, 9.9 km by 4.8 km", "Circle, 3.0 km radius", or "6 corners".
+  function shapeText(zone, unit) {
+    const s = zone.shape;
+    if (s && s.kind === 'circle') return 'Circle, ' + lengthText(s.km, unit) + ' radius';
+    if (s && s.kind === 'square') return 'Square, ' + lengthText(2 * s.km, unit) + ' across';
+    if (s && s.kind === 'rectangle') return 'Rectangle, ' + lengthText(s.eastKm, unit) + ' by ' + lengthText(s.northKm, unit);
+    return (zone.vertices - 1) + ' corners';
+  }
+
+  // Names. A new zone's first name, "Drawn zone n": n one more than the zones drawn so far (count), skipping a name a
+  // zone already has (taken: every zone's name; a reopened zones.geojson may hold "Drawn zone 1") -> { name, count }.
+  function drawnName(count, taken) {
+    const has = new Set(taken || []);
+    let n = count + 1;
+    while (has.has('Drawn zone ' + n)) n++;
+    return { name: 'Drawn zone ' + n, count: n };
+  }
+  // A typed name: spaces squeezed, at most 60 characters, blank giving the first name back; refused (taken true, the
+  // name kept) when another zone has it (taken: the other zones' names), since the counts are kept by zone name; also
+  // (3b) when a ring or a positive has it (reserved: { ring: labels, positive: names }), so the count lines, layers.csv
+  // and the hover never name two things alike in Both. by: 'zone', 'ring' or 'positive', what has the name.
+  function zoneName(typed, zone, taken, reserved) {
+    const want = text(typed).replace(/\s+/g, ' ').slice(0, DRAW.nameMax) || zone.first;
+    const r = reserved || {};
+    const by = (taken || []).includes(want) ? 'zone' : (r.ring || []).includes(want) ? 'ring'
+      : (r.positive || []).includes(want) ? 'positive' : null;
+    return by ? { name: zone.name, taken: true, by } : { name: want, taken: false, by: null };
+  }
+
+  // The zone set and the rings (3b, the switch "Rings | Zones | Both"): the zone file's zones, then the drawn ones.
+  // SHOWS: the switch's picks. showOf(show, fileZones, drawn): what shows, the pick, or 'rings' while no zone exists.
+  // showAfter(change, { show, fileZones, drawn }): the pick after a change, made for the user only when a new zone
+  // would be hidden: on Rings a finished drawn zone picks Both and a zone file Zones; once no zone is left, Rings;
+  // otherwise the pick stays. change: 'drawn', 'edited', 'removed', 'file' or 'file cleared'.
+  const SHOWS = ['rings', 'zones', 'both'];
+  const zoneSet = (fileZones, drawn) => (fileZones || []).concat(drawn || []);
+  const showOf = (show, fileZones, drawn) => (zoneSet(fileZones, drawn).length && SHOWS.includes(show) ? show : 'rings');
+  function showAfter(change, o) {
+    if (o.show === 'rings' && change === 'drawn') return 'both';
+    if (o.show === 'rings' && change === 'file') return 'zones';
+    return showOf(o.show, o.fileZones, o.drawn);
+  }
+  // The map picture's meta line and export_params.json: "<file name> and 2 drawn", "2 drawn zones", or the file's name.
+  function zonesNamed(fileName, drawnCount) {
+    if (!drawnCount) return fileName || null;
+    if (fileName) return fileName + ' and ' + drawnCount + ' drawn';
+    return drawnCount === 1 ? '1 drawn zone' : drawnCount + ' drawn zones';
+  }
+  // export_params.json: the drawn zones' count and what showed ('rings', 'zones' or 'both').
+  const drawnParams = (drawn, shown) => ({ drawn_zones: (drawn || []).length, zones_shown: shown });
+  function cviEnds(matched) {
+    const end = (flag, side) => {
+      const spots = new Map();
+      for (const r of matched || []) {
+        if (!r[flag]) continue;
+        const lat = P().number(r[side + '.Lat']), lon = P().number(r[side + '.Long']);
+        if (lat === null || lon === null || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+        const key = lat + ',' + lon;
+        if (!spots.has(key)) {
+          const place = [r[side + '.County'], r[side + '.State']].filter(v => v !== null && v !== undefined && v !== '').join(', ');
+          spots.set(key, { lat, lon, ids: new Set(), place });
+        }
+        spots.get(key).ids.add(String(r.CVI));
+      }
+      return [...spots.values()].map(s => ({ lat: s.lat, lon: s.lon, cvis: s.ids.size,
+        ids: [...s.ids].sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), place: s.place }));
+    };
+    return { origins: end('hitOrigin', 'Origin'), dests: end('hitDest', 'Dest') };
   }
 
   function ringLabel(rings, km, unit) {
@@ -821,7 +1127,10 @@
   const siteKey = r => r.lat + '\r' + r.lon + '\r' + r.name;
 
   function inside(sites, layers, opts) {
-    const o = opts || {}, PX = P(), zonesMode = o.mode === 'zones';
+    const o = opts || {}, PX = P(), mode = o.mode === 'zones' || o.mode === 'both' ? o.mode : 'rings';
+    // A zone site: every site in zones mode; in both, those with a source (zoneSites).
+    const isZone = s => mode === 'zones' || (mode === 'both' && !!s.source);
+    const zoneIds = new Set(sites.filter(isZone).map(s => s.id));
     const rows = [], leftOut = [], summaries = [];
     const nameOf = p => text(p.display !== undefined ? p.display : p.name);
     for (const l of layers) {
@@ -843,22 +1152,26 @@
           if (km === null || km > s.bufferKm) return;
           const bandKm = PX.ringOf(s.radii, km);
           mine.push({ site: s.id, siteName: text(s.name), layer: l.key, layerLabel: l.label, name: nameOf(p),
-            lat: p.lat, lon: p.lon, exactKm: km, km: round2(km), bandKm,
-            zone: zonesMode ? text(s.name) : ringLabel(o.rings, km, o.unit), county: p.county || null, town: p.town || null });
+            lat: p.lat, lon: p.lon, exactKm: km, km: round2(km), bandKm, inZone: isZone(s),
+            zone: isZone(s) ? text(s.name) : ringLabel(o.rings, km, o.unit), county: p.county || null, town: p.town || null });
         });
         mine.sort((a, b) => a.exactKm - b.exactKm || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
         mine.forEach(r => found.push(r));
       });
       found.forEach(r => rows.push(r));
-      // Each site once: in the smallest ring that holds it (rings), or in every zone polygon that holds it (zones).
-      const byZone = new Map((zonesMode ? sites.map(s => text(s.name)) : o.rings.map(r => r.label)).map(z => [z, new Set()]));
+      // Each site once: in the smallest ring that holds it, and in every zone polygon that holds it. Kept by ring or
+      // zone and name, so a zone named as a ring ("Control zone") is counted apart from the ring in Both.
+      // No rings list yet (facility layers loaded before a positives file): no ring rows.
+      const ringRows = mode === 'zones' ? [] : (o.rings || []).map(r => ['ring\r' + r.label, { label: r.label, ring: true, keys: new Set() }]);
+      const zoneRows = sites.filter(isZone).map(s => ['zone\r' + text(s.name), { label: text(s.name), ring: false, keys: new Set() }]);
+      const byZone = new Map(ringRows.concat(zoneRows));
       const best = new Map();
       for (const r of found) {
         const k = siteKey(r);
-        if (zonesMode) byZone.get(r.zone).add(k);
+        if (zoneIds.has(r.site)) byZone.get('zone\r' + r.zone).keys.add(k);
         else if (!best.has(k) || r.exactKm < best.get(k).exactKm) best.set(k, r);
       }
-      for (const [k, r] of best) byZone.get(r.zone).add(k);
+      for (const [k, r] of best) byZone.get('ring\r' + r.zone).keys.add(k);
       const insideCount = new Set(found.map(siteKey)).size;
       let nearest = null;
       if (!insideCount) {
@@ -871,8 +1184,8 @@
           }
         }
       }
-      summaries.push({ key: l.key, label: l.label, color: l.color, mode: zonesMode ? 'zones' : 'rings', inside: insideCount,
-        byZone: [...byZone].map(([label, set]) => ({ label, count: set.size })), nearest, leftOut: left,
+      summaries.push({ key: l.key, label: l.label, color: l.color, mode, inside: insideCount,
+        byZone: [...byZone.values()].map(z => ({ label: z.label, count: z.keys.size, ring: z.ring })), nearest, leftOut: left,
         usable: usable.length });
     }
     const total = new Set(rows.map(r => r.layer + '\r' + siteKey(r))).size;
@@ -882,8 +1195,8 @@
   function countLine(s, unit) {
     const u = unit || 'km';
     if (s.inside) {
-      // A ring's label takes "the" ("in the Control zone"); a zone file's names are written as they are.
-      const parts = s.byZone.filter(z => z.count).map(z => z.count + ' in ' + (s.mode === 'rings' ? 'the ' : '') + z.label);
+      // A ring's label takes "the" ("in the Control zone"); a zone's names are written as they are.
+      const parts = s.byZone.filter(z => z.count).map(z => z.count + ' in ' + (z.ring ? 'the ' : '') + z.label);
       return s.label + ': ' + listOf(parts);
     }
     if (!s.nearest) return s.label + ': none inside' + (s.usable ? '' : ' (no usable locations)');
@@ -964,7 +1277,7 @@
       p.lat === null ? '' : p.lat, p.lon === null ? '' : p.lon, withZones.has(p.index) ? 'Yes' : 'No']
       .concat(details(read, p).map(pair => pair[1]), [note(p)]))) };
     const inside = { columns: ['Positive or zone', 'Layer', 'Site', 'Distance (' + UNITS[u].label + ')', 'Zone', 'County', 'Town'],
-      rows: result.rows.map(r => [r.siteName, r.layerLabel, r.name, km(r.exactKm), r.zone, r.county || '', r.town || '']) };
+      rows: result.rows.map(r => [r.siteName, r.layerLabel, r.name, r.inZone ? '' : km(r.exactKm), r.zone, r.county || '', r.town || '']) };
     const zoneNames = result.layers.length ? result.layers[0].byZone.map(z => z.label) : [];
     const layers = { columns: ['Layer', 'Inside'].concat(zoneNames, ['Nearest', 'Nearest distance (' + UNITS[u].label + ')',
       'Nearest to', 'Left out']),
@@ -1237,7 +1550,7 @@
     return {
       counties: rows.map(r => ({ label: r.county, parts: [{ key: 'current', value: r.current }, { key: 'past', value: r.past }],
         total: r.total })),
-      layers: !result ? [] : result.layers.map(l => ({ label: l.label, parts: l.byZone.map(z => ({ key: z.label, value: z.count })),
+      layers: !result ? [] : result.layers.map(l => ({ label: l.label, parts: l.byZone.map(z => ({ key: z.label, value: z.count, ring: !!z.ring })),
         total: l.inside }))
     };
   }
@@ -1263,12 +1576,15 @@
 
   root.WSDA = root.WSDA || {};
   root.WSDA.emergencyRules = { readPositives, statusChoices, defaultTicks, targets, suggestedLayers, ringSites,
-    zoneSites, ringLabel,
+    zoneSites, bothSites, ringLabel,
     coarseReason, precisionRows, inside, countLine, valueBoxes, exportRows, round2, dateOf, PRIVATE, COLUMNS, UNITS,
     PRECISION, toKm, fromKm, KM_PER_MILE, inventoryOf, sizeClass, windowOf, inWindow, isPast, closedDayNotKnown, quarantineOf, stillQuarantined, groups,
     groupOf, weekOf, dayLabel, playSteps, MAX_WEEKS, overTime, dayView, rangeView, openingViews, chartSpan, viewSteps,
     pickColumn, boxesOf, viewBadge, periodLine, viewParams, bigNumber, inventoryWordOf, ANIMAL_SHAPES, animalShapeOf, animalKeys, numbersLine, notMappedLine, details, daysSince, byQuiet,
     zoneRows,
-    zonesGeoJson, flockKinds, animalTotals, animalsText, OUTSIDE_WA, NEAR_KM, countyOf, countyRows, positiveRows, CELL_KM,
+    zonesGeoJson, DRAW, areaM2, areaOf, areaText, lengthText, sidesMeet, crossesAt, isSimple, canClose, drawLabel,
+    rectangleCorners, rectangleSize, rectangleLabel, KM_LAT, squareCorners, squareLabel, CIRCLE_SIDES, circleCorners,
+    circleLabel, readSize, drawnZone, cornersOf,
+    editedZone, shapeText, drawnName, zoneName, SHOWS, zoneSet, showOf, showAfter, zonesNamed, drawnParams, cviEnds, flockKinds, animalTotals, animalsText, OUTSIDE_WA, NEAR_KM, countyOf, countyRows, positiveRows, CELL_KM,
     PLANE_LAT, TRACT_CELLS, peopleInside, reachesPastWashington, roughly, overviewBoxes, overviewBars, countyTable };
 })(typeof window !== 'undefined' ? window : globalThis);
