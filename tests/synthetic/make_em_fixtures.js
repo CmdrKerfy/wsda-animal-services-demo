@@ -84,7 +84,7 @@
 //                             the ocean and in Idaho ("Outside Washington")
 // The quarantine status scenario (2.4), checked by the unit suite and the R reference in the same way:
 //   em_rules_quarantine.csv   the agreed scenario's twelve rows and two more past ones (Grant 01, Okanogan 01), with
-//                             the "Quarantine Status" column the owner adds as the last: past positives released by
+//                             the "Quarantine Status" column added as the last: past positives released by
 //                             their release date, still under quarantine by a release date after an earlier end
 //                             (whatever the status says), under quarantine and released by the status alone (any
 //                             case, spaces around it), not known (both blank), and one status not read ("Pending")

@@ -12,7 +12,8 @@
  *     closed", with a "Detected" box first), the meta line naming the zones in both units and "As of" the view's end;
  *   - the panel "POSITIVES" in place of "QUERY SITES": one row per positive with zones (or per zone-file zone), its
  *     count the sites inside its zones, its lines the county and the days since the last positive (in place of CVI's
- *     matched origins and destinations);
+ *     matched origins and destinations); on the county line (2.7) each layer's mark with its count of the sites
+ *     inside, wrapping under it, and a note under the rows when a site counts under two of them;
  *   - each positive in its status color and its animal's shape (CVI: one red bullseye), the shapes on one row of the
  *     key under the positives' rows; past ones hollow and faded (only when shown), added
  *     points in the page's pick color; the rings in the type's colors (CVI: three ring colors by radius), past rings
@@ -45,7 +46,8 @@
  * color, shape } }), days (rules.js daysSince for sites), window ({ start, end }), current (the current positives'
  * count), cvi ({ cvis, animals, matched (the CVI query's matched rows, with hitOrigin and hitDest), years } or null), counties (GeoJSON features), date, background, streets (geo/streets-wa.js's data, with the
  * background 'vector:streets'), nameLayers (the keys named: 'positives' and layer keys; the positives when left
- * out), title (typed, or blank), label (typed, or blank), synthetic }.
+ * out), title (typed, or blank), label (typed, or blank), synthetic, animalsOnly ("Positives: cattle only" with a kind
+ * of animal left out, 2.7, at the start of the line over the map; or null) }.
  * title(type, typed) -> the page's title; fileName(type, date, label) -> "emergency_hpai_2026-10-22.png" or
  * "2026-10-22_<label>.png"; safeLabel(label) -> the label as a file name. Pure: branded.svg() and branded.png() make
  * the picture. */
@@ -129,19 +131,26 @@
   }
 
   // ── Copied from brandedmaps.js (lines 2466 to 2546, proximityPanelRows in the page's style): the panel's rows ──
-  // rows: [{ name, count (sites inside its zones), county (null for a zone), days (text, or null) }]. At most 8 rows,
-  // the most sites inside first (ties in the order given), each cut with "…" to the column. Each row is as tall as
-  // its lines (CVI's rows are one height): the name and count, the county, then the days (where CVI writes the
-  // matched origins and destinations). A row without a county line (a zone) takes a long name onto up to three lines
-  // at the row's size, so two zone names are not cut alike; a positive's long name is drawn smaller, down to the
-  // smallest rows' size, before it is cut. The rows' size follows CVI's (from the space per row), at most 1.2 (CVI's
-  // 1.5 made two rows shout), drawn smaller together only when the rows do not fit. word: "positive" or "zone", for
-  // the note of the rows not listed; footerRows: the footer's rows (3 by default). panelH: the panel's height (a page
-  // fraction, PANEL_H by default; less when the key needs the room): the title band, the column labels and the footer
-  // keep their size, the rows get what is left. needAt(scl): the page height the panel needs with its rows at scl.
+  // rows: [{ name, count (sites inside its zones), county (null for a zone), days (text, or null), layers ([{ color,
+  // shape, n }]: the sites inside by layer, 2.7) }]. At most 8 rows, the most sites inside first (ties in the order
+  // given), each cut with "…" to the column. Each row is as tall as its lines (CVI's rows are one height): the name and
+  // count, the county, then the days (where CVI writes the matched origins and destinations). The sites inside by
+  // layer (2.7): each layer's mark and count, as many on a line as fit the column, starting on the county
+  // line after the county and wrapping under it (under the name in a row without a county line). A row without a
+  // county line (a zone) takes a long name onto up to three lines at the row's size, so two zone names are not cut
+  // alike; a positive's long name is drawn smaller, down to the smallest rows' size, before it is cut. The rows' size
+  // follows CVI's (from the space per row), at most 1.2 (CVI's 1.5 made two rows shout), drawn smaller together only
+  // when the rows do not fit; rows that still do not fit at the smallest size are left out, the last first (2.7), so a
+  // row never runs into the notes or the footer. word: "positive" or "zone", for the note of the rows not listed;
+  // footerRows: the footer's rows (3 by default). panelH: the panel's height (a page fraction, PANEL_H by default; less
+  // when the key needs the room): the title band, the column labels and the footer keep their size, the rows get what
+  // is left. note: a line over the footer under the note of the rows not listed ("A shared site counts under each
+  // positive"), or null. needAt(scl): the page height the panel needs with its first rows at scl, without their layers'
+  // marks (2.7: the key keeps the room it had); least(): the page height of the panel listing only its first row, at the
+  // smallest size (the room the key may take down to, so it names every layer the marks stand for).
   const PANEL_ROWS = 8;
   const MIN_SCL = 0.72, MAX_SCL = 1.2;
-  function panelRows(rows, width, word, footerRows, panelH) {
+  function panelRows(rows, width, word, footerRows, panelH, note) {
     const BR = B();
     const u = (panelH || PANEL_H) / PANEL_H;   // the panel's height against PANEL_H; the bands below are PANEL_H's
     const hdrH = 0.085 / u;
@@ -154,16 +163,19 @@
     const order = rows.map((r, i) => i);
     order.sort((a, b) => (rows[b].count || 0) - (rows[a].count || 0) || a - b);
     const n = rows.length;
-    const showN = Math.min(n, PANEL_ROWS);
-    const listed = order.slice(0, showN);
-    const threeLine = listed.some(i => rows[i].days);
-    const left = n - showN;
-    const more = left ? left + ' more ' + word + (left === 1 ? '' : 's') + ' not listed (ranked by sites inside)' : null;
-    const fixed = (0.085 + 0.018 + 0.03 + bands + (more ? 0.045 : 0)) * PANEL_H;
-    const out = { rows: [], order: listed, more, empty: n === 0, threeLine, hdrH, colKeyY, footTop, rowsTop, u,
-      needAt: s => fixed + (showN ? listed.reduce((t, idx) => t + rowAt(idx, s).height, 0) / BR.H : 0.08 * PANEL_H) };
-    if (!showN) return out;
-    const avail = rowsTop - footTop - (more ? 0.045 / u : 0);
+    // The notes over the footer with shown rows listed: the rows not listed, then note.
+    const notesOf = shown => [n > shown ? (n - shown) + ' more ' + word + (n - shown === 1 ? '' : 's') +
+      ' not listed (ranked by sites inside)' : null, note || null].filter(Boolean);
+    // Their height (a fraction of PANEL_H): 0.045 for the first, 0.03 for each more, so two read as one block.
+    const notesH = list => (list.length ? 0.045 + 0.03 * (list.length - 1) : 0);
+    const firstN = Math.min(n, PANEL_ROWS);
+    const first = order.slice(0, firstN);
+    const fixed = (0.085 + 0.018 + 0.03 + bands + notesH(notesOf(firstN))) * PANEL_H;
+    const out = { rows: [], order: first, more: n > firstN ? notesOf(firstN)[0] : null, notes: notesOf(firstN), empty: n === 0, threeLine: first.some(i => rows[i].days), hdrH, colKeyY, footTop, rowsTop, u,
+      needAt: s => fixed + (firstN ? first.reduce((t, idx) => t + rowAt(idx, s, true).height, 0) / BR.H : 0.08 * PANEL_H),
+      least: () => (0.085 + 0.018 + 0.03 + bands + notesH(notesOf(Math.min(n, 1)))) * PANEL_H
+        + (firstN ? rowAt(first[0], MIN_SCL).height / BR.H : 0.08 * PANEL_H) };
+    if (!firstN) return out;
     // The column: from the name's start (0.05) to the count's left edge, 6 points apart.
     const room = (0.96 - 0.05) * width;
     // A text cut with "…" to fit room points at pt.
@@ -187,8 +199,8 @@
     };
     // One row at a scale: its lines ({ text, pt, kind }) with their middles below the row's top, and its height
     // (points): the first line's middle 0.75 of its size down, the next 1.15 times the two lines' half sizes apart, 0.5
-    // of the last line's size under it.
-    const rowAt = (idx, scl) => {
+    // of the last line's size under it. bare: without the layers' marks.
+    const rowAt = (idx, scl, bare) => {
       const r = rows[idx];
       const count = S().comma(r.count || 0);
       const nameRoom = room - BR.textWidth(count, BR.textPt(3.2 * scl), true) - 6;
@@ -204,8 +216,28 @@
         }
       }
       const namePt = BR.textPt(nameSize), subPt = BR.textPt(2.5 * scl);
+      const countyText = r.county ? fitTo(String(r.county), subPt, room) : null;
+      // The layers' marks and counts in lines of the column: the first starting after the county (startW), so it
+      // may hold none; a mark, a small gap, the bold count and a wider gap before the next.
+      const startW = countyText ? BR.textWidth(countyText, subPt) + 1.2 * subPt : 0;
+      const itemW = it => 0.9 * subPt + 0.25 * subPt + BR.textWidth(S().comma(it.n), subPt, true) + 0.9 * subPt;
+      const layerLines = [];
+      if (!bare && r.layers && r.layers.length) {
+        let line = [], w = startW;
+        r.layers.forEach(it => {
+          if ((line.length || w > 0) && w + itemW(it) > room) { layerLines.push(line); line = []; w = 0; }
+          line.push(it);
+          w += itemW(it);
+        });
+        layerLines.push(line);
+      }
+      const onCounty = countyText && layerLines.length && layerLines[0].length ? layerLines[0] : null;
+      const below = (countyText ? layerLines.slice(1) : layerLines).filter(items => items.length)
+        .map(items => ({ items, pt: 1.15 * subPt, markPt: subPt, kind: 'layers' }));
       const lines = names.map(t => ({ text: t, pt: namePt, kind: 'name' }))
-        .concat(r.county ? [{ text: fitTo(String(r.county), subPt, room), pt: subPt, kind: 'county' }] : [])
+        .concat(countyText ? [{ text: countyText, pt: onCounty ? 1.15 * subPt : subPt, kind: 'county', items: onCounty,
+          itemsX: startW, markPt: subPt }] : [])
+        .concat(below)
         .concat(r.days ? [{ text: fitTo(r.days, subPt, room), pt: subPt, kind: 'days' }] : []);
       let at = 0;
       lines.forEach((l, k) => {
@@ -214,23 +246,37 @@
       });
       return { idx, r, count, nameSize, scl, lines, height: at + 0.5 * lines[lines.length - 1].pt };
     };
-    let scl = Math.max(MIN_SCL, Math.min(MAX_SCL, Math.min(threeLine ? 0.150 : 0.130, avail * u / showN) / 0.085));
-    let laid = listed.map(idx => rowAt(idx, scl));
     const total = list => list.reduce((t, x) => t + x.height, 0) / panelPt;
-    while (total(laid) > avail && scl > MIN_SCL) {
-      scl = Math.max(MIN_SCL, scl - 0.02);
-      laid = listed.map(idx => rowAt(idx, scl));
-    }
-    Object.assign(out, { scl });
+    // The first shown rows at their size, drawn smaller together while they do not fit.
+    const fitRows = shown => {
+      const listed = order.slice(0, shown), threeLine = listed.some(i => rows[i].days);
+      const avail = rowsTop - footTop - notesH(notesOf(shown)) / u;
+      let scl = Math.max(MIN_SCL, Math.min(MAX_SCL, Math.min(threeLine ? 0.150 : 0.130, avail * u / shown) / 0.085));
+      let laid = listed.map(idx => rowAt(idx, scl));
+      while (total(laid) > avail && scl > MIN_SCL) {
+        scl = Math.max(MIN_SCL, scl - 0.02);
+        laid = listed.map(idx => rowAt(idx, scl));
+      }
+      return { listed, threeLine, scl, laid, fits: total(laid) <= avail + 1e-9 };
+    };
+    // The safety net (2.7): at the smallest size and still too tall, one row fewer, the note saying how many are not.
+    let showN = firstN, fit = fitRows(showN);
+    while (!fit.fits && showN > 1) fit = fitRows(--showN);
+    const notes = notesOf(showN);
+    Object.assign(out, { scl: fit.scl, order: fit.listed, threeLine: fit.threeLine, notes,
+      more: n > showN ? notes[0] : null });
     let top = rowsTop;
-    laid.forEach(x => {
+    fit.laid.forEach(x => {
       const y = l => top - l.at / panelPt;
       const of = kind => x.lines.filter(l => l.kind === kind);
       const county = of('county')[0], days = of('days')[0];
       out.rows.push({ site: x.idx, name: of('name')[0].text, names: of('name').map(l => l.text), nameSize: x.nameSize,
         nameY: y(of('name')[0]), nameYs: of('name').map(y), count: x.count, countSize: 3.2 * x.scl,
         subLeft: county ? county.text : null, subSize: 2.5 * x.scl, subY: county ? y(county) : null,
-        days: days ? days.text : null, daysY: days ? y(days) : null, height: x.height / panelPt });
+        days: days ? days.text : null, daysY: days ? y(days) : null, height: x.height / panelPt,
+        layers: x.r.layers || [],
+        layerLines: (county && county.items ? [{ y: y(county), x: county.itemsX, items: county.items, pt: county.markPt }] : [])
+          .concat(of('layers').map(l => ({ y: y(l), x: 0, items: l.items, pt: l.markPt }))) });
       top -= x.height / panelPt;
     });
     return out;
@@ -256,11 +302,26 @@
       if (r.subLeft) parts.push(BR.text(r.subLeft, p.u(0.05), p.v(r.subY), { pt: BR.textPt(r.subSize), color: '#7a8691' }));
       // The days in italics, so the name and count lead.
       if (r.days) parts.push(BR.text(r.days, p.u(0.05), p.v(r.daysY), { pt: BR.textPt(r.subSize), color: '#7a8691', italic: true }));
+      // The sites inside by layer (2.7): each layer's mark in its color and shape (white edged, as on the map), then
+      // its count in bold.
+      for (const ln of r.layerLines || []) {
+        let x = p.u(0.05) + ln.x;
+        const y = p.v(ln.y), rr = 0.42 * ln.pt;
+        for (const it of ln.items) {
+          const d = it.shape && it.shape !== 'circle' ? root.WSDA.facilities.markPath(it.shape, x + rr, y, rr) : null;
+          parts.push(d ? '<path d="' + d + '" fill="' + BR.esc(it.color) + '" stroke="#ffffff" stroke-width="0.6" stroke-linejoin="round"/>'
+            : '<circle cx="' + BR.num(x + rr) + '" cy="' + BR.num(y) + '" r="' + BR.num(rr) + '" fill="' + BR.esc(it.color) +
+              '" stroke="#ffffff" stroke-width="0.6"/>');
+          x += 2 * rr + 0.25 * ln.pt;
+          const t = S().comma(it.n);
+          parts.push(BR.text(t, x, y, { pt: ln.pt, color: '#3d4852', bold: true }));
+          x += BR.textWidth(t, ln.pt, true) + 0.9 * ln.pt;
+        }
+      }
     }
-    if (panel.more) {
-      parts.push(BR.text(panel.more, p.u(0.5), p.v(panel.footTop + 0.02 / panel.u), { pt: BR.textPt(2.7), color: '#888888',
-        italic: true, anchor: 'middle' }));
-    }
+    // The notes over the footer, 0.03 apart: "N more positives not listed" on top, the shared-site note under it.
+    panel.notes.forEach((t, k) => parts.push(BR.text(t, p.u(0.5), p.v(panel.footTop + (0.02 + (panel.notes.length - 1 - k) * 0.03) / panel.u),
+      { pt: BR.textPt(2.5), color: '#888888', italic: true, anchor: 'middle' })));
     if (panel.empty) {
       parts.push(BR.text('No positives with zones', p.u(0.5), p.v((panel.rowsTop + panel.footTop) / 2),
         { pt: BR.textPt(3.0), color: '#888888', anchor: 'middle' }));
@@ -454,6 +515,14 @@
         valueBottom: valueY + 0.358 * valuePt, labelTop: labelY - 0.358 * labelPt });
     });
     return { parts: parts.join(''), boxes };
+  }
+  // The meta line's left text (9 pt) cut with "…" to room points (2.7).
+  function metaLeft(t, room) {
+    const BR = B();
+    if (BR.textWidth(t, 9) <= room + 1e-6) return t;
+    const ch = Array.from(t);
+    const k = BM().longestFitting(ch.length, j => BR.textWidth(ch.slice(0, j).join('') + '…', 9) <= room);
+    return ch.slice(0, k).join('') + '…';
   }
   function boxLabel(label, pt, room) {
     const BR = B();
@@ -704,7 +773,17 @@
     const ringsText = rings.map(r => { const b = bothUnits(r.distance, unit); return r.label + ' ' + b.shown + ' (' + b.other + ')'; }).join(', ');
     const zonesText = 'Zones: ' + (show === 'zones' ? input.zoneName || 'from a zone file'
       : show === 'both' ? ringsText + '; ' + (input.zoneName || 'a zone file') : ringsText);
-    const meta = { left: zonesText, right: (win.end ? 'As of ' + R.dayLabel(win.end) + ' · ' : '') + BR.updated(input.date) };
+    // With a kind of animal left out (2.7), the line starts "Positives: cattle only · ". When the left text is longer
+    // than the room the right text leaves (9 points apart), the rings are said short first, as the fold's summary says
+    // them ("3 and 10 km rings"; the key keeps both units), then it is cut with "…", so the two never run together.
+    const meta = { left: (input.animalsOnly ? input.animalsOnly + ' · ' : '') + zonesText, right: (win.end ? 'As of ' + R.dayLabel(win.end) + ' · ' : '') + BR.updated(input.date) };
+    const metaRoom = BR.px(L.mapW - 0.005) - BR.px(0.01) - BR.textWidth(meta.right, 9) - 9;
+    if (show !== 'zones' && rings.length && BR.textWidth(meta.left, 9) > metaRoom) {
+      const n = rings.map(r => String(Number(Number(r.distance).toFixed(2))));
+      const ringsShort = (n.length > 1 ? n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1] : n[0]) + ' ' + E().UNITS[unit].label + ' rings';
+      meta.left = meta.left.replace(ringsText, ringsShort);
+    }
+    meta.left = metaLeft(meta.left, metaRoom);
 
     // The sites inside: one per layer, place and name (however many zones hold it), in the layers' order.
     const facLayers = [];
@@ -745,14 +824,24 @@
     }
     const daysText = days => (days === null || days === undefined ? null
       : days + (days === 1 ? ' day' : ' days') + ' since last positive');
-    // A zone's area in place of the county (2.6), as the list and the hover say it; in Both (3b) each row by its kind.
+    // A row's sites inside of one layer.
+    const ofLayer = (id, key) => (insideBy.has(id) ? [...insideBy.get(id)].filter(k => k.split('\r')[0] === key).length : 0);
+    // A zone's area in place of the county (2.6), as the list and the hover say it; in Both (3b) each row by its kind;
+    // its sites inside by layer (2.7), the layers with none left out.
     const rowsIn = sites.map(s => ({ name: s.name, count: insideBy.has(s.id) ? insideBy.get(s.id).size : 0,
       county: s.zone ? (s.areaM2 ? E().areaText(s.areaM2) : null) : BM().siteCounty(s, input.counties),
-      zone: !!s.zone, days: daysText(daysOf.get(s.id)) }));
+      zone: !!s.zone, days: daysText(daysOf.get(s.id)),
+      layers: facLayers.map(l => ({ key: l.key, color: l.color, shape: l.shape, n: ofLayer(s.id, l.key) })).filter(x => x.n) }));
+    // A site under two rows counts under each (2.7, as the "Zones" list), and a note under the panel says so ("each
+    // row" with Both or an added point among the rows).
+    const rowsOfSite = new Map();
+    insideBy.forEach(set => set.forEach(k => rowsOfSite.set(k, (rowsOfSite.get(k) || 0) + 1)));
+    const panelNote = [...rowsOfSite.values()].some(v => v > 1)
+      ? 'A shared site counts under each ' + (show === 'both' || (input.added || []).length ? 'row' : show === 'zones' ? 'zone' : 'positive') : null;
     // The footer: how many of the rows have a site inside (the sites inside are in a box, the layers in the key).
     const footer = [[({ zones: 'Zones', both: 'Positives and zones' }[show] || 'Positives') + ' with a site inside',
       S().comma(rowsIn.filter(r => r.count > 0).length) + ' of ' + S().comma(rowsIn.length)]];
-    const panelOf = h => panelRows(rowsIn, BR.px(L.gutterW), { zones: 'zone', both: 'row' }[show] || 'positive', footer.length, h);
+    const panelOf = h => panelRows(rowsIn, BR.px(L.gutterW), { zones: 'zone', both: 'row' }[show] || 'positive', footer.length, h, panelNote);
 
     // The key.
     const statuses = [];
@@ -916,9 +1005,29 @@
     const SB_GAP = 0.012;
     const lgY = scale ? 0.045 + SB_H + SB_GAP : 0.045;
     // The key and the panel share the column under the scale bar: the key takes the room it needs while the panel keeps
-    // its rows at PANEL_FLOOR_SCL of CVI's size or more; the panel takes the rest, at most PANEL_H.
+    // its rows at PANEL_FLOOR_SCL of CVI's size or more, and never less than its least (one row with its layers' marks
+    // at the smallest size, so a lone positive with many layers stays clear of the footer); the panel takes the rest,
+    // at most PANEL_H.
     const panelBottom = 1 - L.headerH - 0.020, shared = panelBottom - 0.008 - lgY;
-    const key = keyColumn(items, lgY, 0, Math.max(shared - PANEL_H, shared - panelOf().needAt(PANEL_FLOOR_SCL)));
+    const need = panelOf();
+    const keyRoom = Math.max(shared - PANEL_H, shared - Math.max(need.needAt(PANEL_FLOOR_SCL), need.least()));
+    let key = keyColumn(items, lgY, 0, keyRoom);
+    // 2.7: when that leaves layers out of the key and the panel draws the layers' marks, the key takes
+    // more room, down to the panel's least (its bands and one row at the smallest size), so each mark has its row in
+    // the key; the panel then lists fewer rows. It takes the least room that names every layer (to a thousandth of the
+    // page, its text smaller first as keyColumn draws it), so the panel keeps as many rows as it can.
+    if (key.mode === 'top' && rowsIn.some(r => r.layers.length)) {
+      const most = shared - need.least(), keyAt = h => keyColumn(items, lgY, 0, h);
+      if (keyAt(most).mode === 'one') {
+        let lo = keyRoom, hi = most;
+        while (hi - lo > 0.001) {
+          const mid = (lo + hi) / 2;
+          if (keyAt(mid).mode === 'one') hi = mid;
+          else lo = mid;
+        }
+        key = keyAt(hi);
+      } else if (keyAt(most).shown.length > key.shown.length) key = keyAt(most);
+    }
     const panelH = Math.min(PANEL_H, shared - key.height);
     const panelY = panelBottom - panelH;
     const panel = panelOf(panelH);

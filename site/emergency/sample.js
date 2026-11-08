@@ -5,7 +5,7 @@
  * page does not change. Not real records: names, Case IDs and coordinates are invented, and the "Premises" and
  * "Address" values are marked "(synthetic)" (the page never reads either column).
  * The positives are in the agency's agreed HPAI table's 20 columns (2026-10-22), dates written M/D/YYYY as there, and
- * the "Quarantine Status" column the owner adds as the last (2.4): "Under quarantine" for the open positives,
+ * the "Quarantine Status" column added as the last (2.4): "Under quarantine" for the open positives,
  * "Released" for the closed one.
  * The manifest's keys are those of WSDA's own facility list (CVI_Traceability's reference/facility_overlays_manifest.csv),
  * so the HPAI type's suggested layers are ticked as they will be with the real files.

@@ -4,7 +4,8 @@
 // rule, the edge, the counts, the "nearest" line, the boxes, dates; from E1b the groups, quarantine, the window, the
 // weeks and months, the flock sizes and numbers, miles, days since and the GeoJSON; zones.csv and the map picture's
 // model, site/emergency/branded.js; the chart's counts and drawing, site/emergency/chart.js; from 2.6 the drawn
-// zones: the area, the crossing check, the set shapes, the names, the zone set and the exports' area and source), the
+// zones: the area, the crossing check, the set shapes, the names, the zone set and the exports' area and source; from
+// 2.7 the animal filter and the map picture's counts by layer, the notes, the safety net and the key's room), the
 // types, recognition and the page must each fail a suite.
 //
 // Each mutant changes one exact piece of code in a temporary copy of the repository; the suite named for its group
@@ -13,7 +14,7 @@
 //          suite (which also compares the rules with the R reference); from 2.4 also tools/work-pc/check_hpai_table.R
 //   page   site/emergency/app.js, map.js and index.html (from 2.6 also draw.js and the picture's key row in branded.js),
 //          against the Emergency Chrome suite's parts named with the mutant ("page" and "results" unless it names
-//          others; from E1b also "e1b", "png", "chart" and "speed"; from 2.3 "overview"; from 2.6 "draw")
+//          others; from E1b also "e1b", "png", "chart" and "speed"; from 2.3 "overview"; from 2.6 "draw"; from 2.7 "filter")
 //          (foreground only; about 40 seconds a mutant, so run a few numbers at a time to stay under 600 seconds)
 //
 // Usage (repository root): node tests/mutation/run_em_mutations.js unit|page [numbers ...]
@@ -427,6 +428,31 @@ const GROUPS = {
     ['CVI premises: the numbers in the rows\' order', RU, "ids: [...s.ids].sort((a, b) => a.localeCompare(b, 'en', { numeric: true })), place", 'ids: [...s.ids], place'],
     ['CVI premises: the place from the last movement', RU, '        if (!spots.has(key)) {\n          const place', '        {\n          const place'],
     ['CVI premises: a blank county kept in the place', RU, ".filter(v => v !== null && v !== undefined && v !== '').join(', ');\n          spots.set", ".join(', ');\n          spots.set"],
+    // 2.7, the animal filter and the map picture's breakdown (253 onward).
+    ['animals: an unticked kind\'s positives kept', RU, 'const keep = p => shapes.includes(animalShapeOf(read.type, p));', 'const keep = p => true;'],
+    ['animals: the rows not mapped of an unticked kind kept', RU, 'dropped: (read.dropped || []).filter(keep) });', 'dropped: read.dropped || [] });'],
+    ['animals: every kind shown said as some', RU, 'if (kinds.length < 2 || !shown.length || shown.length === kinds.length) return null;',
+      'if (kinds.length < 2 || !shown.length) return null;'],
+    ['animals: the second kind capitalized', RU, 'const words = shown.map((k, i) => (i ? k.label.toLowerCase() : k.label));', 'const words = shown.map(k => k.label);'],
+    ['animals: two kinds joined by a comma', RU, "words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1];", "words.join(', ');"],
+    ['breakdown: every layer\'s sites counted under each layer', BRD, ".filter(k => k.split('\\r')[0] === key).length : 0);", '.length : 0);'],
+    ['breakdown: the layers with none inside listed', BRD, 'n: ofLayer(s.id, l.key) })).filter(x => x.n) }));', 'n: ofLayer(s.id, l.key) })) }));'],
+    ['breakdown: the marks never on the county line', BRD, 'const onCounty = countyText && layerLines.length && layerLines[0].length ? layerLines[0] : null;',
+      'const onCounty = null;'],
+    ['breakdown: the marks run past the column', BRD, 'if ((line.length || w > 0) && w + itemW(it) > room) {', 'if (false) {'],
+    ['breakdown: no shared-site note', BRD, 'const panelNote = [...rowsOfSite.values()].some(v => v > 1)', 'const panelNote = false'],
+    ['breakdown: the notes over the footer on one line', BRD, 'const notesH = list => (list.length ? 0.045 + 0.03 * (list.length - 1) : 0);',
+      'const notesH = list => (list.length ? 0.045 : 0);'],
+    ['breakdown: no safety net', BRD, '    while (!fit.fits && showN > 1) fit = fitRows(--showN);\n', ''],
+    ['key: layers left out while the panel draws their marks', BRD, "if (key.mode === 'top' && rowsIn.some(r => r.layers.length)) {", 'if (false) {'],
+    ['key: the most room taken, not the least', BRD, '        key = keyAt(hi);\n', '        key = keyAt(most);\n'],
+    ['the kinds from the mapped positives only', RU, 'return animalKeys(read.type, read.positives.concat(read.dropped || []));', 'return animalKeys(read.type, read.positives);'],
+    ['the line over the map never cut', BRD, '    if (BR.textWidth(t, 9) <= room + 1e-6) return t;\n    const ch = Array.from(t);\n    const k = BM().longestFitting(ch.length, j => BR.textWidth(ch.slice(0, j).join(\'\') + \'…\', 9) <= room);', '    return t;\n    const ch = Array.from(t);\n    const k = BM().longestFitting(ch.length, j => BR.textWidth(ch.slice(0, j).join(\'\') + \'…\', 9) <= room);'],
+    ['the line over the map cut to the whole map, not the room the date leaves', BRD, ' - BR.textWidth(meta.right, 9) - 9;\n', ';\n'],
+    ['the shared-site note "each positive" with an added point', BRD, "(show === 'both' || (input.added || []).length ? 'row'", "(show === 'both' ? 'row'"],
+    ['the rings never said short in a long line', BRD, "      meta.left = meta.left.replace(ringsText, ringsShort);\n", ''],
+    ['a lone row with many layers left less than its least', BRD, 'shared - Math.max(need.needAt(PANEL_FLOOR_SCL), need.least()));',
+      'shared - need.needAt(PANEL_FLOOR_SCL));'],
   ],
   page: [
     ['the loader stays open after a clean load', AP, "if (ready && !failed && !notes.length) $('load-fold').open = false;",
@@ -747,7 +773,31 @@ const GROUPS = {
     // 3d, the rings by the zoom and the hover (206 onward).
     ['the CVI rings one size at every zoom', MP, 'const CVI_ZOOM = [6, 0.4, 10, 1];', 'const CVI_ZOOM = [6, 1, 10, 1];', ['results']],
     ['the hover without the CVI numbers', AP, "plural(s.cvis, 'CVI', 'CVIs') + ': ' + ids(s);", "plural(s.cvis, 'CVI', 'CVIs');", ['results']],
-    ['the hover without the place', AP, "(s.place ? ' \\u00b7 ' + s.place : '')", "''", ['results']]
+    ['the hover without the place', AP, "(s.place ? ' \\u00b7 ' + s.place : '')", "''", ['results']],
+    // 2.7, the animal filter (209 onward).
+    ['the animal ticks do nothing', AP, '        state.read = E.byAnimals(all, state.animals);\n', '', ['filter']],
+    ['the animal ticks hidden', AP, "$('em-animals-field').hidden = kinds.length < 2;", "$('em-animals-field').hidden = true;", ['filter']],
+    ['the ticks without the file\'s counts', AP, "k.label + ' (' + n.toLocaleString('en-US') + ')'", 'k.label', ['filter']],
+    ['a new load keeps the kinds unticked', AP, '    state.animals = state.readAll ? E.animalKindsOf(state.readAll).map(k => k.shape) : [];\n',
+      '    state.animals = state.readAll ? (state.animals && state.animals.length ? state.animals : E.animalKindsOf(state.readAll).map(k => k.shape)) : [];\n', ['filter']],
+    ['no "Tick at least one kind" under the ticks', AP, "        $('em-animals-msg').hidden = !noAnimals();\n", "        $('em-animals-msg').hidden = true;\n", ['filter']],
+    ['the badges without the tag', AP, "      if (only) b.append(el('span', 'only-tag', only + ' only'));\n", '', ['filter']],
+    ['the summary without "birds only"', AP, "      if (animalsOnly()) sum.push(animalsOnly().toLowerCase() + ' only');", "      if (false) sum.push('');", ['filter']],
+    ['the badges not redrawn by a tick', AP, '        renderStatuses();\n        renderBadges();\n', '        renderStatuses();\n', ['filter']],
+    ['the "Last positive" box with none ticked', AP, "noAnimals() ? 'Tick at least one kind of animal'", "false ? 'Tick at least one kind of animal'", ['filter']],
+    ['"Inside the zones" with none ticked', AP, "      box.append(el('p', 'muted', 'Tick at least one kind of animal.'));\n", '', ['filter']],
+    ['export_params without animals_shown', AP, "      animals_shown: E.animalKindsOf(state.readAll).filter(k => state.animals.includes(k.shape)).map(k => k.label),\n", '', ['filter']],
+    ['the picture\'s line without the kinds', AP, "animalsOnly: animalsOnly() ? 'Positives: ' + animalsOnly().toLowerCase() + ' only' : null };", 'animalsOnly: null };', ['filter']],
+    ['the loaded-file line counts the kinds shown', AP, "        what = plural(state.readAll.positives.length, 'positive', 'positives')", "        what = plural(state.read.positives.length, 'positive', 'positives')", ['filter']],
+    ['"Tick at least one kind" with no ticks shown', AP, 'E.animalKindsOf(state.readAll).length > 1 && !state.animals.length', '!state.animals.length', ['filter']],
+    ['the ticks count the mapped positives only', AP, 'const n = fileRows().filter(', 'const n = state.readAll.positives.filter(', ['filter']],
+    ['the Inside tab empty with none ticked, zones or not', AP, '      if (!state.days || !state.days.sites.length) return;', '      return;', ['filter']],
+    ['the Export made with none ticked', AP, "exporting.'); return; }\n    if (noAnimals()) { say('em-export-result', 'warn', 'Tick at least one kind of animal.'); return; }", "exporting.'); return; }", ['filter']],
+    ['the map picture made with none ticked', AP, "picture.'); return; }\n    if (noAnimals()) { say('em-export-result', 'warn', 'Tick at least one kind of animal.'); return; }", "picture.'); return; }", ['filter']],
+    ['a drawn zone\'s name checked against the kinds shown', AP, 'positive: (state.readAll ? state.readAll.positives.map(p => p.name)', 'positive: (state.readAll ? state.read.positives.map(p => p.name)', ['draw']],
+    ['the Overview counts the whole file', AP, 'const read = state.read, win = state.window, counties = root.CVIWA_GEO.counties.features;\n    const people = peopleNow();', 'const read = state.readAll, win = state.window, counties = root.CVIWA_GEO.counties.features;\n    const people = peopleNow();', ['filter']],
+    ['the chart counts the whole file', AP, 'E.overTime(state.read, state.window, state.chartSteps)', 'E.overTime(state.readAll, state.window, state.chartSteps)', ['filter']],
+    ['the CVI movements around every kind', AP, '    const read = state.read;\n    const list = read ? E.targets(read.positives, state.ticks, state.window) : [];', '    const read = state.readAll;\n    const list = read ? E.targets(read.positives, state.ticks, state.window) : [];', ['filter']]
   ]
 };
 

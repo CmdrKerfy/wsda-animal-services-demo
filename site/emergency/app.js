@@ -214,6 +214,7 @@
     // The positives, with the type picked from their Disease Name (unless the user picked one).
     state.positivesFile = null;
     state.read = null;
+    state.readAll = null;
     if (datasets.positives) {
       const text = await datasets.positives.file.text();
       if (C.csv.notUtf8(text)) notes.push(C.csv.notUtf8Note(datasets.positives.name));
@@ -251,7 +252,7 @@
           town: p.townName || null, geoSource: p.geoSource, precision: prec[p.ordinal] || {} })) };
     }
     const usable = Object.keys(state.layers);
-    state.selectedLayers = E.suggestedLayers(state.type, state.read ? state.read.positives : [], usable);
+    state.selectedLayers = E.suggestedLayers(state.type, state.readAll ? state.readAll.positives : [], usable);
     // A zone file that came with the files is read; it replaces the rings at once when the type's zones come from a
     // file (zones.source "file"), else one tick does it.
     clearZoneFile();
@@ -278,17 +279,20 @@
   }
 
   // The positives read with the current type; the ticks, the rings and the unit start from the type's defaults (a
-  // unit picked on the page is kept), and the window spans every readable detection.
+  // unit picked on the page is kept), and the window spans every readable detection. Every kind of animal is ticked
+  // again (2.7): state.readAll is the whole file, state.read the kinds ticked, which every view reads.
   function readPositives() {
     const f = state.positivesFile;
     stopPlay();
-    state.read = f ? E.readPositives(f.header, f.rows, state.type, todayIso()) : null;
-    state.ticks = state.read ? E.defaultTicks(state.type, state.read.positives) : null;
+    state.readAll = f ? E.readPositives(f.header, f.rows, state.type, todayIso()) : null;
+    state.animals = state.readAll ? E.animalKindsOf(state.readAll).map(k => k.shape) : [];
+    state.read = state.readAll ? E.byAnimals(state.readAll, state.animals) : null;
+    state.ticks = state.read ? E.defaultTicks(state.type, state.readAll.positives) : null;
     if (!state.unitPicked) state.unit = state.type.zones.unit;
     state.ringBase = { unit: state.type.zones.unit, distances: state.type.zones.rings.map(r => r.distance) };
     state.rings = state.type.zones.rings.map(r => Object.assign({}, r));
     state.rings = ringsIn(state.unit);
-    state.fileWindow = state.read ? E.windowOf(state.read.positives) : null;
+    state.fileWindow = state.readAll ? E.windowOf(state.readAll.positives) : null;
     openViews();
   }
 
@@ -299,9 +303,9 @@
     if (b && (b.label || b.prepared)) lines.push([b.label, b.prepared ? 'as of ' + b.prepared : null].filter(Boolean).join(', '));
     for (const [id, d] of Object.entries(state.datasets)) {
       let what = '';
-      if (id === 'positives' && state.read) {
-        const last = E.valueBoxes(state.read, null).last.value;
-        what = plural(state.read.positives.length, 'positive', 'positives') + (last ? ', as of ' + last + ' (latest detection)' : '');
+      if (id === 'positives' && state.readAll) {
+        const last = E.valueBoxes(state.readAll, null).last.value;
+        what = plural(state.readAll.positives.length, 'positive', 'positives') + (last ? ', as of ' + last + ' (latest detection)' : '');
       } else if (d.kind === 'facility') {
         const l = state.layers[id];
         what = l ? (l.label + ': ' + plural(l.points.length, 'site', 'sites')) : 'not usable';
@@ -404,7 +408,7 @@
       state.show = state.type.zones.source === 'file' ? (state.show === 'both' ? 'both' : 'zones') : E.showOf(state.show, [], state.drawn);
     }
     readPositives();
-    state.selectedLayers = E.suggestedLayers(state.type, state.read ? state.read.positives : [], Object.keys(state.layers));
+    state.selectedLayers = E.suggestedLayers(state.type, state.readAll ? state.readAll.positives : [], Object.keys(state.layers));
     syncControls();
     compute();
   });
@@ -475,6 +479,37 @@
       dot.style.borderColor = c.color || '#636363';
       dot.style.backgroundColor = c.color || '#ffffff';
       label.append(input, dot, document.createTextNode(c.label + ' (' + c.count + ')'));
+      box.append(label);
+    }
+  }
+  // "Animals" (2.7): one tick per kind among the file's positives, with its mark's shape and count, below "Zones
+  // around"; none with one kind. The kinds and counts are the whole file's, its rows not mapped too. An unticked
+  // kind's positives leave every view (rules.js byAnimals); unticking every kind says to tick one.
+  const fileRows = () => state.readAll.positives.concat(state.readAll.dropped || []);
+  const noAnimals = () => !!state.readAll && E.animalKindsOf(state.readAll).length > 1 && !state.animals.length;
+  const animalsOnly = () => (state.readAll ? E.animalsOnly(state.type, fileRows(), state.animals) : null);
+  function renderAnimals() {
+    const box = $('em-animals'), all = state.readAll;
+    const kinds = all ? E.animalKindsOf(all) : [];
+    box.replaceChildren();
+    $('em-animals-field').hidden = kinds.length < 2;
+    $('em-animals-msg').hidden = !noAnimals();
+    if (kinds.length < 2) return;
+    for (const k of kinds) {
+      const label = document.createElement('label'), input = document.createElement('input');
+      input.type = 'checkbox'; input.value = k.shape; input.checked = state.animals.includes(k.shape);
+      input.addEventListener('change', () => {
+        stopPlay();
+        state.animals = Array.from(box.querySelectorAll('input:checked')).map(i => i.value);
+        $('em-animals-msg').hidden = !noAnimals();
+        state.read = E.byAnimals(all, state.animals);
+        state.fitNext = true;   // the view takes in the positives shown
+        renderStatuses();
+        renderBadges();
+        compute();
+      });
+      const n = fileRows().filter(p => E.animalShapeOf(state.type, p) === k.shape).length;
+      label.append(input, animalMark(k.shape), document.createTextNode(k.label + ' (' + n.toLocaleString('en-US') + ')'));
       box.append(label);
     }
   }
@@ -555,13 +590,16 @@
     }
     if (win) renderPlay();
   }
-  // The badge at the map's top center and above the Overview: the pin and the day, or the span and the two dates.
+  // The badge at the map's top center and above the Overview: the pin and the day, or the span and the two dates;
+  // with a kind of animal left out (2.7), a white tag after them ("Cattle only").
   function renderBadges() {
-    const win = state.read ? state.window : null;
+    const win = state.read ? state.window : null, only = animalsOnly();
     for (const id of ['em-badge', 'ov-badge']) {
       const b = $(id);
       b.hidden = !win;
-      if (win) b.innerHTML = W.emergencyIcons.svg(win.view === 'range' ? 'span' : 'pin') + '<span>' + E.viewBadge(win) + '</span>';
+      if (!win) continue;
+      b.innerHTML = W.emergencyIcons.svg(win.view === 'range' ? 'span' : 'pin') + '<span>' + E.viewBadge(win) + '</span>';
+      if (only) b.append(el('span', 'only-tag', only + ' only'));
     }
   }
   // The closed positives are drawn: always Between dates; On a day when "Show closed positives" is ticked.
@@ -934,6 +972,7 @@
     $('em-type').value = state.type.id;
     syncTypeHelp();
     renderStatuses();
+    renderAnimals();
     renderWindow();
     syncUnit();
     if (state.rings) renderRings();
@@ -1001,6 +1040,8 @@
       const ringsWords = !state.rings || !state.rings.length ? 'no rings'
         : listOf(state.rings.map(r => shownDistance(r.distance))).replace(/ /g, '\u00a0') + '\u00a0' + E.UNITS[state.unit].label + ' rings';
       sum.push(zonesMode ? zonesWords() : show === 'both' ? ringsWords + ', ' + zonesWords() : ringsWords);
+      if (animalsOnly()) sum.push(animalsOnly().toLowerCase() + ' only');
+      else if (noAnimals()) sum.push('no animals ticked');
       if (g.past.length) sum.push(closedShown() ? 'closed shown' : 'closed hidden');
       const noStatus = read.columns.status ? read.positives.filter(p => !p.status && E.inWindow(p, state.window)).length : 0;
       if (noStatus) sum.push(noStatus.toLocaleString('en-US') + ' without a status');
@@ -1162,7 +1203,8 @@
       } else nodes.push(rest);
       $('box-past').querySelector('.card-note').replaceChildren(...nodes);
     }
-    set('box-last', v.last.value === null ? null : E.dayLabel(v.last.value), v.last.value === null ? v.last.reason : v.last.note || '');
+    set('box-last', v.last.value === null ? null : E.dayLabel(v.last.value), noAnimals() ? 'Tick at least one kind of animal'
+      : v.last.value === null ? v.last.reason : v.last.note || '');
     set('box-inside', v.inside.value, v.inside.reason);
     const strip = $('em-box-lines'), lines = v.positives.value === null ? [] : v.positives.lines;
     strip.replaceChildren();
@@ -1636,6 +1678,11 @@
     const box = $('tab-inside'), r = state.result;
     box.replaceChildren();
     if (!state.read) { box.append(el('p', 'muted', 'Load a positives file to see what lies inside its zones.')); return; }
+    // With no kind ticked the message comes first; a drawn zone or a zone file's zone is still listed with its sites.
+    if (noAnimals()) {
+      box.append(el('p', 'muted', 'Tick at least one kind of animal.'));
+      if (!state.days || !state.days.sites.length) return;
+    }
     for (const part of [zonesList(), notMappedList()]) if (part) box.append(part);
     if (!r || !r.layers.length) {
       box.append(el('p', 'muted', 'Tick a layer under "Layers to check" to see its sites inside the zones.'));
@@ -1820,6 +1867,7 @@
   $('em-export').addEventListener('click', () => {
     const now = new Date(), folder = X.localDate(now) + '_' + (EB.safeLabel($('em-png-label').value) || 'Emergency');
     if (!state.read) { say('em-export-result', 'warn', 'Load a positives file before exporting.'); return; }
+    if (noAnimals()) { say('em-export-result', 'warn', 'Tick at least one kind of animal.'); return; }
     const r = state.result || { rows: [], layers: [], leftOut: [] };
     const t = E.exportRows(state.read, state.read.targets || [], r, state.unit, state.window);
     const entries = [{ name: folder + '/', dir: true }], written = [];
@@ -1858,6 +1906,7 @@
       cvi_years: cviOn() ? state.cvi.years : null,
       cvi_quarters: cviOn() ? state.cvi.quarters : null,
       cvi_species_groups: cviOn() ? state.cvi.species : null,
+      animals_shown: E.animalKindsOf(state.readAll).filter(k => state.animals.includes(k.shape)).map(k => k.label),
       positives: state.read.positives.length,
       sites_inside: r.total || 0,
       distances: (state.unit === 'mi' ? 'miles (1 mile = 1.609344 km)' : 'km') + ', on a sphere of 6,378,137 m (CVI\'s rule)',
@@ -1966,7 +2015,8 @@
     window: state.window, current: E.groups(read, state.window).current.length,
     detected: E.valueBoxes(read, null, state.window).detected.value,
     cvi: res ? { cvis: res.summary.cvis, animals: res.summary.animals, matched: res.matched || [], years: yearsText } : null, counties: root.CVIWA_GEO.counties.features, date: now,
-    background, streets, nameLayers: ch.nameLayers, title: ch.title, label: ch.label, synthetic: !!state.synthetic };
+    background, streets, nameLayers: ch.nameLayers, title: ch.title, label: ch.label, synthetic: !!state.synthetic,
+    animalsOnly: animalsOnly() ? 'Positives: ' + animalsOnly().toLowerCase() + ' only' : null };
   }
   // The picture: a tile background or Streets loaded first when one is picked; when it cannot be, the Default
   // background and a notice (as Infrastructure's and Premise Lookup's).
@@ -2012,6 +2062,7 @@
   async function drawPicture(button, done) {
     if (drawingPng) return;
     if (!state.read) { say('em-export-result', 'warn', 'Load a positives file before making a map picture.'); return; }
+    if (noAnimals()) { say('em-export-result', 'warn', 'Tick at least one kind of animal.'); return; }
     const ch = pngChoices();
     const label = button.lastChild.textContent;
     drawingPng = true;
@@ -2152,7 +2203,7 @@
       input.setAttribute('aria-label', 'Name of ' + z.first);
       input.addEventListener('change', () => {
         const n = E.zoneName(input.value, z, allZones().filter(o => o !== z).map(o => o.name),
-          { ring: (state.rings || []).map(r => r.label), positive: (state.read ? state.read.positives.map(p => p.name) : []).concat(state.points.map(p => p.name)) });
+          { ring: (state.rings || []).map(r => r.label), positive: (state.readAll ? state.readAll.positives.map(p => p.name) : []).concat(state.points.map(p => p.name)) });
         const holder = { zone: 'Another zone', ring: 'A ring', positive: 'A positive' }[n.by];
         if (n.taken) say('dz-status', 'warn', holder + ' is named "' + input.value.replace(/\s+/g, ' ').trim() + '": the name stays ' + z.name + '.');
         else $('dz-status').hidden = true;

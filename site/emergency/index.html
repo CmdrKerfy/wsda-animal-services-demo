@@ -174,6 +174,7 @@
   #em-legend .lg-ring { display: inline-block; flex: 0 0 14px; width: 14px; height: 10px; margin: 0.15em 5px 0 0; border: 2px solid; }
   #em-legend .facility-mark-box { margin: 0 5px 0 0; }
   #em-legend .lg-animal { display: inline-flex; flex: 0 0 14px; margin: 0.05em 5px 0 0; }
+  #em-animals .lg-animal { display: inline-flex; flex: 0 0 14px; margin: 0.1em 0 0 0; }
   .lg-pc-line { display: inline-block; flex: 0 0 18px; width: 18px; height: 0; border-top: 1.5px solid #737373; margin: 0.55em 5px 0 0; }
   .lg-pc-line.dashed { border-top-style: dashed; }
   .lg-pc-swatch { display: inline-block; flex: 0 0 12px; width: 12px; height: 9px; margin: 0.15em 5px 0 0; border: 1px solid rgba(0, 0, 0, 0.15); }
@@ -257,6 +258,8 @@
     align-items: center; background: var(--primary); color: #fff; border-radius: 14px; padding: 3px 11px; font-size: 13px;
     white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); pointer-events: none; }
   .ts-badge[hidden] { display: none; }
+  /* The animal filter on the badge (2.7): a white tag after the date, "Cattle only". */
+  .ts-badge .only-tag { background: #ffffff; color: var(--wsda-dark-brown); font-weight: 700; border-radius: 9px; padding: 0 7px; }
   .ts-ov-badge { display: flex; justify-content: center; margin: 0 0 0.6rem; }
   .ts-ov-badge .ts-badge { position: static; transform: none; }
   .ts-mark { display: inline-block; width: 0.55em; height: 0.55em; border-radius: 50%; margin-right: 0.25em; vertical-align: 0.12em; box-sizing: border-box; }
@@ -408,6 +411,9 @@
 <div class="help-note" id="help-em-type" hidden><span id="help-em-type-text"></span><ul id="em-type-links"></ul></div>
 <div class="field" id="em-statuses-field"><span class="ctl" id="em-statuses-label">Zones around</span>
 <fieldset class="checklist" id="em-statuses" aria-labelledby="em-statuses-label"></fieldset></div>
+<div class="field" id="em-animals-field" hidden><span class="ctl" id="em-animals-label">Animals</span>
+<fieldset class="checklist" id="em-animals" aria-labelledby="em-animals-label" title="Untick a kind to leave its positives out of everything: the map, the boxes, the Overview, the CVI movements, the map picture and the Export. Every kind is ticked again each time a positives file is loaded or the emergency type is changed."></fieldset>
+<p class="status err" id="em-animals-msg" role="alert" hidden>Tick at least one kind of animal.</p></div>
 <div class="field" id="em-window-field"><div class="ts-head"><div class="ts-switch" role="group" aria-label="Time view"><button type="button" class="btn" id="em-view-day" data-view-kind="day" aria-pressed="true"><span data-em-icon="pin"></span>On a day</button><button type="button" class="btn" id="em-view-range" data-view-kind="range" aria-pressed="false"><span data-em-icon="span"></span>Between dates</button></div><button type="button" class="tip" aria-expanded="false" data-help="em-time" aria-controls="help-em-time" aria-label="About the two time views" title="On a day: every positive active on that day, whenever it was detected, as the outbreak stood then. Between dates: every positive detected between the two dates, active and closed, so nothing in the range is left out.">?</button></div>
 <p class="help-note" id="help-em-time" hidden>On a day: every positive active on that day, whenever it was detected, as the outbreak stood then; the closed ones show when "Show closed positives" is ticked. Between dates: every positive detected between the two dates, active and closed, so nothing in the range is left out; each is active or closed on the second date.</p>
 <div class="ts-dates" id="em-day-row"><span class="ts-ic" data-em-icon="pin"></span><input type="date" id="em-day" aria-label="The day"></div>
@@ -555,7 +561,7 @@
 </section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.6 (2026-11-06)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.7 (2026-11-07)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="../shared/release.js"></script>
 <script src="../shared/zip.js"></script>

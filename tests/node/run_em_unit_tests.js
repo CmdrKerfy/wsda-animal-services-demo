@@ -583,6 +583,30 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && same(E.animalKeys(hpai, [agAt('Whatcom 01')]), [{ shape: 'square', label: 'Cattle' }]) && same(E.animalKeys(hpai, []), [])
       && same(E.animalKeys(nws, [{ species: 'Cattle' }]), [{ shape: 'circle', label: 'Animals' }]),
     'the legend\'s animal rows: one per shape among the positives drawn, in the shapes\' order; none for none', E.animalKeys(hpai, ag.positives));
+    // The animal filter (2.7): a kind left out leaves the read, the rows not mapped too; the words say what is shown.
+    {
+      const mixed = { type: hpai, columns: ag.columns, positives: [{ name: 'B1', species: 'Chicken' }, { name: 'C1', species: 'Dairy Cow' },
+        { name: 'B2', species: null }, { name: 'G1', species: 'Goat' }, { name: 'M1', species: 'Cattle, Chicken' }],
+      dropped: [{ name: 'Line 9', species: 'Cattle' }, { name: 'Line 10', species: 'Duck' }], badDates: [] };
+      const names = r => r.positives.map(p => p.name).join(' ');
+      const cattle = E.byAnimals(mixed, ['square']), birdsGoats = E.byAnimals(mixed, ['circle', 'triangle']);
+      check(names(cattle) === 'C1 M1' && cattle.dropped.map(p => p.name).join() === 'Line 9' && names(birdsGoats) === 'B1 B2 G1'
+        && birdsGoats.dropped.map(p => p.name).join() === 'Line 10' && names(E.byAnimals(mixed, [])) === '' && names(E.byAnimals(mixed, E.ANIMAL_SHAPES)) === 'B1 C1 B2 G1 M1'
+        && cattle.columns === mixed.columns && cattle.type === hpai && mixed.positives.length === 5 && mixed.dropped.length === 2,
+      'the filter keeps the kinds ticked (positives and rows not mapped), a positive naming cattle and birds as cattle, and leaves the read itself as it was',
+      [names(cattle), names(birdsGoats)]);
+      check(E.animalsOnly(hpai, mixed.positives, ['square']) === 'Cattle' && E.animalsOnly(hpai, mixed.positives, ['circle', 'square']) === 'Birds and cattle'
+        && E.animalsOnly(hpai, mixed.positives, ['circle', 'square', 'triangle']) === null && E.animalsOnly(hpai, mixed.positives, []) === null
+        && E.animalsOnly(hpai, [{ species: 'Chicken' }], ['circle']) === null && E.animalsOnly(hpai, mixed.positives, ['triangle']) === 'Other animals'
+        && E.animalsOnly(hpai, ag.positives, ['circle']) === 'Birds',
+      'the filter in words: the kinds shown, only when some are left out ("Cattle", "Birds and cattle"); null for every kind, one kind in the file, or none ticked');
+      const birdsMapped = Object.assign({}, mixed, { positives: [mixed.positives[0], mixed.positives[2]], dropped: [mixed.dropped[0]] });
+      const noneMapped = Object.assign({}, mixed, { positives: [], dropped: [mixed.dropped[0]] });
+      check(same(E.animalKindsOf(birdsMapped), [{ shape: 'circle', label: 'Birds' }, { shape: 'square', label: 'Cattle' }])
+        && same(E.animalKindsOf(noneMapped), [{ shape: 'square', label: 'Cattle' }]) && same(E.animalKindsOf(Object.assign({}, mixed, { positives: [], dropped: [] })), [])
+        && E.animalsOnly(hpai, birdsMapped.positives.concat(birdsMapped.dropped), ['circle']) === 'Birds',
+      'the file\'s kinds: its positives\' and its rows not mapped, so cattle whose only row has no coordinates still get a tick', E.animalKindsOf(birdsMapped));
+    }
     const fourRaw = JSON.parse(JSON.stringify(hpai));
     fourRaw.id = 'test-four-animals';
     fourRaw.countedApart = [{ species: ['cattle'], word: 'cattle' }, { species: ['goat'], word: 'goats' }, { species: ['sheep'], word: 'sheep' }];
@@ -878,6 +902,8 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       'zones.csv: a zone file\'s zone by its name, with no positive, ring, distance or unit; its area (2.6)', zz.rows);
   }
 
+  // The picture's panel for the rules fixture's rings and every layer (2.7), checked against the R reference in 9.
+  let fixturePanel = null;
   {   // The map picture (site/emergency/branded.js): the page's model, from the agreed scenario. The branded files need
     // a window, so they load in their own context, as in the S11 suite; the inputs come from the rules above.
     const vm = require('vm');
@@ -966,6 +992,100 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && prow('Positive 4 (Kittitas)').days === null, 'map picture: each row\'s county and days since the last positive (none without a dated positive)', m.panel.rows);
     check(m.facilities.length === 1 && m.facilities[0].points.length === insideKeys.size && m.unit === 'mi',
       'map picture: the sites inside drawn once each, in their layer');
+    // The sites inside by layer (2.7): the rules fixture's rings and every layer, each in its own shape.
+    const SHAPES = ['circle', 'square', 'diamond', 'triangle', 'star', 'triangle-down'];
+    const COLORS = ['#1f77b4', '#2ca02c', '#9467bd', '#8c564b', '#e377c2', '#17becf'];
+    const pngLayers = list => Object.fromEntries(list.map((l, k) => [l.key, { label: l.label, color: COLORS[k % 6], shape: SHAPES[k % 6] }]));
+    const shownAll = list => list.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, color: '#a50f15', status: 'Confirmed', past: false }));
+    const fxBuilt = EB.page(base({ positives: shownAll(read.targets), sites, rings, unit: 'km', result: res, layers: pngLayers(layers),
+      days: [], current: read.targets.length }));
+    const fx = fxBuilt.model;
+    fixturePanel = fx.panel.rows.map(r => ({ name: sites[r.site].name, layers: r.layers.map(x => [x.key, x.n]) }));
+    const insideCsv = E.exportRows(read, read.targets, res, 'km').inside.rows;
+    const ofCsv = (pos, label) => new Set(insideCsv.filter(r => r[0] === pos && r[1] === label).map(r => r[2])).size;
+    const csvLayers = pos => layers.map(l => [l.key, ofCsv(pos, l.label)]).filter(([, n]) => n);
+    check(fx.panel.rows.length === sites.length && fx.panel.rows.some(r => r.layers.length > 1)
+      && fx.panel.rows.every(r => same(r.layers.map(x => [x.key, x.n]), csvLayers(sites[r.site].name))
+        && r.layers.reduce((t, x) => t + x.n, 0) === Number(r.count.replace(/,/g, ''))),
+    'map picture: each panel row\'s sites inside by layer as inside_the_zones.csv gives them, in the layers\' order, the layers with none left out, adding up to its count (2.7)',
+    fx.panel.rows.map(r => [sites[r.site].name, r.layers.map(x => x.key + ' ' + x.n).join(', ')]));
+    // A layers line's right edge (points from the column's start), as the panel spaces its marks and counts.
+    const lineEnd = ln => ln.x + ln.items.reduce((t, it) => t + 0.84 * ln.pt + 0.25 * ln.pt + BRW.textWidth(String(it.n), ln.pt, true) + 0.9 * ln.pt, 0) - 0.9 * ln.pt;
+    const column = (0.96 - 0.05) * BRW.px(BRW.LAYOUT.gutterW);
+    const drawnCounts = parts => (parts.match(/fill="#3d4852"/g) || []).length;
+    const linesOk = rows => rows.every(r => same([].concat(...r.layerLines.map(ln => ln.items)), r.layers)
+      && (!r.layers.length || !r.subLeft || r.layerLines[0].y === r.subY || r.layerLines[0].x === 0)
+      && r.layerLines.every(ln => ln.items.length && lineEnd(ln) <= column + 1e-6));
+    check(linesOk(fx.panel.rows) && fx.panel.rows.some(r => r.layerLines[0] && r.layerLines[0].y === r.subY && r.layerLines[0].x > 0)
+      && drawnCounts(fxBuilt.parts[5]) === fx.panel.rows.reduce((t, r) => t + r.layers.length, 0),
+    'map picture: each layer\'s mark and count drawn once, starting on the county line after the county and wrapping under it, every line inside the column (2.7)',
+    fx.panel.rows.map(r => r.layerLines.map(ln => [+ln.x.toFixed(1), ln.items.length, +lineEnd(ln).toFixed(1)])));
+    const sharedFx = res.rows.some(a => res.rows.some(b => b.site !== a.site && b.layer === a.layer && b.name === a.name && b.lat === a.lat && b.lon === a.lon));
+    check(same(fx.panel.notes, sharedFx ? ['A shared site counts under each positive'] : []) && same(m.panel.notes, []),
+      'map picture: the note "A shared site counts under each positive" only when a site is in two positives\' zones (2.7)', [sharedFx, fx.panel.notes]);
+    // The worst case: 12 made-up positives close together, 10 layers of made-up sites, most positives
+    // with sites in every layer and days since the last positive: the rows listed never run into the notes, each
+    // layers line inside the column, the rows not listed counted, and the shared-site note under that note.
+    let seed = 11;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const spot = mg => ({ lat: 46.28 - mg + rnd() * (0.40 + 2 * mg), lon: -120.80 - mg + rnd() * (0.85 + 2 * mg) });
+    const wPos = Array.from({ length: 12 }, (_, i) => Object.assign({ index: i, name: 'Synthetic busy farm ' + (i + 1) }, spot(-0.03)));
+    const wLayers = [160, 90, 130, 14, 12, 9, 35, 120, 18, 11].map((n, k) => ({ key: 'w' + k, label: 'Synthetic layer ' + (k + 1),
+      color: '#000000', points: Array.from({ length: n }, (_, j) => Object.assign({ name: 'Synthetic site ' + k + '-' + j, county: null,
+        town: null, geoSource: '', precision: {} }, spot(0.12))) }));
+    const wSites = E.ringSites(wPos, rings);
+    const wRes = E.inside(wSites, wLayers, { mode: 'rings', rings, positives: wPos });
+    const worstOf = list => EB.page(base({ positives: shownAll(wPos), sites: wSites, rings, unit: 'km', result: list === wLayers ? wRes : E.inside(wSites, list, { mode: 'rings', rings, positives: wPos }),
+      layers: pngLayers(list), days: wSites.map((st, i) => ({ site: st.id, days: i })), current: 12 }));
+    const clearOfNotes = p => p.rowsTop - p.rows.reduce((t, r) => t + r.height, 0)
+      >= p.footTop + (p.notes.length ? 0.045 + 0.03 * (p.notes.length - 1) : 0) / p.u - 1e-9;
+    const worst = worstOf(wLayers), wp = worst.model.panel;
+    check(wp.rows.length >= 1 && wp.rows.length <= 8 && clearOfNotes(wp) && linesOk(wp.rows)
+      && same(wp.notes, [(12 - wp.rows.length) + ' more positives not listed (ranked by sites inside)', 'A shared site counts under each positive'])
+      && wp.more === wp.notes[0] && drawnCounts(worst.parts[5]) === wp.rows.reduce((t, r) => t + r.layers.length, 0),
+    'map picture: the worst case (12 positives close together, 10 layers): the rows clear of the notes, every layers line inside the column, the two notes (2.7)',
+    [wp.rows.length, +wp.scl.toFixed(2), wp.notes, wp.rows.map(r => r.layerLines.length)]);
+    const withAdded = EB.page(base({ positives: shownAll(wPos), sites: wSites, rings, unit: 'km', result: wRes, layers: pngLayers(wLayers),
+      days: [], current: 12, added: [{ name: 'Added point 1', lat: 46.5, lon: -120.4 }] })).model.panel;
+    check(withAdded.notes[withAdded.notes.length - 1] === 'A shared site counts under each row',
+    'map picture: with an added point among the rows, the shared-site note says "each row" (2.7)', withAdded.notes);
+    // The key names every layer whose mark the panel draws (2.7): here 2.6's room would list 6 layers and "and N more",
+    // so the key takes the least room from the panel that names them all (its text smaller first), and the panel lists
+    // fewer rows, more than the one row the most room would leave it; the rows still clear of the notes.
+    const w7 = worstOf(wLayers.slice(0, 7)).model, wk = worst.model;
+    check([[w7, 7], [wk, 10]].every(([x, k]) => x.keyMode === 'one' && same(x.keyShown, wLayers.slice(0, k).map(l => l.label)) && clearOfNotes(x.panel)
+      && x.panel.rows.length > 1 && x.panel.more === (12 - x.panel.rows.length) + ' more positives not listed (ranked by sites inside)')
+      && wk.keyTextScale < 1,
+    'map picture: the worst case: the key names all 7 or 10 layers, taking the least room from the panel (with 10, its text smaller; the panel keeping more than one row), the rows clear of the notes (2.7)',
+    [w7.keyMode, w7.keyShown.length, w7.panel.rows.length, w7.keyTextScale, wk.keyMode, wk.keyShown.length, wk.panel.rows.length, wk.keyTextScale, +wk.panelH.toFixed(3)]);
+    // The safety net: 30 layers would not fit 8 rows at the smallest size, so fewer are listed and the note says so.
+    const many = Array.from({ length: 30 }, (_, k) => wLayers[k % 10]).map((l, k) => Object.assign({}, l, { key: 'm' + k, label: 'Synthetic layer ' + (k + 1) }));
+    const mRes = E.inside(wSites, many, { mode: 'rings', rings, positives: wPos });
+    const net = EB.page(base({ positives: shownAll(wPos), sites: wSites, rings, unit: 'km', result: mRes, layers: pngLayers(many),
+      days: wSites.map((st, i) => ({ site: st.id, days: i })), current: 12 })).model.panel;
+    check(net.rows.length < 8 && clearOfNotes(net) && linesOk(net.rows) && net.rows.some(r => r.layerLines.length > 1)
+      && net.more === (12 - net.rows.length) + ' more positives not listed (ranked by sites inside)',
+    'map picture: the safety net: rows that do not fit at the smallest size are left out, the note counting them, never drawn over the notes (2.7)',
+    [net.rows.length, net.scl, net.notes]);
+    // From 10 to 30 layers: the key names every layer while it can, else as many as it can; the panel never over the notes.
+    const sweep = [10, 12, 14, 16, 18, 20, 24, 30].map(k => {
+      const ls = many.slice(0, k), mm = EB.page(base({ positives: shownAll(wPos), sites: wSites, rings, unit: 'km', layers: pngLayers(ls),
+        result: E.inside(wSites, ls, { mode: 'rings', rings, positives: wPos }), days: wSites.map((st, i) => ({ site: st.id, days: i })), current: 12 })).model;
+      return { k, mode: mm.keyMode, shown: mm.keyShown.length, rows: mm.panel.rows.length, clear: clearOfNotes(mm.panel) };
+    });
+    check(sweep.every(x => x.clear && x.rows >= 1 && (x.mode === 'one' ? x.shown === x.k : x.shown < x.k)) && sweep[0].mode === 'one' && sweep[sweep.length - 1].mode === 'top',
+    'map picture: from 10 to 30 layers, the key names every layer while it can, then as many as it can; the panel\'s rows clear of the notes (2.7)', sweep);
+    // One positive with 24 layers of 60 sites inside: the lone row has no row to drop, so the key leaves the panel at
+    // least that row with its marks at the smallest size; it stays clear of the footer.
+    const lone = [wPos[0]], loneSites = E.ringSites(lone, rings);
+    const loneLayers = Array.from({ length: 24 }, (_, k) => ({ key: 'l' + k, label: 'Synthetic layer ' + (k + 1), color: '#000000',
+      points: Array.from({ length: 60 }, (_, j) => ({ name: 'Synthetic site ' + k + '-' + j, county: null, town: null, geoSource: '', precision: {},
+        lat: wPos[0].lat + (rnd() - 0.5) * 0.04, lon: wPos[0].lon + (rnd() - 0.5) * 0.06 })) }));
+    const loneM = EB.page(base({ positives: shownAll(lone), sites: loneSites, rings, unit: 'km', layers: pngLayers(loneLayers),
+      result: E.inside(loneSites, loneLayers, { mode: 'rings', rings, positives: lone }), days: [{ site: loneSites[0].id, days: 4 }], current: 1 })).model;
+    check(loneM.panel.rows.length === 1 && loneM.panel.rows[0].layers.length === 24 && clearOfNotes(loneM.panel) && linesOk(loneM.panel.rows),
+    'map picture: one positive with 24 layers of sites inside: its row and every layer\'s mark clear of the footer (2.7)',
+    [loneM.panel.rows.length, +loneM.panel.scl.toFixed(2), loneM.keyMode, +loneM.panelH.toFixed(3)]);
     check(svg.indexOf(BRW.esc(EB.SENSITIVE)) > 0 && svg.indexOf('Synthetic sample data') > 0 && svg.indexOf('POSITIVES') > 0
       && !/MARKED-ADDRESS|Synthetic Town|Example Road|Landfill/.test(svg),
     'map picture: the sensitive-data line, the synthetic marker, the panel; no address or other unread column');
@@ -1057,6 +1177,25 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const km = EB.page(base({ rings: hpai.zones.rings, unit: 'km', sites: E.ringSites(agTargets, hpai.zones.rings, 'km') })).model;
     check(km.meta.left === 'Zones: Infection zone 3 km (1.9 mi), Control zone 10 km (6.2 mi)' && km.keyItems.some(i => i.label === 'Control zone (10 km / 6.2 mi)'),
       'map picture: in km first, HPAI\'s 3 and 10 km rings with their miles', km.meta.left);
+    // The widest likely line over the map (2.7): HPAI's rings with two kinds named; kept clear of the date on its
+    // right, 9 points apart, with the rings said short.
+    const metaFits = mm => BRW.textWidth(mm.meta.left, 9) + 9 + BRW.textWidth(mm.meta.right, 9) <= BRW.px(BRW.LAYOUT.mapW - 0.005) - BRW.px(0.01) + 1e-6;
+    const wide = EB.page(base({ rings: hpai.zones.rings, unit: 'km', sites: E.ringSites(agTargets, hpai.zones.rings, 'km'),
+      animalsOnly: 'Positives: birds and other animals only' })).model;
+    const birdsKm = EB.page(base({ rings: hpai.zones.rings, unit: 'km', sites: E.ringSites(agTargets, hpai.zones.rings, 'km'), animalsOnly: 'Positives: birds only' })).model;
+    check(metaFits(wide) && wide.meta.left === 'Positives: birds and other animals only · Zones: 3 and 10 km rings'
+      && birdsKm.meta.left === 'Positives: birds only · Zones: Infection zone 3 km (1.9 mi), Control zone 10 km (6.2 mi)' && metaFits(birdsKm) && metaFits(km),
+    'map picture: the line over the map kept clear of the date on its right; whole, the rings in full, when it fits (2.7)', [wide.meta.left, birdsKm.meta.left]);
+    // Too long with the rings in full: the rings said short as the fold's summary says them, the
+    // rest whole; with the zones only there are no rings to shorten.
+    const bothLong = EB.page(base({ rings: hpai.zones.rings, unit: 'km', sites: E.ringSites(agTargets, hpai.zones.rings, 'km'), show: 'both',
+      zoneName: 'synthetic_control_area.geojson and 1 drawn', animalsOnly: 'Positives: cattle only' })).model;
+    const zonesLong = EB.page(base({ rings: hpai.zones.rings, unit: 'km', sites: E.ringSites(agTargets, hpai.zones.rings, 'km'), show: 'zones',
+      zonesMode: true, animalsOnly: 'Positives: birds and other animals only', zoneName: 'synthetic_control_area_north_county_revised_final_v2_for_review.geojson and 3 drawn' })).model;
+    check(bothLong.meta.left === 'Positives: cattle only · Zones: 3 and 10 km rings; synthetic_control_area.geojson and 1 drawn' && metaFits(bothLong)
+      && /^Positives: birds and other animals only · Zones: synthetic_control_area_north_county_revised_final.*…$/.test(zonesLong.meta.left) && metaFits(zonesLong)
+      && /Infection zone 3 km \(1\.9 mi\)/.test(birdsKm.meta.left),
+    'map picture: a line too long with the rings in full says them short ("3 and 10 km rings") before any cut; a zone file\'s long name is cut (2.7)', [bothLong.meta.left, zonesLong.meta.left]);
     // The animals' shapes (2.4): each positive in its shape, a middle mark only when current; the key's ANIMALS rows.
     const animalsShown = agGroups.current.concat(agGroups.past).map(p => Object.assign(shownOf([p])[0], { shape: E.animalShapeOf(hpai, p) }));
     const anBuilt = EB.page(base({ positives: animalsShown, animals: E.animalKeys(hpai, agGroups.current.concat(agGroups.past)) }));
@@ -1840,6 +1979,11 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(worst < 1e-6 && [...theirRows].every(([k, r]) => mineRows.has(k) && mineRows.get(k).zone === r.zone),
       'R reference: every distance within 1e-6 km, and the same ring', worst);
     check(same(o.rings.map(key), res.rows.map(r => r.siteName + '|' + r.layer + '|' + r.name)), 'R reference: the rows in the same order');
+    // The picture's panel (2.7): each positive's sites inside by layer, counted again in R.
+    const theirPanel = (o.breakdown || []).map(b => ({ name: b.name, layers: Array.isArray(b.layers) ? [] : Object.entries(b.layers) }));
+    const byName = list => list.slice().sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    check(theirPanel.length > 0 && fixturePanel && same(byName(fixturePanel), byName(theirPanel)),
+      'R reference: the map picture\'s counts by positive and layer (2.7)', { mine: fixturePanel, r: theirPanel });
     const nearMine = Object.fromEntries(res.layers.filter(l => l.nearest).map(l => [l.key, l.nearest]));
     check(same(Object.keys(o.nearest).sort(), Object.keys(nearMine).sort()) && Object.entries(o.nearest).every(([k, n]) =>
       nearMine[k].name === n.name && nearMine[k].from === n.from && Math.abs(nearMine[k].exactKm - n.km) < 1e-6),

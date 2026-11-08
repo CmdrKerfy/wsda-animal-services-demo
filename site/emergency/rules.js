@@ -94,7 +94,10 @@
  *     or "18,535" under a million.
  *   animalShapeOf(type, p) -> the mark's shape: "circle" for the inventoryWord, "square" for the first countedApart
  *     word, "triangle" for the others (ANIMAL_SHAPES). animalKeys(type, list) -> the legend's rows [{ shape, label }],
- *     one per shape among list ("Birds", "Cattle", "Other animals").
+ *     one per shape among list ("Birds", "Cattle", "Other animals"). animalKindsOf(read) -> the same over the
+ *     positives and the rows not mapped (the "Animals" ticks).
+ *   byAnimals(read, shapes) -> the read with only the positives and rows not mapped whose shape is in shapes (2.7's
+ *     filter). animalsOnly(type, list, shapes) -> "Cattle", "Birds and cattle" when some kinds are left out, else null.
  *   notMappedLine(dropped) -> "2 not mapped: no coordinates", or null.
  *   details(read, p) -> [[column, value]] shown in the hover and positives.csv: the flock type, the shown columns,
  *     the inventory as written and "Flock size".
@@ -648,6 +651,28 @@
       const label = named.join(', ');
       return { shape, label: label.charAt(0).toUpperCase() + label.slice(1) };
     }).filter(Boolean);
+  }
+
+  // The file's kinds (2.7): animalKeys over its positives and its rows not mapped, so a kind whose rows are all
+  // unmapped still gets its tick.
+  function animalKindsOf(read) {
+    return animalKeys(read.type, read.positives.concat(read.dropped || []));
+  }
+
+  // The animal filter (2.7): the read with only the positives (and the rows not mapped) of the kinds ticked, by their
+  // marks' shapes, so a kind left out leaves every view as if it were not in the file.
+  function byAnimals(read, shapes) {
+    const keep = p => shapes.includes(animalShapeOf(read.type, p));
+    return Object.assign({}, read, { positives: read.positives.filter(keep), dropped: (read.dropped || []).filter(keep) });
+  }
+  // The kinds shown in words when some are left out: "Cattle", "Birds and cattle"; null with every kind shown, with
+  // one kind in the file, or with none ticked.
+  function animalsOnly(type, list, shapes) {
+    const kinds = animalKeys(type, list);
+    const shown = kinds.filter(k => shapes.includes(k.shape));
+    if (kinds.length < 2 || !shown.length || shown.length === kinds.length) return null;
+    const words = shown.map((k, i) => (i ? k.label.toLowerCase() : k.label));
+    return words.length === 1 ? words[0] : words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1];
   }
 
   // One line counting the positives by flock type and adding up their animals: "4 commercial, 67 backyard, 4.1M
@@ -1580,7 +1605,7 @@
     coarseReason, precisionRows, inside, countLine, valueBoxes, exportRows, round2, dateOf, PRIVATE, COLUMNS, UNITS,
     PRECISION, toKm, fromKm, KM_PER_MILE, inventoryOf, sizeClass, windowOf, inWindow, isPast, closedDayNotKnown, quarantineOf, stillQuarantined, groups,
     groupOf, weekOf, dayLabel, playSteps, MAX_WEEKS, overTime, dayView, rangeView, openingViews, chartSpan, viewSteps,
-    pickColumn, boxesOf, viewBadge, periodLine, viewParams, bigNumber, inventoryWordOf, ANIMAL_SHAPES, animalShapeOf, animalKeys, numbersLine, notMappedLine, details, daysSince, byQuiet,
+    pickColumn, boxesOf, viewBadge, periodLine, viewParams, bigNumber, inventoryWordOf, ANIMAL_SHAPES, animalShapeOf, animalKeys, animalKindsOf, byAnimals, animalsOnly, numbersLine, notMappedLine, details, daysSince, byQuiet,
     zoneRows,
     zonesGeoJson, DRAW, areaM2, areaOf, areaText, lengthText, sidesMeet, crossesAt, isSimple, canClose, drawLabel,
     rectangleCorners, rectangleSize, rectangleLabel, KM_LAT, squareCorners, squareLabel, CIRCLE_SIDES, circleCorners,

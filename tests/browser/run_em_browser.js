@@ -38,6 +38,9 @@
 //          and "Add a point" never together; a background change keeping the sketch; the Overview's chart; the
 //          picture; the Export's zones.geojson, zones.csv and export_params.json, the zones.geojson reopened under
 //          "Use a zone file" giving the same results; the browser's "Leave this page?"; touch taps; 320 pixels wide
+//   filter 2.7, the animal filter by real clicks on its ticks: each kind left out leaves the map, the boxes, the
+//          legend, the zones' days since, "Inside the zones", the badges, the summary, the picture's line and the Export;
+//          none ticked says so; every kind ticked again at each load; no ticks for a file with one kind
 //   speed  the one-second step at full size: 40 positives against 30,000 points, every step of a whole play timed by
 //          the page's own hook, without a master, with the 50,000-row synthetic master (make_scale_master.js) and with
 //          the CVI movements tab open
@@ -63,7 +66,7 @@ const FIXED_TODAY = 'window.WSDA_EMERGENCY_TODAY = ' + JSON.stringify(TODAY) + '
 const PAGE = process.env.EM_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'index.html')).href;
 const SITE = new URL('.', PAGE).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'view', 'overview', 'draw', 'speed'];
+const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'view', 'overview', 'draw', 'filter', 'speed'];
 const asked = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const PARTS = asked.length ? asked : ALL_PARTS;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -2317,6 +2320,236 @@ async function partOverview(b) {
 // 2.6, "Draw a zone", by real input: mouse presses and releases, moves, drags and keys through the DevTools protocol
 // (the map's own events, as a user's), and touch taps with Chrome's touch emulation. The sample loaded, near Yakima:
 // a six-corner zone around SYN-HPAI-001 beside the sample's zone file.
+// 2.7, the animal filter ("Animals" under "Positives and zones"), by real clicks on its ticks: each kind left out
+// leaves the map, the boxes, the legend, the zones' days since, "Inside the zones", the badges, the fold's summary,
+// the map picture's line and the Export; none ticked says so; every kind ticked again at each load; no ticks for a
+// file with one kind. The breakdown (2.7): with every layer ticked, the picture's counts by positive and
+// layer against the Export's inside_the_zones.csv, drawn on the county line, inside the column, clear of the notes.
+async function partFilter(b) {
+  const p = b.page, S = 'WSDA.emergency.state', R = 'WSDA.emergencyRules';
+  const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip');
+  const middle = sel => p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.scrollIntoView({ block: 'nearest' });
+    const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+  const tick = async shape => {
+    const q = await middle(`#em-animals input[value="${shape}"]`), v = await p.eval(`${S}.version || 0`);
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x: q.x, y: q.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
+    }
+    await sleep(400);
+    await p.waitFor(`!${S}.loading`, 15000, 'filter redrawn');
+    return v;
+  };
+  const open = async files => {
+    await p.goto(new URL('emergency/index.html', SITE).href);
+    await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+    await p.setFiles('#files-input', files);
+    await emReady(p);
+    await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn');
+    await p.eval(`document.getElementById('positives-fold').open = true; scrollTo(0, 0); true`);
+  };
+  // What the page shows, and what the rules give for the kinds ticked.
+  const seen = () => p.eval(`(() => { const s = ${S}, R = ${R}, shapes = list => [...new Set(list.map(q => R.animalShapeOf(s.type, q)))].sort().join();
+    const g = R.groups(s.read, s.window), tag = id => { const t = document.querySelector('#' + id + ' .only-tag'); return t ? t.textContent : null; };
+    return { ticks: [...document.querySelectorAll('#em-animals label')].map(l => [l.textContent, l.querySelector('input').checked, l.querySelector('.lg-animal').dataset.shape]),
+      fieldHidden: document.getElementById('em-animals-field').hidden, msg: !document.getElementById('em-animals-msg').hidden,
+      readShapes: shapes(s.read.positives), allCount: s.readAll.positives.length, drawn: s.map.drawn.positives, current: g.current.length,
+      box: document.querySelector('#box-positives strong').textContent.replace(/\\D/g, ''), last: document.querySelector('#box-last strong').textContent,
+      legend: [...document.querySelectorAll('#em-legend-content p')].map(q => q.textContent), sum: document.getElementById('positives-sum').textContent,
+      badge: tag('em-badge'), ovBadge: tag('ov-badge'), countedShapes: shapes(s.zoneParts.counted), targetShapes: shapes(s.read.targets || []),
+      insideSites: (s.result ? s.result.rows : []).every(r => s.zoneParts.sites.some(z => z.id === r.site)) && s.zoneParts.sites.length === (s.read.targets || []).length,
+      insideText: document.getElementById('tab-inside').textContent.slice(0, 80),
+      asof: [...document.querySelectorAll('#asof-lines li')].map(l => l.textContent).find(t => /positive/.test(t)) || '' }; })()`);
+  const legendAnimals = v => v.legend.slice(v.legend.indexOf('Animals') + 1).filter(t => /^(Birds|Cattle|Other animals)$/.test(t));
+
+  await open([samplePath]);
+  const all = await seen();
+  check(!all.fieldHidden && same(all.ticks, [['Birds (5)', true, 'circle'], ['Cattle (2)', true, 'square']]) && !all.msg,
+  'filter: "Animals" under "Positives and zones": a tick per kind with its shape and the file\'s count, every one ticked after the load', all.ticks);
+  check(all.badge === null && all.ovBadge === null && !/only/.test(all.sum) && all.readShapes === 'circle,square',
+  'filter: every kind ticked: no tag on the badges, nothing in the summary, every positive read', [all.badge, all.sum]);
+
+  await tick('square');
+  const birds = await seen();
+  check(birds.readShapes === 'circle' && birds.drawn === birds.current && birds.drawn < all.drawn && birds.box === String(birds.current)
+    && same(legendAnimals(birds), ['Birds']),
+  'filter: cattle unticked by a click: only the birds\' positives on the map, in the "Active" box and in the legend\'s Animals', [birds.drawn, all.drawn, birds.box, legendAnimals(birds)]);
+  check(birds.countedShapes === 'circle' && birds.targetShapes === 'circle' && birds.insideSites,
+  'filter: the zones\' days since the last positive count the birds only, and every site inside belongs to a bird positive\'s zones', [birds.countedShapes, birds.targetShapes]);
+  check(birds.badge === 'Birds only' && birds.ovBadge === 'Birds only' && /birds only/.test(birds.sum) && /^7 positives/.test(birds.asof.replace(/^[^:]*: /, '')),
+  'filter: said on the map\'s and the Overview\'s badges ("Birds only") and in the fold\'s summary; the loaded-file line still counts the whole file', [birds.badge, birds.sum, birds.asof]);
+  // The Overview's boxes, bars and tables and its chart: as the rules give them for the birds, not for the whole file.
+  await p.eval(`${S}.overview = null; document.getElementById('show-overview').click(); true`);
+  await p.waitFor(`${S}.view === 'overview' && ${S}.overview && ${S}.chart`, 20000, 'the Overview drawn with cattle unticked');
+  const ov = await p.eval(`(() => { const s = ${S}, R = ${R}, o = s.overview, win = s.window, counties = CVIWA_GEO.counties.features, J = JSON.stringify;
+    const boxesOf = read => { const b = R.overviewBoxes(read, win, counties, o.people); delete b.people; return J(b); };
+    const shown = Object.assign({}, o.boxes); delete shown.people;
+    const as = read => ({ rows: J(R.countyRows(read, win, counties)), positives: J(R.positiveRows(read, win, counties)),
+      bars: J(R.overviewBars(R.countyRows(read, win, counties), s.result)), boxes: boxesOf(read), chart: J(R.overTime(read, win, s.chartSteps)) });
+    const birds = as(s.read), all = as(s.readAll), now = { rows: J(o.rows), positives: J(o.positives), bars: J(o.bars), boxes: J(shown), chart: J(s.chart) };
+    return Object.fromEntries(Object.keys(now).map(k => [k, [now[k] === birds[k], birds[k] !== all[k]]])); })()`);
+  await p.eval(`(document.getElementById('show-map').click(), true)`);
+  check(Object.values(ov).every(([same]) => same) && ['rows', 'positives', 'boxes', 'chart'].every(k => ov[k][1]),
+  'filter: cattle unticked: the Overview\'s boxes, county bars and tables and the chart count the birds\' positives only (2.7)', ov);
+
+  await p.eval(`document.getElementById('export-fold').open = true; ${S}.lastPreview = null; true`);
+  await p.click(`document.getElementById('em-preview').click()`);
+  await p.waitFor(`${S}.lastPreview`, 60000, 'preview drawn');
+  const meta = await p.eval(`(() => { const m = ${S}.lastPreview.model; CVIWA.previews.close && CVIWA.previews.close(); return m.meta.left; })()`);
+  check(/^Positives: birds only · Zones: /.test(meta), 'filter: the map picture\'s line over the map starts "Positives: birds only"', meta);
+  await p.eval(`WSDA.sample.download = function () {}; document.getElementById('em-export').click(); true`);
+  const files = await p.eval(`(() => { const out = {}; (${S}.lastExport || []).filter(e => !e.dir).forEach(e => { out[e.name.replace(/^.*\\//, '')] = e.data; }); return out; })()`);
+  const params = JSON.parse(files['export_params.json'] || '{}');
+  const csvNames = String(files['positives.csv'] || '').split('\n').slice(1).filter(Boolean).map(l => l.split(',')[0]);
+  const birdNames = await p.eval(`${S}.read.positives.map(q => q.name)`);
+  // One kind is written plain ("Birds"), as export_params.json writes every one-element list (R's auto_unbox).
+  check(params.animals_shown === 'Birds' && params.positives === birdNames.length && csvNames.length > 0 && csvNames.every(n => birdNames.includes(n.replace(/"/g, ''))),
+  'filter: the Export: export_params.json animals_shown "Birds" and its positives count, positives.csv the birds\' positives only', [params.animals_shown, params.positives, csvNames, birdNames]);
+
+  await tick('circle');
+  const none = await seen();
+  check(none.msg && none.drawn === 0 && none.last === 'Tick at least one kind of animal' && /Tick at least one kind of animal/.test(none.insideText)
+    && /no animals ticked/.test(none.sum) && none.badge === null,
+  'filter: every kind unticked: "Tick at least one kind of animal." under the ticks, in the "Last positive" box and the "Inside the zones" tab; no positive drawn', [none.last, none.insideText, none.sum]);
+  await tick('circle');
+  await tick('square');
+  const back = await seen();
+  check(back.drawn === all.drawn && back.box === all.box && back.badge === null && !back.msg && back.readShapes === 'circle,square',
+  'filter: both ticked again: the page as at the load', [back.drawn, all.drawn]);
+
+  // The breakdown (2.7), with every layer ticked: each panel row's counts by layer as the Export's
+  // inside_the_zones.csv gives them; each layers line inside the column; the rows clear of the notes; the shared-site
+  // note when a site is in two positives' zones.
+  await p.eval(`(() => { document.querySelectorAll('#em-layers input:not(:checked)').forEach(i => i.click()); return true; })()`);
+  await p.waitFor(`!${S}.loading && ${S}.result`, 15000, 'every layer checked');
+  await p.eval(`${S}.lastPreview = null; true`);
+  await p.click(`document.getElementById('em-preview').click()`);
+  await p.waitFor(`${S}.lastPreview`, 60000, 'preview drawn with every layer');
+  const pan = await p.eval(`(() => { const m = ${S}.lastPreview.model, s = ${S}; CVIWA.previews.close && CVIWA.previews.close();
+    const label = Object.fromEntries(s.result.layers.map(l => [l.key, l.label])), seen = new Map();
+    s.result.rows.forEach(r => { const k = r.layer + '|' + r.lat + '|' + r.lon + '|' + r.name; seen.set(k, (seen.get(k) || new Set()).add(r.site)); });
+    const BR = WSDA.branded, column = (0.96 - 0.05) * BR.px(BR.LAYOUT.gutterW), P = m.panel;
+    const lineEnd = ln => ln.x + ln.items.reduce((t, it) => t + 0.84 * ln.pt + 0.25 * ln.pt + BR.textWidth(String(it.n), ln.pt, true) + 0.9 * ln.pt, 0) - 0.9 * ln.pt;
+    return { rows: P.rows.map(r => ({ name: r.name, count: r.count, layers: r.layers.map(x => [label[x.key], x.n]), onCounty: !!(r.layerLines[0] && r.layerLines[0].y === r.subY),
+        inColumn: r.layerLines.every(ln => lineEnd(ln) <= column + 1e-6), drawnAll: [].concat(...r.layerLines.map(ln => ln.items)).length === r.layers.length })),
+      layersIn: s.result.layers.filter(l => l.inside > 0).length, notes: P.notes,
+      clear: P.rowsTop - P.rows.reduce((t, r) => t + r.height, 0) >= P.footTop + (P.notes.length ? 0.045 + 0.03 * (P.notes.length - 1) : 0) / P.u - 1e-9,
+      shared: [...seen.values()].some(set => set.size > 1) }; })()`);
+  await p.eval(`(() => { ${S}.lastExport = null; document.getElementById('em-export').click(); return true; })()`);
+  await p.waitFor(`${S}.lastExport`, 30000, 'export with every layer');
+  const insideRows = await p.eval(`(() => { const f = (${S}.lastExport || []).find(e => /inside_the_zones\\.csv$/.test(e.name));
+    return f ? CVIWA.csv.parse(f.data).rows : []; })()`);
+  const fromCsv = name => {
+    const by = new Map();
+    insideRows.filter(r => r[0] === name).forEach(r => by.set(r[1], (by.get(r[1]) || new Set()).add(r[2])));
+    return [...by].map(([l, set]) => [l, set.size]);
+  };
+  const sorted = list => list.slice().sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  check(pan.rows.length > 0 && pan.layersIn >= 3 && pan.rows.some(r => r.layers.length > 1)
+    && pan.rows.every(r => same(sorted(r.layers), sorted(fromCsv(r.name))) && r.layers.reduce((t, x) => t + x[1], 0) === Number(r.count.replace(/,/g, ''))),
+  'filter: the map picture with every layer: each POSITIVES row\'s sites inside by layer as the Export\'s inside_the_zones.csv gives them, adding up to its count (2.7)',
+    pan.rows.map(r => [r.name, r.count, r.layers.map(x => x.join(' ')).join(', ')]));
+  check(pan.rows.filter(r => r.layers.length).every(r => r.inColumn && r.drawnAll) && pan.rows.some(r => r.onCounty) && pan.clear
+    && same(pan.notes.filter(t => /shared/.test(t)), pan.shared ? ['A shared site counts under each positive'] : []),
+  'filter: the map picture: each layer\'s mark and count drawn on the county line and under it, inside the column, the rows clear of the notes; the shared-site note when a site is in two positives\' zones (2.7)',
+    [pan.rows.map(r => [r.name, r.onCounty, r.inColumn]), pan.notes, pan.shared]);
+
+  await tick('square');
+  await p.setFiles('#files-input', [samplePath]);
+  await emReady(p, await p.eval(`${S}.version`));
+  await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn again');
+  const again = await seen();
+  check(same(again.ticks.map(t => t[1]), [true, true]) && again.readShapes === 'circle,square' && again.badge === null,
+  'filter: files loaded again: every kind ticked again (question 6)', again.ticks);
+  // A zone file chosen with cattle unticked redraws the loaded files' lines: the positives line still counts the file.
+  await tick('square');
+  await p.setFiles('#em-zone-file', [path.join(TABLES, 'em_bundle', 'zones.geojson')]);
+  await p.waitFor(`${S}.zoneFile && !${S}.loading`, 20000, 'zone file used');
+  await sleep(500);
+  const zoned = await seen();
+  check(zoned.readShapes === 'circle' && /^7 positives/.test(zoned.asof.replace(/^[^:]*: /, '')),
+  'filter: a zone file chosen with cattle unticked: the loaded-file line still counts the whole file (7 positives)', zoned.asof);
+  // With birds unticked too, the zone file's zones still count their sites: the tab says to tick a kind first, then
+  // lists them, as the "Sites inside" box counts them.
+  await tick('circle');
+  const zonedNone = await p.eval(`(() => { const s = ${S}, tab = document.getElementById('tab-inside');
+    return { first: tab.firstElementChild ? tab.firstElementChild.textContent : '', zones: tab.querySelectorAll('.em-zones-list').length,
+      sites: s.result ? s.result.rows.length : 0, layers: tab.querySelectorAll('details.em-layer[data-layer]').length,
+      box: document.querySelector('#box-inside strong').textContent }; })()`);
+  check(zonedNone.first === 'Tick at least one kind of animal.' && zonedNone.zones === 1 && zonedNone.sites > 0 && zonedNone.layers > 0
+    && zonedNone.box !== '0',
+  'filter: every kind unticked with a zone file: "Inside the zones" says to tick a kind, then still lists the zones and their sites inside', zonedNone);
+  // ... and the Export and the map picture are refused, saying the same.
+  await p.eval(`(() => { const s = ${S}; s.lastExport = null; s.lastPreview = null; document.getElementById('export-fold').open = true;
+    document.getElementById('em-export').click(); return true; })()`);
+  const exportSaid = await p.eval(`document.getElementById('em-export-result').textContent`);
+  await p.eval(`(document.getElementById('em-preview').click(), true)`);
+  await sleep(1500);
+  const refused = await p.eval(`({ said: document.getElementById('em-export-result').textContent, made: !!(${S}.lastExport || ${S}.lastPreview) })`);
+  check(exportSaid === 'Tick at least one kind of animal.' && refused.said === 'Tick at least one kind of animal.' && !refused.made,
+  'filter: every kind unticked: the Export and the map picture are not made; the line under them says "Tick at least one kind of animal."', [exportSaid, refused]);
+
+  // The CVI movements with cattle unticked: looked up around the birds' positives with zones only.
+  await open([samplePath, path.join(TABLES, 'em_cvi_master.csv')]);
+  await p.eval(`(document.getElementById('em-cvi').click(), document.getElementById('show-cvi').click(), true)`);
+  await p.waitFor(`${S}.cviRes && ${S}.cviRes.status === 'ok'`, 30000, 'CVI result');
+  const cviAll = await p.eval(`({ sites: ${S}.cviRes.siteCvis.length, cvis: ${S}.cviRes.summary.cvis, targets: ${S}.read.targets.length })`);
+  await p.eval(`${S}.cviRes = null; true`);
+  await tick('square');
+  await p.waitFor(`${S}.cviRes && ${S}.cviRes.status === 'ok'`, 30000, 'CVI result with cattle unticked');
+  const cviBirds = await p.eval(`({ sites: ${S}.cviRes.siteCvis.length, cvis: ${S}.cviRes.summary.cvis, targets: ${S}.read.targets.length,
+    birds: ${S}.read.targets.every(q => WSDA.emergencyRules.animalShapeOf(${S}.type, q) === 'circle') })`);
+  check(cviAll.sites === cviAll.targets && cviBirds.sites === cviBirds.targets && cviBirds.birds && cviBirds.sites < cviAll.sites && cviBirds.cvis <= cviAll.cvis,
+  'filter: cattle unticked: the CVI movements are looked up around the birds\' positives with zones only (2.7)', [cviAll, cviBirds]);
+
+  // The kinds are the whole file's, its rows not mapped too: cattle whose only row has no coordinates still get a
+  // tick (and stay in "Not mapped"); with no row mapped at all, every kind is still ticked and nothing says to tick one.
+  const FX = require(path.join(ROOT, 'tests', 'synthetic', 'make_em_fixtures.js')), OUTF = path.join(OUT, 'filter');
+  fs.mkdirSync(OUTF, { recursive: true });
+  const fxRow = (id, lat, long, flock, production, species) => [id, '09/01/2026', '', '09/02/2026', '', '(synthetic) Example Farm',
+    '(synthetic) Example Road', 'Synthetic Town', 'Yakima', lat, long, 'Active', 'H5N1 2.3.4.4b', flock, production, species, '1000', '1000', '1', 'Landfill'].join(',');
+  const birdsRows = [fxRow('FX-001', '46.55', '-120.47', 'Commercial', 'Commercial Table Egg Layer', 'Chicken'),
+    fxRow('FX-002', '46.40', '-120.32', 'Backyard', 'Backyard Flock', 'Chicken'), fxRow('FX-003', '46.60', '-120.60', 'Backyard', 'Backyard Flock', 'Duck')];
+  const cattleRow = fxRow('FX-004', '', '', 'Commercial', 'Dairy', 'Dairy Cow');
+  const unmapped = path.join(OUTF, 'em_filter_cattle_unmapped.csv'), noneMapped = path.join(OUTF, 'em_filter_none_mapped.csv');
+  fs.writeFileSync(unmapped, [FX.AGREED_HEAD.join(',')].concat(birdsRows, [cattleRow]).join('\n') + '\n');
+  fs.writeFileSync(noneMapped, [FX.AGREED_HEAD.join(',')].concat(birdsRows.map(r => r.replace(/,46\.\d+,-120\.\d+,/, ',,,')), [cattleRow]).join('\n') + '\n');
+  const fileSeen = () => p.eval(`(() => { const s = ${S};
+    return { ticks: [...document.querySelectorAll('#em-animals label')].map(l => [l.textContent, l.querySelector('input').checked]),
+      hidden: document.getElementById('em-animals-field').hidden, msg: !document.getElementById('em-animals-msg').hidden,
+      dropped: s.read.dropped.map(q => q.name), mapped: s.read.positives.length, last: document.querySelector('#box-last strong').textContent,
+      notMapped: !!document.querySelector('#tab-inside .em-notmapped'), inside: document.getElementById('tab-inside').textContent.slice(0, 80) }; })()`);
+  await open([unmapped]);
+  const u = await fileSeen();
+  check(!u.hidden && same(u.ticks, [['Birds (3)', true], ['Cattle (1)', true]]) && same(u.dropped, ['FX-004']) && u.notMapped && !u.msg,
+  'filter: a cattle row that could not be mapped, beside mapped birds: the cattle still get a tick, counted, and the row stays in "Not mapped"', u);
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+  await p.setFiles('#files-input', [noneMapped]);
+  await emReady(p);
+  await p.waitFor(`${S}.read && !${S}.loading`, 15000, 'a file with no row mapped read');
+  const n0 = await fileSeen();
+  check(!n0.hidden && same(n0.ticks, [['Birds (3)', true], ['Cattle (1)', true]]) && n0.mapped === 0 && n0.dropped.length === 4 && !n0.msg
+    && n0.last !== 'Tick at least one kind of animal' && n0.notMapped && !/Tick at least one kind/.test(n0.inside),
+  'filter: a file with no row mapped: every kind ticked, no "Tick at least one kind of animal.", and "Inside the zones" lists the rows not mapped', n0);
+  // A positives file with its header only: no kind, no ticks, and nothing says to tick one.
+  const headerOnly = path.join(OUTF, 'em_filter_header_only.csv');
+  fs.writeFileSync(headerOnly, FX.AGREED_HEAD.join(',') + '\n');
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+  await p.setFiles('#files-input', [headerOnly]);
+  await emReady(p);
+  await sleep(500);
+  const h0 = await p.eval(`(() => { const s = ${S}; return { read: !!s.readAll, rows: s.readAll ? s.readAll.positives.length + s.readAll.dropped.length : null,
+    hidden: document.getElementById('em-animals-field').hidden, msg: !document.getElementById('em-animals-msg').hidden,
+    last: document.querySelector('#box-last strong').textContent, inside: document.getElementById('tab-inside').textContent.slice(0, 80) }; })()`);
+  check(h0.read && h0.rows === 0 && h0.hidden && !h0.msg && h0.last !== 'Tick at least one kind of animal' && !/Tick at least one kind/.test(h0.inside),
+  'filter: a positives file with its header only: no "Animals" ticks and no "Tick at least one kind of animal."', h0);
+
+  await open([path.join(TABLES, 'em_nws_synthetic_positives.csv')]);
+  const one = await p.eval(`({ hidden: document.getElementById('em-animals-field').hidden, n: document.querySelectorAll('#em-animals input').length })`);
+  check(one.hidden && one.n === 0, 'filter: a file with one kind of animal (the screwworm outbreak): no "Animals" ticks', one);
+}
+
 async function partDraw(b) {
   const p = b.page, S = 'WSDA.emergency.state', D = 'WSDA.emergency.draw', R = 'WSDA.emergencyRules';
   const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip'), DIR = path.join(OUT, 'draw');
@@ -2726,7 +2959,8 @@ async function partDraw(b) {
   await p.waitFor(`${S}.lastPreview`, 60000, 'preview drawn in Both');
   const bothPic = await p.eval(`(() => { const m = ${S}.lastPreview.model; CVIWA.previews.close && CVIWA.previews.close();
     return { meta: m.meta.left, keys: m.keyItems.map(i => i.label), rows: m.panel.rows.map(r => [r.name, r.subLeft]) }; })()`);
-  check(/^Zones: Infection zone 3 km \([\d.]+ mi\), Control zone 10 km \([\d.]+ mi\); synthetic_control_area\.geojson and 1 drawn$/.test(bothPic.meta)
+  // Too long for its room with the rings in full, the line says them short, as the fold's summary does (2.7).
+  check(bothPic.meta === 'Zones: 3 and 10 km rings; synthetic_control_area.geojson and 1 drawn'
     && bothPic.keys.some(k => /^Infection zone/.test(k)) && bothPic.keys.includes('Zone (from file)') && bothPic.keys.includes('Zone (drawn)')
     && bothPic.rows.some(r => r[0] === 'Along the river' && /sq mi, [\d,]+ acres$/.test(r[1])) && bothPic.rows.some(r => /^SYN-HPAI-/.test(r[0])),
   'draw: Both: the map picture\'s meta line names the rings, then the zones; the key has the rings\' and the zones\' rows; the panel the positives and the zones', bothPic);
@@ -2885,6 +3119,16 @@ async function partDraw(b) {
   check(asRing.name === 'Drawn zone 1' && asRing.status === 'A ring is named "Infection zone": the name stays Drawn zone 1.'
     && asPositive.name === 'Drawn zone 1' && asPositive.status === 'A positive is named "SYN-HPAI-001": the name stays Drawn zone 1.',
   'draw: a drawn zone\'s name a ring or a positive has is refused, with a line saying which', [asRing, asPositive]);
+  // With cattle unticked, a cattle positive's name is still refused: the names are the whole file's (2.7).
+  await p.eval(`(document.querySelector('#em-animals input[value="square"]').click(), true)`);
+  await sleep(400);
+  await p.waitFor(`!${S}.loading`, 15000, 'cattle unticked');
+  const asCattle = await refuse('SYN-HPAI-003');
+  await p.eval(`(document.querySelector('#em-animals input[value="square"]').click(), true)`);
+  await sleep(400);
+  await p.waitFor(`!${S}.loading`, 15000, 'cattle ticked again');
+  check(asCattle.name === 'Drawn zone 1' && asCattle.status === 'A positive is named "SYN-HPAI-003": the name stays Drawn zone 1.',
+  'draw: with cattle unticked, a cattle positive\'s name ("SYN-HPAI-003") is still refused for a drawn zone (2.7)', asCattle);
   await press('#dz-list li button:nth-of-type(2)');
 
   // ---- Touch taps (Chrome's touch emulation): three taps and Finish; the label at the last tap ---------------------
@@ -2954,6 +3198,7 @@ async function shot2(b, name) {
       else if (part === 'view') await partView(b);
       else if (part === 'overview') await partOverview(b);
       else if (part === 'draw') await partDraw(b);
+      else if (part === 'filter') await partFilter(b);
       else if (part === 'speed') await partSpeed(b);
       else check(false, 'unknown part ' + part);
     }

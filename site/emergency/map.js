@@ -59,7 +59,7 @@
     geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
     properties: { label: p.label, mark: positiveId(p), opacity: p.past ? 0.55 : 1, lon: p.lon, lat: p.lat } })) });
 
-  // A positive's mark (2.4, the owner's look D): its animal's shape (rules.js animalShapeOf) filled in its status
+  // A positive's mark (2.4): its animal's shape (rules.js animalShapeOf) filled in its status
   // color, with a white halo and a near-black outline, half larger than the circle before (radius 7 with zones, else
   // 5); a past one white inside with an edge in its status color, faded by the layer. Drawn at twice the size for
   // sharp edges; made again when a basemap's new style asks for it.

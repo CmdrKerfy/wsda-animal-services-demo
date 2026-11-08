@@ -57,7 +57,11 @@ backgrounds this document mentions.
   end; the panel "POSITIVES" (one row per positive with zones, or per zone-file zone, with its days since the last
   positive) in place of "QUERY SITES"; each ring in the key in both units ("Infection zone (3 km / 1.9 mi)"); the
   layers' counts in a right-hand column under "SITES INSIDE" (CVI: "Layer: 8 inside" after the name), the key taking
-  smaller text, then room from the panel, before it lists fewer layers. With a CVI master and (2.6) the tick "CVI
+  smaller text, then room from the panel, before it lists fewer layers. Each panel row (2.7) gives its sites inside by
+  layer, each layer's mark and count on the county line after the county and wrapping under it, with "A shared site
+  counts under each positive" when a site is under two rows; with many rows the panel's text gets smaller, then it
+  lists fewer rows and says how many are not listed; while the panel draws the layers' marks, the key takes the least
+  room from the panel that names every layer (Premise Lookup's panel gives one count per site). With a CVI master and (2.6) the tick "CVI
   movements" on, the CVI premises with an origin or a destination in a zone are drawn hollow (CVI: filled dots), under
   "CVI PREMISES" with the CVI tab's years, and the boxes read "CVIs in or out" and "Animals moved"; with the tick off
   (as at every load) the picture has none of them, as the live map, and the Export has no `cvi_movements.csv`
@@ -109,6 +113,15 @@ backgrounds this document mentions.
   `zones.csv` and `zones.geojson` (with `source`, "drawn" or "file"). Nothing is stored: the browser asks before the
   page is left while drawn zones exist, and the Export's `zones.geojson` reopens under "Use a zone file". CVI's
   Premise Lookup has no drawing.
+- **Emergency Response's animal filter (version 2.7):** "Animals" ticks under "Zones around", one per kind among the
+  positives read, rows that could not be mapped included (birds, cattle, other animals, by their marks' shapes), none
+  with one kind, every kind ticked again at each load of a positives file or change of the emergency type. An unticked
+  kind's positives leave every view and the Export as if not in the file (the lines under the boxes about dates not
+  readable and quarantine statuses not read still count the whole file; to follow the ticks in 2.8); with none ticked the Export and the map
+  picture are not made. A white tag on the badges ("Birds only"), the fold's summary, the map picture's line
+  ("Positives: birds only"; where it would run into the date, the rings said short, "3 and 10 km rings", then cut
+  with "…") and `export_params.json` (`animals_shown`)
+  say so. CVI's and Infrastructure's pages have no such filter (CVI filters its records by species group).
 - **Emergency Response's time views (version 2.5):** a switch "On a day" | "Between dates" with a pin and a span, in
   place of CVI's and Infrastructure's single date window. On a day shows every positive active on the day, whenever it
   was detected (closed ones when ticked); Between dates every positive detected between the two dates, active and

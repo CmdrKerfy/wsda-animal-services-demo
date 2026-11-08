@@ -13,6 +13,8 @@
 #     the point first; a point inside when its distance is at most the outer ring; its ring the smallest at least the
 #     distance; the rows layer by layer, then site by site, nearest first;
 #   - the "nearest" line for each layer with nothing inside: its nearest usable point to any positive with zones;
+#   - the map picture's counts by positive and layer (2.7): each positive with zones, each layer's sites inside, a
+#     site once by its name and place;
 #   - zones from a file: read with sf and tested with GEOS (planar, sf_use_s2(FALSE)), as the S11 reference does;
 #   - the speed set: 40 positives against 30,000 points, timed;
 #   - the CVI movements for one case (the Emergency sample's positives with zones, HPAI's rings as the bands, a small
@@ -168,6 +170,23 @@ for (l in layers) {
   }
 }
 cat(sprintf("rings: %d inside rows, %d layers with a nearest line\n", length(ring_rows), length(nearest)))
+
+# ── The map picture's counts by positive and layer (2.7) ────────────────────────────────────────────
+# Each positive with zones, each layer's usable sites inside its outer ring, a site once by its name and place; the
+# layers with none left out, in the layers' order.
+breakdown <- lapply(sites, function(s) {
+  counts <- list()
+  for (l in layers) {
+    ok <- which(l$eligible)
+    d <- distHaversine(cbind(l$lon[ok], l$lat[ok]), c(plon[s], plat[s]), r = 6378137) / 1000
+    hit <- ok[d <= outer]
+    n <- nrow(unique(data.frame(name = l$name[hit], lat = l$lat[hit], lon = l$lon[hit])))
+    if (n > 0) counts[[l$key]] <- n
+  }
+  list(name = pos_names[s], layers = counts)
+})
+cat(sprintf("breakdown: %s\n", paste(vapply(breakdown, function(b) sprintf("%s %s", b$name,
+  paste(names(b$layers), unlist(b$layers), collapse = " ")), ""), collapse = "; ")))
 
 # ── Zones from a file ────────────────────────────────────────────────────────────────────────────
 suppressMessages(sf_use_s2(FALSE))
@@ -685,6 +704,7 @@ out <- list(
                       vapply(layers, function(l) l$key, character(1))),
   rings = ring_rows,
   nearest = nearest,
+  breakdown = breakdown,
   zones = zone_out,
   speed = list(pairs = pairs, distinct = distinct, seconds = speed_s),
   cvi = cvi_out,

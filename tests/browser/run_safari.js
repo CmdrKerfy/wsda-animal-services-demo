@@ -3074,6 +3074,21 @@ async function runEM() {
       check(shapes.marks.join() === 'circle,circle,circle,circle,square,square' && shapes.legend.join() === 'circle Birds,square Cattle'
         && shapes.home === 'Fit to the positives shown',
       'EM Safari: the birds circles and the dairies squares, their pictures drawn by Safari; the legend\'s Animals rows; the home button "Fit to the positives shown"', shapes);
+      // 2.7, the animal filter: "Cattle" unticked by a real click leaves the birds only, said on the badge; ticked again,
+      // the six come back.
+      await d.run(`document.getElementById('positives-fold').open = true; document.querySelector('#em-animals input[value="square"]').scrollIntoView({ block: 'center' }); return true;`);
+      await d.click('#em-animals input[value="square"]');
+      await d.waitFor('!WSDA.emergency.state.loading && WSDA.emergency.state.map.drawn.positives < 6', 10000, 'cattle left out');
+      const birds = await d.run(`var s=WSDA.emergency.state,t=document.querySelector('#em-badge .only-tag');return { drawn: s.map.drawn.positives,
+        marks: s.map.em.positives.features.map(function(f){return f.properties.mark.split(':')[1];}), tag: t ? t.textContent : null,
+        sum: document.getElementById('positives-sum').textContent };`);
+      await d.click('#em-animals input[value="square"]');
+      await d.waitFor('!WSDA.emergency.state.loading && WSDA.emergency.state.map.drawn.positives === 6', 10000, 'cattle back');
+      const both = await d.run(`return { drawn: WSDA.emergency.state.map.drawn.positives, tag: !!document.querySelector('#em-badge .only-tag') };`);
+      await d.run(`document.getElementById('positives-fold').open = false; return true;`);
+      check(birds.drawn === 4 && birds.marks.every(function (m) { return m === 'circle'; }) && birds.tag === 'Birds only' && /birds only/.test(birds.sum)
+        && both.drawn === 6 && !both.tag,
+      'EM Safari: a real click on the "Cattle" tick leaves the four birds\' positives, "Birds only" on the badge and in the summary; a second click brings the six back (2.7)', [birds, both]);
       await d.click('button.tip[data-help="em-type"]');
       const help = await d.run(`return { open: document.getElementById('positives-fold').open, note: !document.getElementById('help-em-type').hidden,
         links: Array.from(document.querySelectorAll('#em-type-links a')).map(function(a){return a.target+' '+a.rel;}) };`);
