@@ -113,11 +113,21 @@ backgrounds this document mentions.
   `zones.csv` and `zones.geojson` (with `source`, "drawn" or "file"). Nothing is stored: the browser asks before the
   page is left while drawn zones exist, and the Export's `zones.geojson` reopens under "Use a zone file". CVI's
   Premise Lookup has no drawing.
+- **Emergency Response's kinds of animals (version 2.8):** the emergency type names its kinds of animals, each with
+  its mark's shape and its species words (HPAI: birds a circle, cattle a square, other animals a triangle, each of
+  the other animals named in the totals). A species no kind names counts under the last kind and is named under the
+  value boxes ("1 positive with a species not listed: Opossum"), with a "?" linking the how-to page "Changing the
+  kinds of animals" (and its plain-text twin); a species naming two kinds counts under both, its mark both shapes side
+  by side, its animals in neither kind's total but apart ("400 animals of several kinds"). "Refine by species" under
+  the Animals ticks; the Overview's "Over time" and "By county" columns by Status or by Animal ("Several kinds"
+  hatched); a type file with a slip named in a red notice over the sidebar. CVI and Infrastructure have no kinds of
+  animal (CVI's "Refine by species" picks raw species within its species groups, as the Emergency page's CVI tab now
+  does).
 - **Emergency Response's animal filter (version 2.7):** "Animals" ticks under "Zones around", one per kind among the
   positives read, rows that could not be mapped included (birds, cattle, other animals, by their marks' shapes), none
   with one kind, every kind ticked again at each load of a positives file or change of the emergency type. An unticked
-  kind's positives leave every view and the Export as if not in the file (the lines under the boxes about dates not
-  readable and quarantine statuses not read still count the whole file; to follow the ticks in 2.8); with none ticked the Export and the map
+  kind's positives leave every view and the Export as if not in the file (from 2.8 the lines under the boxes about
+  dates not readable and quarantine statuses not read too; in 2.7 they counted the whole file); with none ticked the Export and the map
   picture are not made. A white tag on the badges ("Birds only"), the fold's summary, the map picture's line
   ("Positives: birds only"; where it would run into the date, the rings said short, "3 and 10 km rings", then cut
   with "…") and `export_params.json` (`animals_shown`)

@@ -14,7 +14,8 @@ premises sites inside them, and the CVI movements that touch them. HPAI is the f
 | `datasets.js` | The files the dashboard recognizes: positives, facility layers and their manifest, zone files, the CVI master |
 | `sample.js` | The synthetic sample offered under "Load your data" |
 | `types.js` | The emergency types' list: checks each type's fields and picks the type for a positives file |
-| `types/hpai.js` | The HPAI type; its top comment explains every field. Copy it to add a type |
+| `types/hpai.js` | The HPAI type; its top comment explains every field. Copy it to add a type; to change its kinds of animal, see "Changing the kinds of animals" below |
+| `changing-kinds.html`, `changing-kinds.js`, `CHANGING_THE_KINDS_OF_ANIMALS.txt` | The how-to "Changing the kinds of animals" for staff who keep the type file: a page (with its Copy buttons' script) and the same text as plain text |
 | `types/nws.js` | The New World screwworm type: zones from a file, with an example ring until one is loaded |
 | `rules.js` | The rules, with no page work: the positives and their names, which get zones, the locations left out, what lies inside, the "nearest" line, the value boxes, the chart's counts, the Overview's counties, positives, boxes, bars and people inside the zones, the export rows (with `counties.csv`), `zones.csv` and `zones.geojson` (each zone with a `name` property, as `zones.csv`'s "Zone", so the file reopens under "Use a zone file" with its zones named); from 2.6 the drawn zones: the area, the crossing check, the rectangle's and the square's corners, the names, the zone set with the rings giving way, and the exports' area and source; from 2.7 the animal filter (`byAnimals`, `animalsOnly`) |
 | `branded.js` | The map picture (PNG): the branded 11 x 8.5 in page of the map as shown, with no page work (a copy of Premise Lookup's, below); with a CVI master, the CVI premises in a zone drawn hollow under "CVI PREMISES" with the CVI tab's years; from 2.7 each POSITIVES row's sites inside by layer |
@@ -48,3 +49,11 @@ fix to the original can be carried over on purpose:
 | `chart.js`: the horizontal bars (`hbars` with `fit`, `labelStep` and the drawing context, without the picking; a row's bars stacked, a hollow bar and the labels above their bars on a phone marked "Emergency:") | `site/cvi/app/chartsvg.js`, v2.2 |
 | `app.js`: the charts' hover box (`showTip`); `index.html`: its style (`.chart-tip`) | `site/cvi/app/ui.js` and `site/cvi/index.html`, v2.0 |
 | `index.html`: the map hover's text size and padding (`.maplibregl-popup-content`) | `site/cvi/index.html`, v2.0 |
+
+## Changing the kinds of animals
+
+The kinds of animal (on HPAI: Birds, Cattle, Other animals) and the species words that sort the positives into them
+are the type file's `kinds` (`types/hpai.js`). How to add a word or a kind, with a worked example ("Show mink apart
+from other animals"), the rules, the work-PC table check's own copy of the words and what a slip looks like:
+`changing-kinds.html` (open it in a browser; a Copy button beside each line to paste) or its plain-text twin
+`CHANGING_THE_KINDS_OF_ANIMALS.txt` (Notepad, TextEdit). The unit suite checks both against the page's code.

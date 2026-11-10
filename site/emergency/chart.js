@@ -10,7 +10,8 @@
  * columns(chart, opts) -> SVG markup
  *   chart: { title (the text alternative), none (the hover of an empty column, "no positives"),
  *     series: [{ key, label (in the hover: "3 current"), name (in the key: "Current"), fill, stroke, outline (drawn
- *       hollow), opacity }] (bottom to top; also the key's order, which shows only the series counted somewhere),
+ *       hollow), hatch (drawn as diagonal lines in its fill on white), opacity }] (bottom to top; also the key's
+ *       order, which shows only the series counted somewhere),
  *     columns: [{ label ("Week of Oct 4, 2026"), tick ("Oct 4"), values: { key: count }, picked, click }],
  *     mark (2.5, optional): { kind: 'line', col, at } (the day's line over column col, at its share at, 0 to 1, of the
  *       column's width; a dot on its top) or { kind: 'band', from, to } (a light band over columns from to to, edged),
@@ -23,7 +24,7 @@
  *
  * bars(chart, opts) -> SVG markup
  *   chart: { title (the text alternative), series: [{ key, label (in the hover: "2 current"), name (in the key),
- *     fill, stroke, outline (drawn hollow) }] (left to right; the key shows the series counted somewhere, when there
+ *     fill, stroke, outline (drawn hollow), hatch (as the columns') }] (left to right; the key shows the series counted somewhere, when there
  *     is more than one or key is true), key, rows: [{ label ("Yakima"), values: { key: count }, total }] (top to bottom) }
  *   opts: { width } in pixels; the height follows from the rows. Each row's bars are stacked end to end, its total
  *   after them (the row's own total when given, else the bars' sum). Under 360 pixels each label sits above its bar, so no name is cut. Each bar carries data-hover and,
@@ -133,6 +134,22 @@
   const attrs = a => Object.keys(a).filter(n => a[n] !== null && a[n] !== undefined)
     .map(n => ' ' + n + '="' + (typeof a[n] === 'number' ? num(a[n]) : esc(a[n])) + '"').join('');
 
+  // A series drawn hatched: diagonal lines in its fill on white, an SVG pattern of the chart's own (a new id at each
+  // drawing, so two charts on one page never share one). Returns the chart with those series' fills pointing at their
+  // patterns, and the patterns' markup.
+  let patterns = 0;
+  function hatched(chart) {
+    const defs = [];
+    const series = chart.series.map(s => {
+      if (!s.hatch) return s;
+      const id = 'em-hatch-' + (++patterns);
+      defs.push('<pattern' + attrs({ id, width: 6, height: 6, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }) + '>' +
+        '<rect' + attrs({ width: 6, height: 6, fill: INK.surface }) + '/><rect' + attrs({ width: 2.2, height: 6, fill: s.fill }) + '/></pattern>');
+      return Object.assign({}, s, { fill: 'url(#' + id + ')' });
+    });
+    return { chart: Object.assign({}, chart, { series }), defs: defs.length ? '<defs>' + defs.join('') + '</defs>' : '' };
+  }
+
   // A column's hover: its label and its nonzero counts, in the series' order ("Week of Oct 4, 2026: 3 current, 1 past").
   function hoverOf(chart, col) {
     const parts = chart.series.filter(s => col.values[s.key] > 0)
@@ -162,6 +179,8 @@
   }
 
   function columns(chart, opts) {
+    const h = hatched(chart);
+    chart = h.chart;
     const width = Math.max(120, Math.round(opts.width)), height = Math.max(100, Math.round(opts.height || 170));
     const out = [];
     const cols = chart.columns, n = cols.length;
@@ -235,7 +254,7 @@
         'data-hover': hover, 'data-click': c.click || null }) + '/>');
     });
     return '<svg xmlns="http://www.w3.org/2000/svg"' + attrs({ width, height, viewBox: '0 0 ' + width + ' ' + height,
-      role: 'group', 'aria-label': chart.title, 'font-family': FONT }) + '>' + out.join('') + '</svg>';
+      role: 'group', 'aria-label': chart.title, 'font-family': FONT }) + '>' + h.defs + out.join('') + '</svg>';
   }
 
   // ── Copied from site/cvi/app/chartsvg.js, v2.2: fit, labelStep, the drawing context (the page's sizes only: 12 pt
@@ -336,6 +355,8 @@
   // ── This file's own: the bars' rows, key and size ─────────────────────────────────────────────────────────
   const NARROW = 360, ROW = { side: 34, above: 50 };
   function bars(chart, opts) {
+    const h = hatched(chart);
+    chart = h.chart;
     const width = Math.max(120, Math.round(opts.width)), g = context(), above = width < NARROW;
     const shown = chart.series.filter(s => chart.rows.some(r => r.values[s.key] > 0));
     const keyH = (chart.series.length > 1 || chart.key) && shown.length ? key(g.parts, shown, width) : 0;
@@ -351,7 +372,7 @@
     const top = keyH + 2, height = Math.round(top + unit * (rows.length + 1.2) + axisH);
     hbars(g, rows, { x: 0, y: top, w: width, h: height - top }, ax, above);
     return '<svg xmlns="http://www.w3.org/2000/svg"' + attrs({ width, height, viewBox: '0 0 ' + width + ' ' + height,
-      role: 'group', 'aria-label': chart.title, 'font-family': FONT }) + '>' + g.parts.join('') + '</svg>';
+      role: 'group', 'aria-label': chart.title, 'font-family': FONT }) + '>' + h.defs + g.parts.join('') + '</svg>';
   }
 
   root.WSDA = root.WSDA || {};

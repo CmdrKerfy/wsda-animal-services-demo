@@ -38,13 +38,15 @@
  *     name from "Optional Filename" (YYYY-MM-DD_<name>.png) or emergency_<type>_YYYY-MM-DD.png.
  *
  * page(input, styleOpts?) -> { model, parts, style }. input: { type, positives: [{ name, lat, lon, color, status,
- * past, shape }] (the positives shown, shape rules.js animalShapeOf), animals (rules.js animalKeys for them: the key's
- * animals row), added: [{ name, lat, lon }] (points added on the map), sites (the prepared ring or
+ * past, shape, shapes }] (the positives shown, shape rules.js animalShapeOf, shapes animalShapesOf: a positive naming
+ * more than one kind drawn with each kind's mark side by side), animals (rules.js animalKeys for them: the key's
+ * animals row, each by its legend words), added: [{ name, lat, lon }] (points added on the map), sites (the prepared ring or
  * zone sites: the current positives with zones and the added points; a zone site's source 'drawn' or 'file' and its
  * areaM2, rules.js zoneSites), pastSites (the past positives' rings, when drawn), zonesMode, show ('rings', 'zones' or
  * 'both', 3b: in Both the ring sites and the zone sites together), zoneName (rules.js zonesNamed), rings, unit, result (rules.js inside()'s, or null), layers ({ key: { label, pngLabel,
  * color, shape } }), days (rules.js daysSince for sites), window ({ start, end }), current (the current positives'
- * count), cvi ({ cvis, animals, matched (the CVI query's matched rows, with hitOrigin and hitDest), years } or null), counties (GeoJSON features), date, background, streets (geo/streets-wa.js's data, with the
+ * count), cvi ({ cvis, animals, matched (the CVI query's matched rows, with hitOrigin and hitDest), years, end (2.8:
+ * 'either', 'origin' or 'dest', the ends the key names) } or null), counties (GeoJSON features), date, background, streets (geo/streets-wa.js's data, with the
  * background 'vector:streets'), nameLayers (the keys named: 'positives' and layer keys; the positives when left
  * out), title (typed, or blank), label (typed, or blank), synthetic, animalsOnly ("Positives: cattle only" with a kind
  * of animal left out, 2.7, at the start of the line over the map; or null) }.
@@ -114,6 +116,11 @@
   const shapeHeight = (shape, size, stroke) => (shape === 'bullseye' || shape === 'animal' || shape === 'animals' ? 2 * bullseyeReach(size, stroke)
     : 0.375 * shapeFs(size, stroke) * (shape === 22 ? 2 * 0.886226925452758 : shape === 23 ? 2 * 1.2533141373155
       : shape === 24 ? 1.55512030155621 + 0.77756015077811 : 2));
+  // A filtered layer's funnel (2.8) on a 10 x 10 box, before its name in the key and in the page's legend
+  // (app.js funnelMark); drawn size wide, its middle at y.
+  const FUNNEL = 'M0.5 1.5H9.5L6 5.6V9.5L4 8.3V5.6Z';
+  const funnelSvg = (x, y, size) => '<path transform="translate(' + B().num(x) + ' ' + B().num(y - size / 2) + ') scale('
+    + B().num(size / 10) + ')" d="' + FUNNEL + '" fill="#555555"/>';
   // A positive's bullseye in its status color (CVI's siteMark is always red); a past one hollow (no middle dot) and
   // faded. In its animal's shape (2.4, rules.js animalShapeOf): a circle as before, else facilities.js markPath's
   // square or triangle (sized to look as heavy as the circle), with a middle mark of the same shape.
@@ -128,6 +135,14 @@
     return '<circle cx="' + BR.num(x) + '" cy="' + BR.num(y) + '" r="' + BR.num(r) + '" fill="#ffffff" stroke="' +
       BR.esc(color) + '" stroke-width="' + BR.num(0.32 * r) + '"' + fade + '/>' + (past ? '' : '<circle cx="' +
       BR.num(x) + '" cy="' + BR.num(y) + '" r="' + BR.num(0.34 * r) + '" fill="' + BR.esc(color) + '"/>');
+  }
+  // A positive naming more than one kind (2.8, rules.js animalShapesOf): each kind's mark side by side, the row
+  // centered on its spot, as on the live map. One shape is positiveMark's own.
+  const positiveStep = (size, stroke) => 2 * bullseyeReach(size, stroke);
+  function positiveMarks(x, y, size, stroke, color, past, shapes) {
+    const list = shapes && shapes.length ? shapes : ['circle'], step = positiveStep(size, stroke);
+    const left = x - (list.length - 1) * step / 2;
+    return list.map((shape, i) => positiveMark(left + i * step, y, size, stroke, color, past, shape)).join('');
   }
 
   // ── Copied from brandedmaps.js (lines 2466 to 2546, proximityPanelRows in the page's style): the panel's rows ──
@@ -378,20 +393,22 @@
       if (kinds.drawn) { ring(ZONE_COLOR, 'Zone (drawn)'); items[items.length - 1].glyph.dashed = true; }
     }
     if (o.pastRings) ring(PAST, 'Closed positives\' rings', true);
-    // With a CVI master: the premises a matched movement left from or went to inside a zone, each count on the right.
+    // With a CVI master: the premises a matched movement left from or went to inside a zone, each count on the right;
+    // only the end the CVI tab counts (2.8). Species picked under "Refine by species" draw no funnel here; the
+    // page's legend has one.
     if (o.cvi) {
       items.push({ type: 'subheader', label: 'CVI PREMISES' + (o.cvi.years ? ', ' + o.cvi.years : '') });
       const end = (color, label, n) => items.push({ type: 'row', glyph: { shape: 21, size: 4, stroke: 1.4, fill: '#ffffff',
         opacity: 1, border: color }, label, count: S().comma(n) });
-      end(CVI_ORIGIN, 'Origin in a zone', o.cvi.origins);
-      end(CVI_DEST, 'Destination in a zone', o.cvi.dests);
+      if (o.cvi.end !== 'dest') end(CVI_ORIGIN, 'Origin in a zone', o.cvi.origins);
+      if (o.cvi.end !== 'origin') end(CVI_DEST, 'Destination in a zone', o.cvi.dests);
     }
     // The layers' sites drawn are the sites inside, so the heading says so and each row has its count on the right.
     if (o.facilities.length) {
       items.push({ type: 'subheader', label: 'SITES INSIDE' });
       o.facilities.forEach(l => items.push({ type: 'row', glyph: { shape: 21, size: 4, stroke: 0.8, fill: l.color,
-        opacity: 1, border: '#ffffff', mark: l.shape }, label: l.label, count: S().comma(l.n),
-      facility: { label: l.label, n: l.n } }));
+        opacity: 1, border: '#ffffff', mark: l.shape }, label: l.label, count: S().comma(l.n), funnel: !!l.filtered,
+      facility: { label: l.label, n: l.n, filtered: !!l.filtered } }));
     }
     return items;
   }
@@ -400,6 +417,7 @@
   const drawGlyph = (g, x, y) => (g.shape === 21 ? B().circle(x, y, g.size, g.stroke, g.fill, g.opacity, g.border, g.mark)
     : g.shape === 'bullseye' ? positiveMark(x, y, g.size, g.stroke, g.fill, g.past)
     : g.shape === 'animal' ? animalGlyph(g, x, y)
+    : g.shape === 'funnel' ? funnelSvg(x - g.size / 2, y, g.size)
     : g.shape === 'animals' ? g.marks.map(m => animalGlyph({ size: g.size, stroke: g.stroke, mark: m.mark }, x + m.dx, y)).join('') +
       g.words.map(w => B().text(w.label, x + w.dx, y, { pt: g.pt, color: '#444444' })).join('')
       : dashedMark(BM().shapeMark(g.shape, x, y, g.size, g.stroke, g.fill, g.opacity, g.border), g.dashed));
@@ -413,16 +431,17 @@
     const rows = [];
     let row = null, end = 0;
     for (const a of animals) {
-      const at = end + 7 + r, wordEnd = at + r + 3 + BR.textWidth(a.label, pt);
+      const words = a.legend || a.label;   // "Other animals (same mark as Wild mammals)" on a kind sharing a mark (2.8)
+      const at = end + 7 + r, wordEnd = at + r + 3 + BR.textWidth(words, pt);
       if (row && wordEnd <= 0.8 * inner) {
         row.marks.push({ mark: a.shape, dx: at });
-        row.words.push({ label: a.label, dx: at + r + 3 });
+        row.words.push({ label: words, dx: at + r + 3 });
         end = wordEnd;
         continue;
       }
-      row = { shape: 'animals', size: 4.5, stroke: 0.9, marks: [{ mark: a.shape, dx: 0 }], words: [], pt, first: a.label };
+      row = { shape: 'animals', size: 4.5, stroke: 0.9, marks: [{ mark: a.shape, dx: 0 }], words: [], pt, first: words };
       rows.push(row);
-      end = 0.14 * inner + BR.textWidth(a.label, pt);
+      end = 0.14 * inner + BR.textWidth(words, pt);
     }
     return rows;
   }
@@ -546,16 +565,25 @@
     const labelPt = BR.textPt(3.0);
     const markHeight = g => {
       const reach = g.mark ? root.WSDA.facilities.MARK_EXTENT[g.mark] || 1 : 1;
-      return g.shape === 21 ? 2 * BR.pointRadius(g.size, g.stroke) * reach : shapeHeight(g.shape, g.size, g.stroke);
+      return g.shape === 21 ? 2 * BR.pointRadius(g.size, g.stroke) * reach : g.shape === 'funnel' ? g.size
+        : shapeHeight(g.shape, g.size, g.stroke);
     };
     // A row's count, bold at the key's right edge (the box's u(0.94): its margin is 5 points), drawn with its mark.
     const right = BR.px(BR.LAYOUT.gutterX) + 5 + 0.94 * (BR.px(BR.LAYOUT.gutterW) - 10);
     const countOf = (it, yy, pt) => (it.count === undefined ? '' : BR.text(it.count, right, yy, { pt, color: BLUE,
       bold: true, anchor: 'end' }));
-    // A row at its text size (pt: the key's, or smaller for the layers when the key is crowded).
-    const rowOf = (it, pt) => ({ sample: { height: markHeight(it.glyph), draw: (x, yy) => drawGlyph(it.glyph, x, yy) +
-      countOf(it, yy, pt) }, x: 0.14, labelX: 0.28, labelPt: pt, label: it.lines || keyLines(it.label, pt,
-      it.count === undefined ? 0 : BR.textWidth(it.count, pt, true) + 6) });
+    // A row at its text size (pt: the key's, or smaller for the layers when the key is crowded). A filtered layer's
+    // row (2.8) has a funnel where its words start, beside the first line, and the words after it.
+    const inner = BR.px(BR.LAYOUT.gutterW) - 10;
+    const funnelW = pt => 0.8 * BR.textWidth('M', pt);
+    const rowOf = (it, pt) => {
+      const fw = it.funnel ? funnelW(pt) + 3 : 0;
+      const label = it.lines || keyLines(it.label, pt, (it.count === undefined ? 0 : BR.textWidth(it.count, pt, true) + 6) + fw);
+      const firstLine = (lineCount(label) - 1) / 2 * pt * LINE_STEP;
+      return { sample: { height: markHeight(it.glyph), draw: (x, yy) => drawGlyph(it.glyph, x, yy) + countOf(it, yy, pt)
+        + (it.funnel ? funnelSvg(x + 0.14 * inner, yy - firstLine, funnelW(pt)) : '') },
+      x: 0.14, labelX: 0.28 + fw / inner, labelPt: pt, label };
+    };
     const head = it => (it.type === 'header' ? [{ text: it.label, pt: BR.textPt(3.2), color: '#222222', bold: true }]
       : [{ gap: 3 }, { rule: { color: '#bbbbbb', width: 0.3, x0: 0.06, x1: 0.94 } },
         { text: it.label, pt: BR.textPt(3.2), color: '#222222', bold: true }]);
@@ -575,6 +603,10 @@
         else if (!it.facility) entries.push(Object.assign(rowOf(it, labelPt), { keep: true }));
       });
       shownFacilities.forEach(it => entries.push(rowOf(it, pt)));
+      if (shownFacilities.some(it => it.funnel)) {
+        entries.push(Object.assign(rowOf({ glyph: { shape: 'funnel', size: funnelW(labelPt) },
+          label: 'Filtered: some sites left out' }, labelPt), { keep: true }));
+      }
       const more = facilities.length - shownFacilities.length;
       if (more > 0) {
         entries.push({ text: 'and ' + S().comma(more) + ' more layer' + (more === 1 ? '' : 's'), pt: 7.5, color: '#666666',
@@ -617,7 +649,7 @@
     // Only the positives inside the inset's Washington frame (one in Oregon would fall below the box).
     const inside = ([x, y]) => x >= p.left && x <= p.left + p.width && y >= p.top && y <= p.top + p.height;
     const placed = marks.map(m => ({ m, xy: fit.project(m.lon, m.lat) })).filter(q => inside(q.xy));
-    placed.forEach(({ m, xy }) => parts.push(positiveMark(xy[0], xy[1], 1.6, 0.4, m.color, m.past, m.shape)));
+    placed.forEach(({ m, xy }) => parts.push(positiveMarks(xy[0], xy[1], 1.6, 0.4, m.color, m.past, m.shapes)));
     return { parts: parts.join(''), marks: placed.map(q => q.xy) };
   }
 
@@ -793,13 +825,13 @@
         const seen = new Set();
         const points = [];
         result.rows.filter(r => r.layer === s.key).forEach(r => {
-          const k = r.lat + ',' + r.lon + ',' + r.name;
+          const k = E().siteKey(r);
           if (seen.has(k)) return;
           seen.add(k);
           points.push({ name: r.name, lat: r.lat, lon: r.lon });
         });
         if (points.length) facLayers.push({ key: s.key, label: l.pngLabel || l.label || s.label, color: l.color || s.color,
-          shape: l.shape, points });
+          shape: l.shape, filtered: !!l.filtered, points });
       }
     }
     const facTotal = result ? result.total : 0;
@@ -819,7 +851,7 @@
     if (result) {
       result.rows.forEach(r => {
         if (!insideBy.has(r.site)) insideBy.set(r.site, new Set());
-        insideBy.get(r.site).add(r.layer + '\r' + r.lat + '\r' + r.lon + '\r' + r.name);
+        insideBy.get(r.site).add(E().layerSiteKey(r.layer, r));
       });
     }
     const daysText = days => (days === null || days === undefined ? null
@@ -863,8 +895,10 @@
     const items = keyItems({ statuses, pastColors, added: added.length > 0, zonesMode: !!input.zonesMode, show,
       zoneName: input.zoneName, rings, unit,
       zoneKinds: { file: sites.filter(s => s.zone && s.source !== 'drawn').length, drawn: sites.filter(s => s.zone && s.source === 'drawn').length }, pastRings: pastSites.length > 0, animals: input.animals || [],
-      cvi: input.cvi ? { years: input.cvi.years || null, origins: cviOrigins.length, dests: cviDests.length } : null,
-      facilities: facLayers.map(l => ({ label: l.label, color: l.color, shape: l.shape, n: l.points.length })) });
+      cvi: input.cvi ? { years: input.cvi.years || null, origins: cviOrigins.length, dests: cviDests.length,
+        end: input.cvi.end || 'either' } : null,
+      facilities: facLayers.map(l => ({ label: l.label, color: l.color, shape: l.shape, filtered: l.filtered,
+        n: l.points.length })) });
 
     // ── Drawing ──
     const ringParts = input.zonesMode ? [] : ringShapes(sites.filter(s => !s.zone), rings, unit);
@@ -872,7 +906,7 @@
     const zoneParts = sites.filter(s => s.zone).map(s => ({ geometry: s.zone, km: 0, color: ZONE_COLOR, site: s.id, zone: true,
       dashed: s.source === 'drawn' }));
     const marksIn = positives.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, color: p.color, past: !!p.past,
-      shape: p.shape || 'circle' }))
+      shape: p.shape || 'circle', shapes: p.shapes && p.shapes.length ? p.shapes : [p.shape || 'circle'] }))
       .concat(added.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, color: PICK, past: false })));
     const extent = extentOf(ringParts.concat(pastParts, zoneParts), marksIn);
     const mapH = L.statY - BM().BAND_PAD;
@@ -932,10 +966,11 @@
     // The positives over the sites inside: the past ones first, so a current positive at the same spot is on top.
     const marks = marksIn.map(m => {
       const [x, y] = P(m.lon, m.lat);
-      return Object.assign({}, m, { x, y, r: bullseyeReach(6.0, 1.0) });
+      // r: what the names keep clear of; a row of marks reaches out to its last one.
+      return Object.assign({}, m, { x, y, r: bullseyeReach(6.0, 1.0) + ((m.shapes || [1]).length - 1) * positiveStep(6.0, 1.0) / 2 });
     });
     marks.filter(m => m.past).concat(marks.filter(m => !m.past))
-      .forEach(m => mapParts.push(positiveMark(m.x, m.y, 6.0, 1.0, m.color, m.past, m.shape)));
+      .forEach(m => mapParts.push(positiveMarks(m.x, m.y, 6.0, 1.0, m.color, m.past, m.shapes)));
 
     // Names: the positives' beside their marks (when picked), clear of the other marks (CVI: bold, 3.4, #222222 on a
     // white halo); then each picked layer's sites inside, as CVI's facility names (brandedmaps.js lines 3055 to 3065:
@@ -1067,7 +1102,7 @@
       extent, corrected, scale, mapKm, mapPanel: { left: mapPanel.left, top: mapPanel.top, width: mapPanel.width,
         height: mapPanel.height },
       positives: marks.map(m => ({ name: m.name, x: m.x, y: m.y, lon: m.lon, lat: m.lat, color: m.color, past: m.past,
-        shape: m.shape })),
+        shape: m.shape, shapes: m.shapes })),
       names: places.map((p, i) => ({ name: names[i].lines[0], at: p })), nameLayers: [...named],
       facilityNames: facilityNames.map((n, i) => ({ lines: n.lines, color: n.color, layer: n.layer, at: facilityPlaces[i] })),
       streetNames: streetNames.map(n => ({ kind: n.kind, name: n.name, box: n.box || null })),
@@ -1085,6 +1120,6 @@
   }
 
   root.WSDA = root.WSDA || {};
-  root.WSDA.emergencyBranded = { page, title, fileName, safeLabel, clearRiverNames, keyItems, keyColumn, valueBoxes, SENSITIVE, RING_OPACITY, ZONE_COLOR,
+  root.WSDA.emergencyBranded = { FUNNEL, page, title, fileName, safeLabel, clearRiverNames, keyItems, keyColumn, valueBoxes, SENSITIVE, RING_OPACITY, ZONE_COLOR,
     PAST, PICK, CVI_ORIGIN, CVI_DEST };
 })(typeof window !== 'undefined' ? window : globalThis);

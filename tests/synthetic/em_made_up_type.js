@@ -1,6 +1,6 @@
 /* A made-up third emergency type, for the Emergency unit suite's third-type test only (never loaded by a page). Every
- * field differs from HPAI's: its own disease words, column names (its own flock type and inventory), the word after
- * the animals' total, statuses and colors, closed column, values and date, zones from a file around the first status
+ * field differs from HPAI's: its own disease words, column names (its own flock type and inventory), its one kind of
+ * animal (counted as "head"), statuses and colors, closed column, values and date, zones from a file around the first status
  * only, in miles, layer keys and links. The test loads it after site/emergency/types/hpai.js, as a third
  * type file would be loaded, and checks that each field reaches the results with no other change. */
 (function (root) {
@@ -19,7 +19,7 @@
       inventory: ['Herd Size'],
       shown: ['Pen']
     },
-    inventoryWord: 'head',
+    kinds: [{ key: 'head', label: 'Head of stock', word: 'head' }],
     statuses: [
       { label: 'Active', words: ['active', 'open case'], color: '#1b7837' },
       { label: 'Watch', words: ['watch', 'monitor'], color: '#762a83' }

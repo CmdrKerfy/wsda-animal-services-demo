@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'unsafe-inline'; img-src data:">
+<link rel="icon" href="data:,">
+<title>Changing the kinds of animals</title>
+<!-- The Emergency how-to for staff who keep the type file (site/emergency/types/hpai.js). Its plain-text twin,
+     CHANGING_THE_KINDS_OF_ANIMALS.txt beside it, says the same; the Emergency unit suite checks both against the
+     page's code ("The how-to's worked example"). -->
+<style>
+  :root { --blue: #1c5a83; --teal: #245566; --light: #e8f3f6; --line: #c9d6dc; --text: #1f2a30; --muted: #56656d;
+    --err-bg: #fdecea; --err: #b0271a; --code-bg: #f4f6f7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.55 -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text); background: #fff; }
+  header { background: var(--blue); color: #fff; padding: 18px 16px; }
+  header h1 { margin: 0; font-size: 1.5rem; }
+  header p { margin: 4px 0 0; opacity: 0.9; }
+  header a { color: #fff; }
+  header .file { background: rgba(255, 255, 255, 0.18); color: #fff; }
+  main { max-width: 820px; margin: 0 auto; padding: 8px 16px 48px; }
+  nav { background: var(--light); border-radius: 6px; padding: 10px 14px; margin: 16px 0; }
+  nav ol { margin: 4px 0 0; padding-left: 22px; }
+  nav a { color: var(--blue); }
+  h2 { color: var(--blue); font-size: 1.25rem; margin: 32px 0 8px; padding-top: 8px; border-top: 2px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 20px 0 6px; color: var(--teal); }
+  .step { display: inline-block; background: var(--blue); color: #fff; border-radius: 12px; padding: 0 9px; margin-right: 6px; font-size: 0.85rem; }
+  .file { font-family: Menlo, Consolas, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
+  .paste { position: relative; background: var(--code-bg); border: 1px solid var(--line); border-left: 4px solid var(--blue);
+    border-radius: 4px; padding: 10px 84px 10px 12px; margin: 8px 0 12px; overflow-x: auto; }
+  .paste code { font: 14px/1.4 Menlo, Consolas, monospace; white-space: pre; }
+  .find { border-left-color: #8a9aa2; }
+  .label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+  .copy { position: absolute; top: 8px; right: 8px; font: 600 0.8rem -apple-system, "Segoe UI", Arial, sans-serif; color: var(--blue);
+    background: #fff; border: 1px solid var(--blue); border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+  .copy:hover { background: var(--light); }
+  .box { border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: #fff6df; border: 1px solid #f0d58a; }
+  .notice { background: var(--err-bg); color: var(--err); border-left: 4px solid var(--err); border-radius: 4px; padding: 8px 12px; margin: 8px 0 12px; }
+  ul.parts { list-style: none; padding: 0; margin: 6px 0; }
+  ul.parts li { margin: 3px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--light); }
+  td.moved { background: #fff6df; }
+  svg.mk { width: 0.95em; height: 0.95em; vertical-align: -0.12em; margin-right: 3px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+  dl.rules dt { font-weight: 700; margin-top: 12px; }
+  dl.rules dd { margin: 2px 0 0 0; }
+  .eg { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 6px 0; }
+  .eg .yes { color: #2f6b1d; } .eg .no { color: var(--err); }
+  .muted { color: var(--muted); font-size: 0.92rem; }
+  @media print { .copy, nav { display: none; } h2 { break-after: avoid; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Changing the kinds of animals</h1>
+  <p>Emergency Response dashboard &middot; for whoever keeps the type file &middot; also as
+    <span class="file">CHANGING_THE_KINDS_OF_ANIMALS.txt</span> beside this page &middot;
+    <a href="index.html">Open the Emergency dashboard</a></p>
+</header>
+<main>
+<p>The Emergency page sorts each positive into a kind of animal (for HPAI: <b>Birds, Cattle, Other animals</b>) by
+the words in its Species column. The kinds and their words are kept in one file, <span class="file">hpai.js</span>,
+in the dashboards&rsquo; folder under <span class="file">site/emergency/types/</span>. Each kind gets its own mark on
+the map, its own tick under &ldquo;Animals&rdquo;, its own row in the legend and the map picture&rsquo;s key, its own
+color in the Overview, and its own totals. Changing that one file is the whole change; no other file needs it.</p>
+
+<nav><b>On this page</b><ol>
+  <li><a href="#start">Before you start</a></li>
+  <li><a href="#word">Adding a word</a></li>
+  <li><a href="#mink">Worked example: show mink apart</a></li>
+  <li><a href="#rules">The rules</a></li>
+  <li><a href="#r">The work-PC table check</a></li>
+  <li><a href="#slip">What a slip looks like</a></li>
+</ol></nav>
+
+<h2 id="start">Before you start</h2>
+<ul>
+  <li>First keep a copy: in the folder, copy <span class="file">hpai.js</span> and paste it there (it is named
+    &ldquo;hpai copy.js&rdquo; or &ldquo;hpai - Copy.js&rdquo;; the page ignores it). If something goes wrong, you can
+    put it back.</li>
+  <li>Open <span class="file">hpai.js</span> in a plain-text editor: <b>Notepad</b> on Windows (right-click the file,
+    Open with, Notepad), <b>TextEdit</b> on a Mac (right-click the file, Open With, TextEdit). Not Word: it would
+    change the file.</li>
+  <li>To find a line in it: Edit, Find (Ctrl+F on Windows, Command-F on a Mac), then paste the line.</li>
+  <li>After each change: save <span class="file">hpai.js</span> (File, Save), then reload the Emergency page in the
+    browser (F5 on Windows, Command-R on a Mac). The page reads the file each time it opens.</li>
+</ul>
+<div class="box warn"><b>Copy, don&rsquo;t type.</b> Use the Copy buttons below. TextEdit turns typed quotes into curly
+ones (&lsquo; &rsquo;), which the page cannot read. (Or first turn it off: Edit, Substitutions, Smart Quotes.)</div>
+<div class="box warn"><b>On the R drive</b>, a changed file changes the page for everyone, and the next version&rsquo;s
+folder replaces it. Send your change to the platform&rsquo;s maintainer so it goes into the next version too.</div>
+
+<h2 id="word">Adding a word</h2>
+<p>Use this when the line under the value boxes names a species the page does not know, for example
+&ldquo;1 positive with a species not listed: Opossum&rdquo;. That positive was counted under the last kind, Other
+animals.</p>
+<p><span class="step">1</span>In <span class="file">hpai.js</span>, find the end of Other animals&rsquo; words:</p>
+<div class="paste find"><span class="label">Find</span><code>'deer', 'elk', 'wolf', 'dolphin', 'porpoise'] }</code></div>
+<p><span class="step">2</span>Add the new word in quotes, after a comma:</p>
+<div class="paste"><span class="label">Change it to</span><code>'deer', 'elk', 'wolf', 'dolphin', 'porpoise', 'opossum'] }</code></div>
+<p><span class="step">3</span>Save, and reload the page. Opossum is no longer in the &ldquo;not listed&rdquo; line.</p>
+<p class="muted">Write the word in small letters: it matches &ldquo;Opossum&rdquo;, &ldquo;OPOSSUM&rdquo; and
+&ldquo;Virginia opossum&rdquo; alike. Other animals counts each species by its own name (&ldquo;12 goats, 1
+opossum&rdquo;); Birds and Cattle count by the kind&rsquo;s name (&ldquo;1.2M birds&rdquo;).</p>
+
+<h2 id="mink">Worked example: show mink apart from other animals</h2>
+<p>Mink are counted under Other animals, with the triangle. Two edits give them their own kind.</p>
+<h3><span class="step">1</span>Add the Mink kind</h3>
+<div class="paste find"><span class="label">Find the cattle kind, the line that starts</span><code>{ key: 'cattle', label: 'Cattle', words: [</code></div>
+<div class="paste"><span class="label">Paste right under it, before Other animals</span><code>{ key: 'mink', label: 'Mink', words: ['mink'] },</code></div>
+<ul class="parts">
+  <li><b>key</b>: a short code name the page uses behind the scenes (small letters, digits and dashes only; each
+    kind&rsquo;s different)</li>
+  <li><b>label</b>: the name people see on the tick, the legend and the map picture&rsquo;s key</li>
+  <li><b>words</b>: the species words that make a positive this kind, each in quotes, with commas between</li>
+  <li class="muted">The counts use the label in small letters (&ldquo;7 mink&rdquo;). To have them say something else,
+    such as &ldquo;7 animals&rdquo;, add <span class="file">word: 'animals', </span> after <span class="file">label:
+    'Mink', </span> in the line.</li>
+</ul>
+<h3><span class="step">2</span>Take mink out of Other animals</h3>
+<div class="paste find"><span class="label">In Other animals&rsquo; words, delete (with its comma and space)</span><code>'mink', </code></div>
+<p class="muted">Delete the quotes, the word, the comma and the space after it. A word may be in one kind only; if it
+is left in both, the page shows a red notice (see &ldquo;What a slip looks like&rdquo;).</p>
+<h3><span class="step">3</span>Check the page</h3>
+<p>Save, reload the page, and load your positives file. &ldquo;Animals&rdquo; now has four ticks: Birds, Cattle, Mink, Other animals.</p>
+<p>In the platform&rsquo;s made-up test file (<span class="file">test-tables/em_rules_species.csv</span>, which comes with
+its tests), these species change like this:</p>
+<table>
+  <tr><th>Species in the file</th><th>Before</th><th>After</th></tr>
+  <tr><td>Chicken</td><td><svg class="mk" viewBox="0 0 14 14" aria-label="circle"><circle cx="7" cy="7" r="5.2"/></svg>Birds</td><td><svg class="mk" viewBox="0 0 14 14" aria-label="circle"><circle cx="7" cy="7" r="5.2"/></svg>Birds</td></tr>
+  <tr><td>Mink</td><td><svg class="mk" viewBox="0 0 14 14" aria-label="triangle"><polygon points="7,1.6 12.6,12 1.4,12"/></svg>Other animals</td><td class="moved"><svg class="mk" viewBox="0 0 14 14" aria-label="triangle"><polygon points="7,1.6 12.6,12 1.4,12"/></svg>Mink</td></tr>
+  <tr><td>Meat Goat</td><td><svg class="mk" viewBox="0 0 14 14" aria-label="triangle"><polygon points="7,1.6 12.6,12 1.4,12"/></svg>Other animals</td><td class="moved"><svg class="mk" viewBox="0 0 14 14" aria-label="diamond"><polygon points="7,1.2 12.8,7 7,12.8 1.2,7"/></svg>Other animals</td></tr>
+  <tr><td>Pigeon, pig</td><td><svg class="mk" viewBox="0 0 14 14" aria-label="circle"><circle cx="7" cy="7" r="5.2"/></svg><svg class="mk" viewBox="0 0 14 14" aria-label="triangle"><polygon points="7,1.6 12.6,12 1.4,12"/></svg>Birds and Other animals</td><td class="moved"><svg class="mk" viewBox="0 0 14 14" aria-label="circle"><circle cx="7" cy="7" r="5.2"/></svg><svg class="mk" viewBox="0 0 14 14" aria-label="diamond"><polygon points="7,1.2 12.8,7 7,12.8 1.2,7"/></svg>Birds and Other animals</td></tr>
+  <tr><td>Opossum</td><td><svg class="mk" viewBox="0 0 14 14" aria-label="triangle"><polygon points="7,1.6 12.6,12 1.4,12"/></svg>Other animals, not listed</td><td class="moved"><svg class="mk" viewBox="0 0 14 14" aria-label="diamond"><polygon points="7,1.2 12.8,7 7,12.8 1.2,7"/></svg>Other animals, not listed</td></tr>
+</table>
+<p class="muted">Other animals moved from the triangle to the diamond because Mink now comes before it (see
+&ldquo;Order matters&rdquo;).</p>
+
+<h2 id="rules">The rules</h2>
+<dl class="rules">
+  <dt>Order matters</dt>
+  <dd>The marks go by the kinds&rsquo; order: <svg class="mk" viewBox="0 0 14 14" aria-label="circle"><circle cx="7" cy="7" r="5.2"/></svg> circle, <svg class="mk" viewBox="0 0 14 14" aria-label="square"><rect x="2" y="2" width="10" height="10"/></svg> square, <svg class="mk" viewBox="0 0 14 14" aria-label="triangle"><polygon points="7,1.6 12.6,12 1.4,12"/></svg> triangle, <svg class="mk" viewBox="0 0 14 14" aria-label="diamond"><polygon points="7,1.2 12.8,7 7,12.8 1.2,7"/></svg> diamond, <svg class="mk" viewBox="0 0 14 14" aria-label="pentagon"><polygon points="7,1.4 12.6,5.5 10.5,12.2 3.5,12.2 1.4,5.5"/></svg> pentagon, <svg class="mk" viewBox="0 0 14 14" aria-label="hexagon"><polygon points="4,1.8 10,1.8 13,7 10,12.2 4,12.2 1,7"/></svg> hexagon. So do the
+    colors, the ticks and the legend. A kind put in the middle moves every kind after it to the next mark and color.</dd>
+  <dt>The catch-all goes last</dt>
+  <dd>The last kind also takes every species no kind names, and the line under the value boxes names them. Keep the
+    broadest kind (Other animals) last. A positive with no species at all is the first kind (Birds).</dd>
+  <dt>Six kinds are told apart</dt>
+  <dd>A seventh kind or later shares the hexagon and the sixth color; its legend row says &ldquo;same mark as&rdquo; the
+    sixth. It keeps its own tick and counts.</dd>
+  <dt>A word matches at the start of a word, in any case</dt>
+  <dd><div class="eg"><span>&ldquo;cow&rdquo;</span><span class="yes">matches &ldquo;Dairy cow&rdquo; and &ldquo;Cows&rdquo;</span>
+    <span>&ldquo;cat&rdquo;</span><span class="no">does not match &ldquo;Bobcat&rdquo;</span>
+    <span>&ldquo;mink&rdquo;</span><span class="yes">also matches &ldquo;Minke whale&rdquo;</span></div>
+    Where two words start at the same place, the longer wins: &ldquo;pigeon&rdquo; (a bird word) keeps &ldquo;Racing
+    pigeon&rdquo; from being a pig. So to keep Minke whales out of Mink, add <span class="file">'minke whale'</span> to
+    Other animals.</dd>
+  <dt>A species naming two kinds is both</dt>
+  <dd>&ldquo;Cattle, Chicken&rdquo; shows while either kind is ticked, has both marks side by side, its animals are counted
+    in neither kind, and a line under the value boxes names it.</dd>
+  <dt>What the page refuses</dt>
+  <dd>The same word in two kinds, and a kind with no words (only the last kind may have none). Either one gives the red
+    notice.</dd>
+</dl>
+
+<h2 id="r">The work-PC table check keeps its own copy</h2>
+<p>The HPAI table check (the small tool that checks the agency&rsquo;s HPAI table on the work PC, in the
+<span class="file">tools/work-pc/</span> folder) keeps its own copy of the same words, so it can run without the
+dashboard. Open its file, <span class="file">check_hpai_table.R</span>, in Notepad or TextEdit the same way and make
+the same two changes. Its lines are written a little differently (double quotes, and <span class="file">c(&hellip;)</span>
+around each list), so copy them from here:</p>
+<div class="paste find"><span class="label">Find the line that starts</span><code>  Cattle = c(</code></div>
+<div class="paste"><span class="label">Paste right under it</span><code>  Mink = c("mink"),</code></div>
+<div class="paste find"><span class="label">In the line that starts `Other animals` = c(, delete</span><code>"mink", </code></div>
+<p class="muted">Tell the platform&rsquo;s maintainer you changed both files: the platform&rsquo;s automatic checks flag
+it when the two lists differ.</p>
+
+<h2 id="slip">What a slip looks like</h2>
+<p>If the page cannot use <span class="file">hpai.js</span>, it leaves HPAI out and shows a red notice at the top of the
+sidebar. The emergency type list (under &ldquo;Positives and zones&rdquo;) then has no HPAI, and the page would read your
+HPAI file as the wrong emergency, so fix the file before going on.</p>
+<h3>Mink left in Other animals as well</h3>
+<div class="notice">The emergency type file "types/hpai.js" was not used. Emergency type "hpai": "kinds[3].words" should
+be words no earlier kind has ("mink" is in kinds[2], "Mink", too).</div>
+<p class="muted">How to read it: &ldquo;kinds[3]&rdquo; means the 4th kind in the list, because the page counts from 0:
+kinds[0] is Birds, kinds[1] Cattle, kinds[2] Mink, kinds[3] Other animals. So the word &ldquo;mink&rdquo; is in both
+Mink and Other animals.</p>
+<h3>A slip in the writing itself (curly quotes, a missing comma, quote or bracket)</h3>
+<div class="notice">The emergency type file "types/hpai.js" could not be read: a typing slip in it, such as quotes made
+curly or a missing comma or bracket, or the file is missing.</div>
+<p><b>To fix:</b> undo the last change (Edit, Undo), or compare your lines with the ones above, then save and reload
+again. Still stuck: put back your copy (delete <span class="file">hpai.js</span>, then rename the copy to
+<span class="file">hpai.js</span>), and ask the platform&rsquo;s maintainer.</p>
+<p class="muted">For a maintainer: the other parts of a type file are explained at the top of
+<span class="file">hpai.js</span>, and &ldquo;Adding an emergency type&rdquo; in
+<span class="file">docs/DEVELOPER_GUIDE.md</span> says how to add a type.</p>
+</main>
+<script src="changing-kinds.js"></script>
+</body>
+</html>

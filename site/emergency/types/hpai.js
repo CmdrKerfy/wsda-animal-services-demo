@@ -25,15 +25,28 @@
  *                 the export. A role left out takes E1a's names (AnimalDiseaseReportId, Detection Date, Disease
  *                 Name), or none. A renamed column in the agency's table is one edit here. A name holding address,
  *                 location, street or premise is refused: those columns are never read
- *   inventoryWord the word after the animals' total in the numbers line ("4 commercial, 67 backyard, 4.1M birds");
- *                 "animals" when left out
- *   countedApart  animals added up apart from inventoryWord in the numbers line and named in the hover: each entry's
- *                 species words (matched in the positive's species column, any case, at the start of a word) and the
- *                 word they are counted under ("3 commercial, 3 backyard, 1.2M birds, 3,550 cattle, 45 other
- *                 animals"). A positive
- *                 counts under the first entry with a word in its species, else under inventoryWord; its flock type
- *                 is counted as before. Empty or left out: every animal under inventoryWord. The order gives the
- *                 map's marks their shape: inventoryWord a circle, the first entry a square, later entries a triangle
+ *   kinds         the kinds of animal, in order. Each kind has its own mark on the map, its own tick under
+ *                 "Animals", its own legend and map-key row, its own color in the Overview's "Columns by: Animal"
+ *                 and its own total in the counts. A kind's fields:
+ *                   key       a short key: lowercase letters, digits and dashes, no two kinds the same
+ *                   label     its name on the ticks, the legend and the map key ("Birds")
+ *                   word      the word its animals are counted under ("1.2M birds"); the label in lowercase when
+ *                             left out
+ *                   words     species words, matched in the positive's species column (any case, at the start of a
+ *                             word: "cow" matches "Dairy cow", "cat" does not match "Bobcat"). Every kind but the
+ *                             last needs one or more; a word may be in one kind only
+ *                   nameEach  true: its animals are counted by each species' own word ("12 goats, 6 pigs, 2 seals")
+ *                             instead of the kind's word
+ *                 A positive is every kind with a word in its species: "Cattle, Chicken" is both birds and cattle,
+ *                 drawn with both marks, shown while either kind is ticked, its animals counted in neither kind and
+ *                 named in a line under the value boxes. A longer word of another kind wins where both start:
+ *                 "Pigeon" is birds only, though "pig" starts it. A positive with no species is the first kind. A
+ *                 species no kind's words name is the last kind, and the line under the value boxes names it ("1
+ *                 positive with a species not listed: Opossum") so its word can be added here. The order sets the
+ *                 marks (circle, square, triangle, diamond, pentagon, hexagon; a seventh kind or later shares the
+ *                 hexagon) and the colors. Left out: one kind, "Animals". How to add a word or a kind, with a worked
+ *                 example: "Changing the kinds of animals", site/emergency/changing-kinds.html (in a browser) or
+ *                 CHANGING_THE_KINDS_OF_ANIMALS.txt beside it
  *   quarantineValues  the quarantine status column's values (any case): under, those meaning still under
  *                 quarantine, and released. A past positive is still under quarantine on the window's end date when
  *                 its release date is after it; with no release date, when its status is an under value; with
@@ -80,12 +93,23 @@
       inventory: ['Flock/Herd Inventory'],
       shown: ['Production Type']
     },
-    inventoryWord: 'birds',
-    // Not every positive is a bird flock: a dairy herd's cattle (the same words as the cattle entry in layers below),
-    // and other mammals HPAI has reached. No "pig": a word matches at the start of a word, so it would catch "pigeon".
-    countedApart: [{ species: ['cattle', 'dairy', 'bovine', 'cow'], word: 'cattle' },
-      { species: ['goat', 'caprine', 'sheep', 'ovine', 'swine', 'hog', 'porcine', 'alpaca', 'llama', 'camelid', 'horse',
-        'equine', 'mink', 'cat', 'feline', 'dog', 'canine'], word: 'other animals' }],
+    // Birds first, so a positive with no species is a bird, HPAI's main animal ("pigeon" keeps a racing pigeon from
+    // being a pig); a dairy herd's cattle (the same words as the cattle entry in layers below); then the other mammals
+    // HPAI has reached, each counted by its own word, last, so a species no kind names counts there. A positive
+    // naming two kinds ("Cattle, Chicken") is both. Changing them: site/emergency/changing-kinds.html (or its .txt
+    // twin); the work-PC table check (tools/work-pc/check_hpai_table.R, KINDS) keeps a copy.
+    kinds: [
+      { key: 'birds', label: 'Birds',
+        words: ['poultry', 'chicken', 'turkey', 'duck', 'goose', 'geese', 'bird', 'avian', 'layer', 'broiler', 'gamebird',
+          'pigeon', 'dove', 'waterfowl', 'fowl', 'peafowl', 'pheasant', 'quail', 'chukar', 'grouse', 'partridge', 'emu', 'ostrich',
+          'rhea', 'swan', 'gull', 'hawk', 'eagle', 'owl', 'falcon', 'raptor', 'crow', 'raven', 'magpie', 'heron', 'egret',
+          'pelican', 'cormorant', 'songbird', 'parrot', 'finch', 'sparrow', 'hen'] },
+      { key: 'cattle', label: 'Cattle', words: ['cattle', 'dairy', 'bovine', 'cow', 'heifer', 'steer', 'calf', 'calves', 'beef'] },
+      { key: 'other', label: 'Other animals', nameEach: true,
+        words: ['goat', 'caprine', 'sheep', 'ovine', 'swine', 'hog', 'porcine', 'pig', 'alpaca', 'llama', 'camelid', 'horse',
+          'equine', 'mink', 'cat', 'feline', 'dog', 'canine', 'seal', 'sea lion', 'fox', 'raccoon', 'skunk', 'bear', 'ferret',
+          'rabbit', 'deer', 'elk', 'wolf', 'dolphin', 'porpoise'] }
+    ],
     statuses: [
       { label: 'Confirmed', words: ['confirmed', 'positive'], color: '#a50f15' },
       { label: 'Presumptive', words: ['presumptive', 'presumptive positive'], color: '#de2d26' },
@@ -107,9 +131,9 @@
     },
     layers: {
       bySpecies: [
-        { words: ['poultry', 'chicken', 'turkey', 'duck', 'goose', 'bird', 'avian', 'layer', 'broiler', 'gamebird'],
+        { words: ['poultry', 'chicken', 'turkey', 'duck', 'goose', 'geese', 'bird', 'avian', 'layer', 'broiler', 'gamebird'],
           keys: ['poultry', 'premises', 'markets', 'fairgrounds', 'disposal'] },
-        { words: ['cattle', 'dairy', 'bovine', 'cow'],
+        { words: ['cattle', 'dairy', 'bovine', 'cow', 'heifer', 'steer', 'calf', 'calves', 'beef'],
           keys: ['milkproducer', 'milkprocessing', 'premises', 'markets', 'feedlots', 'fairgrounds', 'disposal'] }
       ],
       default: ['poultry', 'milkproducer', 'milkprocessing', 'premises', 'markets', 'feedlots', 'fairgrounds', 'disposal']

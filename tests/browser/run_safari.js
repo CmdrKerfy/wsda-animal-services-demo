@@ -3076,13 +3076,13 @@ async function runEM() {
       'EM Safari: the birds circles and the dairies squares, their pictures drawn by Safari; the legend\'s Animals rows; the home button "Fit to the positives shown"', shapes);
       // 2.7, the animal filter: "Cattle" unticked by a real click leaves the birds only, said on the badge; ticked again,
       // the six come back.
-      await d.run(`document.getElementById('positives-fold').open = true; document.querySelector('#em-animals input[value="square"]').scrollIntoView({ block: 'center' }); return true;`);
-      await d.click('#em-animals input[value="square"]');
+      await d.run(`document.getElementById('positives-fold').open = true; document.querySelector('#em-animals input[value="cattle"]').scrollIntoView({ block: 'center' }); return true;`);
+      await d.click('#em-animals input[value="cattle"]');
       await d.waitFor('!WSDA.emergency.state.loading && WSDA.emergency.state.map.drawn.positives < 6', 10000, 'cattle left out');
       const birds = await d.run(`var s=WSDA.emergency.state,t=document.querySelector('#em-badge .only-tag');return { drawn: s.map.drawn.positives,
         marks: s.map.em.positives.features.map(function(f){return f.properties.mark.split(':')[1];}), tag: t ? t.textContent : null,
         sum: document.getElementById('positives-sum').textContent };`);
-      await d.click('#em-animals input[value="square"]');
+      await d.click('#em-animals input[value="cattle"]');
       await d.waitFor('!WSDA.emergency.state.loading && WSDA.emergency.state.map.drawn.positives === 6', 10000, 'cattle back');
       const both = await d.run(`return { drawn: WSDA.emergency.state.map.drawn.positives, tag: !!document.querySelector('#em-badge .only-tag') };`);
       await d.run(`document.getElementById('positives-fold').open = false; return true;`);
@@ -3209,6 +3209,16 @@ async function runEM() {
       const unpicked = await d.run(`var s=${S};return { picked: s.picked, window: s.window, marked: document.querySelectorAll('.chart-col[aria-current="true"]').length };`);
       check(unpicked.picked === null && unpicked.window.end === '2026-10-30' && unpicked.marked === 0,
         'EM Safari: a real click on the picked column again gives back the opening day (today), no column picked', unpicked);
+      // 2.8, "Columns by": a real click on Animal draws both charts by kind; Status again by a real click.
+      await d.click('#ov-by button[data-by="animal"]');
+      const byKind = await d.run(`var k=function(id){return Array.from(document.querySelectorAll('#'+id+' svg text')).map(function(t){return t.textContent;});};
+        return { by: ${S}.overview.columnsBy, time: k('em-chart'), county: k('ov-county-chart'),
+          hover: Array.from(document.querySelectorAll('#ov-county-chart .chart-mark')).map(function(m){return m.getAttribute('data-hover');}) };`);
+      await d.click('#ov-by button[data-by="status"]');
+      const byStatus = await d.run(`return { by: ${S}.overview.columnsBy, time: Array.from(document.querySelectorAll('#em-chart svg text')).map(function(t){return t.textContent;}) };`);
+      check(byKind.by === 'animal' && byKind.time.indexOf('Birds') >= 0 && byKind.time.indexOf('Cattle') >= 0 && byKind.county.indexOf('Birds') >= 0
+        && byKind.hover.some(function (h) { return / with birds$/.test(h); }) && byStatus.by === 'status' && byStatus.time.indexOf('Active') >= 0,
+        'EM Safari: a real click on "Columns by" Animal draws both charts by kind (Birds, Cattle); Status again by a real click (2.8)', [byKind, byStatus]);
       // The slider to its end, focused as a real drag focuses it (the picked column keeps no focus for the redraw to
       // scroll back to); then the people worked out once it stops, before the click.
       await d.run(`var i=document.getElementById('em-step');i.focus();i.value=i.max;i.dispatchEvent(new Event('input'));return true;`);

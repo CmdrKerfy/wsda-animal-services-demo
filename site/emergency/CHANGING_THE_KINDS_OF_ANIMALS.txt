@@ -1,0 +1,234 @@
+CHANGING THE KINDS OF ANIMALS (EMERGENCY RESPONSE)
+==================================================
+
+(The same how-to as changing-kinds.html beside this file, which opens in a browser.)
+
+The Emergency page sorts each positive into a kind of animal (for HPAI: Birds,
+Cattle, Other animals) by the words in its Species column. The kinds and their
+words are kept in one file, in the dashboards' folder:
+
+    site/emergency/types/hpai.js
+
+Each kind gets its own:
+  - mark on the map (circle, square, triangle, ...)
+  - tick under "Animals"
+  - row in the legend and in the map picture's key
+  - color in the Overview's "Columns by: Animal"
+  - total in the counts
+
+Changing that one file is the whole change; no other file needs it.
+
+
+BEFORE YOU START
+----------------
+
+  - First keep a copy: in the folder, copy hpai.js and paste it there (it is
+    named "hpai copy.js" or "hpai - Copy.js"; the page ignores it). If something
+    goes wrong, you can put it back.
+  - Open hpai.js in a plain-text editor (not Word: it would change the file):
+      Windows:  Notepad  (right-click the file, "Open with", "Notepad")
+      Mac:      TextEdit (right-click the file, "Open With", "TextEdit")
+  - To find a line in it: Edit, Find (Ctrl+F on Windows, Command-F on a Mac).
+  - COPY AND PASTE the lines below. Do not type them.
+      TextEdit turns typed quotes into curly ones ( ‘ ’ ), and the page cannot
+      read those. (Or first turn it off: Edit, Substitutions, Smart Quotes.)
+  - After each change: save hpai.js (File, Save), then reload the Emergency
+    page in the browser (F5 on Windows, Command-R on a Mac).
+  - On the R drive, a changed file changes the page for everyone, and the next
+    version's folder replaces it. Send your change to the platform's maintainer
+    so it goes into the next version too.
+
+
+PART A.  ADDING A WORD
+======================
+
+Use this when the line under the value boxes names a species the page does not
+know, for example:
+
+    1 positive with a species not listed: Opossum
+
+That positive was counted under the last kind, Other animals.
+
+STEP 1   Add the word to its kind
+---------------------------------
+
+Do:
+  - In hpai.js, find the end of Other animals' words:
+
+      'deer', 'elk', 'wolf', 'dolphin', 'porpoise'] }
+
+  - Add the new word in quotes, after a comma, so it reads:
+
+      'deer', 'elk', 'wolf', 'dolphin', 'porpoise', 'opossum'] }
+
+  - Save, and reload the page.
+
+Expect:
+  - Opossum is no longer named in the "species not listed" line.
+
+Good to know:
+  - Write the word in small letters. It matches "Opossum", "OPOSSUM" and
+    "Virginia opossum" alike.
+  - Other animals counts each species by its own name ("12 goats, 1 opossum").
+    Birds and Cattle count by the kind's name ("1.2M birds").
+
+
+PART B.  WORKED EXAMPLE: SHOW MINK APART FROM OTHER ANIMALS
+===========================================================
+
+Mink are counted under Other animals, with the triangle. To give them their own
+kind, two edits in hpai.js:
+
+STEP 1   Add the Mink kind
+--------------------------
+
+Do:
+  - Find the cattle kind, the line that starts:
+
+      { key: 'cattle', label: 'Cattle', words: [
+
+  - Paste this new line right under it (before Other animals):
+
+      { key: 'mink', label: 'Mink', words: ['mink'] },
+
+What the parts mean:
+  key      a short code name the page uses behind the scenes: small letters,
+           digits and dashes only, each kind's different
+  label    the name people see on the tick, the legend and the map key
+  words    the species words that make a positive this kind, each in quotes,
+           with commas between
+  The counts use the label in small letters ("7 mink"). To have them say
+  something else, such as "7 animals", add  word: 'animals',  after
+  label: 'Mink',  in the line.
+
+
+STEP 2   Take mink out of Other animals
+---------------------------------------
+
+Do:
+  - In Other animals' words, take out (with its comma and space):
+
+      'mink', 
+
+  - Delete the quotes, the word, the comma and the space after it.
+  - A word may be in one kind only; if it is left in both, the page shows a
+    red notice (see PART E).
+
+
+STEP 3   Check the page
+-----------------------
+
+Do:
+  - Save, reload the page, and load your positives file.
+
+Expect:
+  - "Animals" has four ticks: Birds, Cattle, Mink, Other animals.
+  - In the platform's made-up test file ("test-tables/em_rules_species.csv",
+    which comes with its tests), these species change like this:
+
+      Species       Before                         After
+      ------------  -----------------------------  -----------------------------
+      Chicken       Birds          circle          Birds          circle
+      Mink          Other animals  triangle        Mink           triangle
+      Meat Goat     Other animals  triangle        Other animals  diamond
+      Pigeon, pig   Birds and Other animals        Birds and Other animals
+                    circle, triangle               circle, diamond
+      Opossum       Other animals, not listed      Other animals, not listed
+                    triangle                       diamond
+
+  - Other animals moved from the triangle to the diamond, because Mink now comes
+    before it (see PART C, "Order matters").
+
+
+PART C.  THE RULES
+==================
+
+Order matters
+  The marks go by the kinds' order: circle, square, triangle, diamond, pentagon,
+  hexagon. So do the colors, the ticks and the legend. A kind put in the middle
+  moves every kind after it to the next mark and color.
+
+The catch-all goes last
+  The last kind also takes every species no kind names, and the line under the
+  value boxes names them. Keep the broadest kind (Other animals) last.
+  A positive with no species at all is the first kind (Birds).
+
+Six kinds are told apart
+  A seventh kind or later shares the hexagon and the sixth color. Its legend row
+  says "same mark as" the sixth. It keeps its own tick and counts.
+
+A word matches at the start of a word, in any case
+    "cow"   matches  "Dairy cow" and "Cows"
+    "cat"   does not match  "Bobcat"
+    "mink"  also matches  "Minke whale"
+  Where two words start at the same place, the longer one wins: "pigeon" (a bird
+  word) keeps "Racing pigeon" from being a pig. So to keep Minke whales out of
+  Mink, add 'minke whale' to Other animals.
+
+A species naming two kinds is both
+  "Cattle, Chicken" shows while either kind is ticked, has both marks side by
+  side, its animals are counted in neither kind, and a line under the value boxes
+  names it.
+
+What the page refuses (each gives the red notice)
+  - the same word in two kinds
+  - a kind with no words (only the last kind may have none)
+
+
+PART D.  THE WORK-PC TABLE CHECK KEEPS ITS OWN COPY
+===================================================
+
+The HPAI table check (the small tool that checks the agency's HPAI table on the
+work PC, in the tools/work-pc folder) keeps its own copy of the same words, so it
+can run without the dashboard. Open its file, check_hpai_table.R, in Notepad or
+TextEdit the same way and make the same two changes. Its lines are written a
+little differently (double quotes, and c(...) around each list), so copy them
+from here:
+
+  - Under the Cattle line, the line that starts:
+
+      Cattle = c(
+
+    paste:
+
+      Mink = c("mink"),
+
+  - In the line that starts  `Other animals` = c(  take out:
+
+      "mink", 
+
+Tell the platform's maintainer you changed both files: the platform's automatic
+checks flag it when the two lists differ.
+
+
+PART E.  WHAT A SLIP LOOKS LIKE
+===============================
+
+If the page cannot use hpai.js, it leaves HPAI out and shows a red notice at the
+top of the sidebar. The emergency type list (under "Positives and zones") then
+has no HPAI, and the page would read your HPAI file as the wrong emergency, so
+fix the file before going on.
+
+Mink left in Other animals as well:
+
+    The emergency type file "types/hpai.js" was not used. Emergency type "hpai":
+    "kinds[3].words" should be words no earlier kind has ("mink" is in kinds[2],
+    "Mink", too).
+
+  How to read it: "kinds[3]" means the 4th kind in the list, because the page
+  counts from 0: kinds[0] is Birds, kinds[1] Cattle, kinds[2] Mink, kinds[3]
+  Other animals. So the word "mink" is in both Mink and Other animals.
+
+A slip in the writing itself (curly quotes, a missing comma, quote or bracket):
+
+    The emergency type file "types/hpai.js" could not be read: a typing slip in
+    it, such as quotes made curly or a missing comma or bracket, or the file is
+    missing.
+
+To fix: undo the last change (Edit, Undo), or compare your lines with the ones
+above, then save and reload again. Still stuck: put back your copy (delete
+hpai.js, then rename the copy to hpai.js), and ask the platform's maintainer.
+
+For a maintainer: the other parts of a type file are explained at the top of
+hpai.js, and "Adding an emergency type" in docs/DEVELOPER_GUIDE.md says how to
+add a type.

@@ -20,9 +20,17 @@ What the report holds (counts only)
   - the columns the page looks for and did not find;
   - each date column: how many read, how many not (shown by their form,
     such as "99.99.9999", never the date), the first and last year;
+  - Flock/Herd Inventory and Depop Inventory added up over every row
+    (mapped or not, every kind of animal), to compare with the HPAI
+    update's "birds affected"
+    (a total only; a cell that is not a whole number is left out and
+    counted);
   - the category columns (status, subtype, flock type, production type,
     species, quarantine status): each value and its count, and how the
-    page reads the status and quarantine values. A value found in one row
+    page reads the status and quarantine values and each species' kind of
+    animal ("Birds"; "Birds and Cattle" for a species naming both;
+    "Other animals, not listed" for a species the page does not list).
+    A value found in one row
     only, or one holding a date (in figures or with its month's name), a
     coordinate, a county's name or a Case ID, is shown by its shape (such as "aaaaa aaaa"), never as written;
   - how the County column is written (the forms, never the names: "Name",

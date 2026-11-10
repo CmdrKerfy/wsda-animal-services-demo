@@ -24,7 +24,6 @@
       inventory: ['Flock/Herd Inventory'],
       shown: ['Production Type']
     },
-    inventoryWord: 'animals',
     statuses: [
       { label: 'Confirmed', words: ['confirmed', 'positive'], color: '#a50f15' },
       { label: 'Presumptive', words: ['presumptive', 'presumptive positive'], color: '#de2d26' }

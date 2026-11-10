@@ -104,6 +104,10 @@ Where a later change is planned, the entry number in `docs/FUTURE_ENHANCEMENTS.m
 
 - **The values are examples.** HPAI's statuses, its two rings (3 km and 10 km), the layers it suggests and its
   closed rule are examples until WSDA staff confirm them; the type's "?" says so.
+- **The kinds of animal come from the type.** A species no kind's words name counts under the last kind (on HPAI,
+  Other animals) and is named in a line under the value boxes. "Changing the kinds of animals"
+  (`site/emergency/changing-kinds.html`, or `CHANGING_THE_KINDS_OF_ANIMALS.txt` beside it) says how to add its word, or
+  a kind of its own.
 - **Dates as M/D/YYYY or YYYY-MM-DD.** A date in another form (for example "Oct 15, 2026") cannot be read; the line
   under the value boxes counts the unreadable dates. An Excel workbook is saved as CSV first.
 - **The window ends on the latest detection.** The page opens with the window's end on the latest detection;

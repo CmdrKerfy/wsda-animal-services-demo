@@ -13,7 +13,8 @@
 # header) and the values of the category columns (status, subtype, flock type and the like), as these are category
 # words; a column with many different values, or a long value, is counted, not listed. A value found in one row
 # only (other than a status, closed or quarantine word), or one holding a date, a coordinate, a county's name or a
-# Case ID, is shown by its shape (each letter an a, each digit a 9), as is a column name of that kind.
+# Case ID, is shown by its shape (each letter an a, each digit a 9), as is a column name of that kind. Flock/Herd
+# Inventory and Depop Inventory are added up over every row (2.8), to compare with the HPAI update's "birds affected".
 #
 # The page's rules are written again here, from site/emergency/rules.js, types.js and types/hpai.js and the CSV
 # reader site/cvi/app/csv.js: the columns it reads (the first name the file has wins, any case; a name holding
@@ -70,6 +71,19 @@ STATUSES <- list(Confirmed = c("confirmed", "positive"), Presumptive = c("presum
 CLOSED_VALUES <- c("closed", "yes", "y", "true", "1")
 QUARANTINE_UNDER <- c("under quarantine", "quarantined", "in quarantine")
 QUARANTINE_RELEASED <- c("released", "lifted")
+# The kinds of animal (types/hpai.js kinds, 2.8): each kind's label and species words, in order. A species is every
+# kind with a word at the start of one of its words ("Cattle, Chicken" is "Birds and Cattle"), except a word inside a
+# longer word of another kind ("Pigeon" is birds, not a pig); no species, the first kind; a species no kind names, the
+# last kind, "not listed".
+KINDS <- list(
+  Birds = c("poultry", "chicken", "turkey", "duck", "goose", "geese", "bird", "avian", "layer", "broiler", "gamebird", "pigeon",
+    "dove", "waterfowl", "fowl", "peafowl", "pheasant", "quail", "chukar", "grouse", "partridge", "emu", "ostrich",
+    "rhea", "swan", "gull", "hawk", "eagle", "owl", "falcon", "raptor", "crow", "raven", "magpie", "heron", "egret",
+    "pelican", "cormorant", "songbird", "parrot", "finch", "sparrow", "hen"),
+  Cattle = c("cattle", "dairy", "bovine", "cow", "heifer", "steer", "calf", "calves", "beef"),
+  `Other animals` = c("goat", "caprine", "sheep", "ovine", "swine", "hog", "porcine", "pig", "alpaca", "llama",
+    "camelid", "horse", "equine", "mink", "cat", "feline", "dog", "canine", "seal", "sea lion", "fox", "raccoon",
+    "skunk", "bear", "ferret", "rabbit", "deer", "elk", "wolf", "dolphin", "porpoise"))
 # Washington's box, a little wide (rules.js): a pair unusable as written that falls in it the other way round looks
 # swapped; a mapped pair outside it is counted (a pair just over the border, in Oregon say, is inside it).
 WA <- c(south = 45.5, north = 49.1, west = -124.9, east = -116.9)
@@ -334,13 +348,30 @@ if (length(date_cols)) {
   }
 }
 
-# The animals (the inventory column): read as a whole number with or without thousands commas.
+# The animals (the inventory column): read as a whole number with or without thousands commas (rules.js inventoryOf).
+reads_as_animals <- function(v) grepl("^[0-9]+$", v) | grepl("^[0-9]{1,3}(,[0-9]{3})+$", v)
 if (!is.na(col$inventory)) {
   v <- grid[, col$inventory]
-  ok <- grepl("^[0-9]+$", v) | grepl("^[0-9]{1,3}(,[0-9]{3})+$", v)
+  ok <- reads_as_animals(v)
   out <- c(out, "", paste0("Animals (", column_name(col$inventory), "): ", sum(ok), " read, ", sum(v != "" & !ok),
     " not read, ", sum(v == ""), " blank"))
 }
+
+# The animals added up over every row, mapped or not, every kind of animal (2.8), to compare with the HPAI update's
+# "birds affected" (cattle included: the update has had none so far): the
+# inventory column and Depop Inventory (not read by the page), each cell read as the inventory is. A sum is a count,
+# never a row's value as written.
+depop_at <- column_index(header, "Depop Inventory")
+sum_line <- function(i, name) {
+  if (is.na(i)) return(paste0("  ", pad(name, 22), "not in the table"))
+  v <- grid[, i]
+  ok <- reads_as_animals(v)
+  total <- sum(as.numeric(gsub(",", "", v[ok])))
+  paste0("  ", pad(column_name(i), 22), formatC(total, format = "f", digits = 0, big.mark = ","), " (", sum(ok),
+    " read, ", sum(v != "" & !ok), " not read, ", sum(v == ""), " blank)")
+}
+out <- c(out, "", "Animals added up over every row, every kind of animal, to compare with the HPAI update's \"birds affected\"",
+  "(a cell not read is left out):", sum_line(col$inventory, "Flock/Herd Inventory"), sum_line(depop_at, "Depop Inventory"))
 
 # The category columns: each value and its rows; how the page reads the status, closed and quarantine values.
 status_of <- function(v) {
@@ -348,7 +379,31 @@ status_of <- function(v) {
   for (s in names(STATUSES)) if (l %in% STATUSES[[s]]) return(s)
   "no status"
 }
+# The page's word rule (types.js hasWord): the word at the start of a word of the text, both in lowercase.
+has_word <- function(v, w) grepl(paste0("(^|[^a-z0-9])", gsub("([][{}()+*^$|\\\\?.])", "\\\\\\1", w)), v, perl = TRUE)
+# Where a word starts a word of the text (rules.js: types.js wordStarts), as positions from 1.
+word_starts <- function(v, w) {
+  at <- gregexpr(gsub("([][{}()+*^$|\\\\?.])", "\\\\\\1", w), v, perl = TRUE)[[1]]
+  at <- at[at > 0]
+  if (!length(at)) return(at)
+  at[at == 1 | !grepl("[a-z0-9]", substring(v, at - 1, at - 1))]
+}
+# A species' kinds, as the page reads it (rules.js kindOf): "Cattle", "Birds and Cattle", or "Other animals, not
+# listed".
+kind_of <- function(v) {
+  s <- gsub("\\s+", " ", tolower(trimws(v)))
+  if (s == "") return(names(KINDS)[1])
+  covered <- function(k, w, at) {
+    others <- unlist(KINDS[names(KINDS) != k])
+    any(nchar(others) > nchar(w) & substring(s, at, at + nchar(others) - 1) == others)
+  }
+  named <- Filter(function(k) any(vapply(KINDS[[k]], function(w)
+    any(!vapply(word_starts(s, w), function(at) covered(k, w, at), logical(1))), logical(1))), names(KINDS))
+  if (length(named)) return(paste(named, collapse = " and "))
+  paste0(names(KINDS)[length(KINDS)], ", not listed")
+}
 mark_of <- function(i, v) {
+  if (!is.na(col$species) && i == col$species) return(kind_of(v))
   if (!is.na(col$status) && i == col$status) return(if (v == "") "no status" else status_of(v))
   if (!is.na(col$closed) && i == col$closed) return(if (tolower(v) %in% CLOSED_VALUES) "closed" else "")
   if (!is.na(col$quarantineStatus) && i == col$quarantineStatus) {

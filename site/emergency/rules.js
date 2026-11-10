@@ -4,7 +4,7 @@
  *
  * Positives:
  *   readPositives(header, rows, type?, today?) -> { type, positives, dropped, columns, badDates, badCloseDates,
- *     badReleaseDates }
+ *     badReleaseDates, badQuarantineStatus }
  *     header: the file's column names; rows: its data rows (lists of text, as a CSV reader gives them). type: an
  *     emergency type (types.js); without one, the type is picked (types.pick) from the values of every disease
  *     column the loaded types name (their columns.disease) that the file has.
@@ -21,7 +21,7 @@
  *     The detection date is the first of the type's detected columns with a value in that row (the agreed HPAI
  *     table: Confirmed Diagnosis, else Date Reported). A file with none of the type's status columns gives every
  *     positive the type's first status (the agreed HPAI table has no testing status: every row is confirmed); with
- *     one, a value that is not one of the type's statuses gives none, as before.
+ *     one, a value that is not one of the type's statuses gives none.
  *     dropped: the rows without a usable latitude and longitude ("not mapped"): each with the same fields as a
  *       positive (index, lat and lon null; named by its ID, else "Line 9 (County)") and a reason: "no coordinates",
  *       "no latitude", "no longitude", "latitude and longitude look swapped" (unusable as written, in Washington the
@@ -31,7 +31,9 @@
  *     badDates, badCloseDates, badReleaseDates: rows whose detection date, closed date or quarantine release date
  *       could not be read. A positive with an unreadable closed date is past by its closed column alone.
  *     badQuarantineStatus: rows whose quarantine status is not one of the type's quarantineValues (read as blank).
- *     Names: the ID (Case ID, or AnimalDiseaseReportId in E1a's form) when the row has one, else "Positive 1
+ *     Each row also carries its own: unreadDates (0 to 3 of those dates not read) and unreadQuarantine, which the
+ *     lines under the value boxes count, so they count only the kinds ticked.
+ *     Names: the ID (Case ID, or AnimalDiseaseReportId in the earlier form) when the row has one, else "Positive 1
  *     (County)" in file order, or "Positive 1" without a county. A column whose name holds address, location, street
  *     or premise is never read, so no address can reach a name, a label or an export.
  *   statusChoices(type, positives) -> [{ key, label, color, count }]: the type's statuses, then "No status" when a
@@ -49,26 +51,32 @@
  *   inWindow(p, win) -> detected between start and end, both counting; a positive without a readable date is inside
  *     whatever the window.
  *   isPast(p, end) -> past on the end date: its closed date on or before it; without a readable closed date, when its
- *     closed column says closed, its quarantine release date on or before it (2.5; not a release date after today),
+ *     closed column says closed, its quarantine release date on or before it (not a release date after today),
  *     or, with neither date, any end date. closedDayNotKnown(p) -> closed by its closed column alone, with neither
  *     date or with a release date after today (so a day before today may show it closed too early). quarantineOf(read, p, end) -> for a past positive in a file with a quarantine
  *     release or status column: 'under' (still under quarantine on the end date) or 'released' by a readable release
  *     date (after the end, or on or before it); without one, by its quarantine status; with neither, 'unknown' in a
- *     file with a status column, 'under' in a file with only the release date (as before the status column). Else
+ *     file with a status column, 'under' in a file with only the release date. Else
  *     null. stillQuarantined(read, p, end) -> quarantineOf is 'under'.
  *   groups(read, win) -> { current, past, stillQuarantined, notKnown, closedDayNotKnown, undated, outside, notMapped }: the
  *     positives inside the window by group (closedDayNotKnown: the past ones closed on a day not known; undated: those
  *     of them without a readable date; outside: detected outside the window).
- *     groupOf(p, end) -> "Active", "Closed" or "Not mapped" (since 2.5; the lists keep their names, current and past).
+ *     groupOf(p, end) -> "Active", "Closed" or "Not mapped" (the lists keep their names, current and past).
  *   playSteps(win) -> { by: 'week' or 'month', steps: [{ start, end, label }] }: epi weeks (Sunday to Saturday,
  *     "Week of Oct 4, 2026"), or calendar months ("Month of Oct 2026") when the window holds more than 26 weeks;
  *     each step ends on its Saturday or the month's last day, the last on the window's end. Worked out with
  *     Date.UTC, never local time. weekOf(date) -> its Sunday; dayLabel(date) -> "Oct 4, 2026".
- *   overTime(read, win, steps) -> { by, columns: [{ start, end, label, current, past, outside }], notMapped, undated }:
- *     the chart's counts, one column per step of the file's play (steps), the mapped dated positives by the step
- *     they were detected in: current or past on the window's end date, or outside the window.
+ *   overTime(read, win, steps) -> { by, columns: [{ start, end, label, current, past, outside, kinds }], notMapped,
+ *     undated }: the chart's counts, one column per step of the file's play (steps), the mapped dated positives by the
+ *     step they were detected in: current or past on the window's end date, or outside the window. kinds: the same
+ *     positives inside the window, active and closed together, by chartKindOf ({ birds: 2, several: 1 }), for the
+ *     Overview's "Columns by: Animal".
+ *   chartKindOf(type, p) -> the part of a chart a positive is counted in by animal: its kind's key, or SEVERAL
+ *     ("several") when its species names more than one kind, so each positive is counted once. chartKinds(read, keys)
+ *     -> [{ key, index, label }]: the kinds of keys among the read's rows, in the type's order, then "Several kinds"
+ *     (index: the number of kinds) when a mixed positive is among them.
  *
- * The two views (2.5). A view is a window with its kind, so every rule that takes a window takes a view:
+ * The two views. A view is a window with its kind, so every rule that takes a window takes a view:
  *   dayView(fileWindow, day) -> { view: 'day', start (the file's first detection), end (the day) }: "On a day", every
  *     positive detected on or before the day, active or closed on it. rangeView(start, end) -> { view: 'range',
  *     start, end }: "Between dates", every positive detected between the dates, active or closed on the second.
@@ -89,15 +97,26 @@
  *   inventoryOf(text) -> a whole number (thousands commas allowed), or null; never zero for a blank.
  *   sizeClass(n) -> "Small" under 100, "Medium" 100 to 1,000, "Large" over 1,000, or null.
  *   numbersLine(read, list) -> "4 commercial, 67 backyard, 4.1M birds" (the flock type with the most animals first;
- *     the type's inventoryWord, then its countedApart words: "1.2M birds, 3,550 cattle"; "; 2 without an inventory"
- *     when some are blank), or null. inventoryWordOf(type, p) -> the word p's animals are counted under. bigNumber(n) -> "4.1M",
- *     or "18,535" under a million.
- *   animalShapeOf(type, p) -> the mark's shape: "circle" for the inventoryWord, "square" for the first countedApart
- *     word, "triangle" for the others (ANIMAL_SHAPES). animalKeys(type, list) -> the legend's rows [{ shape, label }],
- *     one per shape among list ("Birds", "Cattle", "Other animals"). animalKindsOf(read) -> the same over the
- *     positives and the rows not mapped (the "Animals" ticks).
- *   byAnimals(read, shapes) -> the read with only the positives and rows not mapped whose shape is in shapes (2.7's
- *     filter). animalsOnly(type, list, shapes) -> "Cattle", "Birds and cattle" when some kinds are left out, else null.
+ *     each kind's totals: "1.2M birds, 3,550 cattle, 12 goats"; "; 2 without an inventory" when some are blank), or
+ *     null. bigNumber(n) -> "4.1M", or "18,535" under a million.
+ * The kinds of animal (the type's kinds):
+ *   kindOf(type, p) -> { kind, index, indices, mixed, parts, named, one, unlisted }: every kind with a word in p's
+ *     species, in the type's order ("Cattle, Chicken" is birds and cattle, mixed); a word inside a longer word of
+ *     another kind does not count ("Pigeon" is birds, not a "pig"); no species, the first; a species no kind names,
+ *     the last and unlisted. named: the word its animals are counted under ("birds"; with nameEach the species' own,
+ *     "goats"; mixed, "animals"), one: the same for one animal. kindKeysOf(type, p) -> its kinds' keys.
+ *     pluralOf(word). inventoryWordOf(type, p) -> the word in p's hover ("2 seals", "1 opossum", "400 animals (birds
+ *     and cattle)").
+ *   animalShapeOf(type, p) -> the mark's shape: the first kind's place in ANIMAL_SHAPES (circle, square, triangle,
+ *     diamond, pentagon, hexagon; a seventh kind or later the hexagon); animalShapesOf(type, p) -> one per kind it
+ *     names. animalKeys(type, list) -> [{ key, shape, label, legend }], one per kind among list, in the type's order.
+ *     animalKindsOf(read) -> the same over the positives and the rows not mapped (the "Animals" ticks).
+ *   byAnimals(read, keys, species?) -> the read with only the positives and rows not mapped of the kinds whose keys
+ *     are given (a mixed one while any of its kinds is), and with species picked, only those (the
+ *     "Animals" ticks and "Refine by species"). speciesList(read, keys) -> the species of those kinds with their numbers.
+ *     animalsOnly(type, list, keys) -> "Cattle", "Birds and cattle" when some kinds are left out, else null.
+ *     unlistedLine(type, list) -> "1 positive with a species not listed: Opossum", or null. mixedLine(type, list) ->
+ *     '1 positive names two kinds: "Cattle, Chicken" (400 animals, counted in neither kind)', or null.
  *   notMappedLine(dropped) -> "2 not mapped: no coordinates", or null.
  *   details(read, p) -> [[column, value]] shown in the hover and positives.csv: the flock type, the shown columns,
  *     the inventory as written and "Flock size".
@@ -108,7 +127,7 @@
  *     radii the rings' distances in km; each site also has positive (the positive's index).
  *   zoneSites(zones) -> prepared sites from a zone file's zones (zones.js read()) or drawn zones: each a polygon,
  *     matched inside only, with its source ("file" or "drawn") and areaM2. bothSites(ringSites, zoneSites) -> the
- *     two together for Both (3b), the zone sites' ids numbered on after the rings'.
+ *     two together for Both, the zone sites' ids numbered on after the rings'.
  *   ringLabel(rings, km, unit?) -> the label of the smallest ring at least km (the ring a point lies in).
  *   daysSince(sites, list, asOf) -> for each site and each of its rings, the latest detection among the dated
  *     positives in list inside it, and the days from it to asOf: [{ site, name, positive, rings: [{ km, latest,
@@ -119,10 +138,10 @@
  *     exteriors counterclockwise and holes clockwise): a whole 360-step circle per ring per positive, and each zone
  *     file zone as read, never merged; properties name (as zones.csv's "Zone", so the file reopens named here and
  *     in a GIS), zone, positive, group, distance, unit, days_since_last_positive, as_of. A ring's direction is read by shared/zones.js signedArea (positive when counterclockwise).
- *     Since 2.6 a zone's feature also has area_sq_mi, area_acres and source ("file" or "drawn"), a drawn zone's zone
+ *     A zone's feature also has area_sq_mi, area_acres and source ("file" or "drawn"), a drawn zone's zone
  *     "Drawn zone"; zones.csv's rows end with "Area (sq mi)" and "Area (acres)" (blank for a ring).
  *
- * Drawn zones (2.6, "Draw a zone"). Corners are [lon, lat]; a side is the straight line between two
+ * Drawn zones ("Draw a zone"). Corners are [lon, lat]; a side is the straight line between two
  * corners in longitude and latitude, as the inside test reads it:
  *   areaM2(geometry) -> the area in m² on the sphere of 6,378,137 m (the spherical-polygon formula Leaflet.draw and
  *     Turf use), a polygon's holes taken off; areaOf(m2) -> { sqMi (two decimals), acres (whole) }; areaText(m2) ->
@@ -137,7 +156,7 @@
  *   rectangleCorners(a, b) (null for a flat one), rectangleSize(a, b) -> { eastKm, northKm }, rectangleLabel(a, b,
  *     unit) -> ["9.9 km by 4.8 km", "Area ..."]; squareCorners(mid, size, unit) (its edges size away from mid, north,
  *     south, east and west; KM_LAT degrees a km north), squareLabel(mid, size, unit, around) -> ["Around
- *     SYN-HPAI-001", "6.0 km across (3.0 km each way)", "Area ..."]; circleCorners(mid, size, unit) (3b: CIRCLE_SIDES
+ *     SYN-HPAI-001", "6.0 km across (3.0 km each way)", "Area ..."]; circleCorners(mid, size, unit) (CIRCLE_SIDES
  *     corners, each size from mid on the sphere), circleLabel(mid, size, unit, around) -> ["Around SYN-HPAI-001",
  *     "3.0 km radius", "Area ..."]; readSize(text) -> { size } or { reason }.
  *   drawnZone(corners, name, shape) -> { name, first, geometry, point, vertices, source: 'drawn', shape } (the
@@ -153,11 +172,21 @@
  *     fileZones, drawn }) -> the switch after 'drawn' (Rings becomes Both), 'file' (Rings becomes Zones), 'edited',
  *     'removed' or 'file cleared' (Rings once no zone is left); zonesNamed(fileName, n) -> "zones.geojson and 2
  *     drawn", "2 drawn zones"; drawnParams(drawn, shown) -> export_params.json's { drawn_zones, zones_shown }.
- *   cviEnds(matched) -> the CVI premises the map draws with the tick "CVI movements" (2.6): { origins, dests }, each
+ *   cviEnds(matched) -> the CVI premises the map draws with the tick "CVI movements": { origins, dests }, each
  *     [{ lat, lon, cvis, ids, place }], a matched movement's origin (hitOrigin) or destination (hitDest) inside a zone
  *     with usable coordinates, each spot once per end (as the map picture draws them, branded.js) with its number of
  *     CVIs, their numbers in order, and its place as the CVI movements table writes it ("Yakima, WA": the county and
  *     state of the first movement there).
+ *   cviSpeciesIn(master, groups) -> "Refine by species" in the CVI movements tab: the raw Species of the
+ *     master's rows in the species groups given, each once, blanks left out, sorted as CVI sorts them (master.js
+ *     collate); none for a master without a Species column. CVI's rule (ui.js refreshSub, v2.3).
+ *   cviRows(master, species) -> the master CVI's query reads: only the rows whose Species is one of those
+ *     picked, as CVI's maps narrow theirs (aggregate.js build); the master itself with none picked or without a
+ *     Species column. A master without a CVI column numbers the rows it is given (lookup.js query), so its "row_"
+ *     numbers are those of the species picked.
+ *   CVI_ENDS -> the movement's end in a zone (as Premise Lookup's "Match endpoint"): [{ key (lookup.js query's
+ *     endpoint: 'either', 'origin' or 'dest'), label (the tab's choice), words (the tab's line: "left from inside the
+ *     zones") }]; cviEndOf(key) -> its entry, Either for any other key.
  *
  * Locations too coarse for zone results ("Left out"), checked on each point before the inside list is made:
  *   coarseReason(point) -> null, or why the point is left out: located only to a town (geo_source "google_city", the
@@ -167,6 +196,10 @@
  *     them; a column the file does not have is left out of it and does not count against the point.
  *   precisionRows(header, rows) -> for each row facilities.prepare numbers (its points' ordinal: the file's rows
  *     without blank lines), the precision values of the columns the file has (any case), as point.precision wants.
+ *   layersOf(selected, precision) -> { key: layer }: the facility layers as the page keeps them, from the shared
+ *     select (facilities.js select: the layers asked for, with only the points matching their attribute picks) and
+ *     precisionRows by layer key. Each { key, label, color, shape, layer (the selected layer), points: [{ id, name,
+ *     display, lat, lon, county, town, geoSource, values (the filter columns' values), precision }] }.
  *
  * What is inside:
  *   inside(sites, layers, opts) -> { rows, layers, leftOut, total }
@@ -176,7 +209,7 @@
  *       default), positives (the positives the "nearest" line measures from), includeCoarse (true: no point is left
  *       out) }.
  *     rows: layer by layer, then site by site, nearest first (then by name): { site, siteName, layer, layerLabel, name, lat,
- *       lon, exactKm, km (R's round(x, 2)), bandKm, inZone (3b: matched to a zone polygon, so no distance is said), zone
+ *       lon, exactKm, km (R's round(x, 2)), bandKm, inZone (matched to a zone polygon, so no distance is said), zone
  *       (the ring's label, or the zone's name), county, town }.
  *     layers: per layer { key, label, color, mode, inside (distinct sites inside any ring or zone), byZone: [{ label,
  *       count, ring }] (each site once in the smallest ring that holds it, and in each zone polygon that holds it; the
@@ -184,12 +217,13 @@
  *       from, county, town } for a layer with nothing inside, null otherwise), leftOut (count), usable (points
  *       checked) }.
  *     leftOut: [{ layer, layerLabel, name, reason, county, town }]. total: distinct sites inside, over every layer.
- *   countLine(layerSummary, unit?) -> one line per layer: "Dairies: 1 in the Infection zone, 3 in the Control zone",
- *     or, with nothing inside, "Dairies: none inside. Nearest: Synthetic Dairy 3, 14.2 km from SYN-HPAI-003" (the
- *     distance in the unit, km by default).
+ *   countLine(layerSummary, unit?, noneMatch?) -> one line per layer: "Dairies: 1 in the Infection zone, 3 in the
+ *     Control zone", or, with nothing inside, "Dairies: none inside. Nearest: Synthetic Dairy 3, 14.2 km from
+ *     SYN-HPAI-003" (the distance in the unit, km by default); a layer whose filters leave it no site at all (noneMatch),
+ *     "none inside (no sites match the filters)"; one whose sites are all left out, "(no usable locations)".
  *
  * The value boxes and the exports:
- *   valueBoxes(read, result, win?, today?) -> { order (boxesOf), detected: { value, reason, active, closed }, positives: { value,
+ *   valueBoxes(read, result, win?, today?, targets?) -> { order (boxesOf), detected: { value, reason, active, closed }, positives: { value,
  *     note, lines }, past: { value, reason, note, quarantined, notKnown }, last: { value, reason, note }, inside: { value,
  *     reason } }; a value that cannot be given is null with "Not
  *     available: needs ..." as its reason (never shown as zero). Each count is said once: the positives' value
@@ -197,7 +231,7 @@
  *     counts the past positives inside it, its note "2 still under quarantine" (or "none under quarantine"), with ", 1
  *     not known" when a quarantine is not known; lines holds the not-mapped line, "2 dates not readable" (detection,
  *     closed and release dates together), "1 quarantine status not read", "1 without a date" and, on a view ending before
- *     today, "3 closed on a day not known" (closedDayNotKnown), each when it applies (the animals are the Overview's box since 2.3); the last
+ *     today, "3 closed on a day not known" (closedDayNotKnown), each when it applies; the last
  *     positive is the latest inside the window, its note "As of Oct 5, 2026" (the window's end); a view with no
  *     dated positive in a file whose dates are read says "None by this day" (On a day) or "None between these dates";
  *     detected counts every positive in the view (the current and the past). Without a window
@@ -209,14 +243,14 @@
  *     "Not mapped: ..."); a "Quarantine Status" column (as written) when the file has one. The
  *     distances in the unit (km by default).
  *
- * The Overview (2.3), from the positives inside the window, current or past on its end date:
+ * The Overview, from the positives inside the window, current or past on its end date:
  *   countyOf(p, counties) -> the file's County (as the county's own name when it names one of Washington's, whatever
  *     its case, spacing or a trailing "County"), else the name of the county shape holding the positive (counties: the
  *     map's county Features, site/geo/wa-counties.js), else the nearest within NEAR_KM (2 km), else "Outside
  *     Washington" (OUTSIDE_WA).
- *   countyRows(read, win, counties) -> [{ county, current, past, total, animals ([[word, n]], the current positives'),
- *     animalsText ("1.3M birds"), missing (current positives without a count) }], by current, then total, then name,
- *     "Outside Washington" last.
+ *   countyRows(read, win, counties) -> [{ county, current, past, total, kinds (active and closed by chartKindOf),
+ *     animals ([[word, n]], the current positives'), animalsText ("1.3M birds"), missing (current positives without a
+ *     count) }], by current, then total, then name, "Outside Washington" last.
  *   positiveRows(read, win, counties) -> { columns, rows }: the ID (or "Positive"), Detected, County, Flock size, the
  *     flock type, species, status, "Active or closed", quarantine release and quarantine status columns the file has; dates written out
  *     ("Oct 5, 2026"); newest first, the undated last. No address column.
@@ -231,8 +265,9 @@
  *     note ("Estimate from 57 Census tracts (2020)", with " · Washington only" when a zone reaches past the state; "Not
  *     available: the zones are outside Washington" when it touches no tract) } }, each with a reason ("Not available: needs zones") when its
  *     value cannot be given, never zero for an unknown.
- *   overviewBars(countyRows, result) -> { counties, layers }: [{ label, parts: [{ key, value }], total }] for the two
- *     bar charts (current and past by county; each ring's or zone's count by layer, the total its distinct sites).
+ *   overviewBars(countyRows, result, kinds?) -> { counties, layers }: [{ label, parts: [{ key, value }], total }] for
+ *     the two bar charts (current and past by county, or with kinds (chartKinds' keys) each kind's by county; each
+ *     ring's or zone's count by layer, the total its distinct sites).
  *   countyTable(read, countyRows) -> { columns, rows } for counties.csv: County, Active, Closed, Total, each animal
  *     word's exact total at the active positives, and the active positives without a count.
  *   flockKinds(list), animalTotals(read, list), animalsText(totals): the counts shared with numbersLine.
@@ -274,8 +309,8 @@
     return Number(x.toFixed(2));
   }
   const text = v => (v === null || v === undefined ? '' : String(v).trim());
-  // True when a word starts a word of the text (both lowercased), as types.js matches disease words.
-  const hasWord = (v, w) => new RegExp('(^|[^a-z0-9])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(v);
+  // True when a word starts a word of the text (both lowercased): types.js's one word rule.
+  const hasWord = (v, w) => T().hasWord(v, w);
   const listOf = a => a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
 
   // The index of the first column with one of the names (any case), skipping private columns; -1 when none.
@@ -343,12 +378,15 @@
       if (releaseText && !release) badReleaseDates++;
       const qText = cell(r, col.quarantineStatus), qStatus = T().quarantineStatusOf(type, qText);
       if (qText && !qStatus) badQuarantineStatus++;
+      // The row's own unreadable dates and quarantine status, so the lines under the value boxes count only the
+      // kinds ticked.
+      const unreadDates = (detectedText && !detected ? 1 : 0) + (closedText && !closedDate ? 1 : 0) + (releaseText && !release ? 1 : 0);
       const inventoryText = cell(r, col.inventory), inventory = inventoryOf(inventoryText);
       const p = { index: null, line, id: id || null, name: null, county: county || null, lat: null, lon: null,
         status: status ? { label: status.label, color: status.color } : null,
         statusText: statusText || null, closed: col.closed >= 0 && T().isClosed(type, r[col.closed]),
         closedDate, quarantine: release, releaseAfterToday: !!(today && release && release > today),
-        quarantineStatus: qStatus, quarantineStatusText: qText || null,
+        quarantineStatus: qStatus, quarantineStatusText: qText || null, unreadDates, unreadQuarantine: !!(qText && !qStatus),
         detected, disease: cell(r, col.disease) || null, species: cell(r, col.species) || null,
         flockType: cell(r, col.flockType) || null, inventoryText: inventoryText || null, inventory,
         size: sizeClass(inventory), shown: shownAt.map(i => [header[i], cell(r, i)]) };
@@ -536,15 +574,17 @@
   function overTime(read, win, steps) {
     const end = win ? win.end : null;
     const columns = (steps ? steps.steps : []).map(s => ({ start: s.start, end: s.end, label: s.label,
-      current: 0, past: 0, outside: 0 }));
+      current: 0, past: 0, outside: 0, kinds: {} }));
     const positives = read ? read.positives : [];
     for (const p of positives) {
       if (!p.detected) continue;
       const c = columns.find(x => p.detected >= x.start && p.detected <= x.end);
       if (!c) continue;   // only when the steps are not the file's own
-      if (!inWindow(p, win)) c.outside++;
-      else if (isPast(p, end)) c.past++;
+      if (!inWindow(p, win)) { c.outside++; continue; }
+      if (isPast(p, end)) c.past++;
       else c.current++;
+      const k = chartKindOf(read.type, p);
+      c.kinds[k] = (c.kinds[k] || 0) + 1;
     }
     return { by: steps ? steps.by : null, columns, notMapped: read ? read.dropped.length : 0,
       undated: positives.filter(p => !p.detected).length };
@@ -623,33 +663,74 @@
     return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
-  // The word a positive's animals are counted under: the first of the type's countedApart entries with a word in its
-  // species ("cattle"), else the type's inventoryWord ("birds").
-  function inventoryWordOf(type, p) {
-    const species = text(p.species).toLowerCase();
-    const apart = species ? type.countedApart.find(a => a.species.some(w => hasWord(species, w))) : null;
-    return apart ? apart.word : type.inventoryWord;
+  // ---- The kinds of animal (2.8, option E) --------------------------------------------------------------------
+
+  // A positive's kinds: every kind with one of its words in the species, in the type's order, so
+  // "Cattle, Chicken" is both birds and cattle (mixed). A word does not count where a longer word of another kind
+  // starts at the same place ("pig" in "pigeon": "Pigeon" is birds only). No species, the first kind; a species no
+  // kind's words name, the last kind, and unlisted (only in a type that lists species words). -> { kind and index
+  // (the first of its kinds), indices (all of them), mixed, parts: [{ index, named, one }] one per kind, named and one
+  // (the word its animals are counted under: the kind's word, or with nameEach the species' own word, "goats", "goat";
+  // mixed, "animals", "animal"), unlisted }.
+  function kindOf(type, p) {
+    const kinds = type.kinds, species = text(p.species).toLowerCase().replace(/\s+/g, ' ');
+    const covered = (i, w, at) => kinds.some((k, j) => j !== i && k.words.some(f => f.length > w.length && species.startsWith(f, at)));
+    const hitOf = i => kinds[i].words.find(w => T().wordStarts(species, w).some(at => !covered(i, w, at))) || null;
+    const hits = species ? kinds.map((k, i) => ({ index: i, hit: hitOf(i) })).filter(h => h.hit) : [];
+    const unlisted = !!species && !hits.length && kinds.some(k => k.words.length);
+    if (!hits.length) hits.push({ index: species ? kinds.length - 1 : 0, hit: null });
+    const parts = hits.map(h => {
+      const kind = kinds[h.index], own = h.hit || species;
+      return kind.nameEach && species ? { index: h.index, named: pluralOf(own), one: own } : { index: h.index, named: kind.word, one: kind.word };
+    });
+    const mixed = parts.length > 1;
+    return { kind: kinds[parts[0].index], index: parts[0].index, indices: parts.map(x => x.index), mixed, parts,
+      named: mixed ? 'animals' : parts[0].named, one: mixed ? 'animal' : parts[0].one, unlisted };
+  }
+  // A positive's kinds by key: ["birds", "cattle"].
+  const kindKeysOf = (type, p) => kindOf(type, p).indices.map(i => type.kinds[i].key);
+  // A species word for many animals: "goats", "foxes", "wolves"; "sheep", "mink", the -ine words and a word already
+  // plural ("geese", "mice") as they are; a species ending in something other than a plain word ("Opossum (juvenile)")
+  // as written.
+  const SAME_PLURAL = ['sheep', 'deer', 'elk', 'moose', 'bison', 'mink', 'swine', 'cattle', 'fish', 'caprine', 'ovine',
+    'porcine', 'bovine', 'equine', 'feline', 'canine', 'camelid'];
+  const IRREGULAR = { wolf: 'wolves', mouse: 'mice', goose: 'geese', ox: 'oxen' };
+  function pluralOf(w) {
+    const at = w.lastIndexOf(' ') + 1, last = w.slice(at);
+    if (IRREGULAR[last]) return w.slice(0, at) + IRREGULAR[last];
+    if (SAME_PLURAL.includes(last) || Object.values(IRREGULAR).includes(last) || /s$/.test(last)) return w;
+    if (!/^[a-z][a-z-]*$/.test(last)) return w;
+    if (/(x|z|ch|sh)$/.test(last)) return w + 'es';
+    return /[^aeiou]y$/.test(last) ? w.slice(0, -1) + 'ies' : w + 's';
   }
 
-  // The positive's mark tells its animal (2.4): the type's inventoryWord a circle ("birds"), its first countedApart
-  // word a square ("cattle"), every later one a triangle ("other animals"). The kind is inventoryWordOf's, so the map
-  // and the numbers agree.
-  const ANIMAL_SHAPES = ['circle', 'square', 'triangle'];
-  const animalWords = type => [type.inventoryWord].concat(type.countedApart.map(a => a.word));
+  // The word a positive's animals are counted under in its hover: "1.2M birds", "2 seals", "1 opossum"; a mixed one
+  // its kinds: "400 animals (birds and cattle)".
+  function inventoryWordOf(type, p) {
+    const k = kindOf(type, p), word = p.inventory === 1 ? k.one : k.named;
+    return k.mixed ? word + ' (' + listOf(k.parts.map(x => x.named)) + ')' : word;
+  }
+
+  // The positive's mark tells its kind (2.4; 2.8 every kind its own): in the type's order a circle, square, triangle,
+  // diamond, pentagon, hexagon; a seventh kind or later shares the hexagon (its legend row says so). animalShapeOf: its
+  // first kind's; animalShapesOf: one per kind it names, a mixed positive's marks side by side ("circle", "square").
+  const ANIMAL_SHAPES = ['circle', 'square', 'triangle', 'diamond', 'pentagon', 'hexagon'];
   const shapeAt = i => ANIMAL_SHAPES[Math.min(Math.max(i, 0), ANIMAL_SHAPES.length - 1)];
   function animalShapeOf(type, p) {
-    return shapeAt(animalWords(type).indexOf(inventoryWordOf(type, p)));
+    return shapeAt(kindOf(type, p).index);
   }
-  // The legend's "Animals" rows for the positives drawn: one per shape among them, in the shapes' order, named by
-  // its words with a positive drawn ("Birds", "Cattle", "Other animals"; two words on the triangle "Goats, sheep").
+  function animalShapesOf(type, p) {
+    return [...new Set(kindOf(type, p).indices.map(shapeAt))];
+  }
+  // The kinds among the positives, in the type's order: [{ key, shape, label ("Birds"; the ticks and the words),
+  // legend (the legend's and the map key's row: the label, with "(same mark as Swine)" on a kind sharing a mark) }].
+  // A mixed positive brings each of its kinds.
   function animalKeys(type, list) {
-    const words = animalWords(type), drawn = new Set(list.map(p => inventoryWordOf(type, p)));
-    return ANIMAL_SHAPES.map(shape => {
-      const named = words.filter((w, i) => shapeAt(i) === shape && drawn.has(w))
-        .filter((w, i, all) => all.indexOf(w) === i);
-      if (!named.length) return null;
-      const label = named.join(', ');
-      return { shape, label: label.charAt(0).toUpperCase() + label.slice(1) };
+    const present = new Set(list.flatMap(p => kindOf(type, p).indices));
+    return type.kinds.map((k, i) => {
+      if (!present.has(i)) return null;
+      const first = type.kinds[ANIMAL_SHAPES.indexOf(shapeAt(i))];
+      return { key: k.key, shape: shapeAt(i), label: k.label, legend: first === k ? k.label : k.label + ' (same mark as ' + first.label + ')' };
     }).filter(Boolean);
   }
 
@@ -659,26 +740,77 @@
     return animalKeys(read.type, read.positives.concat(read.dropped || []));
   }
 
-  // The animal filter (2.7): the read with only the positives (and the rows not mapped) of the kinds ticked, by their
-  // marks' shapes, so a kind left out leaves every view as if it were not in the file.
-  function byAnimals(read, shapes) {
-    const keep = p => shapes.includes(animalShapeOf(read.type, p));
+  // A positive's species as "Refine by species" lists it: as written, or "(no species)".
+  const speciesName = p => text(p.species) || '(no species)';
+  // The animal filter (2.7; 2.8 by the kind's key and, with species picked, only those): the read with only the
+  // positives (and the rows not mapped) of the kinds ticked, so a kind left out leaves every view as if it were not in
+  // the file; a mixed positive stays while any of its kinds is ticked. species: the species picked in "Refine by
+  // species" (none picked: every species of the kinds ticked).
+  function byAnimals(read, keys, species) {
+    const picked = species && species.length ? species : null;
+    const keep = p => kindKeysOf(read.type, p).some(k => keys.includes(k)) && (!picked || picked.includes(speciesName(p)));
     return Object.assign({}, read, { positives: read.positives.filter(keep), dropped: (read.dropped || []).filter(keep) });
   }
+  // "Refine by species" (2.8): the species of the kinds ticked, under each kind in the type's order, the most animals
+  // first, then by name: [{ key, label, shape, species: [{ name, positives, animals (null when none has a count),
+  // text ("1 positive, 1,200,000 animals") }] }]. Over the read given (the whole file's) and its rows not mapped. A
+  // mixed species ("Cattle, Chicken") is listed under each of its kinds.
+  function speciesList(read, keys) {
+    const all = read.positives.concat(read.dropped || []);
+    return read.type.kinds.map((k, i) => {
+      if (!keys.includes(k.key)) return null;
+      const by = new Map();
+      all.filter(p => kindOf(read.type, p).indices.includes(i)).forEach(p => {
+        const name = speciesName(p), s = by.get(name) || { name, positives: 0, animals: null };
+        s.positives++;
+        if (p.inventory !== null && p.inventory !== undefined) s.animals = (s.animals || 0) + p.inventory;
+        by.set(name, s);
+      });
+      if (!by.size) return null;
+      const species = [...by.values()].sort((a, b) => (b.animals || 0) - (a.animals || 0) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      species.forEach(s => {
+        s.text = s.positives + (s.positives === 1 ? ' positive' : ' positives') + ', ' + (s.animals === null ? 'no count'
+          : s.animals.toLocaleString('en-US') + (s.animals === 1 ? ' animal' : ' animals'));
+      });
+      return { key: k.key, label: k.label, shape: shapeAt(i), species };
+    }).filter(Boolean);
+  }
   // The kinds shown in words when some are left out: "Cattle", "Birds and cattle"; null with every kind shown, with
-  // one kind in the file, or with none ticked.
-  function animalsOnly(type, list, shapes) {
+  // one kind in the file, or with none ticked. keys: the kinds ticked.
+  function animalsOnly(type, list, keys) {
     const kinds = animalKeys(type, list);
-    const shown = kinds.filter(k => shapes.includes(k.shape));
+    const shown = kinds.filter(k => keys.includes(k.key));
     if (kinds.length < 2 || !shown.length || shown.length === kinds.length) return null;
-    const words = shown.map((k, i) => (i ? k.label.toLowerCase() : k.label));
-    return words.length === 1 ? words[0] : words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1];
+    return listOf(shown.map((k, i) => (i ? k.label.toLowerCase() : k.label)));
+  }
+  // The line under the value boxes naming the species no kind's words name (2.8): "2 positives with a species not
+  // listed: Fox, Opossum" (five names, then how many more), or null.
+  function unlistedLine(type, list) {
+    const hits = list.filter(p => kindOf(type, p).unlisted);
+    if (!hits.length) return null;
+    const names = [...new Set(hits.map(p => text(p.species)))].sort();
+    const shown = names.length > 6 ? names.slice(0, 5).join(', ') + ' and ' + (names.length - 5) + ' more' : names.join(', ');
+    return hits.length.toLocaleString('en-US') + (hits.length === 1 ? ' positive' : ' positives') + ' with a species not listed: ' + shown;
+  }
+  // The line under the value boxes naming the positives whose species names more than one kind:
+  // '1 positive names two kinds: "Cattle, Chicken" (400 animals, counted in neither kind)' (five names, then how
+  // many more; "more than one kind" when one names three or more; no number when none has a count), or null.
+  function mixedLine(type, list) {
+    const hits = list.filter(p => kindOf(type, p).mixed);
+    if (!hits.length) return null;
+    const names = [...new Set(hits.map(p => '"' + text(p.species) + '"'))].sort();
+    const shown = names.length > 6 ? names.slice(0, 5).join(', ') + ' and ' + (names.length - 5) + ' more' : names.join(', ');
+    const two = hits.every(p => kindOf(type, p).indices.length === 2);
+    const counted = hits.filter(p => p.inventory !== null && p.inventory !== undefined);
+    const n = counted.reduce((s, p) => s + p.inventory, 0);
+    return hits.length.toLocaleString('en-US') + (hits.length === 1 ? ' positive names ' : ' positives name ') +
+      (two ? 'two kinds: ' : 'more than one kind: ') + shown + ' (' +
+      (counted.length ? n.toLocaleString('en-US') + (n === 1 ? ' animal' : ' animals') + ', ' : '') + 'counted in neither kind)';
   }
 
   // One line counting the positives by flock type and adding up their animals: "4 commercial, 67 backyard, 4.1M
-  // birds", with the type's countedApart animals added up apart ("1.2M birds, 3,550 cattle"). The flock type with
-  // the most animals comes first; the inventoryWord's total, then each countedApart word in the type's order, each
-  // only when one of its positives has an inventory. A blank inventory is left out of the totals and named ("2
+  // birds", each kind's animals added up apart ("1.2M birds, 3,550 cattle, 12 goats"). The flock type with the most
+  // animals comes first; the totals in animalTotals' order, each only when one of its positives has an inventory. A blank inventory is left out of the totals and named ("2
   // without an inventory"), never counted as zero. Null when the file has neither column, or for no positives.
   function numbersLine(read, list) {
     const hasType = !!read.columns.flockType, hasInventory = !!read.columns.inventory;
@@ -710,21 +842,51 @@
   }
   const kindText = k => k.count + ' ' + (k.key || 'without a type');
 
-  // The positives' animals added up by the word they are counted under: { totals: [[word, n]] in the type's order
-  // (its inventoryWord, then its countedApart words; a word with no counted positive left out), missing (the
-  // positives without a count, never counted as zero) }. animalsText(totals) -> "1.2M birds, 35 cattle".
+  // The Overview's charts by animal (2.8, "Columns by: Animal"): a positive is counted once, in its kind's part, or in
+  // "Several kinds" when its species names more than one kind (as its animals are counted in neither kind).
+  const SEVERAL = 'several';
+  function chartKindOf(type, p) {
+    const k = kindOf(type, p);
+    return k.mixed ? SEVERAL : k.kind.key;
+  }
+  // The chart's parts for the kinds ticked (keys): those among the read's rows (mapped or not, so a part keeps its
+  // color while the dates move), in the type's order, then "Several kinds" when a mixed positive is among them.
+  function chartKinds(read, keys) {
+    const rows = read.positives.concat(read.dropped || []);
+    const present = new Set(rows.map(p => chartKindOf(read.type, p)));
+    const out = read.type.kinds.map((k, index) => ({ key: k.key, index, label: k.label }))
+      .filter(k => keys.includes(k.key) && present.has(k.key));
+    if (present.has(SEVERAL)) out.push({ key: SEVERAL, index: read.type.kinds.length, label: 'Several kinds' });
+    return out;
+  }
+
+  // The positives' animals added up by the word they are counted under (kindOf's named: the kind's word, or each
+  // species' own): { totals: [[word, n]], the first kind's first, then the most animals first (on a tie, the type's
+  // order, then the word); a total of one animal in its singular ("1 opossum"); the animals of the mixed positives in
+  // neither kind, last ("400 animals of several kinds"); missing (the positives without a count, never counted as
+  // zero) }. animalsText(totals) -> "1.2M birds, 2,400 cattle, 12 goats".
+  const MIXED_WORD = 'animals of several kinds', MIXED_ONE = 'animal of several kinds';
   function animalTotals(read, list) {
-    const totals = new Map([read.type.inventoryWord].concat(read.type.countedApart.map(a => a.word)).map(w => [w, null]));
-    let missing = 0;
+    const totals = new Map();
+    let missing = 0, mixed = null;
     for (const p of list) {
       if (p.inventory === null) {
         missing++;
         continue;
       }
-      const w = inventoryWordOf(read.type, p);
-      totals.set(w, (totals.get(w) || 0) + p.inventory);
+      const k = kindOf(read.type, p);
+      if (k.mixed) {
+        mixed = (mixed || 0) + p.inventory;
+        continue;
+      }
+      const t = totals.get(k.named) || { word: k.named, one: k.one, index: k.index, n: 0 };
+      t.n += p.inventory;
+      totals.set(k.named, t);
     }
-    return { totals: [...totals].filter(([, n]) => n !== null), missing };
+    const sorted = [...totals.values()].sort((a, b) => (b.index === 0) - (a.index === 0) || b.n - a.n || a.index - b.index ||
+      (a.word < b.word ? -1 : a.word > b.word ? 1 : 0)).map(t => [t.n === 1 ? t.one : t.word, t.n]);
+    if (mixed !== null) sorted.push([mixed === 1 ? MIXED_ONE : MIXED_WORD, mixed]);
+    return { totals: sorted, missing };
   }
   const animalsText = totals => totals.map(([w, n]) => bigNumber(n) + ' ' + w).join(', ');
 
@@ -1116,6 +1278,25 @@
     };
     return { origins: end('hitOrigin', 'Origin'), dests: end('hitDest', 'Dest') };
   }
+  // CVI's order for its pickers (master.js collate).
+  const cviCollate = (a, b) => a.localeCompare(b, 'en');
+  function cviSpeciesIn(master, groups) {
+    if (!master || !master.hasSpecies) return [];
+    const g = new Set(groups || []);
+    const names = master.rows.filter(r => g.has(r['Species.Group'])).map(r => r.Species)
+      .filter(s => s !== null && s !== undefined && s !== '');
+    return [...new Set(names)].sort(cviCollate);
+  }
+  function cviRows(master, species) {
+    if (!master || !master.hasSpecies || !species || !species.length) return master;
+    const picked = new Set(species);
+    return Object.assign({}, master, { rows: master.rows.filter(r => r.Species !== null && picked.has(r.Species)) });
+  }
+  const CVI_ENDS = [
+    { key: 'either', label: 'Either', words: 'left from or arrived inside the zones' },
+    { key: 'origin', label: 'Origin', words: 'left from inside the zones' },
+    { key: 'dest', label: 'Destination', words: 'arrived inside the zones' }];
+  const cviEndOf = key => CVI_ENDS.find(e => e.key === key) || CVI_ENDS[0];
 
   function ringLabel(rings, km, unit) {
     const ring = rings.find(r => km <= toKm(r.distance, unit)) || rings[rings.length - 1];
@@ -1148,8 +1329,21 @@
     });
   }
 
-  // The same site twice in a layer (one line of the file repeated) is counted once: by its name and place.
+  function layersOf(selected, precision) {
+    const out = Object.create(null);
+    for (const l of selected.layers) {
+      const prec = precision[l.key] || [];
+      out[l.key] = { key: l.key, label: l.liveLabel, color: l.color, shape: l.shape, layer: l,
+        points: l.points.map(p => ({ id: p.id, name: p.name, display: p.display, lat: p.lat, lon: p.lon, county: p.county,
+          town: p.townName || null, geoSource: p.geoSource, values: p.values, precision: prec[p.ordinal] || {} })) };
+    }
+    return out;
+  }
+
+  // The same site twice in a layer (one line of the file repeated) is counted once: by its name and place. The map,
+  // the picture and the counts all use these two keys, so they cannot disagree about whether two rows are one site.
   const siteKey = r => r.lat + '\r' + r.lon + '\r' + r.name;
+  const layerSiteKey = (layer, r) => layer + '\r' + siteKey(r);
 
   function inside(sites, layers, opts) {
     const o = opts || {}, PX = P(), mode = o.mode === 'zones' || o.mode === 'both' ? o.mode : 'rings';
@@ -1213,18 +1407,20 @@
         byZone: [...byZone.values()].map(z => ({ label: z.label, count: z.keys.size, ring: z.ring })), nearest, leftOut: left,
         usable: usable.length });
     }
-    const total = new Set(rows.map(r => r.layer + '\r' + siteKey(r))).size;
+    const total = new Set(rows.map(r => layerSiteKey(r.layer, r))).size;
     return { rows, layers: summaries, leftOut, total };
   }
 
-  function countLine(s, unit) {
+  function countLine(s, unit, noneMatch) {
     const u = unit || 'km';
     if (s.inside) {
       // A ring's label takes "the" ("in the Control zone"); a zone's names are written as they are.
       const parts = s.byZone.filter(z => z.count).map(z => z.count + ' in ' + (z.ring ? 'the ' : '') + z.label);
       return s.label + ': ' + listOf(parts);
     }
-    if (!s.nearest) return s.label + ': none inside' + (s.usable ? '' : ' (no usable locations)');
+    if (!s.nearest) {
+      return s.label + ': none inside' + (s.usable ? '' : noneMatch ? ' (no sites match the filters)' : ' (no usable locations)');
+    }
     return s.label + ': none inside. Nearest: ' + s.nearest.name + ', ' + round2(fromKm(s.nearest.exactKm, u)) + ' ' +
       UNITS[u].label + ' from ' + s.nearest.from;
   }
@@ -1232,10 +1428,11 @@
   // win: the view (or a plain window); without one (no readable detection date), the current positives are those
   // not past by their closed column, and only the not-mapped and unreadable-dates lines are added. today
   // (YYYY-MM-DD): on a view ending before it, a line counts the closed positives whose closing day is not known.
-  function valueBoxes(read, result, win, today) {
+  // targets: the positives with zones (targets()); fewer than the current ones adds "n with zones" to the note.
+  function valueBoxes(read, result, win, today, targets) {
     const g = read && win ? groups(read, win) : null;
     const all = !read ? [] : g ? g.current : read.positives.filter(p => !isPast(p, null));
-    const withZones = read && read.targets ? read.targets.length : null;
+    const withZones = read && targets ? targets.length : null;
     const counted = !read ? [] : g ? g.current.concat(g.past) : read.positives;
     const dates = counted.map(p => p.detected).filter(Boolean).sort();
     // No dated positive in the view of a file whose dates are read: the box says so in the view's words (a day before
@@ -1253,10 +1450,16 @@
     if (read) {
       const notMapped = notMappedLine(read.dropped);
       if (notMapped) lines.push(notMapped);
-      const bad = (read.badDates || 0) + (read.badCloseDates || 0) + (read.badReleaseDates || 0);
+      // Counted over the rows of the kinds ticked (the read given), mapped or not.
+      const rows = read.positives.concat(read.dropped || []);
+      const bad = rows.reduce((n, p) => n + (p.unreadDates || 0), 0);
       if (bad) lines.push(bad.toLocaleString('en-US') + (bad === 1 ? ' date' : ' dates') + ' not readable');
-      const badQ = read.badQuarantineStatus || 0;
+      const badQ = rows.filter(p => p.unreadQuarantine).length;
       if (badQ) lines.push(badQ.toLocaleString('en-US') + (badQ === 1 ? ' quarantine status' : ' quarantine statuses') + ' not read');
+      const unlisted = unlistedLine(read.type, read.positives.concat(read.dropped || []));
+      if (unlisted) lines.push(unlisted);
+      const mixed = mixedLine(read.type, read.positives.concat(read.dropped || []));
+      if (mixed) lines.push(mixed);
     }
     // The animals at the current positives are the Overview's own box (2.3), no longer a line here.
     if (g && g.undated.length) lines.push(g.undated.length.toLocaleString('en-US') + ' without a date');
@@ -1379,16 +1582,25 @@
 
   function countyRows(read, win, counties) {
     const g = groups(read, win), rows = new Map();
-    const row = name => rows.get(name) || rows.set(name, { county: name, current: 0, past: 0, total: 0, list: [] }).get(name);
+    const row = name => rows.get(name) || rows.set(name, { county: name, current: 0, past: 0, total: 0, list: [], kinds: {} }).get(name);
+    const byKind = (r, p) => {
+      const k = chartKindOf(read.type, p);
+      r.kinds[k] = (r.kinds[k] || 0) + 1;
+    };
     for (const p of g.current) {
       const r = row(countyOf(p, counties));
       r.current++;
       r.list.push(p);
+      byKind(r, p);
     }
-    for (const p of g.past) row(countyOf(p, counties)).past++;
+    for (const p of g.past) {
+      const r = row(countyOf(p, counties));
+      r.past++;
+      byKind(r, p);
+    }
     const out = [...rows.values()].map(r => {
       const a = read.columns.inventory ? animalTotals(read, r.list) : { totals: [], missing: 0 };
-      return { county: r.county, current: r.current, past: r.past, total: r.current + r.past, animals: a.totals,
+      return { county: r.county, current: r.current, past: r.past, total: r.current + r.past, kinds: r.kinds, animals: a.totals,
         animalsText: animalsText(a.totals), missing: a.missing };
     });
     return out.sort((a, b) => (a.county === OUTSIDE_WA) - (b.county === OUTSIDE_WA) || b.current - a.current ||
@@ -1550,10 +1762,11 @@
           outsideNote].filter(Boolean).join(' · ') };
     let animals;
     if (!read.columns.inventory) animals = { value: null, reason: 'Not available: needs ' + read.type.columns.inventory[0], note: null };
-    else if (!cur.length) animals = { value: '0 ' + read.type.inventoryWord, reason: null, note: null };
+    else if (!cur.length) animals = { value: '0 ' + read.type.kinds[0].word, reason: null, note: null };
     else {
-      const a = animalTotals(read, cur);
-      const note = [animalsText(a.totals.slice(1)), read.columns.flockType ? flockKinds(cur).map(kindText).join(', ') : '',
+      // After the first, six named, or five and how many more.
+      const a = animalTotals(read, cur), rest = a.totals.slice(1), cut = rest.length > 6;
+      const note = [animalsText(cut ? rest.slice(0, 5) : rest) + (cut ? ' and ' + (rest.length - 5) + ' more' : ''), read.columns.flockType ? flockKinds(cur).map(kindText).join(', ') : '',
         a.missing ? a.missing + ' without a count' : ''].filter(Boolean).join(' · ') || null;
       animals = a.totals.length ? { value: animalsText(a.totals.slice(0, 1)), reason: null, note }
         : { value: null, reason: 'Not available: no animal counts at the active positives', note };
@@ -1571,28 +1784,41 @@
   // The two bar charts' rows: [{ label, parts: [{ key, value }], total }] by county (current, then past) and by layer
   // (one part per ring or zone, as the layer's byZone; its total the distinct sites inside, since a zone file's zones
   // can overlap).
-  function overviewBars(rows, result) {
+  function overviewBars(rows, result, kinds) {
+    const partsOf = r => (kinds ? kinds.map(k => ({ key: k, value: r.kinds[k] || 0 }))
+      : [{ key: 'current', value: r.current }, { key: 'past', value: r.past }]);
     return {
-      counties: rows.map(r => ({ label: r.county, parts: [{ key: 'current', value: r.current }, { key: 'past', value: r.past }],
-        total: r.total })),
+      counties: rows.map(r => ({ label: r.county, parts: partsOf(r), total: r.total })),
       layers: !result ? [] : result.layers.map(l => ({ label: l.label, parts: l.byZone.map(z => ({ key: z.label, value: z.count, ring: !!z.ring })),
         total: l.inside }))
     };
   }
 
   // counties.csv: the counties table with each animal word's exact total at the active positives, in the type's
-  // order ("Birds at the active positives"), and the active positives without a count. A county without an active
-  // positive with a count has a blank total, never zero for an unknown. Its words Active and Closed since 2.5.
+  // order of kinds, a kind's own species words by name ("Birds at the active positives", "Goats at the active
+  // positives"), the mixed positives' last ("Animals of several kinds at the active positives"), and the active
+  // positives without a count. A county without an active positive with a count has a
+  // blank total, never zero for an unknown. Its words Active and Closed since 2.5.
   function countyTable(read, rows) {
-    const words = [read.type.inventoryWord].concat(read.type.countedApart.map(a => a.word))
-      .filter(w => rows.some(r => r.animals.some(a => a[0] === w)));
+    const forms = new Map();
+    read.positives.forEach(p => {
+      const k = kindOf(read.type, p);
+      if (k.mixed) forms.set(MIXED_WORD, { named: MIXED_WORD, one: MIXED_ONE, index: read.type.kinds.length });
+      else forms.set(k.named, { named: k.named, one: k.one, index: k.index });
+    });
+    const has = (a, f) => a[0] === f.named || a[0] === f.one;
+    const words = [...forms.values()].sort((a, b) => a.index - b.index || (a.named < b.named ? -1 : a.named > b.named ? 1 : 0))
+      .filter(f => rows.some(r => r.animals.some(a => has(a, f))));
+    // A column named from a species as typed in the table gets the export's formula guard (an apostrophe before =, +,
+    // -, @, a tab or a carriage return, as CVI's exports.js asText does for cells), so a spreadsheet opens it as text.
+    const guarded = name => (/^[=+\-@\t\r]/.test(name) ? "'" + name : name);
     const columns = ['County', 'Active', 'Closed', 'Total']
-      .concat(words.map(w => w.charAt(0).toUpperCase() + w.slice(1) + ' at the active positives'))
+      .concat(words.map(f => guarded(f.named.charAt(0).toUpperCase() + f.named.slice(1) + ' at the active positives')))
       .concat(read.columns.inventory ? ['Active positives without a count'] : []);
     return { columns, rows: rows.map(r => {
       const counted = r.current - r.missing > 0;
-      const animals = words.map(w => {
-        const hit = r.animals.find(a => a[0] === w);
+      const animals = words.map(f => {
+        const hit = r.animals.find(a => has(a, f));
         return hit ? hit[1] : counted ? 0 : null;
       });
       return [r.county, r.current, r.past, r.total].concat(animals, read.columns.inventory ? [r.missing] : []);
@@ -1602,14 +1828,15 @@
   root.WSDA = root.WSDA || {};
   root.WSDA.emergencyRules = { readPositives, statusChoices, defaultTicks, targets, suggestedLayers, ringSites,
     zoneSites, bothSites, ringLabel,
-    coarseReason, precisionRows, inside, countLine, valueBoxes, exportRows, round2, dateOf, PRIVATE, COLUMNS, UNITS,
+    coarseReason, precisionRows, layersOf, inside, countLine, valueBoxes, exportRows, round2, dateOf, PRIVATE, COLUMNS, UNITS,
     PRECISION, toKm, fromKm, KM_PER_MILE, inventoryOf, sizeClass, windowOf, inWindow, isPast, closedDayNotKnown, quarantineOf, stillQuarantined, groups,
     groupOf, weekOf, dayLabel, playSteps, MAX_WEEKS, overTime, dayView, rangeView, openingViews, chartSpan, viewSteps,
-    pickColumn, boxesOf, viewBadge, periodLine, viewParams, bigNumber, inventoryWordOf, ANIMAL_SHAPES, animalShapeOf, animalKeys, animalKindsOf, byAnimals, animalsOnly, numbersLine, notMappedLine, details, daysSince, byQuiet,
+    chartKindOf, chartKinds, SEVERAL, siteKey, layerSiteKey,
+    pickColumn, boxesOf, viewBadge, periodLine, viewParams, bigNumber, inventoryWordOf, kindOf, kindKeysOf, pluralOf, ANIMAL_SHAPES, animalShapeOf, animalShapesOf, animalKeys, animalKindsOf, byAnimals, speciesList, animalsOnly, unlistedLine, mixedLine, numbersLine, notMappedLine, details, daysSince, byQuiet,
     zoneRows,
     zonesGeoJson, DRAW, areaM2, areaOf, areaText, lengthText, sidesMeet, crossesAt, isSimple, canClose, drawLabel,
     rectangleCorners, rectangleSize, rectangleLabel, KM_LAT, squareCorners, squareLabel, CIRCLE_SIDES, circleCorners,
     circleLabel, readSize, drawnZone, cornersOf,
-    editedZone, shapeText, drawnName, zoneName, SHOWS, zoneSet, showOf, showAfter, zonesNamed, drawnParams, cviEnds, flockKinds, animalTotals, animalsText, OUTSIDE_WA, NEAR_KM, countyOf, countyRows, positiveRows, CELL_KM,
+    editedZone, shapeText, drawnName, zoneName, SHOWS, zoneSet, showOf, showAfter, zonesNamed, drawnParams, cviEnds, cviSpeciesIn, cviRows, CVI_ENDS, cviEndOf, flockKinds, animalTotals, animalsText, OUTSIDE_WA, NEAR_KM, countyOf, countyRows, positiveRows, CELL_KM,
     PLANE_LAT, TRACT_CELLS, peopleInside, reachesPastWashington, roughly, overviewBoxes, overviewBars, countyTable };
 })(typeof window !== 'undefined' ? window : globalThis);

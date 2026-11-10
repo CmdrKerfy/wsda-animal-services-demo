@@ -195,6 +195,14 @@ scope and approval when its time comes.
       inside when both its east-west and its north-south distance are within the ring distance (a square's corners
       reach about 1.41 times the distance). It changes how every ring counts, so only once square control areas are
       confirmed in use.
+23. **A count for each species on the Emergency page.** The HPAI table gives one animal count per farm. Since 2.8 a
+    farm whose species names two kinds ("Cattle, Chicken", 13 animals) shows under both kinds, and its animals are
+    counted in neither: they show apart as "13 animals of several kinds", named in a line under the value boxes. This
+    follows common practice: the count is not split by guess. WOAH's outbreak reports give a row for each species
+    (animals at risk, cases, deaths, killed), and USDA APHIS lists poultry flocks and dairy herds apart. Later, the
+    table could give a count for each species (a row or a column per species), and the page would count each kind
+    from it, keeping today's rule where a farm has only one count. It changes how the table is filled in at work, so
+    it waits for the agency.
 
 ## Noted for other work
 

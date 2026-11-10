@@ -1,57 +1,85 @@
 /* Emergency Response: the page. Files are chosen here or sent by the landing page in memory (the per-click hand-off);
- * the shared checklist says what each file is (datasets.js). The positives, the facility layers and a zone file are
- * then read into the rules (rules.js), and the page draws what the rules give: the value boxes, then under the "Map |
- * Overview" switch either the map (map.js), the legend and the results tabs ("Inside the zones": one fold per layer, the "nearest" line, the left-out list; "CVI
- * movements": CVI's own Premise Lookup match, lookup.js query, loaded unchanged, over the zones), the Export (a
- * ZIP of CSV files written with CVI's CSV writer and its formula guard, exports.js, zones.geojson and
- * export_params.json) and the map picture (a branded PNG drawn by branded.js; 2.4: its Preview in CVI's window,
- * previews.js, loaded unchanged, its "Name markers in PNG" and the two optional fields, a title and a file name); or
- * the Overview (2.3): five titled sections, its three value boxes (counties, animals, the people inside the zones),
- * the chart "Positives over time" (chart.js), the bars by county and by layer, the counties and positives tables.
- * Each new set of files opens on the Map.
+ * the shared checklist says what each file is (datasets.js). The positives, the facility layers, a zone file and the
+ * CVI master are read into the rules (rules.js), and the page draws what the rules give.
  *
- * The sidebar has five folds: Load your data; Positives and zones (the type picker and its "?" in the fold's header,
- * the status tick boxes when the file has a status column, the time views' switch (2.5: "On a day" with its one
- * date, "Between dates" with its two) with the play by week or month and its slider, "Show closed positives" (On a day
- * only) with its folded "Closed zones" ("Draw their rings"), the rings with the km | miles
- * switch and under them the switch "Rings | Zones | Both" (3b), "Use a zone file" (a zone file that comes with the
- * files replaces the rings at once only when the type's zones come from a file), "Add a point on the map", "Draw a
- * zone" (2.6: the shape switch, the drawing in draw.js, the list of drawn zones with a name box, Edit and Remove;
- * drawn zones join the zone file's zones as one zone set, rules.js zoneSet)); Layers to check (the type's suggestions ticked first); More
- * options (basemap, neighboring regions, population, locations known only roughly); Export & Preview (the ZIP of
- * CSV files and the map picture). After a clean load every fold is
- * closed, so the map and the boxes are what shows first. "Inside the zones" starts with the "Zones" list (days since
- * the last positive) and the rows not mapped.
+ * What it draws: the value boxes and the lines under them; then, under the "Map | Overview" switch, either the map
+ * (map.js), its legend and the two result tabs ("Inside the zones": the "Zones" list, one fold per layer, the "nearest"
+ * line, the rows not mapped; "CVI movements": CVI's own Premise Lookup match, lookup.js query, loaded unchanged, over
+ * the zones), or the Overview (its three boxes, "Columns by", "Positives over time" from chart.js, the bars by county
+ * and by layer, the counties and positives tables). Each new set of files opens on the Map, every fold closed.
+ *
+ * The sidebar's five folds: Load your data; Positives and zones (the type, the status ticks, the "Animals" ticks and
+ * "Refine by species", the time views "On a day" and "Between dates" with the play, "Show closed positives", the rings
+ * and km | miles, "Rings | Zones | Both", a zone file, an added point, "Draw a zone" with draw.js); Layers to check
+ * (the shared list with "Filter by attributes"); More options (basemap, neighboring regions, population, locations
+ * known only roughly); Export & Preview (the ZIP of CSV files written with CVI's CSV writer, exports.js, with
+ * zones.geojson and export_params.json; the map picture drawn by branded.js, with its Preview in CVI's window,
+ * previews.js).
  *
  * Copied from site/infrastructure/app.js, v1.1: the loading (run, publish, answerHub, the hand-off and the sample
  * download), the facility files' preparation, the basemap, neighboring regions and population context controls, the
  * "?" handler; from site/infrastructure/app.js, v2.0: the map picture's background, quality and tile loading; from
- * site/cvi/app/ui.js, v2.0: the chart's hover box (showTip). Each
- * piece keeps its shape so a later fix to the original can be carried over. */
+ * site/cvi/app/ui.js, v2.0: the chart's hover box (showTip). Each piece keeps its shape so a later fix to the
+ * original can be carried over.
+ *
+ * Two reads of the positives file: state.readAll, the whole file, read by the loaded-file line, the suggested layers,
+ * the file's window, the animal ticks and their counts, "Refine by species" and the names a drawn zone may not take;
+ * state.read, the kinds of animal ticked and the species picked (rules.js byAnimals), read by everything else. Neither is
+ * written into after it is made: what the page works out from them (the positives with zones, the results) is kept
+ * in state beside them. */
 (function (root) {
   'use strict';
   const W = root.WSDA, profile = W.profiles.emergency, $ = id => document.getElementById(id);
   const C = root.CVIWA, M = C.map, B = C.basemaps, F = W.facilities, PN = W.population;
   const E = W.emergencyRules, T = W.emergencyTypes, EM = W.emergencyMap, Z = W.zones;
   const Lk = C.lookup, X = C.exports;
+  // A type file with a slip is not used (2.8): the page says so in red over the sidebar's folds, naming the file and,
+  // when types.js refused its type, the field (types.js problems). A type file index.html lists that never reached
+  // types.js could not be read at all. Shown first, so it stands whatever the rest of the page then does.
+  (function typeProblems() {
+    const said = T.problems().map(p => 'The emergency type file "' + (p.file || 'types/') + '" was not used. ' + p.message + '.');
+    const reached = T.files();
+    document.querySelectorAll('script[src^="types/"]').forEach(s => {
+      const file = s.getAttribute('src');
+      if (!reached.includes(file)) {
+        said.push('The emergency type file "' + file + '" could not be read: a typing slip in it, such as quotes made curly'
+          + ' or a missing comma or bracket, or the file is missing.');
+      }
+    });
+    if (!said.length) return;
+    const box = $('em-type-problems');
+    box.replaceChildren(...said.map(t => {
+      const p = document.createElement('p');
+      p.textContent = t;
+      return p;
+    }));
+    // Where to read how: the how-to page (changing-kinds.html), also as plain text beside it.
+    const how = document.createElement('p'), a = document.createElement('a');
+    a.href = 'changing-kinds.html'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Changing the kinds of animals';
+    how.append(a, ' (also as CHANGING_THE_KINDS_OF_ANIMALS.txt in site/emergency) says how to find and fix it.');
+    box.append(how);
+    box.hidden = false;
+  })();
   const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'];
   const TABLE_ROWS = 50;   // rows shown per table; the CSV ZIP holds them all
   const state = {
     op: 0, version: 0, loading: false, republish: false, datasets: Object.create(null), source: null, banner: null,
     synthetic: false, handoffFiles: null, bundle: null,
-    type: T.list()[0], typePicked: false, positivesFile: null, read: null, ticks: null, rings: null,
+    type: T.list()[0], typePicked: false, positivesFile: null, read: null, ticks: null, rings: null, animals: [], species: [],
     unit: 'km', unitPicked: false, ringBase: null, pastRings: false,
     fileWindow: null, window: null, steps: { by: null, steps: [] }, stepAt: 0, picked: null, playing: false, playTimer: null,
     opening: null, views: null, viewKind: 'day', chartSteps: { by: null, steps: [] }, today: null,
     days: null,
     zoneFile: null, show: 'rings', points: [], pointsAdded: 0, picking: false,
     drawn: [], drawnCount: 0, drawShape: 'freehand', zonesVersion: 0, ringGuide: false,
-    prepared: null, layers: Object.create(null), selectedLayers: [], includeCoarse: false, result: null,
+    prepared: null, precision: Object.create(null), attributes: Object.create(null),
+    layers: Object.create(null), selectedLayers: [], includeCoarse: false, result: null, targets: [],
     nameLayers: ['positives'],   // 2.4: the names on the map picture ("Name markers in PNG"), the positives' by default
     basemap: '', neighbors: Object.create(null), population: { on: { cities: false, places: false, density: false }, missing: {} },
     populationFor: null,   // the positives file the population layers were last turned on for (its path, name and size)
-    tab: 'inside', view: 'map', fitNext: false,
-    master: null, masterReason: '', cvi: { years: [], quarters: QUARTERS.slice(), species: [] }, cviRes: null, cviKey: null,
+    tab: 'inside', view: 'map', fitNext: false, columnsBy: 'status',
+    master: null, masterReason: '', cvi: { years: [], quarters: QUARTERS.slice(), species: [], rawSpecies: [], end: 'either' }, cviRes: null,
+    cviKey: null,
     cviOn: false   // 2.6: the tick "CVI movements", off at every load
   };
   let pendingReply = null;
@@ -108,7 +136,9 @@
       return await apply(op);
     } catch (e) {
       if (op === state.op) {
-        say('load-status', 'err', 'The files could not be applied: ' + e.message);
+        // With every type file left out (the red notice says why), no file can be read: said so, not the error.
+        say('load-status', 'err', !T.list().length ? 'The files could not be applied: no emergency type could be read (see the red notice above).'
+          : 'The files could not be applied: ' + e.message);
         answerHub(false, e.message);
       }
       return false;
@@ -207,6 +237,11 @@
     return ready;
   }
 
+  // Every usable facility layer through the shared select with the attribute picks (only the matching points), in
+  // the rules' shape (rules.js layersOf); the ticks then say which of them are checked.
+  const layersNow = () => E.layersOf(F.select(state.prepared, {
+    layers: state.prepared.layers.filter(l => l.usable).map(l => l.key), attributes: state.attributes }), state.precision);
+
   // Read the found files into the rules: the positives, the facility layers (as Infrastructure prepares them), the
   // zone file. Returns notes about files that could not be used.
   async function readAll(datasets, op, conflicts) {
@@ -244,15 +279,13 @@
       }
     }
     state.prepared = prepared;
-    state.layers = Object.create(null);
-    for (const l of prepared.layers.filter(x => x.usable)) {
-      const prec = precision[l.key] || [];
-      state.layers[l.key] = { key: l.key, label: l.liveLabel, color: l.color, shape: l.shape, layer: l,
-        points: l.points.map(p => ({ name: p.name, display: p.display, lat: p.lat, lon: p.lon, county: p.county,
-          town: p.townName || null, geoSource: p.geoSource, precision: prec[p.ordinal] || {} })) };
-    }
+    state.precision = precision;
+    state.attributes = Object.create(null);   // 2.8: the attribute picks, cleared at each load
+    state.closeFolds = true;                  // and the layers' filter folds closed (renderLayers)
+    state.layers = layersNow();
     const usable = Object.keys(state.layers);
     state.selectedLayers = E.suggestedLayers(state.type, state.readAll ? state.readAll.positives : [], usable);
+    state.layerOrder = layerOrderOf(state.selectedLayers);
     // A zone file that came with the files is read; it replaces the rings at once when the type's zones come from a
     // file (zones.source "file"), else one tick does it.
     clearZoneFile();
@@ -273,8 +306,12 @@
     }
     if (state.master) {
       state.cvi = { years: state.master.yearChoices.slice(), quarters: QUARTERS.slice(),
-        species: state.master.speciesChoices.slice() };
+        species: state.master.speciesChoices.slice(), rawSpecies: [], end: 'either' };
     }
+    // 2.8: "Refine by species" closed with none ticked, the movement's end Either, at each load (as the animal ticks).
+    $('cvi-refine').open = false;
+    $('cvi-refine-search').value = '';
+    document.querySelector('input[name="cvi-end"][value="either"]').checked = true;
     return notes;
   }
 
@@ -285,8 +322,12 @@
     const f = state.positivesFile;
     stopPlay();
     state.readAll = f ? E.readPositives(f.header, f.rows, state.type, todayIso()) : null;
-    state.animals = state.readAll ? E.animalKindsOf(state.readAll).map(k => k.shape) : [];
-    state.read = state.readAll ? E.byAnimals(state.readAll, state.animals) : null;
+    state.animals = state.readAll ? E.animalKindsOf(state.readAll).map(k => k.key) : [];
+    state.species = [];   // "Refine by species" (2.8): none ticked, every species of the kinds ticked
+    $('em-refine').open = false;   // and closed with its search box empty, as the CVI tab's
+    $('em-refine-search').value = '';
+    state.columnsBy = 'status';   // the Overview's "Columns by" (2.8): Status again at each load
+    state.read = state.readAll ? E.byAnimals(state.readAll, state.animals, state.species) : null;
     state.ticks = state.read ? E.defaultTicks(state.type, state.readAll.positives) : null;
     if (!state.unitPicked) state.unit = state.type.zones.unit;
     state.ringBase = { unit: state.type.zones.unit, distances: state.type.zones.rings.map(r => r.distance) };
@@ -409,6 +450,7 @@
     }
     readPositives();
     state.selectedLayers = E.suggestedLayers(state.type, state.readAll ? state.readAll.positives : [], Object.keys(state.layers));
+    state.layerOrder = layerOrderOf(state.selectedLayers);
     syncControls();
     compute();
   });
@@ -483,36 +525,95 @@
     }
   }
   // "Animals" (2.7): one tick per kind among the file's positives, with its mark's shape and count, below "Zones
-  // around"; none with one kind. The kinds and counts are the whole file's, its rows not mapped too. An unticked
-  // kind's positives leave every view (rules.js byAnimals); unticking every kind says to tick one.
+  // around"; none with one kind. The kinds and counts are the whole file's, its rows not mapped too; a positive naming
+  // two kinds counts under both (2.8). An unticked kind's positives leave every view (rules.js byAnimals); unticking
+  // every kind says to tick one. With species ticked in "Refine by species" (2.8), the white tag names them instead of
+  // the kinds: "Harbor seal only", "Chicken, Turkey and Duck only", "Chicken, Turkey, Duck and 2 more only",
+  // '"Cattle, Chicken" only'.
   const fileRows = () => state.readAll.positives.concat(state.readAll.dropped || []);
   const noAnimals = () => !!state.readAll && E.animalKindsOf(state.readAll).length > 1 && !state.animals.length;
-  const animalsOnly = () => (state.readAll ? E.animalsOnly(state.type, fileRows(), state.animals) : null);
+  // A species naming a comma is quoted, as the line under the boxes quotes it: '"Cattle, Chicken" and Chicken'.
+  const speciesWords = list => {
+    const names = list.map(x => (x.includes(',') ? '"' + x + '"' : x));
+    return names.length <= 3 ? listOf(names) : names.slice(0, 3).join(', ') + ' and ' + (names.length - 3) + ' more';
+  };
+  const animalsOnly = () => (!state.readAll ? null : state.species.length ? speciesWords(state.species)
+    : E.animalsOnly(state.type, fileRows(), state.animals));
+  // The read after a change of the ticks or the species picked: the views take in the positives shown.
+  function refilter() {
+    state.read = E.byAnimals(state.readAll, state.animals, state.species);
+    state.fitNext = true;
+    renderStatuses();
+    renderBadges();
+    compute();
+  }
   function renderAnimals() {
     const box = $('em-animals'), all = state.readAll;
     const kinds = all ? E.animalKindsOf(all) : [];
     box.replaceChildren();
     $('em-animals-field').hidden = kinds.length < 2;
     $('em-animals-msg').hidden = !noAnimals();
-    if (kinds.length < 2) return;
+    if (kinds.length < 2) { renderRefine(); return; }   // the species list goes too (a file with one kind after two)
     for (const k of kinds) {
       const label = document.createElement('label'), input = document.createElement('input');
-      input.type = 'checkbox'; input.value = k.shape; input.checked = state.animals.includes(k.shape);
+      input.type = 'checkbox'; input.value = k.key; input.checked = state.animals.includes(k.key);
       input.addEventListener('change', () => {
         stopPlay();
         state.animals = Array.from(box.querySelectorAll('input:checked')).map(i => i.value);
         $('em-animals-msg').hidden = !noAnimals();
-        state.read = E.byAnimals(all, state.animals);
-        state.fitNext = true;   // the view takes in the positives shown
-        renderStatuses();
-        renderBadges();
-        compute();
+        // A species picked under a kind now unticked drops out (one under another kind still ticked stays).
+        const offered = new Set(E.speciesList(all, state.animals).flatMap(g => g.species.map(x => x.name)));
+        state.species = state.species.filter(x => offered.has(x));
+        refilter();
+        renderRefine();
       });
-      const n = fileRows().filter(p => E.animalShapeOf(state.type, p) === k.shape).length;
+      const n = fileRows().filter(p => E.kindKeysOf(state.type, p).includes(k.key)).length;
       label.append(input, animalMark(k.shape), document.createTextNode(k.label + ' (' + n.toLocaleString('en-US') + ')'));
       box.append(label);
     }
+    renderRefine();
   }
+  // "Refine by species" (2.8, as CVI's; closed at each load): under the "Animals" ticks, every species of the kinds
+  // ticked under its kind's mark and name, each with its positives and animals (rules.js speciesList, the whole
+  // file's). None ticked: every species of the kinds ticked; ticked: only those, everywhere. A species naming two
+  // kinds is listed under each, its two ticks one pick. Past 30 species a search box narrows the list (the picks kept).
+  const SPECIES_SEARCH = 30;
+  function renderRefine() {
+    const fold = $('em-refine'), list = $('em-refine-list'), all = state.readAll;
+    const groups = all && E.animalKindsOf(all).length > 1 ? E.speciesList(all, state.animals) : [];
+    const names = [...new Set(groups.flatMap(g => g.species.map(x => x.name)))];
+    fold.hidden = !names.length;
+    $('em-refine-sum').textContent = state.species.length ? ' (' + state.species.length + ' ticked)' : '';
+    const search = $('em-refine-search');
+    search.hidden = names.length <= SPECIES_SEARCH;
+    if (search.hidden) search.value = '';
+    const find = search.value.trim().toLowerCase();
+    list.replaceChildren();
+    for (const g of groups) {
+      const shown = g.species.filter(x => !find || x.name.toLowerCase().includes(find));
+      if (!shown.length) continue;
+      const head = el('div', 'refine-kind');   // a heading over the species, not a sentence
+      head.append(animalMark(g.shape), document.createTextNode(g.label));
+      const box = el('div', 'checklist');
+      box.setAttribute('role', 'group');
+      box.setAttribute('aria-label', g.label + ': species');
+      for (const x of shown) {
+        const label = document.createElement('label'), input = document.createElement('input');
+        input.type = 'checkbox'; input.value = x.name; input.checked = state.species.includes(x.name);
+        input.addEventListener('change', () => {
+          stopPlay();
+          state.species = input.checked ? state.species.concat(x.name) : state.species.filter(y => y !== x.name);
+          refilter();
+          renderRefine();
+        });
+        label.append(input, document.createTextNode(x.name + ' \u2014 ' + x.text));
+        box.append(label);
+      }
+      list.append(head, box);
+    }
+    if (find && !list.children.length) list.append(el('p', 'help-note', 'No species matches "' + search.value.trim() + '".'));
+  }
+  $('em-refine-search').addEventListener('input', renderRefine);
   // Closed positives are hidden at first On a day (always drawn Between dates); shown, they are faded and hollow, and
   // "Draw their rings" (in "Closed zones") draws their rings gray and dashed. They never get zones that count.
   $('em-past').addEventListener('change', () => {
@@ -906,46 +1007,68 @@
   }
 
   // ---- Layers to check -----------------------------------------------------------------------------------------
-  // Every usable facility layer, with its mark and number of sites; the type's suggestions ticked first.
+  // The shared list, as Infrastructure's (shared/facility-ui.js render, 2.8): the layers under their group headings,
+  // each ticked layer's number of sites after its filters and its fold "Filter by attributes" (one ticked list per
+  // column; any value ticked in a column matches, every column must match, none ticked means no limit). A layer whose
+  // file was not supplied is not listed; one that could not be used is grayed, with the reason. The type's
+  // suggestions are ticked first. One fold is open at a time, and every fold is closed after a load.
   function renderLayers() {
     const box = $('em-layers');
-    box.replaceChildren();
-    const usable = Object.values(state.layers);
-    if (!usable.length) {
+    const listed = state.prepared ? state.prepared.layers.filter(l => l.usable || l.reason !== 'file not supplied') : [];
+    if (!listed.length) {
       const p = document.createElement('p');
       p.className = 'muted';
       p.textContent = 'Load facility files to check them.';
-      box.append(p);
+      box.replaceChildren(p);
+    } else {
+      const counts = Object.fromEntries(Object.values(state.layers).map(l => [l.key, l.points.length]));
+      W.facilityUI.render(box, { layers: listed }, state, layersChanged, 'em-fac',
+        { counts, emptyReason: 'No sites match the filters ticked.' });
     }
-    for (const l of usable) {
-      const label = document.createElement('label'), input = document.createElement('input');
-      input.type = 'checkbox'; input.value = l.key; input.checked = state.selectedLayers.includes(l.key);
-      input.addEventListener('change', () => {
-        state.selectedLayers = Array.from(box.querySelectorAll('input:checked')).map(i => i.value);
-        renderNameMarkers();
-        compute();
-      });
-      label.append(input, F.markElement(l.layer, 16), document.createTextNode(l.label + ' (' + l.points.length + ')'));
-      box.append(label);
-    }
-    // Layers that could not be used, grayed, with the reason.
-    for (const l of (state.prepared ? state.prepared.layers : []).filter(x => !x.usable && x.reason !== 'file not supplied')) {
-      const label = document.createElement('label');
-      label.className = 'unusable';
-      label.textContent = l.liveLabel + ': ' + l.reason;
-      box.append(label);
-    }
+    if (state.closeFolds) box.querySelectorAll('details.facility-filters[open]').forEach(d => { d.open = false; });
+    state.closeFolds = false;
     // The tick "CVI movements" (2.6), once a CVI master is read; All and Clear leave it as it is.
     $('em-cvi-field').hidden = !state.master;
     $('em-cvi').checked = state.cviOn;
     renderNameMarkers();
+  }
+  // The layers' order in the legend, the picture's key and "Name markers in PNG" (2.8): as the load ticks them (the
+  // type's suggestions first), then the rest in the files' order; kept through every click, so the legend never jumps.
+  function layerOrderOf(ticked) {
+    return ticked.concat(Object.keys(state.layers).filter(k => !ticked.includes(k)));
+  }
+  // A tick or a filter changed in the list: the ticks kept in that order, each layer's sites through its filters
+  // again (layersNow), then every view.
+  function layersChanged() {
+    state.selectedLayers = (state.layerOrder || []).filter(k => state.selectedLayers.includes(k));
+    state.layers = layersNow();
+    renderLayers();
+    compute();
+  }
+  // Opening a layer's filters closes the one open before (several open made the list too long to use).
+  $('em-layers').addEventListener('toggle', e => {
+    const fold = e.target;
+    if (!fold.open || !fold.classList.contains('facility-filters')) return;
+    $('em-layers').querySelectorAll('details.facility-filters[open]').forEach(d => { if (d !== fold) d.open = false; });
+  }, true);
+  // A layer with a value ticked in its filters: its sites that do not match are left out of everything (2.8).
+  const isFiltered = key => Object.values(state.attributes[key] || {}).some(v => v.length);
+  // A layer's filters in words for the Export, as the fold names them: "Type: Broilers, Layers; Grade: Grade A".
+  const filtersText = key => Object.entries(state.attributes[key] || {}).filter(([, v]) => v.length)
+    .map(([h, v]) => F.pretty(h) + ': ' + v.join(', ')).join('; ');
+  // export_params.json's layer_filters (its writer takes flat values, CVI's exports.js jsonValue): each ticked layer
+  // filtered, "Commercial Poultry (Type: Layers)", else "none".
+  function layerFilters() {
+    const out = state.selectedLayers.filter(k => state.layers[k] && isFiltered(k))
+      .map(k => state.layers[k].label + ' (' + filtersText(k) + ')');
+    return out.length ? out : 'none';
   }
   $('em-cvi').addEventListener('change', () => {
     state.cviOn = $('em-cvi').checked;
     compute();
   });
   $('em-layers-all').addEventListener('click', () => {
-    state.selectedLayers = Object.keys(state.layers);
+    state.selectedLayers = (state.layerOrder || []).slice();
     renderLayers();
     compute();
   });
@@ -1006,7 +1129,7 @@
   function compute() {
     const started = root.performance.now();
     const read = state.read, targets = zonePositives(), unit = state.unit;
-    if (read) read.targets = targets.filter(p => !p.added);
+    state.targets = targets.filter(p => !p.added);   // the positives with zones, for the boxes and the Export
     // What shows (3b): the rings, the zones in their place, or both (the ring sites first, rules.js bothSites).
     const show = shown(), zonesMode = show === 'zones';
     const g = read ? E.groups(read, state.window) : null;
@@ -1112,12 +1235,12 @@
     const shown = read ? read.positives.filter(p => E.inWindow(p, state.window) && (closedShown() || !E.isPast(p, end))) : [];
     const positives = shown.map(p => ({ lat: p.lat, lon: p.lon, label: positiveLabel(p),
       color: p.status ? p.status.color : NO_STATUS, past: E.isPast(p, end), withZones: withZones.has(p.index),
-      shape: E.animalShapeOf(read.type, p) }))
+      shape: E.animalShapeOf(read.type, p), shapes: E.animalShapesOf(read.type, p) }))
       .concat(state.points.map(p => ({ lat: p.lat, lon: p.lon, label: p.name, color: NO_STATUS, past: false, withZones: true })));
     const r = state.result, insideKeys = new Set(), inside = [], outside = [];
     if (r) {
       for (const row of r.rows) {
-        const key = row.layer + '\r' + row.lat + '\r' + row.lon + '\r' + row.name;
+        const key = E.layerSiteKey(row.layer, row);
         if (insideKeys.has(key)) continue;
         insideKeys.add(key);
         const l = state.layers[row.layer];
@@ -1130,7 +1253,7 @@
     for (const l of layers) {
       for (const p of l.points) {
         const name = p.display !== undefined ? String(p.display) : String(p.name);
-        if (insideKeys.has(l.key + '\r' + p.lat + '\r' + p.lon + '\r' + name)) continue;
+        if (insideKeys.has(E.layerSiteKey(l.key, { lat: p.lat, lon: p.lon, name }))) continue;
         outside.push({ lat: p.lat, lon: p.lon, shape: l.shape, color: l.color, label: name + '\n' + l.label });
       }
     }
@@ -1156,7 +1279,7 @@
   // box gives the date as the page writes dates ("Oct 2, 2026"), its note the window's end ("As of Oct 5, 2026").
   function renderBoxes() {
     const v = E.valueBoxes(state.read, state.result && state.result.layers.length ? state.result : null, state.window,
-      todayIso());
+      todayIso(), state.targets);
     const set = (id, value, note) => {
       const card = $(id);
       card.classList.toggle('na', value === null);
@@ -1208,10 +1331,24 @@
     set('box-inside', v.inside.value, v.inside.reason);
     const strip = $('em-box-lines'), lines = v.positives.value === null ? [] : v.positives.lines;
     strip.replaceChildren();
+    // The line naming species no kind names (rules.js unlistedLine) has a "?" saying where the kinds are changed (2.8).
+    const unlistedNote = $('help-em-unlisted');
+    let unlisted = false;
     lines.forEach((l, i) => {
       if (i) strip.append(el('span', 'sep', ' · '));
       strip.append(el('span', 'warn', l));
+      if (!l.includes(' with a species not listed: ')) return;
+      unlisted = true;
+      const tip = el('button', 'tip', '?');
+      tip.type = 'button';
+      tip.dataset.help = 'em-unlisted';
+      tip.setAttribute('aria-controls', 'help-em-unlisted');
+      tip.setAttribute('aria-label', 'About species not listed');
+      tip.setAttribute('aria-expanded', String(!unlistedNote.hidden));
+      tip.title = unlistedNote.textContent;
+      strip.append(tip);
     });
+    if (!unlisted) unlistedNote.hidden = true;
     strip.hidden = !lines.length;
   }
 
@@ -1225,6 +1362,29 @@
   // date.
   const CH = W.emergencyChart;
   const OUTSIDE = '#d9d9d9', CHART_HEIGHT = { narrow: 260, wide: 300 };
+  // The Overview's "Columns by: Status · Animal" (2.8) over "Over time" and "By county", offered with two kinds of
+  // animal or more ticked. By animal, a column or bar counts the positives of each kind, active and closed together,
+  // a positive whose species names more than one kind once, under "Several kinds" (rules.js chartKinds). Each kind
+  // keeps its color whatever is ticked: by its place in the type, WSDA's dark blue, evergreen, eggplant, gold,
+  // blue-green and dark brown, kept clear of the status reds (a seventh kind or later shares the last, as it shares
+  // the last mark); "Several kinds" hatched, dark gray lines on white, clear of every kind and of the gray.
+  const KIND_COLORS = ['#1c5a83', '#4a8b2c', '#522348', '#fcb614', '#0094aa', '#382513'], SEVERAL_INK = '#4d4d4d';
+  const byAnimalOffered = () => !!state.readAll && E.animalKindsOf(state.readAll).length > 1 && state.animals.length > 1;
+  const byAnimal = () => state.columnsBy === 'animal' && byAnimalOffered();
+  // The parts by animal: { kind (its key), label (in the hover: "2 with birds"), name (in the key), fill, hatch }.
+  const kindSeries = () => E.chartKinds(state.read, state.animals).map(k => ({ kind: k.key, label: 'with ' + k.label.toLowerCase(),
+    name: k.label, fill: k.key === E.SEVERAL ? SEVERAL_INK : KIND_COLORS[Math.min(k.index, KIND_COLORS.length - 1)],
+    hatch: k.key === E.SEVERAL }));
+  function renderColumnsBy() {
+    const box = $('ov-by'), animal = byAnimal();
+    box.hidden = !byAnimalOffered();
+    box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.by === (animal ? 'animal' : 'status'))));
+  }
+  document.querySelectorAll('#ov-by button').forEach(b => b.addEventListener('click', () => {
+    if (state.columnsBy === b.dataset.by) return;
+    state.columnsBy = b.dataset.by;
+    renderOverview();
+  }));
   function renderChart() {
     const box = $('em-chart'), tip = $('em-chart-tip');
     const none = !state.read || !state.chartSteps.steps.length || !state.window;
@@ -1240,12 +1400,17 @@
     $('em-chart-note').textContent = notCounted.length ? 'Not counted: ' + notCounted.join(', ') : '';
     if (state.view !== 'overview') return;
     const color = state.type.statuses[0].color, day = state.viewKind === 'day', win = state.window;
-    const series = [{ key: 'current', label: 'active', name: 'Active', fill: color },
-      { key: 'past', label: 'closed', name: 'Closed', outline: true, stroke: color, opacity: 0.55 },
-      { key: 'outside', label: day ? 'after the day' : 'outside the dates', name: day ? 'After the day' : 'Outside the dates', fill: OUTSIDE }];
+    // By status: active, closed, then outside; by animal (2.8): each kind's part, then outside.
+    const kinds = byAnimal() ? kindSeries() : null;
+    const series = (kinds ? kinds.map(s => Object.assign({ key: 'kind\r' + s.kind }, s))
+      : [{ key: 'current', label: 'active', name: 'Active', fill: color },
+        { key: 'past', label: 'closed', name: 'Closed', outline: true, stroke: color, opacity: 0.55 }])
+      .concat([{ key: 'outside', label: day ? 'after the day' : 'outside the dates', name: day ? 'After the day' : 'Outside the dates', fill: OUTSIDE }]);
+    const valuesOf = c => (kinds ? Object.assign({ outside: c.outside }, ...kinds.map(s => ({ ['kind\r' + s.kind]: c.kinds[s.kind] || 0 })))
+      : { current: c.current, past: c.past, outside: c.outside });
     const tick = c => (t.by === 'month' ? c.label.replace(/^Month of /, '') : c.label.replace(/^Week of /, '').replace(/, \d{4}$/, ''));
     const columns = t.columns.map((c, i) => ({ label: c.label, tick: tick(c), picked: i === state.picked,
-      values: { current: c.current, past: c.past, outside: c.outside },
+      values: valuesOf(c),
       click: i === state.picked ? 'Click again for the opening dates'
         : day ? 'Click to move the day to ' + E.dayLabel(c.end) : 'Click to see the ' + (t.by === 'month' ? 'month' : 'week') + ' alone' }));
     // The line inside the day's column, by the day's place in it; the band over the dates' columns.
@@ -1261,7 +1426,7 @@
     }
     state.chartMark = mark;   // test hook
     const focused = box.contains(document.activeElement);
-    box.innerHTML = CH.columns({ title: 'Positives over time, ' + (t.by === 'month' ? 'by month' : 'by week'),
+    box.innerHTML = CH.columns({ title: 'Positives over time, ' + (t.by === 'month' ? 'by month' : 'by week') + (kinds ? ', by animal' : ''),
       none: 'no positives', series, columns, mark }, { width: box.clientWidth,
       height: box.clientWidth < 600 ? CHART_HEIGHT.narrow : CHART_HEIGHT.wide });
     if (focused) box.querySelector('.chart-col[tabindex="0"]').focus();
@@ -1425,8 +1590,10 @@
     const boxes = E.overviewBoxes(read, win, counties, people.value);
     if (people.waiting) boxes.people = { value: null, reason: 'Working out…', note: null };
     else if (tracts.failed) boxes.people = { value: null, reason: 'Not available: the Census tracts could not be loaded', note: null };
-    const bars = E.overviewBars(rows, state.result), positives = E.positiveRows(read, win, counties);
-    state.overview = { boxes, people: people.value, rows, bars, positives };   // test hook
+    renderColumnsBy();
+    const kinds = byAnimal() ? kindSeries() : null;
+    const bars = E.overviewBars(rows, state.result, kinds ? kinds.map(s => s.kind) : null), positives = E.positiveRows(read, win, counties);
+    state.overview = { boxes, people: people.value, rows, bars, positives, columnsBy: kinds ? 'animal' : 'status' };   // test hook
     // The counties box's name by the view: "Counties with an active positive", or "Counties with a positive detected".
     const range = state.viewKind === 'range';
     $('ov-counties-words').textContent = range ? 'Counties with a positive' : 'Counties with an active';
@@ -1449,9 +1616,11 @@
     const noneText = state.viewKind === 'range' ? 'No positives detected between these dates.' : 'No positives by this day.';
     if (!rows.length) countyBox.replaceChildren(el('p', 'muted', noneText));
     else {
-      countyBox.innerHTML = CH.bars({ title: 'Positives by county', rows: bars.counties.map(valuesOf),
-        series: [{ key: 'current', label: 'active', name: 'Active', fill: color },
-          { key: 'past', label: 'closed', name: 'Closed', outline: true, stroke: color }] }, { width: countyBox.clientWidth });
+      // By animal (2.8), the kinds' parts, with the key always (as the time chart's).
+      countyBox.innerHTML = CH.bars({ title: kinds ? 'Positives by county, by animal' : 'Positives by county', rows: bars.counties.map(valuesOf),
+        key: !!kinds, series: kinds ? kinds.map(s => Object.assign({ key: s.kind }, s))
+          : [{ key: 'current', label: 'active', name: 'Active', fill: color },
+            { key: 'past', label: 'closed', name: 'Closed', outline: true, stroke: color }] }, { width: countyBox.clientWidth });
     }
     // The bars by layer: one part per ring (in its color) and per zone (Both, 3b: the rings' parts first, the zones in
     // the colors the rings do not use).
@@ -1526,7 +1695,7 @@
       head.append(el('strong', '', 'Animals'));
       lines.push(head);
     }
-    for (const k of kinds) line(animalMark(k.shape), k.label);
+    for (const k of kinds) line(animalMark(k.shape), k.legend);
     // The CVI premises drawn (2.6, with the tick on): hollow, an origin's and a destination's color (before the
     // layers, as in the map picture's key); none while they wait or when none is in a zone.
     const ends = (cvi || []).map(q => q.end);
@@ -1534,13 +1703,27 @@
       const head = el('p', 'lg-pc-head');
       head.append(el('strong', '', 'CVI premises'));
       lines.push(head);
-      if (ends.includes('origin')) line(swatch('lg-dot', CVI_COLORS.origin, '#ffffff'), 'Origin in a zone');
-      if (ends.includes('dest')) line(swatch('lg-dot', CVI_COLORS.dest, '#ffffff'), 'Destination in a zone');
+      // Species picked under "Refine by species" (2.8): a funnel before each row, as before a filtered layer.
+      const cviMark = color => {
+        const mark = document.createDocumentFragment();
+        mark.append(swatch('lg-dot', color, '#ffffff'));
+        if (cviRefined()) mark.append(funnelMark());
+        return mark;
+      };
+      if (ends.includes('origin')) line(cviMark(CVI_COLORS.origin), 'Origin in a zone');
+      if (ends.includes('dest')) line(cviMark(CVI_COLORS.dest), 'Destination in a zone');
     }
+    // A filtered layer has a funnel before its name (2.8), said once under the layers.
+    const filtered = state.selectedLayers.filter(k => state.layers[k] && isFiltered(k));
     for (const k of state.selectedLayers) {
       const l = state.layers[k];
-      if (l) line(F.markElement(l.layer, 14), l.label);
+      if (!l) continue;
+      const mark = document.createDocumentFragment();
+      mark.append(F.markElement(l.layer, 14));
+      if (filtered.includes(k)) mark.append(funnelMark());
+      line(mark, l.label);
     }
+    if (filtered.length || (ends.length && cviRefined())) line(funnelMark(), 'Filtered: some sites left out');
     const pc = PN.legendEntries(pcDrawn(), PN.DEFAULT_RAMP);
     if (pc.length) {
       const head = el('p', 'lg-pc-head');
@@ -1558,6 +1741,16 @@
     }
     box.replaceChildren(...lines);
     $('em-legend').hidden = !lines.length;
+  }
+
+  // The funnel of a filtered layer, as the map picture's key draws it (branded.js FUNNEL).
+  function funnelMark() {
+    const s = document.createElement('span');
+    s.className = 'lg-funnel';
+    s.setAttribute('role', 'img'); s.setAttribute('aria-label', 'filtered');
+    s.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="' + W.emergencyBranded.FUNNEL
+      + '" fill="#555555"/></svg>';
+    return s;
   }
 
   // ---- The results tabs ------------------------------------------------------------------------------------------
@@ -1609,7 +1802,7 @@
   function countLine(s) {
     const zones = s.mode === 'zones' && s.inside ? s.byZone.filter(z => z.count) : [];
     const line = zones.length > 1 ? s.label + ': ' + s.inside + ' in ' + zones.length + ' zones' :
-      E.countLine(s, state.unit);
+      E.countLine(s, state.unit, isFiltered(s.key) && !state.layers[s.key].points.length);
     const at = line.indexOf(': ');
     const frag = document.createDocumentFragment();
     frag.append(el('strong', null, line.slice(0, at)), document.createTextNode(line.slice(at)));
@@ -1728,7 +1921,9 @@
   // ---- CVI movements ---------------------------------------------------------------------------------------------
   // The zones as Premise Lookup's sites: one per positive with zones and added point (its rings as the bands), the
   // zone set's polygons, or both (3b; a zone site matches inside its polygon only, whatever the bands); then CVI's
-  // query, every endpoint counting, with the years, quarters and species ticked.
+  // query with the years, quarters and species groups ticked, the movement's end picked (2.8, Either at each load) and
+  // the master's rows narrowed to the species picked under "Refine by species" (2.8, rules.js cviRows). The map, the
+  // tab, the map picture and the Export all read this one result.
   // 2.6: the CVI movements count only with the tick "CVI movements" on (off at every load), a master read and a
   // positives file: the map, the picture and the Export then show them.
   const cviOn = () => !!(state.cviOn && state.master && state.read);
@@ -1761,11 +1956,14 @@
     const polygons = show === 'rings' ? [] : allZones().map(z => ({ name: z.name, lat: z.point[1], long: z.point[0], zone: z.geometry }));
     const sites = (zonesMode ? [] : zonePositives().map(p => ({ name: p.name, lat: p.lat, long: p.lon }))).concat(polygons);
     const distances = (state.rings || []).map(r => E.toKm(r.distance, state.unit));
-    const opts = { endpoint: 'either', filters: { year: c.years, quarter: c.quarters, species: c.species } };
+    const opts = { endpoint: E.cviEndOf(c.end).key, filters: { year: c.years, quarter: c.quarters, species: c.species } };
     if (zonesMode) opts.defaultKm = 0;
     else Object.assign(opts, { defaultKm: Math.max(...distances), bands: distances });
-    return Lk.query(state.master, sites, opts);
+    return Lk.query(E.cviRows(state.master, c.rawSpecies), sites, opts);
   }
+  // Species are picked under "Refine by species" (and the master has a Species column): the legend puts a funnel
+  // before the CVI premises, as before a filtered layer; the map picture's key does not.
+  const cviRefined = () => !!(state.master && state.master.hasSpecies && state.cvi.rawSpecies.length);
   // A ticked list of the CVI tab's filters; none ticked shows no movement.
   function renderFilter(id, values, picked, key) {
     const box = $(id), legend = box.querySelector('legend');
@@ -1775,12 +1973,50 @@
       input.type = 'checkbox'; input.value = String(v); input.checked = picked.includes(v);
       input.addEventListener('change', () => {
         state.cvi[key] = values.filter(x => box.querySelector('input[value="' + CSS.escape(String(x)) + '"]').checked);
+        // A species picked under "Refine by species" whose group is no longer ticked drops out (CVI's rule).
+        if (key === 'species') {
+          const offered = E.cviSpeciesIn(state.master, state.cvi.species);
+          state.cvi.rawSpecies = state.cvi.rawSpecies.filter(x => offered.includes(x));
+        }
         compute();   // the map's CVI premises and the tab
       });
       label.append(input, document.createTextNode(' ' + v));
       box.append(label);
     });
   }
+  // "Refine by species" in the CVI movements tab (2.8, as CVI's; closed at each load): the raw species within the
+  // groups ticked (rules.js cviSpeciesIn), none ticked meaning every species of those groups. Past 30 species a search
+  // box narrows the list (the picks kept). Hidden for a master without a Species column.
+  function renderCviRefine() {
+    const list = $('cvi-refine-list'), c = state.cvi;
+    const names = E.cviSpeciesIn(state.master, c.species);
+    $('cvi-refine').hidden = !names.length;
+    $('cvi-refine-sum').textContent = c.rawSpecies.length ? ' \u00b7 ' + c.rawSpecies.length + ' of ' + plural(names.length, 'species', 'species') : '';
+    const search = $('cvi-refine-search');
+    search.hidden = names.length <= SPECIES_SEARCH;
+    if (search.hidden) search.value = '';
+    const find = search.value.trim().toLowerCase();
+    list.replaceChildren(list.querySelector('legend'));
+    for (const name of names.filter(x => !find || x.toLowerCase().includes(find))) {
+      const label = el('label'), input = el('input');
+      input.type = 'checkbox'; input.value = name; input.checked = c.rawSpecies.includes(name);
+      input.addEventListener('change', () => {
+        const next = input.checked ? c.rawSpecies.concat(name) : c.rawSpecies.filter(x => x !== name);
+        c.rawSpecies = names.filter(x => next.includes(x));   // in the list's order
+        compute();   // the map's CVI premises and the tab
+      });
+      label.append(input, document.createTextNode(' ' + name));
+      list.append(label);
+    }
+    if (find && list.children.length === 1) list.append(el('p', 'help-note', 'No species matches "' + search.value.trim() + '".'));
+  }
+  $('cvi-refine-search').addEventListener('input', renderCviRefine);
+  // "Movement's end in a zone" (2.8, as Premise Lookup's "Match endpoint"): Either, Origin or Destination.
+  document.querySelectorAll('input[name="cvi-end"]').forEach(r => r.addEventListener('change', () => {
+    if (!r.checked) return;
+    state.cvi.end = r.value;
+    compute();   // the map's CVI premises and the tab
+  }));
   function renderCvi() {
     const gate = $('cvi-gate'), body = $('cvi-body');
     const reason = !state.datasets.master ? 'CVI movements need a CVI master (CVI_Consolidated_Master.csv): load it under "Load your data".'
@@ -1795,6 +2031,9 @@
     renderFilter('cvi-years', m.yearChoices, c.years, 'years');
     renderFilter('cvi-quarters', QUARTERS, c.quarters, 'quarters');
     renderFilter('cvi-species', m.speciesChoices, c.species, 'species');
+    renderCviRefine();
+    const end = E.cviEndOf(c.end);
+    document.querySelector('input[name="cvi-end"][value="' + end.key + '"]').checked = true;
     const out = $('cvi-result');
     out.replaceChildren();
     // While the play runs, CVI's query over the whole master waits, so each step stays quick.
@@ -1809,19 +2048,22 @@
     }
     if (state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }
     const res = state.cviRes;
+    const these = cviRefined() ? 'these years, quarters, species groups and species' : 'these years, quarters and species groups';
     const said = {
       empty_sites: 'No zones to check: tick a status under "Positives and zones", add a point or use a zone file.',
-      no_filter_match: 'No movement in the CVI master has these years, quarters and species groups.',
+      no_filter_match: 'No movement in the CVI master has ' + these + '.',
       missing_coord_cols: 'CVI movements need the columns ' + listOf(['Origin.Lat', 'Origin.Long', 'Dest.Lat', 'Dest.Long']) +
         ' in the CVI master.',
-      no_match: 'No CVI movement left from or arrived inside the zones with these years, quarters and species groups.'
+      no_match: 'No CVI movement ' + end.words + ' with ' + these + '.'
     };
     if (res.status !== 'ok') { out.append(el('p', 'result-line', said[res.status] || res.status)); return; }
     const sm = res.summary, n = x => x.toLocaleString('en-US');
     const line = el('p', 'result-line');
+    // The ends counted: with Origin only the origins inside, with Destination only the destinations.
+    const counted = (end.key === 'dest' ? [] : [plural(sm.origins, 'origin', 'origins')])
+      .concat(end.key === 'origin' ? [] : [plural(sm.dests, 'destination', 'destinations')]);
     line.append(el('strong', null, plural(sm.cvis, 'CVI', 'CVIs')), document.createTextNode(', ' + n(sm.animals) +
-      ' animals, left from or arrived inside the zones: ' + plural(sm.origins, 'origin', 'origins') + ' and ' +
-      plural(sm.dests, 'destination', 'destinations') + ' inside.'));
+      ' animals, ' + end.words + ': ' + counted.join(' and ') + ' inside.'));
     out.append(line);
     const where = (r, side) => [r[side + '.County'], r[side + '.State']].filter(v => v !== null && v !== undefined && v !== '').join(', ');
     // CVI's query gives the nearest distance in km, rounded to 0.01; in miles it is turned from that value.
@@ -1869,13 +2111,15 @@
     if (!state.read) { say('em-export-result', 'warn', 'Load a positives file before exporting.'); return; }
     if (noAnimals()) { say('em-export-result', 'warn', 'Tick at least one kind of animal.'); return; }
     const r = state.result || { rows: [], layers: [], leftOut: [] };
-    const t = E.exportRows(state.read, state.read.targets || [], r, state.unit, state.window);
+    const t = E.exportRows(state.read, state.targets, r, state.unit, state.window);
     const entries = [{ name: folder + '/', dir: true }], written = [];
     const add = (name, text) => { entries.push({ name: folder + '/' + name, data: text }); written.push(name); };
     add('positives.csv', csvOf(t.positives));
     add('counties.csv', csvOf(E.countyTable(state.read, E.countyRows(state.read, state.window, root.CVIWA_GEO.counties.features))));
     add('inside_the_zones.csv', csvOf(t.inside));
-    add('layers.csv', csvOf(t.layers));
+    // Each layer's filters in words (2.8), where the map and its picture draw a funnel.
+    add('layers.csv', csvOf({ columns: t.layers.columns.concat(['Filters']),
+      rows: t.layers.rows.map((row, i) => row.concat([filtersText(r.layers[i].key)])) }));
     add('left_out.csv', csvOf(t.leftOut));
     add('zones.csv', csvOf(zoneTable()));
     add('zones.geojson', JSON.stringify(zonesGeoJson()) + '\n');
@@ -1900,13 +2144,17 @@
       closed_rings_drawn: closedShown() && state.pastRings && !zonesMode,
       added_points: state.points.map(p => p.name + ' (' + p.lat + ', ' + p.lon + ')'),
       layers_checked: state.selectedLayers.map(k => state.layers[k] ? state.layers[k].label : k),
+      layer_filters: layerFilters(),
       locations_known_only_roughly: state.includeCoarse ? 'included' : 'left out',
       cvi_master: state.datasets.master ? state.datasets.master.name : null,
       cvi_movements: state.master ? (cviOn() ? 'included' : 'off') : null,
       cvi_years: cviOn() ? state.cvi.years : null,
       cvi_quarters: cviOn() ? state.cvi.quarters : null,
       cvi_species_groups: cviOn() ? state.cvi.species : null,
-      animals_shown: E.animalKindsOf(state.readAll).filter(k => state.animals.includes(k.shape)).map(k => k.label),
+      cvi_species: cviOn() ? (cviRefined() ? state.cvi.rawSpecies.slice() : 'every species of the groups ticked') : null,
+      cvi_end: cviOn() ? E.cviEndOf(state.cvi.end).label.toLowerCase() : null,
+      animals_shown: E.animalKindsOf(state.readAll).filter(k => state.animals.includes(k.key)).map(k => k.label),
+      species_shown: state.species.length ? state.species.slice() : 'every species of the kinds shown',
       positives: state.read.positives.length,
       sites_inside: r.total || 0,
       distances: (state.unit === 'mi' ? 'miles (1 mile = 1.609344 km)' : 'km') + ', on a sphere of 6,378,137 m (CVI\'s rule)',
@@ -2003,18 +2251,20 @@
     const layers = {};
     state.selectedLayers.forEach(k => {
       const l = state.layers[k];
-      if (l) layers[k] = { label: l.label, pngLabel: l.layer && l.layer.label, color: l.color, shape: l.shape };
+      if (l) layers[k] = { label: l.label, pngLabel: l.layer && l.layer.label, color: l.color, shape: l.shape,
+        filtered: isFiltered(k) };
     });
     return { type: state.type, positives: shown.map(p => ({ name: p.name, lat: p.lat, lon: p.lon,
       color: p.status ? p.status.color : NO_STATUS, status: p.status ? p.status.label : 'No status', past: E.isPast(p, end),
-      shape: E.animalShapeOf(read.type, p) })), animals: E.animalKeys(read.type, shown),
+      shape: E.animalShapeOf(read.type, p), shapes: E.animalShapesOf(read.type, p) })), animals: E.animalKeys(read.type, shown),
     added: state.points.map(p => ({ name: p.name, lat: p.lat, lon: p.lon })), sites: zp.sites,
     pastSites: zp.pastSites, zonesMode: zp.zonesMode, show: zp.show,
     zoneName: zp.show !== 'rings' ? E.zonesNamed(state.zoneFile ? state.zoneFile.name : null, state.drawn.length) : null,
     rings: state.rings || [], unit: state.unit, result: state.result, layers, days: state.days.sites,
     window: state.window, current: E.groups(read, state.window).current.length,
     detected: E.valueBoxes(read, null, state.window).detected.value,
-    cvi: res ? { cvis: res.summary.cvis, animals: res.summary.animals, matched: res.matched || [], years: yearsText } : null, counties: root.CVIWA_GEO.counties.features, date: now,
+    cvi: res ? { cvis: res.summary.cvis, animals: res.summary.animals, matched: res.matched || [], years: yearsText,
+      end: E.cviEndOf(state.cvi.end).key } : null, counties: root.CVIWA_GEO.counties.features, date: now,
     background, streets, nameLayers: ch.nameLayers, title: ch.title, label: ch.label, synthetic: !!state.synthetic,
     animalsOnly: animalsOnly() ? 'Positives: ' + animalsOnly().toLowerCase() + ' only' : null };
   }

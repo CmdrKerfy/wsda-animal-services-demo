@@ -47,6 +47,9 @@
 #   - the closing day's scenario (2.5; rules.json "closedDay"): each row's group
 #     in six days and two ranges when the Status says Closed without a Close Date: closed from its release date, or,
 #     with neither date, on any day (counted as closed on a day not known).
+#   - the kinds of animal (2.8; rules.json "species"): each row's kind, the word its animals are counted under and
+#     whether its species is listed, and the animals' totals by word, from the scope's rule written fresh, with the
+#     kinds' words read from site/emergency/types/hpai.js.
 #   - the drawn zones' scenario (2.6; rules.json "drawn"): each corner list's area in an equal-area projection (NAD83
 #     / Conus Albers, EPSG:5070), its sides followed as straight lines in longitude and latitude; the sites inside
 #     (sf and GEOS); the squares' half-widths; each test shape's validity (st_is_valid); and the page's zones.geojson
@@ -249,6 +252,21 @@ cvi_out <- list(status = cvi_r$status, summary = cvi_r$summary,
                 cvis = I(sort(unique(as.character(cvi_r$matched_df$CVI)))),
                 matched_sites = setNames(as.list(cvi_r$matched_df$matched_sites), as.character(cvi_r$matched_df$CVI)))
 cat(sprintf("cvi movements: %s, %d CVIs\n", cvi_r$status, length(cvi_out$cvis)))
+# 2.8: "Refine by species" and the movement's end: the master's rows narrowed to the species picked (CVI's own form,
+# map_helpers.R's build_county_focus_data), then CVI's query once for each end.
+cvi_pick <- as.character(unlist(cv$refine$species))
+cvi_master_pick <- cvi_master[cvi_master$Species %in% cvi_pick, , drop = FALSE]
+cvi_out$refined <- lapply(setNames(nm = as.character(unlist(cv$refine$endpoints))), function(e) {
+  r <- run_proximity_query(cvi_master_pick, cvi_sites, default_buffer_km = max(cvi_bands), endpoint = e,
+                           filters = list(year = integer(0), quarter = character(0), species = character(0)),
+                           bands = cvi_bands)
+  mb <- r$membership   # one row per movement and zone it hit, with the end that hit
+  list(status = r$status, summary = r$summary, cvis = I(sort(unique(as.character(r$matched_df$CVI)))),
+       hit_origin = I(sort(unique(as.character(mb$CVI[mb$hit_origin])))),
+       hit_dest = I(sort(unique(as.character(mb$CVI[mb$hit_dest])))))
+})
+cat(sprintf("cvi refined: %s\n", paste(names(cvi_out$refined), vapply(cvi_out$refined, function(x) length(x$cvis), integer(1)),
+                                        sep = " ", collapse = ", ")))
 
 # ── The agreed-table scenario (E1b) ────────────────────────────────────────────────────────────────
 ag <- rules$agreed
@@ -566,10 +584,100 @@ cat(sprintf("drawn: %d zones (%s), %d test shapes, %d zones.geojson features, al
                   collapse = "; "),
             length(drawn_shapes), length(drawn_geojson), all(vapply(drawn_geojson, function(x) x$valid, logical(1)))))
 
+# ── The kinds of animal (2.8, option E) ──────────────────────────────────────────────────────────────
+# The kinds (key, label, count word, species words, nameEach) are read from site/emergency/types/hpai.js, the setting
+# under test; the rule written fresh: a species is every kind with one of its words at the start of a word of the
+# species (any case, spaces run together; "Cattle, Chicken" is birds and cattle, mixed), but a
+# word does not count where a longer word of another kind starts at the same place ("pigeon" is a bird, not a
+# "pig"); no species, the first kind; a species no kind names, the last kind and "not listed". A kind with nameEach
+# counts each species by its own word (the word found, else the whole species) in its plural, singular for one
+# animal; the others by the kind's word; a mixed species "animals", in no kind's total.
+# The totals: the first kind's first, then the most animals first (then the type's order, then the word); the mixed
+# positives' animals last, "animals of several kinds".
+hp <- paste(readLines(file.path(repo_root, "site", "emergency", "types", "hpai.js"), warn = FALSE), collapse = "\n")
+kinds_block <- regmatches(hp, regexpr("(?s)kinds: \\[.*?\\n    \\],", hp, perl = TRUE))
+kind_entries <- regmatches(kinds_block, gregexpr("(?s)\\{ key: '.*?\\] \\}", kinds_block, perl = TRUE))[[1]]
+hp_kinds <- lapply(kind_entries, function(e) {
+  field <- function(f) { m <- regmatches(e, regexec(paste0(f, ": '([^']+)'"), e))[[1]]; if (length(m)) m[2] else NA }
+  label <- field("label")
+  word <- field("word")
+  w <- sub("(?s)^.*words: \\[(.*?)\\].*$", "\\1", e, perl = TRUE)
+  list(key = field("key"), label = label, word = if (is.na(word)) tolower(label) else word,
+       name_each = grepl("nameEach: true", e, fixed = TRUE), words = gsub("'", "", regmatches(w, gregexpr("'[^']+'", w))[[1]]))
+})
+if (length(hp_kinds) < 2) stop("types/hpai.js: the kinds were not found")
+plural_of <- function(w) {
+  parts <- strsplit(w, " ", fixed = TRUE)[[1]]
+  last <- parts[length(parts)]
+  before <- if (length(parts) > 1) paste0(paste(parts[-length(parts)], collapse = " "), " ") else ""
+  irregular <- c(wolf = "wolves", mouse = "mice", goose = "geese", ox = "oxen")
+  same <- c("sheep", "deer", "elk", "moose", "bison", "mink", "swine", "cattle", "fish", "caprine", "ovine", "porcine",
+            "bovine", "equine", "feline", "canine", "camelid")
+  if (last %in% names(irregular)) return(paste0(before, irregular[[last]]))
+  if (last %in% same || last %in% irregular || grepl("s$", last)) return(w)
+  if (!grepl("^[a-z][a-z-]*$", last)) return(w)
+  if (grepl("(x|z|ch|sh)$", last)) return(paste0(w, "es"))
+  if (grepl("[^aeiou]y$", last)) return(sub("y$", "ies", w))
+  paste0(w, "s")
+}
+sr <- rules$species
+sp <- read_fixture(sr$positives)
+s_species <- gsub("\\s+", " ", tolower(trimws(sp[["Species"]])))
+any_words <- any(vapply(hp_kinds, function(k) length(k$words) > 0, logical(1)))
+species_rows <- lapply(seq_len(nrow(sp)), function(r) {
+  v <- s_species[r]
+  # Where w (of kind i) starts a word of v (1-based), left out where a longer word of another kind starts there.
+  starts <- function(w, i) {
+    m <- gregexpr(w, v, fixed = TRUE)[[1]]
+    m <- m[m > 0 & (m == 1 | !grepl("[a-z0-9]", substring(v, pmax(m - 1, 1), pmax(m - 1, 1))))]
+    f <- unlist(lapply(hp_kinds[-i], function(k) k$words))
+    m[!vapply(m, function(p) any(nchar(f) > nchar(w) & substring(v, p, p + nchar(f) - 1) == f), logical(1))]
+  }
+  at <- integer(0)
+  hits <- character(0)
+  if (v != "") for (i in seq_along(hp_kinds)) {
+    found <- hp_kinds[[i]]$words[vapply(hp_kinds[[i]]$words, function(w) length(starts(w, i)) > 0, logical(1))]
+    if (length(found)) { at <- c(at, i); hits <- c(hits, found[1]) }
+  }
+  unlisted <- v != "" && !length(at) && any_words
+  if (!length(at)) { at <- if (v == "") 1L else length(hp_kinds); hits <- NA_character_ }
+  mixed <- length(at) > 1
+  k <- hp_kinds[[at[1]]]
+  own <- if (is.na(hits[1])) v else hits[1]
+  named <- if (mixed) "animals" else if (k$name_each && v != "") plural_of(own) else k$word
+  one <- if (mixed) "animal" else if (k$name_each && v != "") own else k$word
+  list(id = sp[["Case ID"]][r], kind = k$key, kinds = I(vapply(hp_kinds[at], function(x) x$key, "")), mixed = mixed,
+       index = at[1], named = named, one = one, unlisted = unlisted)
+})
+s_inv_t <- trimws(sp[["Flock/Herd Inventory"]])
+s_inv <- ifelse(grepl("^[0-9]+$", s_inv_t) | grepl("^[0-9]{1,3}(,[0-9]{3})+$", s_inv_t),
+                suppressWarnings(as.numeric(gsub(",", "", s_inv_t))), NA)
+s_named <- vapply(species_rows, function(x) x$named, "")
+s_mixed <- vapply(species_rows, function(x) x$mixed, logical(1))
+s_kept <- !is.na(s_inv) & !s_mixed
+s_total <- tapply(s_inv[s_kept], s_named[s_kept], sum)
+s_words <- names(s_total)
+s_index <- vapply(s_words, function(w) species_rows[[match(w, s_named)]]$index, integer(1))
+s_order <- order(s_index != 1L, -as.numeric(s_total), s_index, s_words)
+species_out <- list(
+  kinds = lapply(hp_kinds, function(k) list(key = k$key, label = k$label, word = k$word, nameEach = k$name_each)),
+  rows = lapply(species_rows, function(x) x[c("id", "kind", "kinds", "mixed", "named", "one", "unlisted")]),
+  totals = c(lapply(s_order, function(i) list(if (s_total[[i]] == 1) species_rows[[match(s_words[i], s_named)]]$one else s_words[i],
+                                              as.numeric(s_total[[i]]))),
+             if (any(!is.na(s_inv) & s_mixed)) {
+               n <- sum(s_inv[!is.na(s_inv) & s_mixed])
+               list(list(if (n == 1) "animal of several kinds" else "animals of several kinds", as.numeric(n)))
+             }),
+  missing = sum(is.na(s_inv)))
+cat(sprintf("species: %d rows; %d not listed; %d mixed; totals %s; %d without a count\n", nrow(sp),
+            sum(vapply(species_rows, function(x) x$unlisted, logical(1))), sum(s_mixed),
+            paste(vapply(species_out$totals, function(t) paste(t[[2]], t[[1]]), ""), collapse = ", "), species_out$missing))
+
 # ── Written out ────────────────────────────────────────────────────────────────────────────────────
 inputs <- c("rules.json", rules$positives, cv$positives, cv$master, vapply(rules$layers, function(l) l$file, character(1)),
             unlist(rules$zoneFiles), ag$positives, ag$layer$file, ag$zoneFile, ag$geojson, ov$positives,
-            rules$counties$positives, rules$views$positives, rules$closedDay$positives, dr$fileZone, dr$geojson)
+            rules$counties$positives, rules$views$positives, rules$closedDay$positives, rules$species$positives, dr$fileZone,
+            dr$geojson)
 inputs <- unique(inputs)
 # ── The quarantine status scenario (2.4) ───────────────────────────────────────────────────────────────
 # Each row's group and quarantine on two end dates, from the scope's rule: a past positive's readable Quarantine
@@ -713,6 +821,7 @@ out <- list(
   quarantine = quarantine_out,
   views = views_out,
   closedDay = closed_day_out,
+  species = species_out,
   drawn = drawn_out
 )
 dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)

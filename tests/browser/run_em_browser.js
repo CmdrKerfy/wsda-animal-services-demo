@@ -40,7 +40,28 @@
 //          "Use a zone file" giving the same results; the browser's "Leave this page?"; touch taps; 320 pixels wide
 //   filter 2.7, the animal filter by real clicks on its ticks: each kind left out leaves the map, the boxes, the
 //          legend, the zones' days since, "Inside the zones", the badges, the summary, the picture's line and the Export;
-//          none ticked says so; every kind ticked again at each load; no ticks for a file with one kind
+//          none ticked says so; every kind ticked again at each load; no ticks for a file with one kind; 2.8, a positive
+//          naming two kinds (both ticks, both marks, its hover) and "Refine by species" (picks, the tag, the picture,
+//          the Export, the search box past 30 species, the tag at 320 pixels wide)
+//   layers 2.8, "Filter by attributes" in each layer by real clicks on the shared list: a layer limited to one value
+//          leaves its other sites out of the map, the boxes, "Inside the zones", the nearest site, the Overview's bars,
+//          the legend and the picture's key (a funnel, said once) and the Export (layers.csv's Filters,
+//          export_params.json's layer_filters); one fold open at a time; the pick kept when the layer is ticked again;
+//          Clear; every filter cleared and every fold closed at a new load
+//   cvifilter 2.8, the CVI movements tab's "Refine by species" and "Movement's end in a zone" by real clicks: the
+//          tab's line and table, the map's CVI premises, the legend's funnel, the picture's key and the Export from one
+//          query; a pick dropped with its group; every pick cleared, the fold closed and the end Either at a new load;
+//          the search box past 30 species and a master without a Species column (masters it writes in
+//          local-test-artifacts/em/)
+//   byanimal 2.8, the Overview's "Columns by: Status · Animal" by real clicks: shown with two kinds ticked, Status at
+//          each load; by animal each column's and county bar's hover by kind as the rules count it, the kinds' colors
+//          clear of the status red, a mixed farm once under "Several kinds"; hidden with one kind ticked or in the file
+//          (writes its file and two screenshots in local-test-artifacts/em/byanimal/)
+//   kinds  2.8, "Changing the kinds of animals" (site/emergency/changing-kinds.html): the "?" after the line naming
+//          species not listed (its note and link, closed again when the line goes); the how-to page (its Copy
+//          buttons); its worked example followed on a copy of the
+//          site (four ticks, the marks moved); a word left in two kinds and quotes made curly, each giving the red
+//          notice and a type picker without HPAI (the copy in local-test-artifacts/em/kinds/, deleted after)
 //   speed  the one-second step at full size: 40 positives against 30,000 points, every step of a whole play timed by
 //          the page's own hook, without a master, with the 50,000-row synthetic master (make_scale_master.js) and with
 //          the CVI movements tab open
@@ -56,9 +77,9 @@ const { pathToFileURL } = require('url');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const OUT = path.join(ROOT, 'local-test-artifacts', 'em');
-// Where the picture parts write; in the private repository, the slice in progress's review folder (it moves with
-// the slice).
-let BOARDS_DIR = path.join(OUT, 'pictures');
+// Where the picture parts write: EM_BOARDS_DIR (the slice in progress's review folder), else
+// local-test-artifacts/em/pictures.
+const BOARDS_DIR = process.env.EM_BOARDS_DIR ? path.resolve(process.env.EM_BOARDS_DIR) : path.join(OUT, 'pictures');
 const TABLES = path.join(ROOT, 'test-tables');
 // "Today" fixed for every page (2.5; app.js todayIso reads it), so no result depends on the day the suite runs.
 const TODAY = '2026-10-30';
@@ -66,7 +87,7 @@ const FIXED_TODAY = 'window.WSDA_EMERGENCY_TODAY = ' + JSON.stringify(TODAY) + '
 const PAGE = process.env.EM_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'index.html')).href;
 const SITE = new URL('.', PAGE).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'view', 'overview', 'draw', 'filter', 'speed'];
+const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'view', 'overview', 'draw', 'filter', 'layers', 'cvifilter', 'byanimal', 'kinds', 'speed'];
 const asked = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const PARTS = asked.length ? asked : ALL_PARTS;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -361,7 +382,8 @@ async function partLoad(b) {
 // and links not inside a closed fold's body and not the map's own buttons; a fold's header is the fold, but a control
 // inside a header counts), and per section the visible sentences of explanation (paragraphs and notes, not status
 // lines, help notes, labels or the checklist; nor, from 2.4, CVI's warning under "Optional Filename" not to type a
-// person's name or a case number, a warning shown as CVI shows it).
+// person's name or a case number, a warning shown as CVI shows it; nor, from 2.8, the notes of "Layers to check",
+// the checklist drawn by the shared list as Infrastructure's).
 const DENSITY = `(() => {
   const shown = e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
   const inClosedBody = e => { for (let d = e.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) {
@@ -373,7 +395,7 @@ const DENSITY = `(() => {
   document.querySelectorAll('[data-section], .em-main').forEach(sec => {
     const name = sec.getAttribute('data-section') || 'main';
     const prose = Array.from(sec.querySelectorAll('p, .em-note'))
-      .filter(p => shown(p) && !p.closest('.status, [role=status], [role=alert], .help-note, .name-note, #load-results, #em-legend, .count-card, label, fieldset, .maplibregl-map, .em-results')
+      .filter(p => shown(p) && !p.closest('.status, [role=status], [role=alert], .help-note, .name-note, #load-results, #em-legend, #em-layers, .count-card, label, fieldset, .maplibregl-map, .em-results')
         && !p.classList.contains('status'))
       .map(p => p.textContent.trim()).filter(Boolean);
     const sentences = prose.flatMap(t => t.split(/(?<=[.!?])\s+(?=[A-Z])/));
@@ -410,10 +432,28 @@ async function partPage(b) {
   check(same(st.folds, [false, false, false, false]), 'page: after a clean load every fold is closed (the map and boxes show first)', st.folds);
   check(st.show === 'rings' && st.data.zones === 12 && st.drawn.positives === 6 && st.drawn.inside > 0 && st.drawn.outside > 0,
     'page: HPAI\'s rings (two around each of six positives; the sample\'s zone file waits for the switch); six current positives (the past one hidden); sites inside highlighted and others faded', st);
+  // A site inside is drawn once, highlighted, never also faded (the map keys a site by its layer, place and name).
+  const twice = await p.eval(`(() => { const em = WSDA.emergency.state.map.em;
+    const keyOf = f => f.geometry.coordinates.join() + '\\r' + String(f.properties.label).split('\\n').slice(0, 2).join('\\r').replace(/ · .*$/, '');
+    const inside = new Set(em.inside.features.map(keyOf));
+    return { inside: inside.size, both: em.outside.features.filter(f => inside.has(keyOf(f))).length }; })()`);
+  check(twice.inside > 0 && twice.both === 0, 'page: no site inside the zones is also drawn faded among the others', twice);
   check(st.boxes[0] === '6Active' && st.boxes[1] === '1Closednone under quarantine'
     && st.lines === null
     && st.boxes[2] === 'Oct 5, 2026Last positiveAs of Oct 30, 2026' && /^\d+Sites inside the zones/.test(st.boxes[3]),
   'page: the value boxes On a day, on today (Oct 30, 2026, fixed), each count once (the active positives, "with zones" only when it differs; the closed one, none under quarantine; the last positive, written "Oct 5, 2026", as of the day; sites inside); no line under them (the animals are the Overview\'s box since 2.3)', [st.boxes, st.lines]);
+  // One status unticked: fewer positives get zones than are active, so the box says how many have them; the page keeps
+  // them beside the read, never in it.
+  await p.click(`document.querySelector('#em-statuses input:checked').click()`);
+  await sleep(300);
+  const fewer = await p.eval(`({ box: document.getElementById('box-positives').textContent.trim(),
+    targets: WSDA.emergency.state.targets.length, written: 'targets' in WSDA.emergency.state.read })`);
+  await p.click(`document.querySelector('#em-statuses input:not(:checked)').click()`);
+  await sleep(300);
+  check(/^6Active(\d) with zones$/.test(fewer.box) && Number(/(\d) with zones/.exec(fewer.box)[1]) === fewer.targets
+    && fewer.targets < 6 && !fewer.written
+    && await p.eval(`document.getElementById('box-positives').textContent.trim() === '6Active'`),
+  'page: a status unticked: "n with zones" under the active positives (the page\'s own count, not written into the read); ticked again, gone', fewer);
   check(same(st.layers, ['poultry', 'premises', 'markets', 'fairgrounds', 'disposal', 'milkproducer', 'feedlots']),
     'page: the type\'s suggested layers ticked first (poultry and cattle positives; no milk processing file in the sample)', st.layers);
   check(same(st.sums, ['positives, 7 facility files and a zone file', '3\u00a0and\u00a010\u00a0km rings, closed hidden', '7 layers']),
@@ -480,7 +520,6 @@ async function partPage(b) {
   await shot('sample_320');
   await b.send('Emulation.clearDeviceMetricsOverride', {}, p.sid);
 }
-
 
 async function partResults(b) {
   const S = 'WSDA.emergency.state';
@@ -1234,9 +1273,9 @@ async function partE1b(b) {
   await p.eval(`(() => { const s = document.getElementById('em-type'); s.value = 'hpai'; s.dispatchEvent(new Event('change')); return true; })()`);
   v = await view();
   animals = await overviewAnimals(p);
-  check(animals.value === '10,790 cattle' && animals.note === '45 other animals · 4 commercial, 4 backyard · 1 without a count'
+  check(animals.value === '10,790 cattle' && animals.note === '25 sheep, 18 goats, 2 dogs · 4 commercial, 4 backyard · 1 without a count'
     && await p.eval(`document.getElementById('em-type').value`) === 'hpai',
-  'e1b: switching the type picker to HPAI reads the same file as HPAI (its words: cattle and other animals, no birds)', animals);
+  'e1b: switching the type picker to HPAI reads the same file as HPAI (its words: cattle, then the other animals by species, 2.8; no birds)', animals);
   // The bundle's zone file follows the type: HPAI draws its rings, screwworm the file's zones again.
   check(await p.eval(`${S}.show`) === 'rings' && v.data.zones > 2, 'e1b: switched to HPAI, the bundle\'s zone file gives way to HPAI\'s rings', v.data);
   await p.eval(`(() => { const s = document.getElementById('em-type'); s.value = 'nws'; s.dispatchEvent(new Event('change')); return true; })()`);
@@ -1916,7 +1955,8 @@ async function partPng(b) {
     const ids = Array.from(f.querySelectorAll('#em-png-background, #em-png-resolution, #em-names, #em-png-label, .name-note, #em-png-title, #em-export, #em-preview, #em-png'))
       .map(e => e.id || e.className);
     const boxes = Array.from(document.querySelectorAll('#em-name-list input'));
-    const checked = Array.from(document.querySelectorAll('#em-layers input:checked')).map(i => i.parentElement.textContent.replace(/ \\(\\d+\\)$/, ''));
+    const checked = Array.from(document.querySelectorAll('#em-layers .fac-row input:checked')).map(i => i.parentElement.querySelector('.facility-title').textContent)
+      .sort((a, b) => Object.values(${S}.layers).findIndex(l => l.label === a) - Object.values(${S}.layers).findIndex(l => l.label === b));
     return { ids, open: document.getElementById('em-names').open, names: boxes.map(i => i.parentElement.textContent.trim()),
       ticked: boxes.filter(i => i.checked).map(i => i.value), checked,
       note: document.querySelector('#export-fold .name-note').textContent,
@@ -2099,7 +2139,7 @@ async function partOverview(b) {
   const rules = () => p.eval(`(() => { const s = ${S}, E = WSDA.emergencyRules, C = CVIWA_GEO.counties.features, d = WSDA.population.loaded('density');
     const tracts = d.tracts.map(t => ({ geoid: t.geoid, pop: t.pop, coordinates: WSDA.population.geometry(t).coordinates }));
     const added = s.points.map((q, k) => ({ index: 'added-' + k, name: q.name, lat: q.lat, lon: q.lon }));
-    const sites = s.show === 'zones' && s.zoneFile ? E.zoneSites(s.zoneFile.zones) : E.ringSites(s.read.targets.concat(added), s.rings, s.unit);
+    const sites = s.show === 'zones' && s.zoneFile ? E.zoneSites(s.zoneFile.zones) : E.ringSites(s.targets.concat(added), s.rings, s.unit);
     const people = sites.length ? E.peopleInside(sites, tracts, { year: d.year, counties: C }) : null;
     return { boxes: E.overviewBoxes(s.read, s.window, C, people), rows: E.countyRows(s.read, s.window, C).length,
       positives: E.positiveRows(s.read, s.window, C).rows.length, total: people && people.total }; })()`);
@@ -2255,7 +2295,7 @@ async function partOverview(b) {
   await settled();
   v = await view();
   const ring = await p.eval(`${S}.rings.map(x => x.distance).join(',') + ' ' + ${S}.unit`);
-  const names = await p.eval(`${S}.read.targets.map(x => x.name)`);
+  const names = await p.eval(`${S}.targets.map(x => x.name)`);
   check(ring === '2,6 mi' && same(names, R.targets), 'overview: the scenario: rings of 2 and 6 miles around R\'s seven active positives', [ring, names]);
   const want = await p.eval(`(() => { const E = WSDA.emergencyRules, R = ${JSON.stringify(R.counties)};
     const text = c => [[c.birds, 'birds'], [c.cattle, 'cattle']].filter(x => x[0] !== null).map(x => E.bigNumber(x[0]) + ' ' + x[1]).join(', ');
@@ -2330,8 +2370,9 @@ async function partFilter(b) {
   const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip');
   const middle = sel => p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.scrollIntoView({ block: 'nearest' });
     const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
-  const tick = async shape => {
-    const q = await middle(`#em-animals input[value="${shape}"]`), v = await p.eval(`${S}.version || 0`);
+  // A kind's tick, by its key (2.8: the ticks' values are the kinds' keys, no longer their marks' shapes).
+  const tick = async key => {
+    const q = await middle(`#em-animals input[value="${key}"]`), v = await p.eval(`${S}.version || 0`);
     for (const type of ['mousePressed', 'mouseReleased']) {
       await b.send('Input.dispatchMouseEvent', { type, x: q.x, y: q.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
     }
@@ -2355,8 +2396,8 @@ async function partFilter(b) {
       readShapes: shapes(s.read.positives), allCount: s.readAll.positives.length, drawn: s.map.drawn.positives, current: g.current.length,
       box: document.querySelector('#box-positives strong').textContent.replace(/\\D/g, ''), last: document.querySelector('#box-last strong').textContent,
       legend: [...document.querySelectorAll('#em-legend-content p')].map(q => q.textContent), sum: document.getElementById('positives-sum').textContent,
-      badge: tag('em-badge'), ovBadge: tag('ov-badge'), countedShapes: shapes(s.zoneParts.counted), targetShapes: shapes(s.read.targets || []),
-      insideSites: (s.result ? s.result.rows : []).every(r => s.zoneParts.sites.some(z => z.id === r.site)) && s.zoneParts.sites.length === (s.read.targets || []).length,
+      badge: tag('em-badge'), ovBadge: tag('ov-badge'), countedShapes: shapes(s.zoneParts.counted), targetShapes: shapes(s.targets),
+      insideSites: (s.result ? s.result.rows : []).every(r => s.zoneParts.sites.some(z => z.id === r.site)) && s.zoneParts.sites.length === s.targets.length,
       insideText: document.getElementById('tab-inside').textContent.slice(0, 80),
       asof: [...document.querySelectorAll('#asof-lines li')].map(l => l.textContent).find(t => /positive/.test(t)) || '' }; })()`);
   const legendAnimals = v => v.legend.slice(v.legend.indexOf('Animals') + 1).filter(t => /^(Birds|Cattle|Other animals)$/.test(t));
@@ -2368,7 +2409,7 @@ async function partFilter(b) {
   check(all.badge === null && all.ovBadge === null && !/only/.test(all.sum) && all.readShapes === 'circle,square',
   'filter: every kind ticked: no tag on the badges, nothing in the summary, every positive read', [all.badge, all.sum]);
 
-  await tick('square');
+  await tick('cattle');
   const birds = await seen();
   check(birds.readShapes === 'circle' && birds.drawn === birds.current && birds.drawn < all.drawn && birds.box === String(birds.current)
     && same(legendAnimals(birds), ['Birds']),
@@ -2405,13 +2446,13 @@ async function partFilter(b) {
   check(params.animals_shown === 'Birds' && params.positives === birdNames.length && csvNames.length > 0 && csvNames.every(n => birdNames.includes(n.replace(/"/g, ''))),
   'filter: the Export: export_params.json animals_shown "Birds" and its positives count, positives.csv the birds\' positives only', [params.animals_shown, params.positives, csvNames, birdNames]);
 
-  await tick('circle');
+  await tick('birds');
   const none = await seen();
   check(none.msg && none.drawn === 0 && none.last === 'Tick at least one kind of animal' && /Tick at least one kind of animal/.test(none.insideText)
     && /no animals ticked/.test(none.sum) && none.badge === null,
   'filter: every kind unticked: "Tick at least one kind of animal." under the ticks, in the "Last positive" box and the "Inside the zones" tab; no positive drawn', [none.last, none.insideText, none.sum]);
-  await tick('circle');
-  await tick('square');
+  await tick('birds');
+  await tick('cattle');
   const back = await seen();
   check(back.drawn === all.drawn && back.box === all.box && back.badge === null && !back.msg && back.readShapes === 'circle,square',
   'filter: both ticked again: the page as at the load', [back.drawn, all.drawn]);
@@ -2419,7 +2460,7 @@ async function partFilter(b) {
   // The breakdown (2.7), with every layer ticked: each panel row's counts by layer as the Export's
   // inside_the_zones.csv gives them; each layers line inside the column; the rows clear of the notes; the shared-site
   // note when a site is in two positives' zones.
-  await p.eval(`(() => { document.querySelectorAll('#em-layers input:not(:checked)').forEach(i => i.click()); return true; })()`);
+  await p.eval(`(() => { document.getElementById('em-layers-all').click(); return true; })()`);
   await p.waitFor(`!${S}.loading && ${S}.result`, 15000, 'every layer checked');
   await p.eval(`${S}.lastPreview = null; true`);
   await p.click(`document.getElementById('em-preview').click()`);
@@ -2453,15 +2494,16 @@ async function partFilter(b) {
   'filter: the map picture: each layer\'s mark and count drawn on the county line and under it, inside the column, the rows clear of the notes; the shared-site note when a site is in two positives\' zones (2.7)',
     [pan.rows.map(r => [r.name, r.onCounty, r.inColumn]), pan.notes, pan.shared]);
 
-  await tick('square');
+  await tick('cattle');
+  let v = await p.eval(`${S}.version`);
   await p.setFiles('#files-input', [samplePath]);
-  await emReady(p, await p.eval(`${S}.version`));
+  await emReady(p, v);
   await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn again');
   const again = await seen();
   check(same(again.ticks.map(t => t[1]), [true, true]) && again.readShapes === 'circle,square' && again.badge === null,
   'filter: files loaded again: every kind ticked again (question 6)', again.ticks);
   // A zone file chosen with cattle unticked redraws the loaded files' lines: the positives line still counts the file.
-  await tick('square');
+  await tick('cattle');
   await p.setFiles('#em-zone-file', [path.join(TABLES, 'em_bundle', 'zones.geojson')]);
   await p.waitFor(`${S}.zoneFile && !${S}.loading`, 20000, 'zone file used');
   await sleep(500);
@@ -2470,7 +2512,7 @@ async function partFilter(b) {
   'filter: a zone file chosen with cattle unticked: the loaded-file line still counts the whole file (7 positives)', zoned.asof);
   // With birds unticked too, the zone file's zones still count their sites: the tab says to tick a kind first, then
   // lists them, as the "Sites inside" box counts them.
-  await tick('circle');
+  await tick('birds');
   const zonedNone = await p.eval(`(() => { const s = ${S}, tab = document.getElementById('tab-inside');
     return { first: tab.firstElementChild ? tab.firstElementChild.textContent : '', zones: tab.querySelectorAll('.em-zones-list').length,
       sites: s.result ? s.result.rows.length : 0, layers: tab.querySelectorAll('details.em-layer[data-layer]').length,
@@ -2492,12 +2534,12 @@ async function partFilter(b) {
   await open([samplePath, path.join(TABLES, 'em_cvi_master.csv')]);
   await p.eval(`(document.getElementById('em-cvi').click(), document.getElementById('show-cvi').click(), true)`);
   await p.waitFor(`${S}.cviRes && ${S}.cviRes.status === 'ok'`, 30000, 'CVI result');
-  const cviAll = await p.eval(`({ sites: ${S}.cviRes.siteCvis.length, cvis: ${S}.cviRes.summary.cvis, targets: ${S}.read.targets.length })`);
+  const cviAll = await p.eval(`({ sites: ${S}.cviRes.siteCvis.length, cvis: ${S}.cviRes.summary.cvis, targets: ${S}.targets.length })`);
   await p.eval(`${S}.cviRes = null; true`);
-  await tick('square');
+  await tick('cattle');
   await p.waitFor(`${S}.cviRes && ${S}.cviRes.status === 'ok'`, 30000, 'CVI result with cattle unticked');
-  const cviBirds = await p.eval(`({ sites: ${S}.cviRes.siteCvis.length, cvis: ${S}.cviRes.summary.cvis, targets: ${S}.read.targets.length,
-    birds: ${S}.read.targets.every(q => WSDA.emergencyRules.animalShapeOf(${S}.type, q) === 'circle') })`);
+  const cviBirds = await p.eval(`({ sites: ${S}.cviRes.siteCvis.length, cvis: ${S}.cviRes.summary.cvis, targets: ${S}.targets.length,
+    birds: ${S}.targets.every(q => WSDA.emergencyRules.animalShapeOf(${S}.type, q) === 'circle') })`);
   check(cviAll.sites === cviAll.targets && cviBirds.sites === cviBirds.targets && cviBirds.birds && cviBirds.sites < cviAll.sites && cviBirds.cvis <= cviAll.cvis,
   'filter: cattle unticked: the CVI movements are looked up around the birds\' positives with zones only (2.7)', [cviAll, cviBirds]);
 
@@ -2546,8 +2588,600 @@ async function partFilter(b) {
   'filter: a positives file with its header only: no "Animals" ticks and no "Tick at least one kind of animal."', h0);
 
   await open([path.join(TABLES, 'em_nws_synthetic_positives.csv')]);
-  const one = await p.eval(`({ hidden: document.getElementById('em-animals-field').hidden, n: document.querySelectorAll('#em-animals input').length })`);
-  check(one.hidden && one.n === 0, 'filter: a file with one kind of animal (the screwworm outbreak): no "Animals" ticks', one);
+  const one = await p.eval(`({ hidden: document.getElementById('em-animals-field').hidden, n: document.querySelectorAll('#em-animals input').length,
+    refine: document.getElementById('em-refine').hidden })`);
+  check(one.hidden && one.n === 0 && one.refine, 'filter: a file with one kind of animal (the screwworm outbreak): no "Animals" ticks and no "Refine by species"', one);
+
+  // ---- 2.8: a positive naming two kinds ("Cattle, Chicken"), and "Refine by species" ----------------------------
+  // Three birds, the mixed farm and a dairy, every one mapped: the mixed one counts under both ticks, shows while
+  // either is ticked, its mark both shapes side by side, its hover "1000 animals (birds and cattle)".
+  const mixedRow = fxRow('FX-005', '46.50', '-120.40', 'Commercial', 'Mixed', '"Cattle, Chicken"');
+  const dairyRow = fxRow('FX-006', '46.45', '-120.55', 'Commercial', 'Dairy', 'Dairy Cow');
+  const mixedFile = path.join(OUTF, 'em_filter_mixed.csv');
+  fs.writeFileSync(mixedFile, [FX.AGREED_HEAD.join(',')].concat(birdsRows, [mixedRow, dairyRow]).join('\n') + '\n');
+  // A real click on the element a selector names (the nth match), then the redraw.
+  const press = async (sel, nth) => {
+    const q = await p.eval(`(() => { const e = document.querySelectorAll(${JSON.stringify(sel)})[${nth || 0}]; e.scrollIntoView({ block: 'nearest' });
+      const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x: q.x, y: q.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
+    }
+    await sleep(400);
+    await p.waitFor(`!${S}.loading`, 15000, 'filter redrawn');
+  };
+  const mixedSeen = () => p.eval(`(() => { const s = ${S}, m = s.map.map, tag = document.querySelector('#em-badge .only-tag');
+    const f = s.map.em.positives.features.find(x => /^FX-005/.test(x.properties.label)), img = f ? m.getImage(f.properties.mark) : null;
+    return { ticks: [...document.querySelectorAll('#em-animals label')].map(l => [l.textContent, l.querySelector('input').checked]),
+      drawn: s.map.em.positives.features.map(x => x.properties.label.split('\\n')[0]).sort().join(), box: document.querySelector('#box-positives strong').textContent,
+      mark: f ? f.properties.mark.split(':').slice(0, 3).join(':') : null, wide: img ? img.data.width > 1.6 * img.data.height : null,
+      // the right shape drawn: a pixel painted in the picture's column at three quarters of its width
+      right: img ? Array.from({ length: img.data.height }, (_, y) => img.data.data[4 * (y * img.data.width + Math.round(0.75 * img.data.width)) + 3]).some(a => a > 0) : null,
+      tip: f ? (s.map.hoverAt(Object.values(m.project(f.geometry.coordinates))) || { items: [] }).items.map(i => i.lines.join(' | ')).join(' / ') : null,
+      legend: [...document.querySelectorAll('#em-legend-content p')].map(q => q.textContent).filter(t => /^(Birds|Cattle)$/.test(t)),
+      tag: tag ? tag.textContent : null, sum: document.getElementById('positives-sum').textContent,
+      refine: { hidden: document.getElementById('em-refine').hidden, sum: document.getElementById('em-refine-sum').textContent,
+        search: !document.getElementById('em-refine-search').hidden,
+        kinds: [...document.querySelectorAll('#em-refine-list .refine-kind')].map(k => k.querySelector('.lg-animal').dataset.shape + ' ' + k.textContent),
+        rows: [...document.querySelectorAll('#em-refine-list label')].map(l => [l.textContent, l.querySelector('input').checked]) } }; })()`);
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await open([mixedFile]);
+  // The hover is read off the drawn marks: wait for the map to settle first.
+  await p.eval(`new Promise(r => { const m = ${S}.map.map; m.once('idle', () => r(true)); m.triggerRepaint(); })`);
+  let mx = await mixedSeen();
+  check(same(mx.ticks, [['Birds (4)', true], ['Cattle (2)', true]]) && mx.drawn === 'FX-001,FX-002,FX-003,FX-005,FX-006',
+  'filter: a positive naming two kinds ("Cattle, Chicken") counts in both ticks: Birds (4), Cattle (2), five positives drawn (2.8)', mx);
+  check(mx.mark === 'em-positive:circle+square:now' && mx.wide === true && mx.right === true,
+  'filter: its map mark is both shapes side by side, a circle and a square, in one picture twice as wide as tall, the second shape drawn on its right', [mx.mark, mx.wide, mx.right]);
+  check(/ 1000 animals \(birds and cattle\)/.test(mx.tip) && same(mx.legend, ['Birds', 'Cattle']),
+  'filter: its hover says "1000 animals (birds and cattle)" (the count as the table writes it); the legend has a row for each kind', [mx.tip, mx.legend]);
+  await press('#em-animals input[value="birds"]');
+  mx = await mixedSeen();
+  check(mx.drawn === 'FX-005,FX-006' && mx.box === '2' && mx.tag === 'Cattle only' && /cattle only/.test(mx.sum) && same(mx.legend, ['Birds', 'Cattle'])
+    && mx.mark === 'em-positive:circle+square:now',
+  'filter: birds unticked by a click: the mixed farm stays with the dairy (2 active), "Cattle only"; its mark keeps both shapes, so the legend keeps Birds', mx);
+  await press('#em-animals input[value="birds"]');
+  await press('#em-animals input[value="cattle"]');
+  mx = await mixedSeen();
+  check(mx.drawn === 'FX-001,FX-002,FX-003,FX-005' && mx.box === '4' && mx.tag === 'Birds only' && same(mx.ticks, [['Birds (4)', true], ['Cattle (2)', false]]),
+  'filter: cattle unticked instead: the three birds and the mixed farm (4 active), "Birds only"; the ticks\' counts stay the whole file\'s', mx);
+  await press('#em-animals input[value="cattle"]');
+
+  // "Refine by species": closed at the load, as CVI's; every species under each kind ticked, the mixed one under both.
+  mx = await mixedSeen();
+  const closed = await p.eval(`!document.getElementById('em-refine').open`);
+  check(!mx.refine.hidden && closed && mx.refine.sum === '' && !mx.refine.search && same(mx.refine.kinds, ['circle Birds', 'square Cattle'])
+    && same(mx.refine.rows.map(r => r[0]), ['Chicken \u2014 2 positives, 2,000 animals', 'Cattle, Chicken \u2014 1 positive, 1,000 animals',
+      'Duck \u2014 1 positive, 1,000 animals', 'Cattle, Chicken \u2014 1 positive, 1,000 animals', 'Dairy Cow \u2014 1 positive, 1,000 animals'])
+    && mx.refine.rows.every(r => !r[1]),
+  'filter: "Refine by species" under the ticks, closed at the load: each kind\'s mark and name over its species with their numbers, "Cattle, Chicken" under both, none ticked', mx.refine);
+  await press('#em-refine summary');
+  await press('#em-refine-list input[value="Cattle, Chicken"]', 1);
+  mx = await mixedSeen();
+  check(mx.drawn === 'FX-005' && mx.box === '1' && mx.refine.sum === ' (1 ticked)' && mx.refine.rows.filter(r => r[1]).length === 2
+    && mx.tag === '"Cattle, Chicken" only' && /"cattle, chicken" only/.test(mx.sum) && same(mx.ticks, [['Birds (4)', true], ['Cattle (2)', true]]),
+  'filter: "Cattle, Chicken" ticked under Cattle by a click: ticked under Birds too (one pick), only that farm everywhere, the tag names it in quotes (its comma), the kinds\' ticks untouched', mx);
+  await press('#em-refine-list input[value="Chicken"]');
+  mx = await mixedSeen();
+  check(mx.drawn === 'FX-001,FX-002,FX-005' && mx.refine.sum === ' (2 ticked)' && mx.tag === '"Cattle, Chicken" and Chicken only',
+  'filter: Chicken ticked as well: both species\' positives, "(2 ticked)", the tag names both', mx);
+  // The picture and the Export with the picks.
+  await p.eval(`document.getElementById('export-fold').open = true; ${S}.lastPreview = null; true`);
+  await p.click(`document.getElementById('em-preview').click()`);
+  await p.waitFor(`${S}.lastPreview`, 60000, 'preview drawn');
+  const pic = await p.eval(`(() => { const m = ${S}.lastPreview.model; CVIWA.previews.close && CVIWA.previews.close();
+    return { meta: m.meta.left, shapes: m.positives.map(q => q.name + ' ' + q.shapes.join('+')).sort(),
+      key: m.keyItems.filter(i => i.glyph && i.glyph.shape === 'animals').map(i => [i.glyph.first].concat(i.glyph.words.map(w => w.label))) }; })()`);
+  check(/^Positives: "cattle, chicken" and chicken only · Zones: /.test(pic.meta) && same(pic.shapes, ['FX-001 circle', 'FX-002 circle', 'FX-005 circle+square'])
+    && same(pic.key.flat(), ['Birds', 'Cattle']),
+  'filter: the map picture: its line over the map names the species, the mixed farm drawn with both marks, the key naming Birds and Cattle', pic);
+  await p.eval(`WSDA.sample.download = function () {}; ${S}.lastExport = null; document.getElementById('em-export').click(); true`);
+  await p.waitFor(`${S}.lastExport`, 30000, 'export made');
+  const pm = await p.eval(`(() => { const e = (${S}.lastExport || []).find(x => /export_params\.json$/.test(x.name)); return e ? JSON.parse(e.data) : {}; })()`);
+  check(same(pm.species_shown, ['Cattle, Chicken', 'Chicken']) && same(pm.animals_shown, ['Birds', 'Cattle']),
+  'filter: export_params.json names the species picked (species_shown) beside the kinds shown', [pm.species_shown, pm.animals_shown]);
+  // Birds unticked: Chicken (a bird only) drops out of the picks; "Cattle, Chicken" is still offered under Cattle and stays.
+  await press('#em-animals input[value="birds"]');
+  mx = await mixedSeen();
+  check(mx.drawn === 'FX-005' && mx.refine.sum === ' (1 ticked)' && same(mx.refine.kinds, ['square Cattle']) && mx.tag === '"Cattle, Chicken" only',
+  'filter: birds unticked with both picked: Chicken drops out of the picks, "Cattle, Chicken" stays (still under Cattle)', mx);
+  // The same file loaded again in the same page: every pick cleared, every kind ticked again.
+  v = await p.eval(`${S}.version`);
+  await p.setFiles('#files-input', [mixedFile]);
+  await emReady(p, v);
+  await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn again');
+  mx = await mixedSeen();
+  const closedAgain = await p.eval(`!document.getElementById('em-refine').open`);
+  check(mx.refine.sum === '' && mx.refine.rows.length === 5 && mx.refine.rows.every(r => !r[1]) && mx.tag === null && mx.drawn.split(',').length === 5
+    && closedAgain,
+  'filter: the file loaded again in the same page: every species pick cleared, every kind ticked again, "Refine by species" closed again', { mx, closedAgain });
+  // Then a file with one kind (the screwworm outbreak) in the same page: no ticks and no species list left behind.
+  v = await p.eval(`${S}.version`);
+  await p.setFiles('#files-input', [path.join(TABLES, 'em_nws_synthetic_positives.csv')]);
+  await emReady(p, v);
+  await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn again');
+  const oneAfter = await p.eval(`({ animals: document.getElementById('em-animals-field').hidden, refine: document.getElementById('em-refine').hidden,
+    rows: document.querySelectorAll('#em-refine-list label').length })`);
+  check(oneAfter.animals && oneAfter.refine && oneAfter.rows === 0,
+  'filter: a file with one kind loaded after the mixed file in the same page: no "Animals" ticks and no "Refine by species" left behind', oneAfter);
+
+  // Past 30 species a search box: typing narrows the list; a pick hidden by the search stays picked.
+  const manyRows = Array.from({ length: 32 }, (_, k) => fxRow('FX-1' + String(k).padStart(2, '0'), (46.2 + k * 0.02).toFixed(2), '-120.50',
+    'Backyard', 'Backyard Flock', 'Duck ' + (k + 1)));
+  const manyFile = path.join(OUTF, 'em_filter_many_species.csv');
+  fs.writeFileSync(manyFile, [FX.AGREED_HEAD.join(',')].concat(manyRows, [dairyRow]).join('\n') + '\n');
+  await open([manyFile]);
+  await press('#em-refine summary');
+  await press('#em-refine-list input[value="Duck 2"]');
+  await press('#em-refine-search');
+  await b.send('Input.insertText', { text: 'duck 1' }, p.sid);
+  await sleep(300);
+  mx = await mixedSeen();
+  const narrowed = mx.refine.rows.map(r => r[0].split(' \u2014')[0]);
+  check(mx.refine.search && narrowed.length === 11 && narrowed.every(n => /^Duck 1/.test(n)) && mx.refine.sum === ' (1 ticked)' && mx.drawn === 'FX-101',
+  'filter: 33 species: a search box over the list; "duck 1" leaves Duck 1 and Duck 10 to 19; Duck 2, hidden by the search, stays picked', [narrowed, mx.refine.sum, mx.drawn]);
+  // The same file loaded again in the same page: the search box emptied and the fold closed, the whole list back.
+  v = await p.eval(`${S}.version`);
+  await p.setFiles('#files-input', [manyFile]);
+  await emReady(p, v);
+  await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn again');
+  const fresh = await p.eval(`({ search: document.getElementById('em-refine-search').value, open: document.getElementById('em-refine').open,
+    rows: document.querySelectorAll('#em-refine-list label').length })`);
+  check(fresh.search === '' && !fresh.open && fresh.rows === 33,
+  'filter: 33 species loaded again in the same page: "Refine by species" closed, its search box empty, all 33 listed', fresh);
+  await press('#em-refine summary');
+  await press('#em-refine-list input[value="Duck 2"]');
+  // Each kind's species at full length, not in a box of its own that scrolls (the search box narrows a long list).
+  await p.eval(`(() => { const s = document.getElementById('em-refine-search'); s.value = ''; s.dispatchEvent(new Event('input')); return true; })()`);
+  const boxes = await p.eval(`[...document.querySelectorAll('#em-refine-list .checklist')].map(x => [x.querySelectorAll('label').length, x.scrollHeight <= x.clientHeight + 1])`);
+  check(boxes.length === 2 && boxes[0][0] === 32 && boxes.every(x => x[1]),
+  'filter: "Refine by species": each kind\'s species at full length (32 ducks), no box scrolling on its own', boxes);
+  // On a phone (320 px) a long white tag wraps inside the map instead of running off its sides.
+  for (const d of ['Duck 3', 'Duck 4', 'Duck 5']) await press('#em-refine-list input[value="' + d + '"]');
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 800, deviceScaleFactor: 1, mobile: true }, p.sid);
+  await sleep(600);
+  const fits = await p.eval(`(() => { const m = document.getElementById('em-map').getBoundingClientRect(), t = document.querySelector('#em-badge .only-tag');
+    const g = document.getElementById('em-badge').getBoundingClientRect(), r = t.getBoundingClientRect();
+    return { tag: t.textContent, inside: g.left >= m.left - 0.5 && g.right <= m.right + 0.5 && r.right <= m.right + 0.5, lines: Math.round(r.height / parseFloat(getComputedStyle(t).lineHeight || 17)),
+      map: Math.round(m.width), badge: Math.round(g.width) }; })()`);
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+  check(fits.tag === 'Duck 2, Duck 3, Duck 4 and 1 more only' && fits.inside && fits.badge > 0.8 * fits.map,
+  'filter: at 320 px the white tag with four species picked wraps inside the map, the badge using the map\'s width', fits);
+}
+
+// 2.8, "Filter by attributes" in each layer, by real clicks on the shared list (shared/facility-ui.js): the sample's
+// Commercial Poultry limited to Layers leaves its other sites out of the map, the boxes, "Inside the zones", the
+// nearest site, the Overview's bars, the legend (a funnel), the picture's key and the Export.
+async function partLayers(b) {
+  const p = b.page, S = 'WSDA.emergency.state', R = 'WSDA.emergencyRules';
+  const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip');
+  // A real click on the element the expression gives.
+  const click = async expr => {
+    const q = await p.eval(`(() => { const e = ${expr}; e.scrollIntoView({ block: 'nearest' });
+      const r = e.getBoundingClientRect(); return { x: Math.round(r.left + Math.min(8, r.width / 2)), y: Math.round(r.top + r.height / 2) }; })()`);
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x: q.x, y: q.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
+    }
+    await sleep(300);
+    await p.waitFor(`!${S}.loading`, 15000, 'redrawn after a click');
+  };
+  const open = async () => {
+    await p.goto(new URL('emergency/index.html', SITE).href);
+    await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+    await p.setFiles('#files-input', [samplePath]);
+    await emReady(p);
+    await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn');
+    await p.eval(`document.getElementById('layers-fold').open = true; scrollTo(0, 0); true`);
+  };
+  // The row of a layer by its name, and its parts.
+  const ROW = name => `[...document.querySelectorAll('#em-layers .facility-layer')].find(r => r.querySelector('.facility-title').textContent === ${JSON.stringify(name)})`;
+  const seen = () => p.eval(`(() => { const s = ${S}, row = ${ROW('Commercial Poultry')}, fold = row.querySelector('details.facility-filters');
+    const cp = s.layers.poultry, all = s.prepared.layers.find(l => l.key === 'poultry').points;
+    const rows = (s.result ? s.result.rows : []).filter(r => r.layer === 'poultry');
+    const nearest = (s.result.layers.find(l => l.key === 'poultry') || {}).nearest;
+    const bars = ${R}.overviewBars([], s.result).layers.find(l => l.label === 'Commercial Poultry');
+    return { groups: [...document.querySelectorAll('#em-layers .fac-grp')].map(h => h.textContent),
+      counts: [...document.querySelectorAll('#em-layers .facility-layer')].filter(r => r.querySelector('.fac-row input').checked)
+        .map(r => [r.querySelector('.facility-title').textContent, r.querySelector('.facility-local-count').textContent]),
+      sizes: Object.fromEntries(Object.values(s.layers).map(l => [l.label, l.points.length])),
+      openFolds: [...document.querySelectorAll('#em-layers details.facility-filters')].filter(d => d.open).map(d => d.closest('.facility-layer').querySelector('.facility-title').textContent),
+      noFilters: [...document.querySelectorAll('#em-layers .facility-layer')].filter(r => /No eligible attribute filters/.test(r.textContent)).map(r => r.querySelector('.facility-title').textContent),
+      foldText: fold.querySelector('summary').textContent, types: [...fold.querySelectorAll('.facility-refine label')].map(l => l.textContent.trim()),
+      cpTypes: [...new Set(cp.points.map(q => q.values.Type))], cpCount: cp.points.length, layersInFile: all.filter(q => q.values.Type === 'Layers').length,
+      allCount: all.length, insideRows: rows.length, insideTypes: [...new Set(rows.map(r => cp.points.find(q => q.name === r.name) ? 'kept' : 'other'))],
+      nearest: nearest ? (cp.points.some(q => q.name === nearest.name) ? 'kept' : nearest.name) : null,
+      box: document.querySelector('#box-inside strong').textContent.replace(/\\D/g, ''), total: s.result.total,
+      bars: bars ? bars.total : null, cpInside: (s.result.layers.find(l => l.key === 'poultry') || {}).inside,
+      legend: [...document.querySelectorAll('#em-legend-content p')].map(q => [q.textContent, !!q.querySelector('.lg-funnel')]).filter(([, f]) => f).map(([t]) => t),
+      order: s.selectedLayers.join() }; })()`);
+
+  await open();
+  const start = await seen();
+  check(start.groups.length > 1 && start.counts.length === Object.keys(start.sizes).length
+    && start.counts.every(([name, n]) => n === ' — ' + start.sizes[name]),
+  'layers: "Layers to check" drawn by the shared list: the group headings, each ticked layer with its number of sites', [start.groups, start.counts]);
+  check(!start.openFolds.length && start.foldText === 'Filter by attributes' && start.noFilters.includes('Feedlots'),
+  'layers: every fold closed after the load, none says a filter is on; a layer with no column to filter says so', [start.openFolds, start.foldText, start.noFilters]);
+
+  await click(`${ROW('Commercial Poultry')}.querySelector('details.facility-filters > summary')`);
+  const opened = await seen();
+  check(same(opened.openFolds, ['Commercial Poultry']) && same(opened.types, ['Broilers', 'Ducks', 'Layers', 'Turkeys']),
+  'layers: Commercial Poultry\'s fold opened by a click lists its Type values', [opened.openFolds, opened.types]);
+
+  await click(`${ROW('Commercial Poultry')}.querySelector('.facility-refine input[value="Layers"]')`);
+  const layers = await seen();
+  check(/1 filter on$/.test(layers.foldText) && same(layers.openFolds, ['Commercial Poultry']),
+  'layers: Layers ticked by a click: the fold says "1 filter on" and stays open', [layers.foldText, layers.openFolds]);
+  check(same(layers.cpTypes, ['Layers']) && layers.cpCount === layers.layersInFile && layers.cpCount < layers.allCount
+    && same(layers.counts.find(c => c[0] === 'Commercial Poultry'), ['Commercial Poultry', ' — ' + layers.layersInFile]),
+  'layers: the layer keeps only its Layers sites, and its row counts them', [layers.cpTypes, layers.cpCount, layers.allCount, layers.counts]);
+  check(layers.total < start.total && same(layers.insideTypes, ['kept']) && layers.insideRows < start.insideRows,
+  'layers: "Inside the zones" lists only the Layers farms, and the sites inside are fewer', [start.total, layers.total, layers.insideRows]);
+  check(layers.box === String(layers.total) && start.box === String(start.total),
+  'layers: the box "Sites inside the zones" counts them', [start.box, layers.box, layers.total]);
+  check(layers.nearest === 'kept' || layers.nearest === null,
+  'layers: the nearest Commercial Poultry site is a Layers farm', layers.nearest);
+  check(layers.bars === layers.cpInside && layers.bars < start.bars,
+  'layers: the Overview\'s bar for the layer counts only the Layers farms inside', [start.bars, layers.bars]);
+  check(same(layers.legend, ['Commercial Poultry', 'Filtered: some sites left out']),
+  'layers: the legend puts a funnel before the layer\'s name and says once what it means', layers.legend);
+
+  // One fold open at a time (as the worst case drew it).
+  await click(`${ROW('Premise PINs by Species')}.querySelector('details.facility-filters > summary')`);
+  const other = await seen();
+  check(same(other.openFolds, ['Premise PINs by Species']) && /1 filter on$/.test(other.foldText),
+  'layers: opening another layer\'s fold closes Commercial Poultry\'s, whose filter stays on', [other.openFolds, other.foldText]);
+
+  // The picture's key: the layer's row with a funnel before its name, the funnel said once.
+  await p.eval(`document.getElementById('export-fold').open = true; ${S}.lastPreview = null; true`);
+  await p.click(`document.getElementById('em-preview').click()`);
+  await p.waitFor(`${S}.lastPreview`, 60000, 'preview drawn');
+  const key = await p.eval(`(() => { const m = ${S}.lastPreview.model; CVIWA.previews.close && CVIWA.previews.close();
+    const rows = m.keyItems.filter(it => it.facility);
+    return { filtered: rows.filter(it => it.funnel).map(it => it.label), others: rows.filter(it => !it.funnel).length,
+      notes: m.keyRows.filter(r => r.label === 'Filtered: some sites left out').length }; })()`);
+  check(same(key.filtered, ['Commercial Poultry']) && key.others > 0,
+  'layers: the picture\'s key marks only the filtered layer\'s row with a funnel', key);
+  check(key.notes === 1, 'layers: the picture\'s key says once what the funnel means, under the layers', key);
+
+  // The Export: inside_the_zones.csv, layers.csv's Filters and export_params.json's layer_filters.
+  await p.eval(`WSDA.sample.download = function () {}; document.getElementById('em-export').click(); true`);
+  const ex = await p.eval(`(() => { const s = ${S}, files = {};
+    (s.lastExport || []).filter(e => !e.dir).forEach(e => { files[e.name.replace(/^.*\\//, '')] = e.data; });
+    const kept = new Set(s.layers.poultry.points.map(q => q.name));
+    const inside = files['inside_the_zones.csv'].split('\\n').filter(l => l.includes(',Commercial Poultry,'));
+    return { inside: inside.length, others: inside.filter(l => ![...kept].some(n => l.includes(',' + n + ','))).length,
+      layers: files['layers.csv'].split('\\n').slice(0, 1).concat(files['layers.csv'].split('\\n').filter(l => /^Commercial Poultry,|^Feedlots,/.test(l))),
+      params: JSON.parse(files['export_params.json']).layer_filters }; })()`);
+  check(ex.inside === layers.insideRows && ex.others === 0,
+  'layers: the Export\'s inside_the_zones.csv lists only the Layers farms of the layer', ex);
+  check(/,Filters$/.test(ex.layers[0]) && ex.layers.some(l => /^Commercial Poultry,.*,Type: Layers$/.test(l)) && ex.layers.some(l => /^Feedlots,.*,$/.test(l))
+    && ex.params === 'Commercial Poultry (Type: Layers)',
+  'layers: layers.csv\'s Filters column and export_params.json\'s layer_filters name the pick; an unfiltered layer\'s is blank', ex);
+
+  // Unticked and ticked again: the pick kept; "Clear": every site back, no funnel.
+  await click(`${ROW('Commercial Poultry')}.querySelector('.fac-row input')`);
+  await click(`${ROW('Commercial Poultry')}.querySelector('.fac-row input')`);
+  const again = await seen();
+  check(/1 filter on$/.test(again.foldText) && again.cpCount === layers.layersInFile,
+  'layers: the layer unticked and ticked again keeps its pick', [again.foldText, again.cpCount]);
+  // The load's order (the type's suggestions first) kept through every click.
+  check(layers.order === start.order && again.order === start.order,
+  'layers: the legend keeps the load\'s order of the layers through a filter and a layer ticked again', [start.order, layers.order, again.order]);
+  await click(`${ROW('Commercial Poultry')}.querySelector('details.facility-filters > summary')`);
+  await click(`${ROW('Commercial Poultry')}.querySelector('[data-refine-clear]')`);
+  const cleared = await seen();
+  check(cleared.cpCount === cleared.allCount && cleared.total === start.total && !cleared.legend.length && cleared.foldText === 'Filter by attributes',
+  'layers: "Clear" brings every site back, and the funnel leaves the legend', [cleared.cpCount, cleared.total, cleared.legend]);
+  await p.eval(`document.getElementById('em-export').click(); true`);
+  const none = await p.eval(`JSON.parse(${S}.lastExport.find(e => /export_params\\.json$/.test(e.name)).data).layer_filters`);
+  check(none === 'none', 'layers: with no filter on, export_params.json\'s layer_filters says "none"', none);
+
+  // A layer whose filters leave no site (the Mailing premises are all placed by rooftop): its line in "Inside the
+  // zones" says the filters left none, not that the file has no usable locations.
+  const PREM = ROW('Premise PINs by Species');
+  await click(`${PREM}.querySelector('details.facility-filters > summary')`);
+  await click(`${PREM}.querySelector('.facility-refine input[value="Mailing"]')`);
+  await click(`${PREM}.querySelector('.facility-refine input[value="city"]')`);
+  const emptied = await p.eval(`(() => { const lines = [...document.querySelectorAll('#tab-inside p, #tab-inside summary')].map(e => e.textContent);
+    return { count: ${PREM}.querySelector('.facility-local-count').textContent, points: ${S}.layers.premises.points.length,
+      line: lines.find(l => /^Premise PINs by Species:/.test(l)) || null }; })()`);
+  check(emptied.points === 0 && emptied.line === 'Premise PINs by Species: none inside (no sites match the filters)',
+  'layers: a layer whose filters leave no site: "none inside (no sites match the filters)", not "no usable locations"', emptied);
+  // "Mailing" unticked: the one city-placed site matches but is located only roughly, so left out: no usable location.
+  await click(`${PREM}.querySelector('.facility-refine input[value="Mailing"]')`);
+  const rough = await p.eval(`({ points: ${S}.layers.premises.points.length, line: [...document.querySelectorAll('#tab-inside p, #tab-inside summary')]
+    .map(e => e.textContent).find(l => /^Premise PINs by Species:/.test(l)) || null })`);
+  check(rough.points === 1 && rough.line === 'Premise PINs by Species: none inside (no usable locations)',
+  'layers: a filtered layer whose only site is located roughly: "no usable locations", not "no sites match the filters"', rough);
+  await click(`${PREM}.querySelector('.facility-refine input[value="city"]')`);
+  await click(`${PREM}.querySelector('details.facility-filters > summary')`);
+
+  // A new load: every filter cleared and every fold closed (2.7's rule for the animal ticks). Commercial Poultry's fold
+  // opened again first (opening another layer's closed it) and a pick made, so the load has a fold and a filter to clear.
+  await click(`${ROW('Commercial Poultry')}.querySelector('details.facility-filters > summary')`);
+  await click(`${ROW('Commercial Poultry')}.querySelector('.facility-refine input[value="Ducks"]')`);
+  const before = await seen();
+  check(before.openFolds.includes('Commercial Poultry') && /1 filter on$/.test(before.foldText) && before.cpCount < before.allCount,
+  'layers: before the new load, Commercial Poultry\'s fold open with one filter on', [before.openFolds, before.foldText, before.cpCount]);
+  const v = await p.eval(`${S}.version`);
+  await p.setFiles('#files-input', [samplePath]);
+  await emReady(p, v);
+  await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn again');
+  await sleep(300);
+  const reload = await seen();
+  check(reload.cpCount === reload.allCount && !reload.openFolds.length && reload.foldText === 'Filter by attributes' && !reload.legend.length,
+  'layers: a new load clears every filter and closes every fold', [reload.cpCount, reload.openFolds, reload.foldText]);
+}
+
+// 2.8: the CVI movements tab's "Refine by species" and "Movement's end in a zone", by real clicks: the tab's line and
+// table, the map's CVI premises, the legend's funnel, the picture's key, the Export, a group unticked, a new load;
+// the search box past 30 species and a master without a Species column, on masters the part writes itself.
+async function partCviFilter(b) {
+  const p = b.page, S = 'WSDA.emergency.state';
+  const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip'), masterPath = path.join(TABLES, 'em_cvi_master.csv');
+  // Two masters made from the test master: 36 species (EM-0002's row once per species), and no Species column.
+  const text = fs.readFileSync(masterPath, 'utf8').trim().split('\n'), head = text[0].split(','), col = head.indexOf('Species');
+  const manyPath = path.join(OUT, 'cvi_master_36_species.csv'), plainPath = path.join(OUT, 'cvi_master_no_species.csv');
+  const row2 = text.find(l => l.startsWith('EM-0002,')).split(',');
+  const many = Array.from({ length: 33 }, (x, i) => row2.map((v, j) => (j === 0 ? 'EM-1' + String(i).padStart(3, '0') : j === col ? 'Dairy breed ' + String(i + 1).padStart(2, '0') : v)).join(','));
+  fs.writeFileSync(manyPath, text.concat(many).join('\n') + '\n');
+  fs.writeFileSync(plainPath, text.map(l => l.split(',').filter((v, j) => j !== col).join(',')).join('\n') + '\n');
+  // A real click on the element the expression gives.
+  const click = async expr => {
+    const q = await p.eval(`(() => { const e = ${expr}; e.scrollIntoView({ block: 'nearest' });
+      const r = e.getBoundingClientRect(); return { x: Math.round(r.left + Math.min(8, r.width / 2)), y: Math.round(r.top + r.height / 2) }; })()`);
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x: q.x, y: q.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
+    }
+    await sleep(300);
+    await p.waitFor(`!${S}.loading`, 15000, 'redrawn after a click');
+  };
+  const load = async files => {
+    const v = await p.eval(`${S}.version`);   // read before the pick, so a load that ends first is not missed
+    await p.setFiles('#files-input', files);
+    await emReady(p, v);
+    await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn');
+  };
+  const open = async files => {
+    await p.goto(new URL('emergency/index.html', SITE).href);
+    await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+    await load(files);
+    await p.eval(`document.getElementById('layers-fold').open = true; scrollTo(0, 0); true`);
+    await click(`document.getElementById('em-cvi')`);
+    await click(`document.getElementById('show-cvi')`);
+  };
+  const SPECIES = name => `document.querySelector('#cvi-refine-list input[value=${JSON.stringify(name)}]')`;
+  const END = key => `document.querySelector('input[name="cvi-end"][value="${key}"]')`;
+  const seen = () => p.eval(`(() => { const s = ${S}, g = id => document.getElementById(id);
+    return { fold: !g('cvi-refine').hidden, open: g('cvi-refine').open, sum: g('cvi-refine').querySelector('summary').textContent,
+      species: [...document.querySelectorAll('#cvi-refine-list label')].map(l => l.textContent.trim()),
+      ticked: [...document.querySelectorAll('#cvi-refine-list input:checked')].map(i => i.value), picks: s.cvi.rawSpecies.slice(),
+      search: !g('cvi-refine-search').hidden, note: (g('cvi-refine-list').querySelector('p') || {}).textContent || null,
+      end: (document.querySelector('input[name="cvi-end"]:checked') || {}).value, state: s.cvi.end,
+      ends: [...document.querySelectorAll('input[name="cvi-end"]')].map(i => i.value + ' ' + i.parentNode.textContent.trim()),
+      line: (document.querySelector('#cvi-result .result-line') || {}).textContent,
+      cvis: [...document.querySelectorAll('#cvi-result tbody tr')].map(r => r.cells[0].textContent).sort(),
+      map: s.map.em.cvi.features.map(f => f.properties.label.split('\\n')[1].split(' ')[0]).sort(),
+      legend: [...document.querySelectorAll('#em-legend-content p')].map(q => q.textContent + (q.querySelector('.lg-funnel') ? ' (funnel)' : ''))
+        .filter(t => /in a zone|CVI premises|^Filtered/.test(t)) }; })()`);
+
+  await open([samplePath, masterPath]);
+  const start = await seen();
+  check(same(start.ends, ['either Either', 'origin Origin', 'dest Destination']),
+    'cvifilter: "Movement\'s end in a zone" offers Either, Origin and Destination', start.ends);
+  check(start.fold && !start.open && start.sum === 'Refine by species' && start.end === 'either' && start.state === 'either'
+    && start.line === '3 CVIs, 1,265 animals, left from or arrived inside the zones: 2 origins and 2 destinations inside.',
+  'cvifilter: after the load "Refine by species" is closed with none ticked, the movement\'s end is Either, every movement counted', start);
+  await click(`document.querySelector('#cvi-refine > summary')`);
+  const opened = await seen();
+  check(opened.open && same(opened.species, ['Chickens', 'Dairy cows', 'Turkeys']) && !opened.search,
+    'cvifilter: opened by a click, the fold lists the raw species of the groups ticked, in CVI\'s order, no search box under 30', opened);
+
+  await click(SPECIES('Dairy cows'));
+  const cows = await seen();
+  check(same(cows.ticked, ['Dairy cows']) && cows.sum === 'Refine by species · 1 of 3 species'
+    && cows.line === '2 CVIs, 65 animals, left from or arrived inside the zones: 1 origin and 2 destinations inside.'
+    && same(cows.cvis, ['EM-0002', 'EM-0003']),
+  'cvifilter: Dairy cows ticked by a click: the fold says "1 of 3 species", the tab counts only its movements (as CVI\'s query in R)', cows);
+  check(same(cows.map, ['Destination', 'Destination', 'Origin'])
+    && same(cows.legend, ['CVI premises', 'Origin in a zone (funnel)', 'Destination in a zone (funnel)', 'Filtered: some sites left out (funnel)']),
+  'cvifilter: the map draws only those movements\' premises; the legend puts a funnel before them and says once what it means', [cows.map, cows.legend]);
+
+  await click(END('origin'));
+  const origin = await seen();
+  check(origin.state === 'origin' && origin.line === '1 CVI, 25 animals, left from inside the zones: 1 origin inside.'
+    && same(origin.cvis, ['EM-0003']) && same(origin.map, ['Origin'])
+    && same(origin.legend, ['CVI premises', 'Origin in a zone (funnel)', 'Filtered: some sites left out (funnel)']),
+  'cvifilter: Origin picked by a click: only the movements that left from a zone, the map draws only their origins, the legend names only them', origin);
+  await click(END('dest'));
+  const dest = await seen();
+  check(dest.state === 'dest' && dest.line === '2 CVIs, 65 animals, arrived inside the zones: 2 destinations inside.'
+    && same(dest.cvis, ['EM-0002', 'EM-0003']) && same(dest.map, ['Destination', 'Destination'])
+    && same(dest.legend, ['CVI premises', 'Destination in a zone (funnel)', 'Filtered: some sites left out (funnel)']),
+  'cvifilter: Destination picked by a click: only the movements that arrived in a zone, the map draws only their destinations', dest);
+
+  // The picture: its boxes and its key from the same query.
+  await p.eval(`document.getElementById('export-fold').open = true; ${S}.lastPreview = null; true`);
+  await p.click(`document.getElementById('em-preview').click()`);
+  await p.waitFor(`${S}.lastPreview`, 60000, 'preview drawn');
+  const pic = await p.eval(`(() => { const m = ${S}.lastPreview.model; CVIWA.previews.close && CVIWA.previews.close();
+    return { rows: m.keyItems.filter(i => /in a zone$/.test(i.label)).map(i => i.label + ' ' + i.count + (i.funnel ? ' (funnel)' : '')),
+      notes: m.keyRows.filter(r => r.label === 'Filtered: some sites left out').length, premises: m.cviPremises.map(q => q.end) }; })()`);
+  check(same(pic.rows, ['Destination in a zone 2']) && pic.notes === 0 && same(pic.premises, ['destination', 'destination']),
+    'cvifilter: the map picture draws the same two destinations; its key names only them, with no funnel (the legend has it)', pic);
+
+  // The Export: cvi_movements.csv from the same query; export_params.json names the species and the end.
+  await p.eval(`WSDA.sample.download = function () {}; document.getElementById('em-export').click(); true`);
+  const ex = await p.eval(`(() => { const files = {};
+    (${S}.lastExport || []).filter(e => !e.dir).forEach(e => { files[e.name.replace(/^.*\\//, '')] = e.data; });
+    const params = JSON.parse(files['export_params.json']);
+    return { cvis: files['cvi_movements.csv'].split('\\n').filter(l => /^"?EM-/.test(l)).map(l => l.split(',')[0].replace(/"/g, '')).sort(),
+      species: params.cvi_species, end: params.cvi_end, groups: params.cvi_species_groups }; })()`);
+  // (CVI's writer, exports.js jsonValue, writes a list of one as its value, as R's auto_unbox does.)
+  check(same(ex.cvis, ['EM-0002', 'EM-0003']) && ex.species === 'Dairy cows' && ex.end === 'destination' && same(ex.groups, ['Cattle', 'Poultry']),
+    'cvifilter: the Export\'s cvi_movements.csv holds the same movements; export_params.json names the species and the end', ex);
+
+  // Cattle unticked: Dairy cows drops out; no poultry movement arrived in a zone, and the tab says so.
+  await click(`document.querySelector('#cvi-species input[value="Cattle"]')`);
+  const noCattle = await seen();
+  check(!noCattle.picks.length && same(noCattle.species, ['Chickens', 'Turkeys']) && noCattle.sum === 'Refine by species'
+    && noCattle.line === 'No CVI movement arrived inside the zones with these years, quarters and species groups.' && !noCattle.legend.length,
+  'cvifilter: Cattle unticked: Dairy cows drops out of the picks and the list; no poultry movement arrived in a zone, and the line says so', noCattle);
+  await click(`document.querySelector('#cvi-species input[value="Cattle"]')`);
+  await click(SPECIES('Turkeys'));
+  await click(END('origin'));
+  const turkeys = await seen();
+  check(turkeys.line === 'No CVI movement left from inside the zones with these years, quarters, species groups and species.',
+    'cvifilter: a species picked that no movement in a zone has: the line names the species among the filters', turkeys.line);
+
+  // A new load: the fold closed, nothing picked, the end Either.
+  await load([samplePath, masterPath]);
+  await click(`document.getElementById('em-cvi')`);
+  await click(`document.getElementById('show-cvi')`);
+  const reload = await seen();
+  check(!reload.open && !reload.picks.length && !reload.ticked.length && reload.end === 'either' && reload.state === 'either'
+    && reload.line === start.line && !reload.legend.some(t => /funnel/.test(t)),
+  'cvifilter: a new load closes the fold, clears the picks and sets the end back to Either', reload);
+
+  // Past 30 species, a search box narrows the list and keeps the picks.
+  await open([samplePath, manyPath]);
+  await click(`document.querySelector('#cvi-refine > summary')`);
+  await click(SPECIES('Dairy breed 07'));
+  await p.eval(`(() => { const e = document.getElementById('cvi-refine-search'); e.value = 'breed 1'; e.dispatchEvent(new Event('input')); return true; })()`);
+  const found = await seen();
+  await p.eval(`(() => { const e = document.getElementById('cvi-refine-search'); e.value = 'zebra'; e.dispatchEvent(new Event('input')); return true; })()`);
+  const none = await seen();
+  check(found.search && found.species.length === 10 && found.species.every(x => /^Dairy breed 1/.test(x)) && same(found.picks, ['Dairy breed 07'])
+    && found.sum === 'Refine by species · 1 of 36 species' && none.note === 'No species matches "zebra".',
+  'cvifilter: past 30 species a search box narrows the list, the pick kept; a word nothing matches is said', [found.species, found.picks, found.sum, none.note]);
+
+  // A master without a Species column: no fold, every movement of the groups counted.
+  await open([samplePath, plainPath]);
+  const plain = await seen();
+  check(!plain.fold && plain.line === start.line, 'cvifilter: a master without a Species column has no "Refine by species"', plain);
+}
+
+async function partByAnimal(b) {
+  const p = b.page, S = 'WSDA.emergency.state', R = 'WSDA.emergencyRules';
+  const samplePath = path.join(OUT, 'sample', 'emergency_synthetic.zip'), OUTB = path.join(OUT, 'byanimal');
+  fs.mkdirSync(OUTB, { recursive: true });
+  // A made-up file: two birds and a mixed farm in Yakima, a dairy in Franklin, every one mapped and detected in Sep.
+  const FX = require(path.join(ROOT, 'tests', 'synthetic', 'make_em_fixtures.js'));
+  const row = (id, day, county, lat, long, species) => [id, '', '', day, '', '(synthetic) Example Farm', '(synthetic) Example Road',
+    'Synthetic Town', county, lat, long, 'Active', 'H5N1 2.3.4.4b', 'Commercial', 'Mixed', species, '1000', '1000', '1', 'Landfill'].join(',');
+  const mixedFile = path.join(OUTB, 'em_byanimal_mixed.csv');
+  fs.writeFileSync(mixedFile, [FX.AGREED_HEAD.join(','), row('BA-001', '09/02/2026', 'Yakima', '46.55', '-120.47', 'Chicken'),
+    row('BA-002', '09/10/2026', 'Yakima', '46.40', '-120.32', 'Duck'), row('BA-003', '09/12/2026', 'Yakima', '46.50', '-120.40', '"Cattle, Chicken"'),
+    row('BA-004', '09/03/2026', 'Franklin', '46.30', '-119.10', 'Dairy Cow')].join('\n') + '\n');
+  // A real click on the element a selector names, then the redraw.
+  const press = async sel => {
+    const q = await p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.scrollIntoView({ block: 'nearest' });
+      const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x: q.x, y: q.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
+    }
+    await sleep(400);
+    await p.waitFor(`!${S}.loading`, 15000, 'redrawn after a click');
+  };
+  const open = async files => {
+    await p.goto(new URL('emergency/index.html', SITE).href);
+    await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+    await p.setFiles('#files-input', files);
+    await emReady(p);
+    await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives > 0`, 15000, 'map drawn');
+    await p.eval(`document.getElementById('positives-fold').open = true; ${S}.overview = null; document.getElementById('show-overview').click(); true`);
+    await p.waitFor(`${S}.view === 'overview' && ${S}.overview && ${S}.chart`, 20000, 'the Overview drawn');
+  };
+  // What the Overview shows: the switch, the two charts' keys, hovers and fills; and what the rules give for them.
+  const seen = () => p.eval(`(() => { const s = ${S}, R = ${R}, box = document.getElementById('ov-by');
+    const keyOf = id => [...document.querySelectorAll('#' + id + ' svg text')].map(t => t.textContent);
+    const fills = id => [...new Set([...document.querySelectorAll('#' + id + ' svg rect')].map(r => (r.getAttribute('fill') || '').toLowerCase()))];
+    // The hatched parts: each one's pattern, found in its own chart, by its stripes' color.
+    const hatch = id => [...document.querySelectorAll('#' + id + ' svg > rect')].filter(r => /^url\\(#/.test(r.getAttribute('fill') || '')).map(r => {
+      const pid = r.getAttribute('fill').slice(5, -1), pat = document.querySelector('#' + id + ' svg pattern[id="' + pid + '"]');
+      return pid + ' ' + (pat ? pat.querySelectorAll('rect')[1].getAttribute('fill') : 'missing'); });
+    const cols = [...document.querySelectorAll('#em-chart .chart-col')].map(c => c.getAttribute('data-hover'));
+    const bars = [...document.querySelectorAll('#ov-county-chart .chart-mark')].map(c => c.getAttribute('data-hover'));
+    const t = R.overTime(s.read, s.window, s.chartSteps), rows = R.countyRows(s.read, s.window, CVIWA_GEO.counties.features);
+    return { hidden: box.hidden, shown: getComputedStyle(box).display !== 'none', pressed: [...box.querySelectorAll('button')].map(x => [x.textContent, x.getAttribute('aria-pressed')]),
+      by: s.overview.columnsBy, timeKey: keyOf('em-chart'), countyKey: keyOf('ov-county-chart'), timeFills: fills('em-chart'), countyFills: fills('ov-county-chart'),
+      timeHatch: hatch('em-chart'), countyHatch: hatch('ov-county-chart'), cols, bars, label: document.querySelector('#em-chart svg').getAttribute('aria-label'),
+      kinds: t.columns.map(c => [c.label, c.kinds, c.current + c.past, c.outside]), rows: rows.map(r => [r.county, r.kinds, r.total]),
+      animals: s.animals.slice() }; })()`);
+  const has = (list, words) => words.every(w => list.includes(w));
+
+  await open([samplePath]);
+  const start = await seen();
+  check(!start.hidden && start.shown && same(start.pressed, [['Status', 'true'], ['Animal', 'false']]) && start.by === 'status'
+    && has(start.timeKey, ['Active']) && !has(start.timeKey, ['Birds']),
+  'byanimal: the sample (birds and cattle) on the Overview: "Columns by" shown over the charts, Status pressed after the load, the charts by status', start.pressed);
+  await press('#ov-by button[data-by="animal"]');
+  const animal = await seen();
+  // Each column's hover as the rules count it: the kinds in the type's order, then those outside (after the day).
+  const hoverWords = { birds: 'with birds', cattle: 'with cattle', other: 'with other animals', several: 'with several kinds' };
+  const want = animal.kinds.map(([label, kinds, inside, outside]) => {
+    const parts = Object.keys(hoverWords).filter(k => kinds[k]).map(k => kinds[k] + ' ' + hoverWords[k]).concat(outside ? [outside + ' after the day'] : []);
+    return label + ': ' + (parts.length ? parts.join(', ') : 'no positives');
+  });
+  check(same(animal.pressed, [['Status', 'false'], ['Animal', 'true']]) && animal.by === 'animal' && has(animal.timeKey, ['Birds', 'Cattle'])
+    && !has(animal.timeKey, ['Active']) && /by animal/.test(animal.label),
+  'byanimal: Animal clicked: pressed, the time chart\'s key names Birds and Cattle, no longer Active and Closed', [animal.pressed, animal.timeKey.slice(0, 6)]);
+  check(same(animal.cols, want) && animal.kinds.every(([l, k, inside]) => Object.values(k).reduce((s, n) => s + n, 0) === inside),
+  'byanimal: each column\'s hover counts the positives of each kind, active and closed together, as the rules give them ("2 with birds")', [animal.cols.filter(c => /with/.test(c)), want.filter(c => /with/.test(c))]);
+  check(has(animal.timeFills, ['#1c5a83', '#4a8b2c']) && !animal.timeFills.includes('#a50f15') && has(animal.countyFills, ['#1c5a83', '#4a8b2c'])
+    && !animal.countyFills.includes('#a50f15'),
+  'byanimal: the kinds in WSDA dark blue (birds) and evergreen (cattle), clear of the status red, in both charts', [animal.timeFills, animal.countyFills]);
+  const wantBars = animal.rows.flatMap(([county, kinds]) => Object.keys(hoverWords).filter(k => k in kinds).map(k => county + ': ' + kinds[k] + ' ' + hoverWords[k]));
+  check(has(animal.countyKey, ['Birds', 'Cattle']) && has(animal.bars, wantBars) && animal.bars.filter(x => !/: 0 /.test(x)).length === wantBars.length,
+  'byanimal: the county bars by kind, each bar\'s hover as the rules count it ("Yakima: 2 with birds")', [animal.bars, wantBars]);
+  await b.send('Page.captureScreenshot', { format: 'png' }, p.sid).then(r => fs.writeFileSync(path.join(OUTB, 'sample_by_animal.png'), Buffer.from(r.data, 'base64')));
+
+  // One kind ticked: no switch, the charts by status; both again: Animal still chosen.
+  await press('#em-animals input[value="cattle"]');
+  const one = await seen();
+  check(one.hidden && !one.shown && one.by === 'status' && has(one.timeKey, ['Active']) && same(one.animals, ['birds']),
+  'byanimal: cattle unticked: one kind left, "Columns by" hidden and the charts by status', [one.hidden, one.by]);
+  await press('#em-animals input[value="cattle"]');
+  const both = await seen();
+  check(!both.hidden && both.by === 'animal' && same(both.pressed, [['Status', 'false'], ['Animal', 'true']]),
+  'byanimal: cattle ticked again: the switch back, Animal kept', both.pressed);
+  // Between dates: the gray part says "outside the dates".
+  await press('#em-view-range');
+  await p.waitFor(`${S}.viewKind === 'range' && ${S}.overview`, 15000, 'Between dates');
+  const range = await seen();
+  check(range.by === 'animal' && has(range.timeKey, ['Birds', 'Cattle']) && range.cols.every(c => !/after the day/.test(c)),
+  'byanimal: Between dates, still by animal, nothing "after the day"', range.timeKey);
+  await press('#ov-by button[data-by="status"]');
+  const status = await seen();
+  check(status.by === 'status' && same(status.pressed, [['Status', 'true'], ['Animal', 'false']]) && has(status.timeKey, ['Active']) && status.timeFills.includes('#a50f15'),
+  'byanimal: Status clicked: the charts by status again, in the status red', status.pressed);
+
+  // A mixed farm ("Cattle, Chicken"): counted once, under "Several kinds", hatched; Status again at a new
+  // load in the same page.
+  await press('#ov-by button[data-by="animal"]');
+  const v = await p.eval(`${S}.version`);
+  await p.setFiles('#files-input', [mixedFile]);
+  await emReady(p, v);
+  await p.waitFor(`${S}.map.drawn && ${S}.map.drawn.positives === 4`, 15000, 'the mixed file drawn');
+  await p.eval(`${S}.overview = null; document.getElementById('show-overview').click(); true`);
+  await p.waitFor(`${S}.view === 'overview' && ${S}.overview && ${S}.chart`, 20000, 'the Overview drawn for the mixed file');
+  const m0 = await seen();
+  check(m0.by === 'status' && same(m0.pressed, [['Status', 'true'], ['Animal', 'false']]),
+  'byanimal: a new load in the same page after Animal: Status again', m0.pressed);
+  await press('#ov-by button[data-by="animal"]');
+  const mx = await seen();
+  const yak = mx.rows.find(r => r[0] === 'Yakima') || [];
+  check(has(mx.timeKey, ['Birds', 'Cattle', 'Several kinds']) && has(mx.countyKey, ['Birds', 'Cattle', 'Several kinds']) && !animal.timeHatch.length
+    && mx.timeHatch.length > 0 && mx.countyHatch.length > 0 && [...mx.timeHatch, ...mx.countyHatch].every(h => / #4d4d4d$/.test(h))
+    && !mx.timeHatch.some(h => mx.countyHatch.some(c => c.split(' ')[0] === h.split(' ')[0]))
+    && same(yak, ['Yakima', { birds: 2, several: 1 }, 3]) && mx.bars.includes('Yakima: 1 with several kinds') && mx.bars.includes('Yakima: 2 with birds')
+    && mx.cols.some(c => /1 with birds, 1 with several kinds/.test(c)),
+  'byanimal: the mixed farm counted once, under "Several kinds", hatched in dark gray on white (each chart its own pattern; none in the sample); Yakima 2 with birds and 1 with several kinds, adding up to its 3', [mx.timeKey, yak, mx.bars, mx.timeHatch, mx.countyHatch]);
+  await b.send('Page.captureScreenshot', { format: 'png' }, p.sid).then(r => fs.writeFileSync(path.join(OUTB, 'mixed_by_animal.png'), Buffer.from(r.data, 'base64')));
+  // A file with one kind (the screwworm outbreak): no switch.
+  await open([path.join(TABLES, 'em_nws_synthetic_positives.csv')]);
+  const nws = await seen();
+  check(nws.hidden && nws.by === 'status', 'byanimal: a file with one kind of animal: no "Columns by"', nws.hidden);
 }
 
 async function partDraw(b) {
@@ -2924,8 +3558,8 @@ async function partDraw(b) {
   const both = await zoneState();
   const bp = await p.eval(`(() => { const s = ${S}, E = ${R}; const keys = res => new Set(res.rows.map(r => r.layer + '|' + r.lat + '|' + r.lon + '|' + r.name));
     const layers = s.selectedLayers.map(k => s.layers[k]);
-    const rr = E.inside(E.ringSites(s.read.targets, s.rings, s.unit), layers, { mode: 'rings', rings: s.rings, unit: s.unit, positives: s.read.targets });
-    const zr = E.inside(E.zoneSites(E.zoneSet(s.zoneFile.zones, s.drawn)), layers, { mode: 'zones', positives: s.read.targets });
+    const rr = E.inside(E.ringSites(s.targets, s.rings, s.unit), layers, { mode: 'rings', rings: s.rings, unit: s.unit, positives: s.targets });
+    const zr = E.inside(E.zoneSites(E.zoneSet(s.zoneFile.zones, s.drawn)), layers, { mode: 'zones', positives: s.targets });
     return { box: document.querySelector('#box-inside strong').textContent, union: new Set([...keys(rr), ...keys(zr)]).size, total: s.result.total,
       legend: [...document.querySelectorAll('#em-legend-content p')].map(x => x.textContent),
       zones: [...document.querySelectorAll('#tab-inside .em-zones-list tbody tr')].map(tr => tr.children[0].textContent),
@@ -3058,7 +3692,7 @@ async function partDraw(b) {
   await p.eval(`document.getElementById('em-cvi').click(); true`);
   const cviSites = () => p.eval(`(() => { const s = ${S}; document.getElementById('show-cvi').click();
     return s.cviRes && s.cviRes.siteCvis ? s.cviRes.siteCvis.length : null; })()`);
-  const ringN = await p.eval(`${S}.read.targets.length`);
+  const ringN = await p.eval(`${S}.targets.length`);
   const cR = await cviSites();
   await press('#em-show [data-show="zones"]'); await view();
   const cZ = await cviSites();
@@ -3120,11 +3754,11 @@ async function partDraw(b) {
     && asPositive.name === 'Drawn zone 1' && asPositive.status === 'A positive is named "SYN-HPAI-001": the name stays Drawn zone 1.',
   'draw: a drawn zone\'s name a ring or a positive has is refused, with a line saying which', [asRing, asPositive]);
   // With cattle unticked, a cattle positive's name is still refused: the names are the whole file's (2.7).
-  await p.eval(`(document.querySelector('#em-animals input[value="square"]').click(), true)`);
+  await p.eval(`(document.querySelector('#em-animals input[value="cattle"]').click(), true)`);
   await sleep(400);
   await p.waitFor(`!${S}.loading`, 15000, 'cattle unticked');
   const asCattle = await refuse('SYN-HPAI-003');
-  await p.eval(`(document.querySelector('#em-animals input[value="square"]').click(), true)`);
+  await p.eval(`(document.querySelector('#em-animals input[value="cattle"]').click(), true)`);
   await sleep(400);
   await p.waitFor(`!${S}.loading`, 15000, 'cattle ticked again');
   check(asCattle.name === 'Drawn zone 1' && asCattle.status === 'A positive is named "SYN-HPAI-003": the name stays Drawn zone 1.',
@@ -3172,6 +3806,140 @@ async function partDraw(b) {
   await b.send('Emulation.clearDeviceMetricsOverride', {}, p.sid);
 }
 
+// 2.8, "Changing the kinds of animals" (site/emergency/changing-kinds.html) followed on a copy of the site, the page
+// itself, and the "?" of the line naming species not listed. The copy, in local-test-artifacts/em/kinds/site, is opened over file:// in either mode.
+async function partKinds(b) {
+  const p = b.page, S = 'WSDA.emergency.state', R = 'WSDA.emergencyRules';
+  const species = path.join(TABLES, 'em_rules_species.csv');
+  const press = async sel => {
+    // A control that is not there is left (its check then fails), so the part goes on to the end.
+    const q = await p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({ block: 'nearest' });
+      const r = e.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`);
+    if (!q) return;
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x: q.x, y: q.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
+    }
+    await sleep(400);
+    await p.waitFor(`!${S}.loading`, 15000, 'redrawn after a click');
+  };
+  const open = async (url, files) => {
+    await p.goto(url);
+    await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+    if (!files) return;
+    await p.setFiles('#files-input', files);
+    await emReady(p);
+    await p.eval(`document.getElementById('positives-fold').open = true; true`);
+  };
+  const notice = () => p.eval(`(() => { const n = document.getElementById('em-type-problems');
+    return { hidden: n.hidden, lines: [...n.querySelectorAll('p')].map(x => x.textContent), red: n.classList.contains('err'),
+      types: [...document.querySelectorAll('#em-type option')].map(o => o.value) }; })()`);
+  const tipState = () => p.eval(`(() => { const t = document.querySelector('#em-box-lines button.tip'), n = document.getElementById('help-em-unlisted');
+    const line = t && t.previousElementSibling;
+    return { tip: !!t, after: line ? line.textContent : null, expanded: t ? t.getAttribute('aria-expanded') : null,
+      note: n.hidden ? null : n.textContent, shown: n.getClientRects().length > 0 }; })()`);
+
+  // ---- The page as it is: no notice; the "?" after the unlisted line opens and closes its note ------------------
+  await open(new URL('emergency/index.html', SITE).href, [species]);
+  const plain = await notice(), closedTip = await tipState();
+  check(plain.hidden && plain.types.includes('hpai') && closedTip.tip && closedTip.expanded === 'false' && closedTip.note === null
+    && closedTip.after === '2 positives with a species not listed: Bobcat, Opossum',
+  'kinds: no red notice with every type file read; a "?" right after the line naming the species not listed, its note closed', [plain, closedTip]);
+  await press('#em-box-lines button.tip');
+  const openTip = await tipState();
+  const howLink = await p.eval(`(() => { const a = document.querySelector('#help-em-unlisted a'); return a ? [a.textContent, a.href, a.target] : null; })()`);
+  check(openTip.expanded === 'true' && openTip.shown && openTip.note === 'A species no kind of animal names counts under the last kind. To give it a'
+    + ' word or a kind of its own, see Changing the kinds of animals (also as CHANGING_THE_KINDS_OF_ANIMALS.txt in site/emergency).'
+    && howLink && howLink[0] === 'Changing the kinds of animals' && howLink[1] === new URL('emergency/changing-kinds.html', SITE).href && howLink[2] === '_blank',
+  'kinds: the "?" opens its note, linking the how-to page (in a new tab) and naming its plain-text twin', [openTip, howLink]);
+  // Other animals unticked: the line and its note go; ticked again: the line is back with its note closed.
+  await press('#em-animals input[value="other"]');
+  const gone = await tipState();
+  await press('#em-animals input[value="other"]');
+  const back = await tipState();
+  check(!gone.tip && gone.note === null && back.tip && back.expanded === 'false' && back.note === null,
+    'kinds: with Other animals unticked the line and its note go; ticked again, the line is back with its note closed', [gone, back]);
+  await press('#em-box-lines button.tip');
+  await press('#em-box-lines button.tip');
+  check((await tipState()).note === null, 'kinds: the "?" again closes the note');
+
+  // ---- The how-to page: it opens with no error, its Copy buttons copy -------------------------------------------
+  await p.goto(new URL('emergency/changing-kinds.html', SITE).href);
+  const page = await p.eval(`(async () => { const b = [...document.querySelectorAll('.paste .copy')]; if (b[0]) b[0].click();
+    await new Promise(r => setTimeout(r, 200));
+    return { title: document.title, copies: b.length, pastes: document.querySelectorAll('.paste').length, after: b[0] ? b[0].textContent : null,
+      back: document.querySelector('header a').getAttribute('href'), wide: document.documentElement.scrollWidth <= innerWidth }; })()`);
+  check(same(page, { title: 'Changing the kinds of animals', copies: 8, pastes: 8, after: 'Copied', back: 'index.html', wide: true }),
+    'kinds: the how-to page opens from the "?", a Copy button beside each of its 8 lines, a click copies, a link back to the dashboard', page);
+
+  // ---- The how-to's worked example, on a copy of the site --------------------------------------------------------
+  const html = fs.readFileSync(path.join(ROOT, 'site', 'emergency', 'changing-kinds.html'), 'utf8');
+  const blocks = [...html.matchAll(/<div class="paste[^"]*"><span class="label">[^<]*<\/span><code>([^<]*)<\/code><\/div>/g)].map(m => m[1].trim());
+  const cattle = blocks.find(x => /key: 'cattle'/.test(x)), pasted = blocks.find(x => /key: 'mink'/.test(x));
+  const COPY = path.join(OUT, 'kinds', 'site'), HPAI = path.join(COPY, 'emergency', 'types', 'hpai.js');
+  fs.rmSync(path.dirname(COPY), { recursive: true, force: true });
+  fs.cpSync(path.join(ROOT, 'site'), COPY, { recursive: true });
+  const original = fs.readFileSync(HPAI, 'utf8');
+  const indent = /\n( *)\{ key: 'cattle'/.exec(original)[1];
+  // Step 1, the line pasted under the cattle kind's line (the line that starts with the text the how-to gives); step 2,
+  // "mink" taken out of Other animals (before the paste, so the new line's own "'mink', " stays).
+  const step1 = (from, line) => {
+    const end = from.indexOf('\n', from.indexOf(cattle));
+    return from.slice(0, end) + '\n' + indent + line + from.slice(end);
+  };
+  const example = step1(original.replace("'equine', 'mink', ", "'equine', "), pasted);
+  check(original.includes(cattle) && original.includes("'equine', 'mink', ") && example.includes(indent + pasted)
+    && example.match(/'mink'/g).length === 2, 'kinds: the how-to\'s lines found in hpai.js and its two steps applied to the copy', blocks);
+  const copyUrl = pathToFileURL(path.join(COPY, 'emergency', 'index.html')).href;
+  fs.writeFileSync(HPAI, example);
+  await open(copyUrl, [species]);
+  const made = await p.eval(`(() => { const s = ${S};
+    return { kinds: ${R}.animalKindsOf(s.readAll).map(k => k.label + ' ' + k.shape),
+      ticks: [...document.querySelectorAll('#em-animals label')].map(l => l.textContent),
+      legend: document.getElementById('em-legend') ? document.getElementById('em-legend').textContent : '',
+      notice: document.getElementById('em-type-problems').hidden }; })()`);
+  check(made.notice && same(made.kinds, ['Birds circle', 'Cattle square', 'Mink triangle', 'Other animals diamond'])
+    && same(made.ticks, ['Birds (7)', 'Cattle (3)', 'Mink (1)', 'Other animals (12)']) && /Mink/.test(made.legend),
+  'kinds: the how-to\'s example followed: four ticks, Mink with the triangle and Other animals moved to the diamond, Mink in the legend, no notice', made);
+
+  // ---- Two slips: "mink" left in Other animals, and quotes made curly -------------------------------------------
+  const before = b.log.exceptions.length;
+  fs.writeFileSync(HPAI, step1(original, pasted));
+  await open(copyUrl);
+  const twice = await notice();
+  fs.writeFileSync(HPAI, step1(original, pasted.replace(/'mink'/g, '‘mink’')));
+  await open(copyUrl);
+  const curly = await notice();
+  const pointer = 'Changing the kinds of animals (also as CHANGING_THE_KINDS_OF_ANIMALS.txt in site/emergency) says how to find and fix it.';
+  check(!twice.hidden && twice.red && same(twice.lines, ['The emergency type file "types/hpai.js" was not used. Emergency type "hpai": "kinds[3].words"'
+    + ' should be words no earlier kind has ("mink" is in kinds[2], "Mink", too).', pointer]) && same(twice.types, ['nws']),
+  'kinds: "mink" left in Other animals too: the red notice names the file and the field, and the type picker has no HPAI', twice);
+  check(!curly.hidden && same(curly.lines, ['The emergency type file "types/hpai.js" could not be read: a typing slip in it, such as quotes made'
+    + ' curly or a missing comma or bracket, or the file is missing.', pointer]) && same(curly.types, ['nws']),
+  'kinds: quotes made curly: the red notice says the file could not be read', curly);
+  // Every type file broken (screwworm's with curly quotes too): both named, and a file loaded says no type was read.
+  const NWS = path.join(COPY, 'emergency', 'types', 'nws.js'), nwsOriginal = fs.readFileSync(NWS, 'utf8');
+  fs.writeFileSync(HPAI, step1(original, pasted));
+  fs.writeFileSync(NWS, nwsOriginal.replace("id: 'nws'", 'id: ‘nws’'));
+  // With no type the map is never made, so the page is ready when its notice shows.
+  await p.goto(copyUrl);
+  await p.waitFor(`!document.getElementById('em-type-problems').hidden`, 8000, 'the red notice').catch(() => null);
+  const none = await notice();
+  await p.setFiles('#files-input', [species]);
+  await p.waitFor(`/could not be applied/.test(document.getElementById('load-status').textContent)`, 15000, 'the load refused').catch(() => null);
+  const noneLoad = await p.eval(`document.getElementById('load-status').textContent`);
+  check(none.lines.length === 3 && /"types\/hpai\.js" was not used/.test(none.lines[0]) && /"types\/nws\.js" could not be read/.test(none.lines[1])
+    && same(none.types, []) && noneLoad === 'The files could not be applied: no emergency type could be read (see the red notice above).',
+  'kinds: every type file broken: the notice names both, and a file loaded says no emergency type could be read', [none, noneLoad]);
+  // The slips' own errors (the type refused, the file's syntax; Chrome reports each one twice) are what the notice
+  // reports, not the page's.
+  const slips = b.log.exceptions.splice(before), refused = /^Uncaught TypeError: Emergency type "hpai": "kinds\[3\]\.words"/;
+  check(slips.length && slips.every(x => refused.test(x) || /^Uncaught SyntaxError: Invalid or unexpected token$/.test(x)
+    || /^Uncaught TypeError: Cannot read properties of undefined \(reading 'id'\)$/.test(x))
+    && slips.some(x => refused.test(x)) && slips.some(x => /SyntaxError/.test(x)),
+    'kinds: the only errors on the slip pages are the type files\' own (and, with no type left, the page\'s start stopping on the missing type)', slips);
+  fs.rmSync(path.dirname(COPY), { recursive: true, force: true });
+}
+
 async function shot2(b, name) {
   fs.mkdirSync(path.join(OUT, 'page'), { recursive: true });
   fs.writeFileSync(path.join(OUT, 'page', name + '.png'),
@@ -3199,6 +3967,10 @@ async function shot2(b, name) {
       else if (part === 'overview') await partOverview(b);
       else if (part === 'draw') await partDraw(b);
       else if (part === 'filter') await partFilter(b);
+      else if (part === 'layers') await partLayers(b);
+      else if (part === 'cvifilter') await partCviFilter(b);
+      else if (part === 'byanimal') await partByAnimal(b);
+      else if (part === 'kinds') await partKinds(b);
       else if (part === 'speed') await partSpeed(b);
       else check(false, 'unknown part ' + part);
     }
@@ -3211,7 +3983,10 @@ async function shot2(b, name) {
   const BOARDS_URL = pathToFileURL(BOARDS_DIR).href;
   // The earlier site copy that boards3 compares with is a local folder too.
   const BEFORE = process.env.EM_BEFORE_SITE || BOARDS_URL;
-  const outside = b.log.requests.filter(u => !u.startsWith(SITE) && !u.startsWith(BOARDS_URL) && !u.startsWith(BEFORE) && !/^(data|blob|about):/.test(u));
+  // So is the kinds part's copy of the site.
+  const KINDS_COPY = pathToFileURL(path.join(OUT, 'kinds')).href;
+  const outside = b.log.requests.filter(u => !u.startsWith(SITE) && !u.startsWith(BOARDS_URL) && !u.startsWith(BEFORE) && !u.startsWith(KINDS_COPY)
+    && !/^(data|blob|about):/.test(u));
   check(outside.length === 0, 'no request outside the site', outside.slice(0, 5));
   await b.close();
   Object.assign(run, { passed, failed, failures });

@@ -99,6 +99,8 @@
 //                             Date decides), closed with neither date or an unreadable release (closed on a day not
 //                             known), active with a release date (still active), and active without a date; each
 //                             row's group and the count closed on a day not known for six days and two ranges
+//   em_rules_species.csv      (2.8) twenty active positives, one per species case: each row's kind, its count word
+//                             and whether it is listed, and the animals' totals by word
 // The made-up third type is tests/synthetic/em_made_up_type.js (not generated).
 // Deterministic: no clock, no random numbers (the speed set's generator has a fixed seed).
 //
@@ -206,7 +208,8 @@ const FILES = {
 // time, and three it does not; the first detection date unreadable with a second one written; coordinates swapped,
 // blank, half blank, unreadable and in Oregon; County in each form; closed by its date, by Status alone, and closed
 // after the end; release dates and statuses (one unread); an unquoted NA; a quoted line break; an empty row; a long
-// category value; inventories not read.
+// category value; inventories not read; species of each kind of animal, one naming cattle and birds (both), one with
+// "cat" inside a word and then alone ("Bobcat and cat", other animals), one no kind lists and one blank (2.8).
 const EDGE_HEAD = AGREED_HEAD.concat(['Quarantine Status', 'Case Status', 'Location Notes']);
 const edgeRow = (k, o) => {
   const v = Object.assign({ 'Case ID': 'SYN-E-' + String(k).padStart(2, '0'), 'Confirmed Diagnosis': '9/10/2026',
@@ -218,18 +221,18 @@ const edgeRow = (k, o) => {
 };
 FILES['em_table_check_edge.csv'] = '﻿' + csv([EDGE_HEAD,
   edgeRow(1, { 'Confirmed Diagnosis': '2026-09-05', County: 'yakima', 'Depop Inventory': 'NA' }),
-  edgeRow(2, { 'Confirmed Diagnosis': '2026/9/7', County: 'Yakima County', 'Case Status': 'presumptive positive' }),
-  edgeRow(3, { 'Confirmed Diagnosis': '9.8.2026', 'Date Reported': '9/6/2026', County: 'BENTON', 'Case Status': 'Pending' }),
-  edgeRow(4, { 'Confirmed Diagnosis': '46270', 'Case Status': 'unknown', 'Flock/Herd Inventory': '1200.5' }),
-  edgeRow(5, { Latitude: '-120.5000', Longitude: '46.6000' }),
-  edgeRow(6, { Latitude: '', Longitude: '-120.1000' }),
-  edgeRow(7, { Latitude: '', Longitude: '' }),
-  edgeRow(8, { Latitude: 'n/a', Longitude: '-120.3000' }),
-  edgeRow(9, { Latitude: '45.8400', Longitude: '-119.2900', County: 'Umatilla (Oregon)' }),
+  edgeRow(2, { 'Confirmed Diagnosis': '2026/9/7', County: 'Yakima County', 'Case Status': 'presumptive positive', Species: 'Dairy cattle' }),
+  edgeRow(3, { 'Confirmed Diagnosis': '9.8.2026', 'Date Reported': '9/6/2026', County: 'BENTON', 'Case Status': 'Pending', Species: 'Dairy cattle' }),
+  edgeRow(4, { 'Confirmed Diagnosis': '46270', 'Case Status': 'unknown', 'Flock/Herd Inventory': '1200.5', Species: '"Cattle, Chicken"' }),
+  edgeRow(5, { Latitude: '-120.5000', Longitude: '46.6000', Species: 'Pig' }),
+  edgeRow(6, { Latitude: '', Longitude: '-120.1000', Species: 'Bobcat and cat' }),
+  edgeRow(7, { Latitude: '', Longitude: '', Species: 'Opossum' }),
+  edgeRow(8, { Latitude: 'n/a', Longitude: '-120.3000', Species: 'Opossum' }),
+  edgeRow(9, { Latitude: '45.8400', Longitude: '-119.2900', County: 'Umatilla (Oregon)', Species: 'Racing  Pigeon' }),
   edgeRow(10, { 'Close Date': '13/45/2026', Status: 'Closed', 'Quarantine Status': 'Lifted' }),
   edgeRow(11, { 'Close Date': '9/1/2026', 'Quarantine Release': '2026-12-01', 'Quarantine Status': 'Released' }),
   edgeRow(12, { 'Close Date': '9/1/2026', 'Quarantine Status': 'on hold' }),
-  edgeRow(13, { Status: 'Closed' }),
+  edgeRow(13, { Status: 'Closed', Species: '' }),
   edgeRow(14, { 'Confirmed Diagnosis': '10/2/2026 14:30', 'Disposal Method': '"Landfill\nthen burial"' }),
   EDGE_HEAD.map(() => ''),
   edgeRow(15, { 'Production Type': 'Commercial Table Egg Layer and Pullet Grower Operation',
@@ -477,6 +480,20 @@ const CLOSED_DAY_RULES = { positives: 'em_rules_closed_day.csv', today: '2026-10
   // An earlier today, before Yakima 11's release (Jun 1, 2023): a release date after today is not its closing day.
   early: { today: '2023-05-01', days: ['2023-04-01', '2023-05-01'] } };
 
+// The kinds of animal (2.8, option E; rules.json "species"): one active positive per row, each species case: a species
+// naming two kinds is both ("Cattle, Chicken", "Chicken and cattle" birds and cattle; "Pigeon, pig" birds and a pig),
+// its animals in neither kind; "Racing Pigeon" a bird only ("pig" starts it); a blank species, spaces doubled, other
+// animals named one by one (goats twice, a guinea pig among the pigs, a wolf, a fox, sheep and mink as they are),
+// species no kind names ("Opossum"; "Bobcat", where "cat" does not start a word), one animal ("1 wolf"), a blank count.
+const SPECIES_ROWS = [['Chicken', '1,200'], ['Racing Pigeon', '30'], ['Wild Mallard Duck', '4'], ['', '40'],
+  ['Dairy cattle', '2,400'], ['Cattle, Chicken', '7'], ['Chicken and cattle', '3'], ['Pigeon, pig', '2'], ['Meat Goat', '12'], ['Pygmy goat', '3'], ['Pig', '6'],
+  ['Guinea pig', '2'], ['Harbor  Seal', '2'], ['Gray Wolf', '1'], ['Red fox', '5'], ['Opossum', '1'], ['Bobcat', '1'],
+  ['Sheep', '9'], ['Mink', '7'], ['Alpaca', '']];
+RULES_FILES['em_rules_species.csv'] = csv([['Case ID', 'Confirmed Diagnosis', 'Latitude', 'Longitude', 'Species', 'Flock/Herd Inventory']]
+  .concat(SPECIES_ROWS.map((r, k) => ['SYN-S-' + String(k + 1).padStart(2, '0'), '9/1/2026', (46.5 + k / 100).toFixed(4), '-120.5000', r[0], r[1]]
+    .map(quoted))));
+const SPECIES_RULES = { positives: 'em_rules_species.csv' };
+
 // The page's zones.geojson for the scenario, as zonesGeoJson writes it, for the R reference to read with sf.
 for (const f of ['site/shared/zones.js', 'site/emergency/types.js', 'site/emergency/types/hpai.js',
   'site/emergency/rules.js']) {
@@ -569,7 +586,10 @@ const RULES = {
   positives: 'em_rules_positives.csv',
   // The CVI movements: the sample's positives with zones by default (not closed), HPAI's rings as the bands, the
   // master em_cvi_master.csv, every endpoint, no filter; run by CVI's run_proximity_query in R.
-  cvi: { positives: 'em_sample_positives.csv', master: 'em_cvi_master.csv', bands: [3, 10] },
+  cvi: { positives: 'em_sample_positives.csv', master: 'em_cvi_master.csv', bands: [3, 10],
+    // 2.8: "Refine by species" (the master's rows narrowed to these species, as CVI's maps narrow theirs) with each
+    // movement's end, also run by CVI's run_proximity_query.
+    refine: { species: ['Dairy cows', 'Turkeys'], endpoints: ['either', 'origin', 'dest'] } },
   rings: RINGS,
   layers: LAYERS.map(l => ({ key: l.key, label: l.label, file: 'em_rules_' + l.key + '.csv' })),
   zoneFiles: ['em_zone_hole.geojson', 'em_zone.geojson'],
@@ -579,6 +599,7 @@ const RULES = {
   quarantine: QUARANTINE_RULES,
   views: VIEWS_RULES,
   closedDay: CLOSED_DAY_RULES,
+  species: SPECIES_RULES,
   drawn: DRAWN_RULES,
   counties: { positives: 'em_rules_counties.csv', nearKm: 2 }
 };

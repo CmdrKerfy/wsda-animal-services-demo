@@ -14,11 +14,16 @@
 //          suite (which also compares the rules with the R reference); from 2.4 also tools/work-pc/check_hpai_table.R
 //   page   site/emergency/app.js, map.js and index.html (from 2.6 also draw.js and the picture's key row in branded.js),
 //          against the Emergency Chrome suite's parts named with the mutant ("page" and "results" unless it names
-//          others; from E1b also "e1b", "png", "chart" and "speed"; from 2.3 "overview"; from 2.6 "draw"; from 2.7 "filter")
+//          others; from E1b also "e1b", "png", "chart" and "speed"; from 2.3 "overview"; from 2.6 "draw"; from 2.7 "filter";
+//          from 2.8 "layers", "cvifilter", "byanimal" and "kinds"); from 2.8 the unit group also mutates
+//          the how-to (site/emergency/changing-kinds.html, its .txt twin) and types/hpai.js's lines it names
 //          (foreground only; about 40 seconds a mutant, so run a few numbers at a time to stay under 600 seconds)
 //
 // Usage (repository root): node tests/mutation/run_em_mutations.js unit|page [numbers ...]
 //                          node tests/mutation/run_em_mutations.js list
+//                          node tests/mutation/run_em_mutations.js check [unit|page]
+// "check" runs no suite: it looks for every mutant's text in today's files (about a second) and lists each one found
+// other than exactly once (stale). In a run, a stale mutant is recorded as stale and the run goes on with the next.
 // The unmutated suite runs first in the same copy and must pass. The copy is deleted at the end, and the
 // repository's files are checked unchanged (SHA-256). Logs and a ledger: local-test-artifacts/em/mutations/.
 // Copied from tests/mutation/run_s11_mutations.js (its copy, run and ledger), with the Emergency suites.
@@ -36,6 +41,8 @@ const RE = 'site/shared/recognize.js', AP = 'site/emergency/app.js', HT = 'site/
 const BRD = 'site/emergency/branded.js', CHT = 'site/emergency/chart.js', MP = 'site/emergency/map.js';
 const TC = 'tools/work-pc/check_hpai_table.R';
 const DW = 'site/emergency/draw.js';
+const KH = 'site/emergency/changing-kinds.html', KT = 'site/emergency/CHANGING_THE_KINDS_OF_ANIMALS.txt';
+const HP = 'site/emergency/types/hpai.js';
 
 // [name, file, exact original text, replacement, the Chrome parts that must catch it (page mutants only; default
 // "page" and "results")]
@@ -74,7 +81,7 @@ const GROUPS = {
       "const v = String(value == null ? '' : value).trim().toLowerCase();\n    if (!v) return null;\n    return type.statuses",
       "const v = String(value == null ? '' : value).trim();\n    if (!v) return null;\n    return type.statuses"],
     ['types: a disease word matches inside a word', TY,
-      'if (at === 0 || !/[a-z0-9]/.test(textLower[at - 1])) return true;', 'return true;'],
+      'if (at === 0 || !/[a-z0-9]/.test(textLower[at - 1])) out.push(at);', 'out.push(at);'],
     ['types: an http link accepted', TY, "!/^https:\\/\\/[^\\s\"<>]+$/.test(url)", "!/^https?:\\/\\/[^\\s\"<>]+$/.test(url)"],
     ['past: a Close Date after the end still makes it past', RU, 'if (p.closedDate) return !end || p.closedDate <= end;',
       'if (p.closedDate) return true;'],
@@ -96,15 +103,15 @@ const GROUPS = {
       "!/^\\d{1,3}(,\\d{3})+$/.test(s)) return s ? null : 0;"],
     ['inventory: thousands commas not read', RU, "if (!/^\\d+$/.test(s) && !/^\\d{1,3}(,\\d{3})+$/.test(s))",
       "if (!/^\\d+$/.test(s))"],
-    ['animals box: the past positives counted', RU, 'const a = animalTotals(read, cur);',
-      'const a = animalTotals(read, cur.concat(g.past));'],
-    ['numbers: cattle counted as birds', RU, 'const w = inventoryWordOf(read.type, p);', 'const w = read.type.inventoryWord;'],
+    ['animals box: the past positives counted', RU, 'const a = animalTotals(read, cur), rest',
+      'const a = animalTotals(read, cur.concat(g.past)), rest'],
+    ['numbers: cattle counted as birds', RU, '      const k = kindOf(read.type, p);\n      if (k.mixed) {', '      const k = kindOf(read.type, { species: null });\n      if (k.mixed) {'],
     ['numbers: a cattle word matched anywhere in the species', RU,
-      "type.countedApart.find(a => a.species.some(w => hasWord(species, w)))", "type.countedApart.find(a => a.species.some(w => species.includes(w)))"],
-    ['numbers: "0 cattle" written when no herd has an inventory', RU, 'return { totals: [...totals].filter(([, n]) => n !== null), missing };',
-      'return { totals: [...totals].map(([w, n]) => [w, n || 0]), missing };'],
-    ['types: countedApart not checked', TY, 'species: words(a && a.species, `countedApart[${i}].species`, fail),',
-      'species: (a && a.species) || [],'],
+      'kinds[i].words.find(w => T().wordStarts(species, w).some(', 'kinds[i].words.find(w => [species.indexOf(w)].filter(at => at >= 0).some('],
+    ['numbers: "0 cattle" written when no herd has an inventory', RU, '      if (p.inventory === null) {\n        missing++;\n        continue;\n      }\n      const k = kindOf',
+      '      if (p.inventory === null) missing++;\n      const k = kindOf'],
+    ['types: a kind\'s species words not checked', TY, "words: last && (k.words === undefined || (Array.isArray(k.words) && !k.words.length)) ? [] : words(k.words, at + '.words', fail),",
+      'words: k.words || [],'],
     ['zones.csv: not ordered by days since', RU, 'const rows = byQuiet(days).map(', 'const rows = days.map('],
     ['map picture: past rings in the current colors', BRD, 'const pastParts = ringShapes(pastSites, rings, unit, PAST);',
       'const pastParts = ringShapes(pastSites, rings, unit);'],
@@ -141,9 +148,8 @@ const GROUPS = {
       "const dsList = allList.filter(d => d.kind !== 'zone'), zoneList", 'const dsList = allList, zoneList'],
     ['recognition: a shapefile part without its reason', RE,
       "if (zoneSets.length && SHAPEFILE_PARTS.includes(ext)) return", "if (false) return"],
-    ['chart counts: the past counted as current', RU, '      else if (isPast(p, end)) c.past++;\n', ''],
-    ['chart counts: positives outside the window counted as inside', RU, '      if (!inWindow(p, win)) c.outside++;\n      else if',
-      '      if'],
+    ['chart counts: the past counted as current', RU, '      if (isPast(p, end)) c.past++;\n      else c.current++;\n', '      c.current++;\n'],
+    ['chart counts: positives outside the window counted as inside', RU, '      if (!inWindow(p, win)) { c.outside++; continue; }\n', ''],
     ['chart counts: a step\'s last day left out', RU, 'p.detected >= x.start && p.detected <= x.end', 'p.detected >= x.start && p.detected < x.end'],
     ['chart counts: the positives without a date not named', RU, 'undated: positives.filter(p => !p.detected).length', 'undated: 0'],
     ['chart: a zero count in the hover', CHT, 'chart.series.filter(s => col.values[s.key] > 0)', 'chart.series.filter(s => col.values[s.key] >= 0)'],
@@ -173,7 +179,7 @@ const GROUPS = {
     ['counties table: "Outside Washington" sorted with the others', RU,
       'out.sort((a, b) => (a.county === OUTSIDE_WA) - (b.county === OUTSIDE_WA) || b.current', 'out.sort((a, b) => b.current'],
     ['counties table: past positives counted as current', RU,
-      'for (const p of g.past) row(countyOf(p, counties)).past++;', 'for (const p of g.past) row(countyOf(p, counties)).current++;'],
+      '      r.past++;\n      byKind(r, p);', '      r.current++;\n      byKind(r, p);'],
     ['positives table: oldest first', RU, "(b.detected || '').localeCompare(a.detected || '') || a.line - b.line",
       "(a.detected || '').localeCompare(b.detected || '') || a.line - b.line"],
     ['positives table: columns the file lacks kept', RU, "      [c.quarantineStatus, p => text(p.quarantineStatusText), !!c.quarantineStatus]].filter(col => col[2]);",
@@ -229,10 +235,10 @@ const GROUPS = {
       "return type.quarantineValues.under.includes(v) ? 'under' : null;"],
     ['types: a value in both lists allowed', TY, '    if (both) fail(', '    if (false) fail('],
     // 2.4: the animals' shapes, the legend's rows, the view's box, the picture's marks and key.
-    ['shapes: every positive a circle', RU, '    return shapeAt(animalWords(type).indexOf(inventoryWordOf(type, p)));', "    return 'circle';"],
+    ['shapes: every positive a circle', RU, '    return shapeAt(kindOf(type, p).index);', "    return 'circle';"],
     ['shapes: a later animal word no triangle', RU, 'ANIMAL_SHAPES[Math.min(Math.max(i, 0), ANIMAL_SHAPES.length - 1)]',
       "ANIMAL_SHAPES[Math.max(i, 0)] || 'circle'"],
-    ['legend: every animal of the type, drawn or not', RU, "shapeAt(i) === shape && drawn.has(w))", 'shapeAt(i) === shape)'],
+    ['legend: every animal of the type, drawn or not', RU, '      if (!present.has(i)) return null;\n', ''],
     ['view: the past zones left out', MP, '    zones.concat(pastZones).forEach(f =>', '    zones.forEach(f =>'],
     ['view: the positives only when there are no zones', MP, '    positives.forEach(p => grow(p.lon, p.lat));\n    return b;',
       '    if (!b) positives.forEach(p => grow(p.lon, p.lat));\n    return b;'],
@@ -429,12 +435,12 @@ const GROUPS = {
     ['CVI premises: the place from the last movement', RU, '        if (!spots.has(key)) {\n          const place', '        {\n          const place'],
     ['CVI premises: a blank county kept in the place', RU, ".filter(v => v !== null && v !== undefined && v !== '').join(', ');\n          spots.set", ".join(', ');\n          spots.set"],
     // 2.7, the animal filter and the map picture's breakdown (253 onward).
-    ['animals: an unticked kind\'s positives kept', RU, 'const keep = p => shapes.includes(animalShapeOf(read.type, p));', 'const keep = p => true;'],
+    ['animals: an unticked kind\'s positives kept', RU, 'const keep = p => kindKeysOf(read.type, p).some(k => keys.includes(k)) && ', 'const keep = p => '],
     ['animals: the rows not mapped of an unticked kind kept', RU, 'dropped: (read.dropped || []).filter(keep) });', 'dropped: read.dropped || [] });'],
     ['animals: every kind shown said as some', RU, 'if (kinds.length < 2 || !shown.length || shown.length === kinds.length) return null;',
       'if (kinds.length < 2 || !shown.length) return null;'],
-    ['animals: the second kind capitalized', RU, 'const words = shown.map((k, i) => (i ? k.label.toLowerCase() : k.label));', 'const words = shown.map(k => k.label);'],
-    ['animals: two kinds joined by a comma', RU, "words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1];", "words.join(', ');"],
+    ['animals: the second kind capitalized', RU, 'return listOf(shown.map((k, i) => (i ? k.label.toLowerCase() : k.label)));', 'return listOf(shown.map(k => k.label));'],
+    ['animals: two kinds joined by a comma', RU, 'return listOf(shown.map((k, i) =>', "return (a => a.join(', '))(shown.map((k, i) =>"],
     ['breakdown: every layer\'s sites counted under each layer', BRD, ".filter(k => k.split('\\r')[0] === key).length : 0);", '.length : 0);'],
     ['breakdown: the layers with none inside listed', BRD, 'n: ofLayer(s.id, l.key) })).filter(x => x.n) }));', 'n: ofLayer(s.id, l.key) })) }));'],
     ['breakdown: the marks never on the county line', BRD, 'const onCounty = countyText && layerLines.length && layerLines[0].length ? layerLines[0] : null;',
@@ -453,6 +459,108 @@ const GROUPS = {
     ['the rings never said short in a long line', BRD, "      meta.left = meta.left.replace(ringsText, ringsShort);\n", ''],
     ['a lone row with many layers left less than its least', BRD, 'shared - Math.max(need.needAt(PANEL_FLOOR_SCL), need.least()));',
       'shared - need.needAt(PANEL_FLOOR_SCL));'],
+    // 2.8: the facility layers through the shared select
+    ['layers: the filter values dropped', RU, 'geoSource: p.geoSource, values: p.values, precision', 'geoSource: p.geoSource, precision'],
+    ['layers: precision by place in the filtered list, not by the file\'s row', RU, 'precision: prec[p.ordinal] || {} })) };',
+      'precision: prec[l.points.indexOf(p)] || {} })) };'],
+    // 2.8 (option E): the kinds of animal from the type
+    ['kinds: only the first kind named, so "Cattle, Chicken" is a bird', RU, '.filter(h => h.hit) : [];', '.filter(h => h.hit).slice(0, 1) : [];'],
+    ['kinds: "pig" in "pigeon" counted', RU, 'some(at => !covered(i, w, at))', 'some(at => true)'],
+    ['kinds: a species no kind names counted under the first kind', RU, 'index: species ? kinds.length - 1 : 0, hit: null', 'index: 0, hit: null'],
+    ['kinds: a species no kind names never said', RU, 'const unlisted = !!species && !hits.length && kinds.some(k => k.words.length);', 'const unlisted = false;'],
+    ['kinds: unlisted in a type that lists no species', RU, 'const unlisted = !!species && !hits.length && kinds.some(k => k.words.length);', 'const unlisted = !!species && !hits.length;'],
+    ['kinds: a blank species not the first kind', RU, 'index: species ? kinds.length - 1 : 0, hit: null', 'index: kinds.length - 1, hit: null'],
+    ['kinds: nameEach ignored', RU, 'return kind.nameEach && species ? {', 'return false ? {'],
+    ['kinds: the whole species named, not the word found', RU, 'const kind = kinds[h.index], own = h.hit || species;', 'const kind = kinds[h.index], own = species;'],
+    ['plural: no "es" after an x', RU, "if (/(x|z|ch|sh)$/.test(last)) return w + 'es';", "if (/(z|ch|sh)$/.test(last)) return w + 'es';"],
+    ['plural: "wolfs"', RU, '    if (IRREGULAR[last]) return w.slice(0, at) + IRREGULAR[last];\n', ''],
+    ['totals: one animal in the plural', RU, '.map(t => [t.n === 1 ? t.one : t.word, t.n]);', '.map(t => [t.word, t.n]);'],
+    ['totals: the first kind not first', RU, 'sort((a, b) => (b.index === 0) - (a.index === 0) || b.n - a.n', 'sort((a, b) => b.n - a.n'],
+    ['marks: a kind sharing a mark not said', RU, "legend: first === k ? k.label : k.label + ' (same mark as ' + first.label + ')'", 'legend: k.label'],
+    ['refine: the species picked ignored', RU, 'const picked = species && species.length ? species : null;', 'const picked = null;'],
+    ['refine: the species of an unticked kind listed', RU, '      if (!keys.includes(k.key)) return null;\n      const by', '      const by'],
+    ['refine: the rows not mapped left out', RU, '    const all = read.positives.concat(read.dropped || []);\n    return read.type.kinds', '    const all = read.positives;\n    return read.type.kinds'],
+    ['unlisted line: a species named once per positive', RU, '[...new Set(hits.map(p => text(p.species)))].sort()', 'hits.map(p => text(p.species)).sort()'],
+    ['unlisted line not under the boxes', RU, '      if (unlisted) lines.push(unlisted);\n', ''],
+    ['animals box: every species named, none cut', RU, 'rest = a.totals.slice(1), cut = rest.length > 6;', 'rest = a.totals.slice(1), cut = false;'],
+    ['counties.csv: one animal not in its plural\'s column', RU, 'const has = (a, f) => a[0] === f.named || a[0] === f.one;', 'const has = (a, f) => a[0] === f.named;'],
+    ['types: a word in two kinds allowed', TY, '      if (j >= 0) {\n', '      if (false) {\n'],
+    ['types: two kinds with one key allowed', TY, 'if (out.kinds.findIndex(x => x.key === k.key) !== i) fail(', 'if (false) fail('],
+    ['types: 2.7\'s inventoryWord accepted', TY, "      if (t[old] !== undefined) fail(old,", '      if (false) fail(old,'],
+    ['types: a kind\'s word its label as written', TY, 'word: k.word === undefined ? label.toLowerCase() :', 'word: k.word === undefined ? label :'],
+    ['table check: only the first kind named', TC, '  if (length(named)) return(paste(named, collapse = " and "))', '  if (length(named)) return(named[1])'],
+    ['table check: "pig" in "pigeon" counted', TC, '  covered <- function(k, w, at) {\n', '  covered <- function(k, w, at) {\n    return(FALSE)\n'],
+    ['table check: a species no kind names not said', TC, '  paste0(names(KINDS)[length(KINDS)], ", not listed")', '  names(KINDS)[length(KINDS)]'],
+    ['table check: the species not read', TC, '  if (!is.na(col$species) && i == col$species) return(kind_of(v))\n', ''],
+    // The species naming two kinds: both kinds, counted in neither
+    ['mixed: the animals added to the first kind', RU, '      if (k.mixed) {\n        mixed = ', '      if (false) {\n        mixed = '],
+    ['mixed: the line not under the boxes', RU, '      if (mixed) lines.push(mixed);\n', ''],
+    ['mixed: "two kinds" said of three', RU, 'const two = hits.every(p => kindOf(type, p).indices.length === 2);', 'const two = true;'],
+    ['mixed: the line\'s animals not said', RU, "(counted.length ? n.toLocaleString('en-US')", "(false ? n.toLocaleString('en-US')"],
+    ['mixed: the hover not naming the kinds', RU, "return k.mixed ? word + ' (' + listOf(k.parts.map(x => x.named)) + ')' : word;", 'return word;'],
+    ['mixed: shown only while its first kind is ticked', RU, 'kindKeysOf(read.type, p).some(k => keys.includes(k))', 'kindKeysOf(read.type, p).slice(0, 1).some(k => keys.includes(k))'],
+    ['mixed: one mark only', RU, 'return [...new Set(kindOf(type, p).indices.map(shapeAt))];', 'return [shapeAt(kindOf(type, p).index)];'],
+    ['mixed: listed in Refine by species under its first kind only', RU, 'kindOf(read.type, p).indices.includes(i)', 'kindOf(read.type, p).index === i'],
+    ['mixed: its second kind given no legend row', RU, 'list.flatMap(p => kindOf(type, p).indices)', 'list.map(p => kindOf(type, p).index)'],
+    ['mixed: no column in counties.csv', RU, 'if (k.mixed) forms.set(MIXED_WORD', 'if (false) forms.set(MIXED_WORD'],
+    ['table check: a second start of a word not seen', TC, 'substring(v, at - 1, at - 1)', 'substr(v, at - 1, at - 1)'],
+    ['table check: a longer word of another kind not seen', TC, 'substring(s, at, at + nchar(others) - 1) == others', 'substr(s, at, at + nchar(others) - 1) == others'],
+    // 2.8 (0d): the map picture's marks and key
+    ['picture: a mixed positive drawn with one mark', BRD, "const list = shapes && shapes.length ? shapes : ['circle']", "const list = [shapes && shapes.length ? shapes[0] : 'circle']"],
+    ['picture: the key\'s animals rows without the shared-mark words', BRD, 'const words = a.legend || a.label;', 'const words = a.label;'],
+    // 2.8 (step 2): the CVI tab's "Refine by species" and the movement's end (rules.js, the picture's key)
+    ['CVI species: the groups ticked not read', RU, "master.rows.filter(r => g.has(r['Species.Group'])).map(r => r.Species)", 'master.rows.map(r => r.Species)'],
+    ['CVI species: a blank species listed', RU, ".filter(s => s !== null && s !== undefined && s !== '');\n    return [...new Set(names)]", '.filter(s => s !== null && s !== undefined);\n    return [...new Set(names)]'],
+    ['CVI species: sorted as plain text, not as CVI sorts', RU, 'return [...new Set(names)].sort(cviCollate);', 'return [...new Set(names)].sort();'],
+    ['CVI species: a master without a Species column given a list', RU, '    if (!master || !master.hasSpecies) return [];\n', '    if (!master) return [];\n'],
+    ['CVI rows: the species picked not applied', RU, 'rows: master.rows.filter(r => r.Species !== null && picked.has(r.Species)) });', 'rows: master.rows });'],
+    ['CVI rows: a master without a Species column narrowed', RU, 'if (!master || !master.hasSpecies || !species || !species.length) return master;', 'if (!master || !species || !species.length) return master;'],
+    ['the movement\'s end: another key read as Origin', RU, 'CVI_ENDS.find(e => e.key === key) || CVI_ENDS[0];', 'CVI_ENDS.find(e => e.key === key) || CVI_ENDS[1];'],
+    ['the movement\'s end: Origin\'s words as Destination\'s', RU, "{ key: 'origin', label: 'Origin', words: 'left from inside the zones' }", "{ key: 'origin', label: 'Origin', words: 'arrived inside the zones' }"],
+    ['picture: the origins\' row kept with Destination', BRD, "if (o.cvi.end !== 'dest') end(CVI_ORIGIN", 'if (true) end(CVI_ORIGIN'],
+    ['picture: a funnel before the CVI rows', BRD, "label, count: S().comma(n) });", 'label, count: S().comma(n), funnel: true });'],
+    ['picture: the funnel said for the CVI rows', BRD, '      if (shownFacilities.some(it => it.funnel)) {', "      if (shownFacilities.some(it => it.funnel) || items.some(it => /in a zone$/.test(it.label))) {"],
+    ['picture: the end not passed to the key', BRD, "end: input.cvi.end || 'either' } : null,", "end: 'either' } : null,"],
+    // 2.8 (step 3): the Overview by animal, the lines by the kinds ticked, one key for a site
+    ['by animal: a mixed positive counted under its first kind', RU, 'return k.mixed ? SEVERAL : k.kind.key;', 'return k.kind.key;'],
+    ['by animal: no "Several kinds" part', RU, '    if (present.has(SEVERAL)) out.push(', '    if (false) out.push('],
+    ['by animal: the kinds not ticked given parts', RU, '.filter(k => keys.includes(k.key) && present.has(k.key));', '.filter(k => present.has(k.key));'],
+    ['by animal: the closed positives left out of the columns\' kinds', RU, '      const k = chartKindOf(read.type, p);\n      c.kinds[k] = (c.kinds[k] || 0) + 1;',
+      '      const k = chartKindOf(read.type, p);\n      if (!isPast(p, end)) c.kinds[k] = (c.kinds[k] || 0) + 1;'],
+    ['by animal: a county\'s closed positives not counted by kind', RU, '      r.past++;\n      byKind(r, p);', '      r.past++;'],
+    ['by animal: the county bars ignore the kinds', RU, 'const partsOf = r => (kinds ? kinds.map', 'const partsOf = r => (false ? kinds.map'],
+    ['lines: the dates not readable counted over the whole file', RU, 'const bad = rows.reduce((n, p) => n + (p.unreadDates || 0), 0);',
+      'const bad = (read.badDates || 0) + (read.badCloseDates || 0) + (read.badReleaseDates || 0);'],
+    ['lines: the quarantine statuses not read counted over the whole file', RU, 'const badQ = rows.filter(p => p.unreadQuarantine).length;', 'const badQ = read.badQuarantineStatus || 0;'],
+    ['lines: a row\'s unreadable release date not counted', RU, " + (releaseText && !release ? 1 : 0);\n", ";\n"],
+    ['chart: a hatched series drawn solid', CHT, '      if (!s.hatch) return s;\n', '      return s;\n'],
+    ['chart: every drawing\'s pattern the same id', CHT, "const id = 'em-hatch-' + (++patterns);", "const id = 'em-hatch-1';"],
+    ['one site key: the name left out', RU, "const siteKey = r => r.lat + '\\r' + r.lon + '\\r' + r.name;", "const siteKey = r => r.lat + '\\r' + r.lon;"],
+    ['types: a refused type not noted for the red notice', TY, '      problems.push({ file, message: e.message });\n', ''],
+    ['types: a word in two kinds named without the earlier kind', TY, 'is in kinds[${j}], "${out.kinds[j].label}", too)', 'is in kinds[${j}] too)'],
+    ['how-to: its table says Meat Goat keeps the triangle', KH,
+      '<td>Meat Goat</td><td><svg class="mk" viewBox="0 0 14 14" aria-label="triangle"><polygon points="7,1.6 12.6,12 1.4,12"/></svg>Other animals</td><td class="moved"><svg class="mk" viewBox="0 0 14 14" aria-label="diamond">',
+      '<td>Meat Goat</td><td><svg class="mk" viewBox="0 0 14 14" aria-label="triangle"><polygon points="7,1.6 12.6,12 1.4,12"/></svg>Other animals</td><td class="moved"><svg class="mk" viewBox="0 0 14 14" aria-label="triangle">'],
+    ['how-to: the line to paste with the wrong word', KH, "<code>{ key: 'mink', label: 'Mink', words: ['mink'] },</code>", "<code>{ key: 'mink', label: 'Mink', words: ['minks'] },</code>"],
+    ['how-to: its slip message not the page\'s', KH, 'be words no earlier kind has ("mink" is in kinds[2], "Mink", too).</div>', 'be words no earlier kind has ("mink" is in kinds[2] too).</div>'],
+    ['how-to: a line it says to find no longer in hpai.js', HP, "'wolf', 'dolphin', 'porpoise'] }", "'wolf', 'porpoise', 'dolphin'] }"],
+    ['how-to: the plain-text twin\'s table says Meat Goat keeps the triangle', KT, '      Meat Goat     Other animals  triangle        Other animals  diamond',
+      '      Meat Goat     Other animals  triangle        Other animals  triangle'],
+    ['how-to: the plain-text twin\'s line to paste not the page\'s', KT, "      { key: 'mink', label: 'Mink', words: ['mink'] },", "      { key: 'mink', label: 'Mink', words: [ 'mink' ] },"],
+    ['how-to: the plain-text twin without Windows\' line ends', KT, 'PART A.  ADDING A WORD\r\n', 'PART A.  ADDING A WORD\n'],
+    // 2.8 (step 5): the table check's animals added up
+    ['table check: thousands commas not read in the animals added up', TC, 'ok <- reads_as_animals(v)\n  total', 'ok <- grepl("^[0-9]+$", v)\n  total'],
+    ['table check: Depop Inventory added up from the inventory column', TC, 'depop_at <- column_index(header, "Depop Inventory")', 'depop_at <- col$inventory'],
+    ['table check: a cell not read added up as written', TC, 'total <- sum(as.numeric(gsub(",", "", v[ok])))',
+      'total <- sum(suppressWarnings(as.numeric(gsub(",", "", v))), na.rm = TRUE)'],
+    // 2.8 (step 5): the release review's fixes
+    ['words: "geese" not a bird word', HP, "'goose', 'geese', 'bird', 'avian', 'layer', 'broiler', 'gamebird',\n", "'goose', 'bird', 'avian', 'layer', 'broiler', 'gamebird',\n"],
+    ['words: "calves" not a cattle word', HP, "'calf', 'calves', 'beef'] },", "'calf', 'beef'] },"],
+    ['words: the table check without "geese"', TC, '"goose", "geese", "bird",', '"goose", "bird",'],
+    ['plural: a word already plural made plural again ("geeses")', RU, ' || Object.values(IRREGULAR).includes(last) || ', ' || '],
+    ['plural: a species not ending in a plain word made plural ("opossum (juvenile)s")', RU, "    if (!/^[a-z][a-z-]*$/.test(last)) return w;\n", ''],
+    ['a layer filtered to no site said to have no usable locations', RU, "noneMatch ? ' (no sites match the filters)' : ' (no usable locations)'", "' (no usable locations)'"],
+    ['counties.csv: a column named like a formula not guarded', RU, 'const guarded = name => (/^[=+\\-@\\t\\r]/.test(name) ? "\'" + name : name);', 'const guarded = name => name;'],
   ],
   page: [
     ['the loader stays open after a clean load', AP, "if (ready && !failed && !notes.length) $('load-fold').open = false;",
@@ -465,7 +573,7 @@ const GROUPS = {
     ['the type\'s "?" leaves its fold closed', AP, 'if (fold && !note.hidden) fold.open = true;', 'void fold;'],
     ['the left-out sites not listed', AP, '    if (r.leftOut.length) {\n      const d = el(\'details\', \'em-leftout\')',
       '    if (false) {\n      const d = el(\'details\', \'em-leftout\')'],
-    ['CVI movements: origins only', AP, "const opts = { endpoint: 'either',", "const opts = { endpoint: 'origin',"],
+    ['CVI movements: origins only', AP, "const opts = { endpoint: E.cviEndOf(c.end).key,", "const opts = { endpoint: 'origin',"],
     ['the CVI export keeps the address column', AP, 'const header = state.master.header.filter(h => !E.PRIVATE.test(h));',
       'const header = state.master.header;'],
     ['the boxes say nothing of a missing column', AP,
@@ -597,7 +705,7 @@ const GROUPS = {
     ['the past box without its hover text', HT, '<div class="count-card" id="box-past" title="', '<div class="count-card" id="box-past" data-title="', ['e1b']],
     // 2.4: the shapes and the legend's rows; the view after each tick, date change, pick and stop of the play, still
     // during the play, clear of the legend; the home button; the chart's unpick.
-    ['every live mark a circle', AP, '      shape: E.animalShapeOf(read.type, p) }))\n      .concat(state.points', '      }))\n      .concat(state.points', ['view']],
+    ['every live mark a circle', AP, '      shape: E.animalShapeOf(read.type, p), shapes: E.animalShapesOf(read.type, p) }))\n      .concat(state.points', '      }))\n      .concat(state.points', ['view']],
     ['the legend without its Animals rows', AP, 'const kinds = state.read ? E.animalKeys(', 'const kinds = false ? E.animalKeys(', ['view']],
     ['the home button keeps "Fit to Washington"', AP, '  if (home) { home.title =', '  if (false) { home.title =', ['view']],
     ['"Show past positives" does not fit', AP, '    state.fitNext = true;   // the view takes them in, or lets them go\n', '', ['view']],
@@ -619,7 +727,7 @@ const GROUPS = {
     ['the play\'s and the slider\'s steps not marked on the chart (2.5: the day\'s line)', AP, '      const k = colAt(win.end);', '      const k = colAt(state.opening.day.end);', ['chart']],
     ['the name markers in the suggestions\' order', AP, "concat(Object.values(state.layers)\n", "concat(state.selectedLayers.map(k => state.layers[k]).filter(Boolean)\n", ['png']],
     ['"Positives" not ticked at first', AP, "    nameLayers: ['positives'],", '    nameLayers: [],', ['png']],
-    ['a layer unchecked keeps its name marker', AP, "map(i => i.value);\n        renderNameMarkers();\n        compute();", 'map(i => i.value);\n        compute();', ['png']],
+    ['a layer unchecked keeps its name marker', AP, "$('em-cvi').checked = state.cviOn;\n    renderNameMarkers();\n", "$('em-cvi').checked = state.cviOn;\n", ['png']],
     ['"All" ticks only the positives', AP, "state.nameLayers = [...$('em-name-list').querySelectorAll('input')].map(i => i.value);", "state.nameLayers = ['positives'];", ['png']],
     ['Preview Map saves the picture too', AP, "    C.previews.showMap('Map preview'", "    savePng(made.model.fileName, made.blob);\n    C.previews.showMap('Map preview'", ['png']],
     ['the preview\'s note not CVI\'s', AP, "'This is what the PNG will look like when exported.'", "'Preview.'", ['png']],
@@ -671,7 +779,7 @@ const GROUPS = {
     ['"Show closed positives" still shown Between dates', HT, '  .field.check > label[hidden] { display: none; }\n', '', ['e1b']],
     ['a neighboring region\'s counties box shown before the region is ticked', HT, '  .nr-row > label[hidden] { display: none; }\n', '', ['e1b']],
     // The closing day (2.5): closed by Status, from the release date.
-    ['the boxes not told today: no "closed on a day not known" line', AP, 'state.window,\n      todayIso());', 'state.window);', ['e1b']],
+    ['the boxes not told today: no "closed on a day not known" line', AP, 'state.window,\n      todayIso(), state.targets);', 'state.window, undefined, state.targets);', ['e1b']],
     ['the type\'s "?" not saying a positive closes on its release date', AP, "(byRelease ? ' ' + BY_RELEASE : '')", "''", ['e1b']],
     // The release review (2.5): today given to the read, the "?" on a release after today, the pick cleared by the
     // slider, the first column's first date.
@@ -752,14 +860,14 @@ const GROUPS = {
     ['the CVI tick does nothing', AP, '    state.cviOn = $(\'em-cvi\').checked;\n', '', ['results']],
     ['the map without the CVI premises', AP, 'positives, inside, outside, cvi, bounds }, fit);', 'positives, inside, outside, cvi: [], bounds }, fit);', ['results']],
     ['the CVI premises in one color', AP, "lon: s.lon, color: CVI_COLORS.dest, r:", "lon: s.lon, color: CVI_COLORS.origin, r:", ['results']],
-    ['the legend without the CVI premises', AP, "      if (ends.includes('dest')) line(swatch('lg-dot', CVI_COLORS.dest, '#ffffff'), 'Destination in a zone');\n", '', ['results']],
+    ['the legend without the CVI premises', AP, "      if (ends.includes('dest')) line(cviMark(CVI_COLORS.dest), 'Destination in a zone');\n", '', ['results']],
     ['the fold\'s summary without "CVI movements"', AP, ".concat(cviOn() ? ['CVI movements'] : [])", '', ['results']],
     ['the tab with the tick off shows the movements', AP, "          : !state.cviOn ? 'CVI movements are off:", "          : false ? 'CVI movements are off:", ['results']],
     ['the Export\'s cvi_movements.csv with the tick off', AP, '    if (cviOn()) {\n      if (state.cviKey === null)', '    if (state.master && state.read) {\n      if (state.cviKey === null)', ['results']],
     ['export_params: the tick not said', AP, "cvi_movements: state.master ? (cviOn() ? 'included' : 'off') : null,", '', ['results']],
     ['the picture\'s CVI with the tick off', AP, "    if (cviOn() && state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }\n    const res = cviOn() && state.cviRes",
       "    if (state.master && state.cviKey === null) { state.cviRes = cviQuery(); state.cviKey = state.version; }\n    const res = state.master && state.cviRes", ['png']],
-    ['the CVI filters leave the map as it was', AP, '        compute();   // the map\'s CVI premises and the tab', '        state.cviKey = null;\n        renderCvi();', ['results']],
+    ['the CVI filters leave the map as it was', AP, '        }\n        compute();   // the map\'s CVI premises and the tab', '        }\n        state.cviKey = null;\n        renderCvi();', ['results']],
     ['the CVI premises stay off after the play', AP, '    if (redraw && cviOn()) compute();\n    else if (redraw && state.tab', '    if (redraw && state.tab', ['e1b']],
     ['the CVI premises drawn while the play runs', AP, "if (!cviOn() || state.playing || state.sliding ||", "if (!cviOn() || state.sliding ||", ['e1b']],
     ['the CVI premises under the sites, no hover', MP, "const POINT_LAYERS = ['em_positives', 'em_cvi', 'em_inside', 'em_outside'];", "const POINT_LAYERS = ['em_positives', 'em_inside', 'em_outside'];", ['results']],
@@ -775,18 +883,18 @@ const GROUPS = {
     ['the hover without the CVI numbers', AP, "plural(s.cvis, 'CVI', 'CVIs') + ': ' + ids(s);", "plural(s.cvis, 'CVI', 'CVIs');", ['results']],
     ['the hover without the place', AP, "(s.place ? ' \\u00b7 ' + s.place : '')", "''", ['results']],
     // 2.7, the animal filter (209 onward).
-    ['the animal ticks do nothing', AP, '        state.read = E.byAnimals(all, state.animals);\n', '', ['filter']],
+    ['the animal ticks do nothing', AP, '    state.read = E.byAnimals(state.readAll, state.animals, state.species);\n    state.fitNext = true;\n', '    state.fitNext = true;\n', ['filter']],
     ['the animal ticks hidden', AP, "$('em-animals-field').hidden = kinds.length < 2;", "$('em-animals-field').hidden = true;", ['filter']],
     ['the ticks without the file\'s counts', AP, "k.label + ' (' + n.toLocaleString('en-US') + ')'", 'k.label', ['filter']],
-    ['a new load keeps the kinds unticked', AP, '    state.animals = state.readAll ? E.animalKindsOf(state.readAll).map(k => k.shape) : [];\n',
-      '    state.animals = state.readAll ? (state.animals && state.animals.length ? state.animals : E.animalKindsOf(state.readAll).map(k => k.shape)) : [];\n', ['filter']],
+    ['a new load keeps the kinds unticked', AP, '    state.animals = state.readAll ? E.animalKindsOf(state.readAll).map(k => k.key) : [];\n',
+      '    state.animals = state.readAll ? (state.animals && state.animals.length ? state.animals : E.animalKindsOf(state.readAll).map(k => k.key)) : [];\n', ['filter']],
     ['no "Tick at least one kind" under the ticks', AP, "        $('em-animals-msg').hidden = !noAnimals();\n", "        $('em-animals-msg').hidden = true;\n", ['filter']],
     ['the badges without the tag', AP, "      if (only) b.append(el('span', 'only-tag', only + ' only'));\n", '', ['filter']],
     ['the summary without "birds only"', AP, "      if (animalsOnly()) sum.push(animalsOnly().toLowerCase() + ' only');", "      if (false) sum.push('');", ['filter']],
-    ['the badges not redrawn by a tick', AP, '        renderStatuses();\n        renderBadges();\n', '        renderStatuses();\n', ['filter']],
+    ['the badges not redrawn by a tick', AP, '    renderStatuses();\n    renderBadges();\n    compute();\n  }\n  function renderAnimals', '    renderStatuses();\n    compute();\n  }\n  function renderAnimals', ['filter']],
     ['the "Last positive" box with none ticked', AP, "noAnimals() ? 'Tick at least one kind of animal'", "false ? 'Tick at least one kind of animal'", ['filter']],
     ['"Inside the zones" with none ticked', AP, "      box.append(el('p', 'muted', 'Tick at least one kind of animal.'));\n", '', ['filter']],
-    ['export_params without animals_shown', AP, "      animals_shown: E.animalKindsOf(state.readAll).filter(k => state.animals.includes(k.shape)).map(k => k.label),\n", '', ['filter']],
+    ['export_params without animals_shown', AP, "      animals_shown: E.animalKindsOf(state.readAll).filter(k => state.animals.includes(k.key)).map(k => k.label),\n", '', ['filter']],
     ['the picture\'s line without the kinds', AP, "animalsOnly: animalsOnly() ? 'Positives: ' + animalsOnly().toLowerCase() + ' only' : null };", 'animalsOnly: null };', ['filter']],
     ['the loaded-file line counts the kinds shown', AP, "        what = plural(state.readAll.positives.length, 'positive', 'positives')", "        what = plural(state.read.positives.length, 'positive', 'positives')", ['filter']],
     ['"Tick at least one kind" with no ticks shown', AP, 'E.animalKindsOf(state.readAll).length > 1 && !state.animals.length', '!state.animals.length', ['filter']],
@@ -797,7 +905,100 @@ const GROUPS = {
     ['a drawn zone\'s name checked against the kinds shown', AP, 'positive: (state.readAll ? state.readAll.positives.map(p => p.name)', 'positive: (state.readAll ? state.read.positives.map(p => p.name)', ['draw']],
     ['the Overview counts the whole file', AP, 'const read = state.read, win = state.window, counties = root.CVIWA_GEO.counties.features;\n    const people = peopleNow();', 'const read = state.readAll, win = state.window, counties = root.CVIWA_GEO.counties.features;\n    const people = peopleNow();', ['filter']],
     ['the chart counts the whole file', AP, 'E.overTime(state.read, state.window, state.chartSteps)', 'E.overTime(state.readAll, state.window, state.chartSteps)', ['filter']],
-    ['the CVI movements around every kind', AP, '    const read = state.read;\n    const list = read ? E.targets(read.positives, state.ticks, state.window) : [];', '    const read = state.readAll;\n    const list = read ? E.targets(read.positives, state.ticks, state.window) : [];', ['filter']]
+    ['the CVI movements around every kind', AP, '    const read = state.read;\n    const list = read ? E.targets(read.positives, state.ticks, state.window) : [];', '    const read = state.readAll;\n    const list = read ? E.targets(read.positives, state.ticks, state.window) : [];', ['filter']],
+    // 2.8: the positives with zones kept by the page and given to the boxes
+    ['the boxes not given the positives with zones', AP, 'todayIso(), state.targets);', 'todayIso());', ['page']],
+    // 2.8 (0d): a positive naming two kinds on the page, and "Refine by species"
+    ['a mixed positive\'s live mark one shape', MP, "const shapesOf = p => (p.shapes && p.shapes.length ? p.shapes : [p.shape || 'circle']);", "const shapesOf = p => [p.shape || 'circle'];", ['filter']],
+    ['a mixed positive\'s shapes drawn on top of each other', MP, 'markPath(shape, half + i * step, half, r + 1.25)', 'markPath(shape, half, half, r + 1.25)', ['filter']],
+    ['the picture not given the mixed shapes', AP, "shape: E.animalShapeOf(read.type, p), shapes: E.animalShapesOf(read.type, p) })), animals:", "shape: E.animalShapeOf(read.type, p) })), animals:", ['filter']],
+    ['a species pick ticks only its own box', AP, '          refilter();\n          renderRefine();\n        });', '          refilter();\n        });', ['filter']],
+    ['species picks kept when their kind is unticked', AP, '        state.species = state.species.filter(x => offered.has(x));\n', '', ['filter']],
+    ['the tag not naming the species picked', AP, 'state.species.length ? speciesWords(state.species)', 'false ? speciesWords(state.species)', ['filter']],
+    ['the search box not narrowing the list', AP, 'const shown = g.species.filter(x => !find || x.name.toLowerCase().includes(find));', 'const shown = g.species;', ['filter']],
+    ['species picks kept at a new load', AP, '    state.species = [];   // "Refine by species"', '    state.species = state.species || [];   // "Refine by species"', ['filter']],
+    ['the species picked not in export_params.json', AP, "      species_shown: state.species.length ? state.species.slice() : 'every species of the kinds shown',\n", '', ['filter']],
+    ['"Refine by species" with one kind in the file', AP, 'E.animalKindsOf(all).length > 1 ? E.speciesList', 'E.animalKindsOf(all).length > 0 ? E.speciesList', ['filter']],
+    ['the species list left behind by a file with one kind', AP, "if (kinds.length < 2) { renderRefine(); return; }", "if (kinds.length < 2) { return; }", ['filter']],
+    ['a species naming a comma not quoted in the tag', AP, "const names = list.map(x => (x.includes(',') ? '\"' + x + '\"' : x));", 'const names = list;', ['filter']],
+    ['the badge held to half the map', HT, '    width: max-content; max-width: calc(100% - 16px); box-sizing: border-box; }', '    }', ['filter']],
+    ['the white tag kept on one line', HT, '    white-space: normal; min-width: 0; }', '    }', ['filter']],
+    ['each kind\'s species in a box that scrolls', HT, '  #em-refine .checklist { max-height: none; }', '  #em-refine .checklist { }', ['filter']],
+    // 2.8 step 1: "Filter by attributes" in each layer (the shared list), caught by the Chrome part "layers".
+    ['a layer\'s row counting every site of its file', AP, 'Object.values(state.layers).map(l => [l.key, l.points.length])',
+      'Object.values(state.layers).map(l => [l.key, l.layer.points.length + (isFiltered(l.key) ? 1 : 0)])', ['layers']],
+    ['a filter not applied to the sites', AP, '    state.layers = layersNow();\n    renderLayers();\n    compute();', '    renderLayers();\n    compute();', ['layers']],
+    ['a ticked layer moved to the end of the order', AP, '    state.selectedLayers = (state.layerOrder || []).filter(k => state.selectedLayers.includes(k));\n', '', ['layers']],
+    ['every filter fold left open', AP, "    $('em-layers').querySelectorAll('details.facility-filters[open]').forEach(d => { if (d !== fold) d.open = false; });", '', ['layers']],
+    ['the folds left open at a new load', AP, '    state.closeFolds = true;                  // and the layers\' filter folds closed (renderLayers)\n', '', ['layers']],
+    ['the filters kept at a new load', AP, '    state.attributes = Object.create(null);   // 2.8: the attribute picks, cleared at each load\n',
+      '    state.attributes = state.attributes || Object.create(null);\n', ['layers']],
+    ['no funnel before a filtered layer\'s name', AP, '      if (filtered.includes(k)) mark.append(funnelMark());\n', '', ['layers']],
+    ['the funnel not said in the legend', AP, "    if (filtered.length || (ends.length && cviRefined())) line(funnelMark(), 'Filtered: some sites left out');\n", '', ['layers']],
+    ['a filtered layer not marked in the picture', AP, '        filtered: isFiltered(k) };', '        filtered: false };', ['layers']],
+    ['the picture\'s key without the funnel', BRD, 'count: S().comma(l.n), funnel: !!l.filtered,', 'count: S().comma(l.n), funnel: false,', ['layers']],
+    ['the funnel not said in the picture\'s key', BRD, '      if (shownFacilities.some(it => it.funnel)) {', '      if (false) {', ['layers']],
+    ['the filtered flag dropped from the picture\'s layers', BRD, 'shape: l.shape, filtered: !!l.filtered, points });', 'shape: l.shape, points });', ['layers']],
+    ['layers.csv without the filters', AP, 'row.concat([filtersText(r.layers[i].key)])', "row.concat([''])", ['layers']],
+    ['export_params.json without the layer filters', AP, '    return out.length ? out : \'none\';', "    return 'none';", ['layers']],
+    ['export_params.json naming filters when none is on', AP, '    return out.length ? out : \'none\';', '    return out;', ['layers']],
+    ['a filter\'s Clear not counted off', AP, 'Object.values(state.attributes[key] || {}).some(v => v.length)', 'Object.keys(state.attributes[key] || {}).length > 0', ['layers']],
+    ['every filter fold closed at each redraw', AP, "    if (state.closeFolds) box.querySelectorAll('details.facility-filters[open]').forEach(d => { d.open = false; });",
+      "    if (true) box.querySelectorAll('details.facility-filters').forEach(d => { d.open = false; });", ['layers']],
+    ['the legend re-sorted to the files\' order at a click', AP, '    return ticked.concat(Object.keys(state.layers).filter(k => !ticked.includes(k)));',
+      '    return Object.keys(state.layers);', ['layers']]    ,
+    // 2.8 (step 2): the CVI tab's "Refine by species" and the movement's end
+    ['the CVI query ignores the movement\'s end', AP, 'endpoint: E.cviEndOf(c.end).key,', "endpoint: 'either',", ['cvifilter']],
+    ['the CVI query ignores the species picked', AP, 'Lk.query(E.cviRows(state.master, c.rawSpecies), sites, opts)', 'Lk.query(state.master, sites, opts)', ['cvifilter']],
+    ['a species kept when its group is unticked', AP, '          state.cvi.rawSpecies = state.cvi.rawSpecies.filter(x => offered.includes(x));\n', '', ['cvifilter']],
+    ['"Refine by species" left open at a new load', AP, "    $('cvi-refine').open = false;\n", '', ['cvifilter']],
+    ['the species picks kept at a new load', AP, "species: state.master.speciesChoices.slice(), rawSpecies: [], end: 'either' };", "species: state.master.speciesChoices.slice(), rawSpecies: state.cvi.rawSpecies, end: 'either' };", ['cvifilter']],
+    ['the movement\'s end kept at a new load', AP, "species: state.master.speciesChoices.slice(), rawSpecies: [], end: 'either' };", 'species: state.master.speciesChoices.slice(), rawSpecies: [], end: state.cvi.end };', ['cvifilter']],
+    ['"Refine by species" always hidden', AP, "$('cvi-refine').hidden = !names.length;", "$('cvi-refine').hidden = true;", ['cvifilter']],
+    ['the fold\'s summary without the picks counted', AP, "' \\u00b7 ' + c.rawSpecies.length + ' of ' + plural(names.length, 'species', 'species') : '';", "'' : '';", ['cvifilter']],
+    ['no search box past 30 species', AP, "    search.hidden = names.length <= SPECIES_SEARCH;\n    if (search.hidden) search.value = '';\n    const find = search.value.trim().toLowerCase();\n    list.replaceChildren(list.querySelector('legend'));",
+      "    search.hidden = true;\n    if (search.hidden) search.value = '';\n    const find = search.value.trim().toLowerCase();\n    list.replaceChildren(list.querySelector('legend'));", ['cvifilter']],
+    ['a search nothing matches not said', AP, 'if (find && list.children.length === 1) list.append(', 'if (false) list.append(', ['cvifilter']],
+    ['a click on an end not read', AP, '    state.cvi.end = r.value;\n', '', ['cvifilter']],
+    ['the tab\'s line ignores the end\'s words', AP, "' animals, ' + end.words + ': ' + counted.join(' and ') + ' inside.'", "' animals, left from or arrived inside the zones: ' + counted.join(' and ') + ' inside.'", ['cvifilter']],
+    ['the tab\'s line counts both ends always', AP, "const counted = (end.key === 'dest' ? [] : [plural(sm.origins, 'origin', 'origins')])", "const counted = [plural(sm.origins, 'origin', 'origins')]", ['cvifilter']],
+    ['the tab\'s messages never name the species', AP, 'const these = cviRefined() ?', 'const these = false ?', ['cvifilter']],
+    ['no funnel before the CVI premises in the legend', AP, '        if (cviRefined()) mark.append(funnelMark());\n', '', ['cvifilter']],
+    ['the funnel not said in the legend for the CVI premises', AP, "    if (filtered.length || (ends.length && cviRefined())) line(", '    if (filtered.length) line(', ['cvifilter']],
+    ['the picture given Either whatever the end', AP, "end: E.cviEndOf(state.cvi.end).key } : null,", "end: 'either' } : null,", ['cvifilter']],
+    ['the picture given Origin whatever the end', AP, "end: E.cviEndOf(state.cvi.end).key } : null,", "end: 'origin' } : null,", ['cvifilter']],
+    ['export_params.json without the species picked', AP, "cvi_species: cviOn() ? (cviRefined() ? state.cvi.rawSpecies.slice() : 'every species of the groups ticked') : null,", 'cvi_species: null,', ['cvifilter']],
+    ['export_params.json\'s end always Either', AP, 'cvi_end: cviOn() ? E.cviEndOf(state.cvi.end).label.toLowerCase() : null,', "cvi_end: cviOn() ? 'either' : null,", ['cvifilter']],
+    ['the Origin choice sends Either', HT, '<input type="radio" name="cvi-end" value="origin"> Origin', '<input type="radio" name="cvi-end" value="either"> Origin', ['cvifilter']],
+    // 2.8 (step 3): the Overview's "Columns by: Status · Animal"; one key for a site in the map
+    ['"Columns by" shown with one kind ticked', AP, 'box.hidden = !byAnimalOffered();', 'box.hidden = !state.readAll;', ['byanimal']],
+    ['"Columns by" kept on Animal at a new load', AP, "    state.columnsBy = 'status';   // the Overview's \"Columns by\" (2.8): Status again at each load\n", '', ['byanimal']],
+    ['a click on "Columns by" not read', AP, '    state.columnsBy = b.dataset.by;\n', '', ['byanimal']],
+    ['the time chart by status whatever "Columns by" says', AP, '    const kinds = byAnimal() ? kindSeries() : null;\n    const series', '    const kinds = null;\n    const series', ['byanimal']],
+    ['the county bars by status whatever "Columns by" says', AP, '    const kinds = byAnimal() ? kindSeries() : null;\n    const bars', '    const kinds = null;\n    const bars', ['byanimal']],
+    ['every kind in one color', AP, 'KIND_COLORS[Math.min(k.index, KIND_COLORS.length - 1)]', 'KIND_COLORS[0]', ['byanimal']],
+    ['"Several kinds" in a kind\'s color', AP, "fill: k.key === E.SEVERAL ? SEVERAL_INK :", "fill: k.key === 'none' ? SEVERAL_INK :", ['byanimal']],
+    ['"Several kinds" solid, not hatched', AP, '    hatch: k.key === E.SEVERAL }));', '    hatch: false }));', ['byanimal']],
+    ['the hover says "2 birds", not "2 with birds"', AP, "label: 'with ' + k.label.toLowerCase(),", 'label: k.label.toLowerCase(),', ['byanimal']],
+    ['the switch\'s pressed button never moves', AP, "String(b.dataset.by === (animal ? 'animal' : 'status'))", "String(b.dataset.by === 'status')", ['byanimal']],
+    ['the Animal button named Status', HT, '<button type="button" class="btn" data-by="animal" aria-pressed="false">Animal</button>', '<button type="button" class="btn" data-by="animal" aria-pressed="false">Status</button>', ['byanimal']],
+    ['the map\'s sites inside keyed without their layer', AP, 'const key = E.layerSiteKey(row.layer, row);', 'const key = E.siteKey(row);'],
+    ['the "?" of the unlisted line not drawn', AP, '      strip.append(tip);\n', '', ['kinds']],
+    ['the unlisted line\'s note left open when the line goes', AP, '    if (!unlisted) unlistedNote.hidden = true;\n', '', ['kinds']],
+    ['the "?" of the unlisted line starting as if open', AP, "tip.setAttribute('aria-expanded', String(!unlistedNote.hidden));",
+      "tip.setAttribute('aria-expanded', String(unlistedNote.hidden));", ['kinds']],
+    ['the unlisted line\'s note without the how-to\'s link', HT, 'see <a href="changing-kinds.html" target="_blank" rel="noopener">Changing the kinds of animals</a>',
+      'see Changing the kinds of animals', ['kinds']],
+    ['the how-to page\'s Copy buttons not made', 'site/emergency/changing-kinds.js', "  document.querySelectorAll('.paste').forEach(block => {", "  [].forEach(block => {", ['kinds']],
+    ['a type file that could not be read not named', AP, '      if (!reached.includes(file)) {', '      if (false) {', ['kinds']],
+    ['the red notice left hidden', AP, '    box.hidden = false;\n  })();', '  })();', ['kinds']],
+    ['no type left: the raw error said', AP, "!T.list().length ? 'The files could not be applied: no emergency type",
+      "false ? 'The files could not be applied: no emergency type", ['kinds']],
+    // 2.8 (step 5): "Refine by species" closed again at each load
+    ['"Refine by species" left open at a new load', AP, "    $('em-refine').open = false;   // and closed", "    void 0;   // and closed", ['filter']],
+    ['"Refine by species" keeps its search text at a new load', AP, "    $('em-refine-search').value = '';\n    state.columnsBy", "    state.columnsBy", ['filter']],
+    ['a layer filtered to no site: the page not passing the filter', AP, 'E.countLine(s, state.unit, isFiltered(s.key) && !state.layers[s.key].points.length);', 'E.countLine(s, state.unit);', ['layers']],
+    ['a filtered layer whose only sites are rough said to have none matching', AP, 'isFiltered(s.key) && !state.layers[s.key].points.length);', 'isFiltered(s.key));', ['layers']]
   ]
 };
 
@@ -811,6 +1012,22 @@ const picks = process.argv.slice(3).map(Number);
 if (mode === 'list') {
   Object.keys(GROUPS).forEach(g => GROUPS[g].forEach((m, i) => console.log(g + ' ' + (i + 1) + '. ' + m[0] + ' (' + m[1] + ')')));
   process.exit(0);
+}
+// Each mutant's text must be found exactly once in today's file.
+const matches = (file, from) => fs.readFileSync(path.join(ROOT, file), 'utf8').split(from).length - 1;
+if (mode === 'check') {
+  const groups = process.argv[3] ? [process.argv[3]] : Object.keys(GROUPS);
+  if (groups.some(g => !GROUPS[g])) throw new Error('Use: check [unit|page]');
+  let stale = 0, total = 0;
+  for (const g of groups) {
+    GROUPS[g].forEach((m, i) => {
+      total++;
+      const count = matches(m[1], m[2]);
+      if (count !== 1) { stale++; console.log('STALE ' + g + ' ' + (i + 1) + '. ' + m[0] + ' (' + m[1] + '): found ' + count + ' times'); }
+    });
+  }
+  console.log('check: ' + (total - stale) + ' of ' + total + ' mutant texts found once; ' + stale + ' stale');
+  process.exit(stale ? 1 : 0);
 }
 if (!GROUPS[mode] || picks.some(n => !Number.isInteger(n) || n < 1 || n > GROUPS[mode].length)) {
   throw new Error('Use: <unit|page> [numbers ...] | list');
@@ -843,7 +1060,7 @@ function runSuite(label, parts) {
 if (fs.existsSync(TEMP)) throw new Error('A mutation-copy folder exists: inspect the interrupted run before starting again.');
 fs.mkdirSync(OUT, { recursive: true });
 const results = [];
-let caught = 0;
+let caught = 0, stale = 0;
 let restored = true;
 try {
   for (const d of ['site', 'tests', 'tools']) fs.cpSync(path.join(ROOT, d), path.join(COPY, d), { recursive: true });
@@ -860,7 +1077,12 @@ try {
     const original = fs.readFileSync(p, 'utf8');
     const hash = sha(p);
     const count = original.split(m.from).length - 1;
-    if (count !== 1) throw new Error(m.n + '. ' + m.name + ': expected exactly one match, found ' + count);
+    if (count !== 1) {
+      stale++;
+      results.push({ n: m.n, name: m.name, file: m.file, caught: false, stale: true, found: count });
+      console.log(m.n + '. STALE (text found ' + count + ' times, not run): ' + m.name);
+      continue;
+    }
     fs.writeFileSync(p, original.replace(m.from, () => m.to));
     let r;
     try {
@@ -881,6 +1103,6 @@ try {
   fs.writeFileSync(path.join(OUT, mode + '-' + (picks.join('-') || 'all') + '.json'), JSON.stringify(results, null, 2) + '\n');
 }
 const unchanged = files.every(f => sha(path.join(ROOT, f)) === before[f]);
-console.log(mode + ': ' + caught + ' of ' + list.length + ' mutants caught; copy restored: ' + restored
+console.log(mode + ': ' + caught + ' of ' + list.length + ' mutants caught' + (stale ? ' (' + stale + ' stale, not run)' : '') + '; copy restored: ' + restored
   + '; repository files unchanged: ' + unchanged + '; copy deleted: ' + !fs.existsSync(TEMP));
 if (caught !== list.length || !restored || !unchanged) process.exitCode = 1;

@@ -5,6 +5,8 @@
  * so a mistake in a new type file shows as soon as the page or the unit suite loads it.
  *
  * add(type) -> the checked type (a frozen copy); throws a TypeError naming the type and the field
+ * problems() -> each type file whose type was refused: { file, message } (2.8), for the page's red notice. files() ->
+ *   every type file that called add, refused or not; a type file the page lists that never did could not be read
  * list() -> the types, in the order their files were loaded; the first is the default
  * get(id) -> a type, or null
  * pick(names) -> { type, counts }: the type for a positives file, from the values of its Disease Name column (null or
@@ -15,10 +17,13 @@
  * isClosed(type, value) -> true when a value of the type's closed column marks a positive closed (any case)
  * quarantineStatusOf(type, value) -> 'under' or 'released' when a value of the type's quarantine status column is one
  *   of its quarantineValues (any case, spaces trimmed), else null
+ * hasWord(textLower, word) -> true when the word starts a word of the text ("h5" in "h5n1", "pig" in "pigeon", but
+ *   not "cat" in "bobcat"): the one word rule for disease and species words, used by rules.js too. wordStarts(textLower,
+ *   word) -> where it does, [] when nowhere.
  * COLUMN_DEFAULTS: the column names a type gets for a role it does not list (E1a's names for id, detected and
  *   disease), so a file in E1a's form still reads under any type.
- * INVENTORY_WORD: the word after the animals' total when a type names none ("animals"); countedApart is empty when
- *   a type names none; a type without a title gets its name in capitals with "RESPONSE MAP".
+ * KINDS: the kinds of animal a type gets when it names none (2.8): one kind, "Animals", counted as "animals"; a type
+ *   without a title gets its name in capitals with "RESPONSE MAP".
  * QUARANTINE_VALUES: the quarantine status values a type gets when it names none ("Under quarantine", "Released"). */
 (function (root) {
   'use strict';
@@ -30,7 +35,7 @@
   // The column roles a type may name, and E1a's names used when it names none.
   const COLUMN_DEFAULTS = { id: ['AnimalDiseaseReportId'], detected: ['Detection Date'], disease: ['Disease Name'],
     status: [], quarantine: [], quarantineStatus: [], flockType: [], inventory: [], shown: [] };
-  const INVENTORY_WORD = 'animals';
+  const KINDS = [{ key: 'animals', label: 'Animals', word: 'animals', words: [], nameEach: false }];
   const QUARANTINE_VALUES = { under: ['under quarantine', 'quarantined', 'in quarantine'], released: ['released', 'lifted'] };
   // A column whose name holds one of these words is never read (the same words as rules.js PRIVATE).
   const PRIVATE = /address|location|street|premise/i;
@@ -79,14 +84,31 @@
     const out = { id: t.id, name: text(t.name, 'name', fail), diseaseWords: words(t.diseaseWords, 'diseaseWords', fail) };
     // The map picture's title: the type's own, else its name in capitals with "RESPONSE MAP".
     out.title = t.title === undefined ? out.name.toUpperCase() + ' RESPONSE MAP' : text(t.title, 'title', fail);
-    out.inventoryWord = t.inventoryWord === undefined ? INVENTORY_WORD : text(t.inventoryWord, 'inventoryWord', fail);
-    // The animals counted apart from inventoryWord in the numbers line, by words in the positive's species.
-    const apart = t.countedApart === undefined ? [] : t.countedApart;
-    if (!Array.isArray(apart)) fail('countedApart', 'a list of species words and the word they are counted under (it may be empty)');
-    out.countedApart = apart.map((a, i) => ({
-      species: words(a && a.species, `countedApart[${i}].species`, fail),
-      word: text(a && a.word, `countedApart[${i}].word`, fail)
-    }));
+    // The kinds of animal (2.8): each kind's key, label, count word, species words and whether its species are
+    // counted each by its own word. Every kind but the last needs a species word; a word in two kinds is refused (the
+    // first would always win). 2.7's inventoryWord and countedApart are refused with a word on what replaced them.
+    for (const old of ['inventoryWord', 'countedApart']) {
+      if (t[old] !== undefined) fail(old, 'left out: the animals are listed in "kinds" (2.8; see the top of types/hpai.js)');
+    }
+    const kinds = t.kinds === undefined ? KINDS : t.kinds;
+    if (!Array.isArray(kinds) || !kinds.length) fail('kinds', 'a list of one or more kinds of animal');
+    out.kinds = kinds.map((k, i) => {
+      const at = `kinds[${i}]`, last = i === kinds.length - 1;
+      if (!k || typeof k !== 'object') fail(at, 'a kind of animal in { }');
+      if (typeof k.key !== 'string' || !/^[a-z0-9-]{1,40}$/.test(k.key)) fail(at + '.key', 'a short key of lowercase letters, digits and dashes');
+      const label = text(k.label, at + '.label', fail);
+      if (k.nameEach !== undefined && typeof k.nameEach !== 'boolean') fail(at + '.nameEach', 'true or false');
+      return { key: k.key, label, word: k.word === undefined ? label.toLowerCase() : text(k.word, at + '.word', fail),
+        words: last && (k.words === undefined || (Array.isArray(k.words) && !k.words.length)) ? [] : words(k.words, at + '.words', fail),
+        nameEach: k.nameEach === true };
+    });
+    out.kinds.forEach((k, i) => {
+      if (out.kinds.findIndex(x => x.key === k.key) !== i) fail(`kinds[${i}].key`, `a key no other kind has ("${k.key}" is used twice)`);
+      const j = out.kinds.findIndex((x, n) => n < i && x.words.some(w => k.words.includes(w)));
+      if (j >= 0) {
+        fail(`kinds[${i}].words`, `words no earlier kind has ("${k.words.find(w => out.kinds[j].words.includes(w))}" is in kinds[${j}], "${out.kinds[j].label}", too)`);
+      }
+    });
 
     if (!Array.isArray(t.statuses) || !t.statuses.length) fail('statuses', 'a list of one or more statuses');
     out.statuses = t.statuses.map((s, i) => ({
@@ -177,25 +199,37 @@
     return Object.freeze(o);
   }
 
+  // The file calling add is the script running (null in Node). A refused type is noted with its message, then the
+  // error goes on as before, so the file's script stops.
+  const problems = [], files = [];
   function add(t) {
-    const checked = check(t);
-    if (types.some(x => x.id === checked.id)) throw new TypeError(`Emergency type "${checked.id}" is added twice`);
-    types.push(freeze(checked));
-    return checked;
+    const file = typeof document !== 'undefined' && document.currentScript ? document.currentScript.getAttribute('src') : null;
+    if (file) files.push(file);
+    try {
+      const checked = check(t);
+      if (types.some(x => x.id === checked.id)) throw new TypeError(`Emergency type "${checked.id}" is added twice`);
+      types.push(freeze(checked));
+      return checked;
+    } catch (e) {
+      problems.push({ file, message: e.message });
+      throw e;
+    }
   }
 
   const list = () => types.slice();
+  const problemsOf = () => problems.map(p => ({ ...p }));
+  const filesOf = () => files.slice();
   const get = id => types.find(t => t.id === id) || null;
 
-  // True when a word starts a word of the text (both lowercased).
-  const hasWord = (textLower, word) => {
-    let at = textLower.indexOf(word);
-    while (at >= 0) {
-      if (at === 0 || !/[a-z0-9]/.test(textLower[at - 1])) return true;
-      at = textLower.indexOf(word, at + 1);
+  // Where a word starts a word of the text (both lowercased); hasWord: anywhere.
+  const wordStarts = (textLower, word) => {
+    const out = [];
+    for (let at = textLower.indexOf(word); at >= 0; at = textLower.indexOf(word, at + 1)) {
+      if (at === 0 || !/[a-z0-9]/.test(textLower[at - 1])) out.push(at);
     }
-    return false;
+    return out;
   };
+  const hasWord = (textLower, word) => wordStarts(textLower, word).length > 0;
 
   function pick(names) {
     const counts = Object.create(null);
@@ -228,6 +262,6 @@
   }
 
   root.WSDA = root.WSDA || {};
-  root.WSDA.emergencyTypes = { add, list, get, pick, statusOf, isClosed, quarantineStatusOf, check, COLUMN_DEFAULTS,
-    INVENTORY_WORD, QUARANTINE_VALUES };
+  root.WSDA.emergencyTypes = { add, list, get, problems: problemsOf, files: filesOf, pick, statusOf, isClosed, quarantineStatusOf, check, hasWord, wordStarts, COLUMN_DEFAULTS,
+    KINDS, QUARANTINE_VALUES };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -23,7 +23,7 @@
  * create(container, geo, onReady, onError) -> the map's state (map.js create with this kind)
  * draw(st, data, fit) -> draws data: { zones and pastZones: [GeoJSON Feature with properties { color, label, zid }],
  *   zoneTips: for each zid, [{ km, head, text }] (the hover's lines for that zone, each under its heading head, the
- *   positive's name, or '' for none), tipFoot (the hover's last line, the "as of" date), positives: [{ lat, lon, label (lines split by "\n"), color, past, withZones, shape (rules.js animalShapeOf) }], inside and outside:
+ *   positive's name, or '' for none), tipFoot (the hover's last line, the "as of" date), positives: [{ lat, lon, label (lines split by "\n"), color, past, withZones, shape (rules.js animalShapeOf), shapes (rules.js animalShapesOf: a mixed positive's marks side by side; shape when left out) }], inside and outside:
  *   [{ lat, lon, label (lines split by "\n"), shape, color }], cvi: [{ lat, lon, label, color, r (the ring's radius) }] (2.6), bounds: [west, south, east, north] or null }; fit: true fits the view to the
  *   bounds
  * viewBounds(zones, pastZones, positives) -> the bounds that take in all of them, or null
@@ -61,37 +61,43 @@
 
   // A positive's mark (2.4): its animal's shape (rules.js animalShapeOf) filled in its status
   // color, with a white halo and a near-black outline, half larger than the circle before (radius 7 with zones, else
-  // 5); a past one white inside with an edge in its status color, faded by the layer. Drawn at twice the size for
-  // sharp edges; made again when a basemap's new style asks for it.
+  // 5); a past one white inside with an edge in its status color, faded by the layer. A positive naming more than one
+  // kind (2.8, rules.js animalShapesOf) gets each kind's shape side by side, the row centered on its spot. Drawn at
+  // twice the size for sharp edges; made again when a basemap's new style asks for it.
   const OUTLINE = '#1a1a1a', HALO = 2, LARGER = 1.5;
-  const positiveId = p => 'em-positive:' + (p.shape || 'circle') + ':' + (p.past ? 'past' : 'now') + ':' +
+  const shapesOf = p => (p.shapes && p.shapes.length ? p.shapes : [p.shape || 'circle']);
+  const positiveId = p => 'em-positive:' + shapesOf(p).join('+') + ':' + (p.past ? 'past' : 'now') + ':' +
     (p.withZones ? 'zones' : 'none') + ':' + p.color;
-  function positiveImage(shape, past, withZones, color) {
+  function positiveImage(shapes, past, withZones, color) {
     const k = 2, r = (withZones ? 7 : 5) * LARGER, half = Math.ceil(r + 5 + 2 * HALO);
+    const step = 2 * (r + 1.25) + 2;   // one shape's width and a little room before the next
     const c = root.document.createElement('canvas');
-    c.width = c.height = 2 * half * k;
+    c.width = (2 * half + (shapes.length - 1) * step) * k;
+    c.height = 2 * half * k;
     const g = c.getContext('2d');
     g.scale(k, k);
     g.lineJoin = 'round';
-    const path = new root.Path2D(root.WSDA.facilities.markPath(shape, half, half, r + 1.25));
-    g.strokeStyle = '#ffffff';
-    g.lineWidth = 1.6 + 2 * HALO;
-    g.stroke(path);
-    g.fillStyle = past ? '#ffffff' : color;
-    g.fill(path);
-    if (past) {
-      g.strokeStyle = color;
-      g.lineWidth = 3;
+    shapes.forEach((shape, i) => {
+      const path = new root.Path2D(root.WSDA.facilities.markPath(shape, half + i * step, half, r + 1.25));
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 1.6 + 2 * HALO;
       g.stroke(path);
-    }
-    g.strokeStyle = OUTLINE;
-    g.lineWidth = past ? 1 : 1.6;
-    g.stroke(path);
+      g.fillStyle = past ? '#ffffff' : color;
+      g.fill(path);
+      if (past) {
+        g.strokeStyle = color;
+        g.lineWidth = 3;
+        g.stroke(path);
+      }
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = past ? 1 : 1.6;
+      g.stroke(path);
+    });
     return g.getImageData(0, 0, c.width, c.height);
   }
   function addPositive(map, id) {
-    const m = /^em-positive:([a-z-]+):(past|now):(zones|none):(.+)$/.exec(id);
-    if (m && !map.hasImage(id)) map.addImage(id, positiveImage(m[1], m[2] === 'past', m[3] === 'zones', m[4]), { pixelRatio: 2 });
+    const m = /^em-positive:([a-z+-]+):(past|now):(zones|none):(.+)$/.exec(id);
+    if (m && !map.hasImage(id)) map.addImage(id, positiveImage(m[1].split('+'), m[2] === 'past', m[3] === 'zones', m[4]), { pixelRatio: 2 });
   }
 
   // The CVI premises' size by the zoom: 0.4 of full at the state's view (zoom 6 and out), full from zoom 10 in.
