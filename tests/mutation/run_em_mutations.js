@@ -10,12 +10,14 @@
 //
 // Each mutant changes one exact piece of code in a temporary copy of the repository; the suite named for its group
 // must then report failed checks. A suite that stops early does not count as catching it.
-//   unit   site/emergency/rules.js, types.js, datasets.js, branded.js, chart.js, map.js's viewBounds (2.4) and site/shared/recognize.js, against the Emergency unit
+//   unit   site/emergency/rules.js, types.js, datasets.js, branded.js, chart.js, map.js's viewBounds (2.4), report.js, message-icons.js and report-form.js (2.9) and site/shared/recognize.js, against the Emergency unit
 //          suite (which also compares the rules with the R reference); from 2.4 also tools/work-pc/check_hpai_table.R
 //   page   site/emergency/app.js, map.js and index.html (from 2.6 also draw.js and the picture's key row in branded.js),
 //          against the Emergency Chrome suite's parts named with the mutant ("page" and "results" unless it names
 //          others; from E1b also "e1b", "png", "chart" and "speed"; from 2.3 "overview"; from 2.6 "draw"; from 2.7 "filter";
-//          from 2.8 "layers", "cvifilter", "byanimal" and "kinds"); from 2.8 the unit group also mutates
+//          from 2.8 "layers", "cvifilter", "byanimal" and "kinds"; from 2.9 "report", with site/emergency/report-view.js, "form", with report-form.js, and "page2", page 2
+//          and the map's badge for a premises detected twice, and "figures", with report-figures.js);
+//          from 2.8 the unit group also mutates
 //          the how-to (site/emergency/changing-kinds.html, its .txt twin) and types/hpai.js's lines it names
 //          (foreground only; about 40 seconds a mutant, so run a few numbers at a time to stay under 600 seconds)
 //
@@ -43,6 +45,9 @@ const TC = 'tools/work-pc/check_hpai_table.R';
 const DW = 'site/emergency/draw.js';
 const KH = 'site/emergency/changing-kinds.html', KT = 'site/emergency/CHANGING_THE_KINDS_OF_ANIMALS.txt';
 const HP = 'site/emergency/types/hpai.js';
+const RPT = 'site/emergency/report.js', MI = 'site/emergency/message-icons.js', RF = 'site/emergency/report-form.js';
+const RFG = 'site/emergency/report-figures.js';
+const GH = 'site/emergency/making-the-update.html', GT = 'site/emergency/MAKING_THE_HPAI_UPDATE.txt';
 
 // [name, file, exact original text, replacement, the Chrome parts that must catch it (page mutants only; default
 // "page" and "results")]
@@ -98,7 +103,7 @@ const GROUPS = {
       'addDays(iso, -new Date(msOf(iso)).getDay())'],
     ['months: 26 weeks already step by month', RU, 'if (weeks <= MAX_WEEKS) {', 'if (weeks < MAX_WEEKS) {'],
     ['play: the last step ends on its Saturday', RU, 'end: saturday < win.end ? saturday : win.end', 'end: saturday'],
-    ['size: 1,000 counted Large', RU, "n <= 1000 ? 'Medium'", "n < 1000 ? 'Medium'"],
+    ['size: 1,000 counted Medium (as before 2.9)', RU, "n < 1000 ? 'Medium'", "n <= 1000 ? 'Medium'"],
     ['inventory: a blank counted as zero', RU, "!/^\\d{1,3}(,\\d{3})+$/.test(s)) return null;",
       "!/^\\d{1,3}(,\\d{3})+$/.test(s)) return s ? null : 0;"],
     ['inventory: thousands commas not read', RU, "if (!/^\\d+$/.test(s) && !/^\\d{1,3}(,\\d{3})+$/.test(s))",
@@ -561,6 +566,136 @@ const GROUPS = {
     ['plural: a species not ending in a plain word made plural ("opossum (juvenile)s")', RU, "    if (!/^[a-z][a-z-]*$/.test(last)) return w;\n", ''],
     ['a layer filtered to no site said to have no usable locations', RU, "noneMatch ? ' (no sites match the filters)' : ' (no usable locations)'", "' (no usable locations)'"],
     ['counties.csv: a column named like a formula not guarded', RU, 'const guarded = name => (/^[=+\\-@\\t\\r]/.test(name) ? "\'" + name : name);', 'const guarded = name => name;'],
+    // 2.9, E2: the HPAI update's figures (report.js).
+    ['report: a row detected after the date counted', RPT, 'const rows = all.filter(p => !p.detected || p.detected <= date);', 'const rows = all;'],
+    ['report: a row without a date left out', RPT, 'const rows = all.filter(p => !p.detected || p.detected <= date);', 'const rows = all.filter(p => p.detected && p.detected <= date);'],
+    ['report: the rows without a point left out, as the page does', RPT, 'const all = read.positives.concat(read.dropped || []);', 'const all = read.positives;'],
+    ['report: a row with neither a point nor a County placed by its missing point', RPT, 'return text(p.county) ? E.countyOf(p, counties) : COUNTY_NOT_GIVEN;', 'return E.countyOf(p, counties);'],
+    ['report: a two-kind row\'s animals counted in its first kind', RPT, '      if (k.mixed) {\n', '      if (false) {\n'],
+    ['report: a blank inventory not counted as missing', RPT, '} else if (p.inventory === null) byKind[k.index].missing++;', '} else if (p.inventory === null) byKind[k.index].animals += 0;'],
+    ['report: the dairy herd and the goats counted as flocks', RPT, '      if (!E.kindKeysOf(type, p).includes(first)) continue;\n', ''],
+    ['report: the counties outside Washington listed first', RPT, '(b.washington - a.washington)', '(a.washington - b.washington)'],
+    ['report: this year\'s detections newest first', RPT, 'const byDate = (a, b) => a.detected.localeCompare(b.detected) || a.line - b.line;', 'const byDate = (a, b) => b.detected.localeCompare(a.detected) || a.line - b.line;'],
+    ['report: "free" never checked', RPT, "if (choice === 'free') return f.flocks.active === 0;", "if (choice === 'free') return true;"],
+    ['report: every premises counted as detected twice', RPT, 'const repeated = [...points.values()].filter(n => n > 1);', 'const repeated = [...points.values()].filter(n => n > 0);'],
+    ['report: zones around active rows without a point', RPT, 'const zoned = rows.filter(p => p.lat !== null && p.lat !== undefined && isActive(p));', 'const zoned = rows.filter(isActive);'],
+    // 2.9 step 2: page 1's figures, words and map dots (report.js), and the type's report words (types.js)
+    ['report: a two-kind row\'s birds in the commercial and backyard bars', RPT, 'if (!k.mixed && p.inventory !== null) flockBirds[', 'if (p.inventory !== null) flockBirds['],
+    ['report: the market\'s and the untyped flocks\' birds counted as backyard', RPT, "flockBirds[t === 'commercial' || t === 'backyard' ? t : 'rest']", "flockBirds[t === 'commercial' ? t : 'backyard']"],
+    ['report map: one active dot too many in each county', RPT, 'active: i < c.active });', 'active: i <= c.active });'],
+    ['report map: a dot anywhere in the county\'s box, on land or not', RPT, '          if (!polys.some(poly => inside(p, poly))) continue;\n', ''],
+    ['report words: "none in domestic flocks" dropped', RPT, "(f.flocks.active ? '' : '; none in ' + rp.flocks)", "''"],
+    ['report words: the status wording from any active case, a herd too', RPT, "rp.status[ch.status || (f.flocks.active ? 'active' : 'free')]", "rp.status[ch.status || (f.active ? 'active' : 'free')]"],
+    ['report words: a blank inventory not said', RPT, "(missing ? ', ' + missing + ' without a count' : '')", "''"],
+    ['report words: the other kinds named without a case', RPT, 'const also = f.kinds.slice(1).filter(k => k.cases).map(', 'const also = f.kinds.slice(1).map('],
+    ['report words: "suspected" not taken', RPT, "          : ch.suspected ? 'Suspected livestock cases in Washington'", "          : false ? 'Suspected livestock cases in Washington'"],
+    ['report words: 4,133,418 shortened to one decimal (4.1M)', RPT, 'toFixed(v >= 1e7 ? 1 : 2)', 'toFixed(1)'],
+    ['report words: the table\'s year written in full', RPT, "'/' + iso.slice(2, 4);", "'/' + iso.slice(0, 4);"],
+    ['types: report case words for a kind the type does not have', TY, "      if (!kinds.some(k => k.key === key)) fail(`report.cases.${key}`", "      if (false) fail(`report.cases.${key}`"],
+    ['types: a report link over http accepted', TY, "if (typeof v !== 'string' || !/^https:\\/\\/[^\\s\"<>]+$/.test(v)) fail(field, 'an https:// address');\n      return v;", "if (typeof v !== 'string' || !/^https?:\\/\\/[^\\s\"<>]+$/.test(v)) fail(field, 'an https:// address');\n      return v;"],
+    // 2.9 step 3: the key messages' icons (message-icons.js) and the type's icon names (types.js)
+    ['message icons: the style ignored, Filled always', MI, "ICONS[key][style === 'outline' ? 'outline' : 'filled']", 'ICONS[key].filled'],
+    ['message icons: an object\'s own field taken for an icon', MI, 'Object.prototype.hasOwnProperty.call(ICONS, key)', 'key in ICONS'],
+    ['message icons: the even-odd fill rule dropped', MI, `(p[1] === 'e' ? ' fill-rule="evenodd"' : '')`, "''"],
+    ['message icons: the drawn outlines filled, not lines', MI, "ic.parts.map(p => typeof p[1] === 'number'", 'ic.parts.map(p => false'],
+    ['message icons: each icon a group of its own', MI, 'out[out.length - 1].name !== ic.group', 'true'],
+    ['message icons: 16 pixels unless sized', MI, 's = size || 22;', 's = size || 16;'],
+    ['types: a message icon that is not one accepted', TY, '        if (!root.WSDA.emergencyMessageIcons.has(m.icon)) fail(', '        if (false) fail('],
+    // 2.9 step 3: the Report view's form (report-form.js): the pages' choices, the folds' checks, the saved report text
+    ['form: the update\'s messages shared, not copied', RF, 'messages: (rp.messages || []).map(message), aside: [],', 'messages: rp.messages || [], aside: [],'],
+    ['form: any address printed as a link', RF, 'const opens = url => /^https?:\\/\\/[^\\s<>"]+$/i.test(url);', 'const opens = url => /./.test(url);'],
+    ['form: an empty message printed', RF, 'messages: text.messages.filter(m => !empty(m)).map(m => {', 'messages: text.messages.map(m => {'],
+    ['form: a link\'s address alone prints no words', RF, 'link: !label && !url ? null : { label: label || url,', 'link: !label && !url ? null : { label: label,'],
+    ['form: the DRAFT mark always on', RF, '      draft: !text.ready };', '      draft: true };'],
+    ['form: staff\'s own milk stage not printed', RF, "    if (text.milk === 'own') return { stage: trim(text.milkOwn.stage), text: trim(text.milkOwn.text) };\n", ''],
+    ['form: the hint only for more than twice as long', RF, 'if (c.lines >= 2 * other.lines && c.lines - other.lines >= 4) {', 'if (c.lines > 2 * other.lines && c.lines - other.lines >= 4) {'],
+    ['form: the hint for three lines more', RF, 'if (c.lines >= 2 * other.lines && c.lines - other.lines >= 4) {', 'if (c.lines >= 2 * other.lines && c.lines - other.lines >= 3) {'],
+    ['form: the livestock card\'s page counted as the messages\'', RF, "const ps = [...new Set(cards.filter(c => c.m !== 'lv').map(c => c.page))];", 'const ps = [...new Set(cards.map(c => c.page))];'],
+    ['form: the status wording never checked', RF, '} else if (RP.statusFits(picked, f) === false) {', '} else if (false) {'],
+    ['form: the milk reminder with no active herd', RF, 'if (lk && lk.active) milkWarn =', 'if (lk) milkWarn ='],
+    ['form: staff\'s own milk stage without its sentence not warned', RF, "(!trim(text.milkOwn.stage) || !trim(text.milkOwn.text))", '(!trim(text.milkOwn.stage))'],
+    ['form: the hotline without a number not warned', RF, "if (!trim(text.hotline.number)) warns.push(", 'if (false) warns.push('],
+    ['form: "Still to check" names every fold not "Matches the data"', RF, '.filter(k => out[k] && out[k].tag.how === WARN)', '.filter(k => out[k] && out[k].tag.how !== OK)'],
+    ['saved report text: the type saved inside the text', RF, "if (k !== 'type') keep[k] = text[k];", 'keep[k] = text[k];'],
+    ['saved report text: "Ready to send" loaded ticked', RF, '    t.suspected = got.suspected === true;', '    t.suspected = got.suspected === true; t.ready = got.ready === true;'],
+    ['saved report text: a newer version read', RF, 'if (o.version > VERSION) return', 'if (false) return'],
+    ['saved report text: another type\'s read', RF, 'if (o.type !== type.id) return', 'if (false) return'],
+    ['saved report text: any kind of file read', RF, "if (!o || typeof o !== 'object' || o.kind !== KIND ||", "if (!o || typeof o !== 'object' ||"],
+    ['saved report text: a choice the page does not know kept', RF, 'if (list.some(([k]) => k === v)) return v;', 'return v;'],
+    ['saved report text: words not cut at 5,000', RF, 'return v.slice(0, LONGEST);', 'return v;'],
+    ['saved report text: more than 60 messages read', RF, 'return list.slice(0, MOST).filter(', 'return list.filter('],
+    ['saved report text: an unknown icon not named', RF, 'if (m.icon !== undefined && m.icon !== out.icon) notes.push(', 'if (false) notes.push('],
+    ['saved report text: any highlight that is not empty taken', RF, 'icon: m.icon, highlight: m.highlight === true,', 'icon: m.icon, highlight: !!m.highlight,'],
+    ['saved report text: a milk stage that is not a whole number kept', RF, '(Number.isInteger(got.milk) && got.milk >= 0 && got.milk < stages)', '(got.milk >= 0 && got.milk < stages)'],
+    ['saved report text: any date words kept', RF, "typeof v === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(v) ? v : null", "typeof v === 'string' ? v : null"],
+    ['saved report text: the messages set aside not read back', RF, "t.aside = messages(got.aside, 'Set-aside message', 'The messages set aside') || [];", 't.aside = [];'],
+    // 2.9, page 2: the boxes typed from USDA and WADDL, their checks, page 2's words, "Save for ArcGIS" and the saved figures.
+    ['page 2: an "as of" date allowed 60 days old', RF, 'RP.daysBetween(iso, date) > 31) {', 'RP.daysBetween(iso, date) > 60) {'],
+    ['page 2: a date after the report\'s not checked', RF, "else if (iso > date) flag(at,", "else if (false) flag(at,"],
+    ['page 2: a count may have decimals', RF, "return (kind === 'int' ? /^\\d+$/ :", "return (false ? /^\\d+$/ :"],
+    ['page 2: a number lower than last month\'s not checked', RF, 'if (f.grows && a !== null', 'if (false && a !== null'],
+    ['page 2: the same number checked against last month only', RF, '&& n === a && n === b) {', '&& n === a) {'],
+    ['page 2: a last-30-days number equal to its total a check', RF, '!Number.isNaN(total) && n > total) {', '!Number.isNaN(total) && n >= total) {'],
+    ['page 2: the boxes not filled not counted', RF, '        blank[k]++;\n', ''],
+    ['page 2: the pictures to add not counted', RF, 'const missing = PICS.length - (pics || 0);', 'const missing = 0;'],
+    ['page 2: "Flocks in all" the commercial flocks alone', RF, 'Number.isNaN(y) ? null : c + y;', 'Number.isNaN(y) ? null : c;'],
+    ['page 2: a "no detections" tick ignored by the checks', RF, '      if (noneTicked(p2, f)) continue;\n', ''],
+    ['page 2: WADDL\'s lists\' links not checked', RF, "if (trim(l.url) && !opensLink(trim(l.url))) flag('list.'", "if (false) flag('list.'"],
+    ['page 2 printed: numbers without their commas', RF, "f.kind === 'int' ? n.toLocaleString('en-US') : v.replace(/,/g, '');", "f.kind === 'int' ? String(n) : v.replace(/,/g, '');"],
+    ['page 2 printed: a date printed as typed', RF, "if (f.kind === 'date') { const iso = dateOf(v); return iso ? RP.dateLong(iso) : v; }", "if (f.kind === 'date') return v;"],
+    ['Save for ArcGIS: numbers with their commas', RF, "&& /^[\\d,.]+$/.test(v) ? v.replace(/,/g, '') : v;", "&& /^[\\d,.]+$/.test(v) ? v : v;"],
+    ['Save for ArcGIS: a value with a comma not quoted', RF, 'return /[",\\r\\n]/.test(w) || w !== v', 'return /["\\r\\n]/.test(w) || w !== v'],
+    ['Save for ArcGIS: a "no detections" tick written blank', RF, 'noneTicked(text.p2, f) ? NO_DETECTIONS : ch[f.part][f.key];', 'ch[f.part][f.key];'],
+    ['saved report text: this month\'s figures not kept to compare with', RF, 'keep.past = [{ date, values: figuresOf(text.p2) }].concat(', 'keep.past = [].concat('],
+    ['saved report text: more than two months kept', RF, ".sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, KEEP_PAST);", ".sort((a, b) => (a.date < b.date ? 1 : -1));"],
+    ['saved report text: page 2\'s figures kept for another month', RF, '      if (figure(f) && !same) continue;\n', ''],
+    ['page 2: compared with a report on the report\'s own date', RF, '(text.past || []).filter(p => p.date < date)', '(text.past || []).filter(p => p.date <= date)'],
+    ['types: page 2\'s words not checked', TY, 'page2: r.page2 === undefined ? null : page2(r.page2, https, link, fail)', 'page2: r.page2 === undefined ? null : r.page2'],
+    ['boxes: the resources\' addresses not checked', RF, "if (trim(l.url) && !opensLink(trim(l.url))) warns.push(g.name", "if (false) warns.push(g.name"],
+    // 2.9, Figures: what a county or a month clicked lists, the map's places and the hovers' words (report.js).
+    ['figures: the undated rows not listed', RPT, 'dated.slice().sort(byDate).concat(rows.filter(p => !p.detected).sort((a, b) => a.line - b.line))', 'dated.slice().sort(byDate)'],
+    ['figures: every row listed as a flock', RPT, 'flock: E.kindKeysOf(type, p).includes(first) }));', 'flock: true }));'],
+    ['figures: a month clicked lists this year\'s rows only', RPT, 'rows: f.listed.filter(r => r.detected && r.detected.slice(0, 7) === pick.month),', 'rows: f.thisYear.filter(r => r.detected.slice(0, 7) === pick.month),'],
+    ['figures: a month of another year "of" this year\'s table', RPT, 'of: pick.month.slice(0, 4) === f.year ? f.thisYear.length : null,', 'of: f.thisYear.length,'],
+    ['figures: a county clicked lists every year\'s rows', RPT, 'rows: f.thisYear.filter(r => r.county === pick.county),', 'rows: f.listed.filter(r => r.county === pick.county),'],
+    ['figures: places matched to one decimal', RPT, "const key = r.lat.toFixed(5) + ',' + r.lon.toFixed(5);\n      if (!at.has(key))", "const key = r.lat.toFixed(1) + ',' + r.lon.toFixed(1);\n      if (!at.has(key))"],
+    ['figures: the active places not drawn last', RPT, 'return all.filter(p => !p.active).concat(all.filter(p => p.active));', 'return all;'],
+    ['figures: a place never active', RPT, '      if (r.active) place.active = true;\n', ''],
+    ['figures: "Active now" counted on the last detection\'s day', RPT, "counted on ' + dateShort(f.date) + '.',", "counted on ' + dateShort(f.last) + '.',"],
+    ['figures: "This year" without the undated cases', RPT, ".concat(f.undated ? [many(f.undated, 'case', 'cases') + ' without a detection date: in no year.'] : [])", '.concat([])'],
+    ['figures: the flocks\' hover without the premises detected twice', RPT, '.concat(f.twice.premises ? [', '.concat(false ? ['],
+    ['figures: the birds\' hover with the short number', RPT, "text: f.birds.toLocaleString('en-US'), lines: [", 'text: short(f.birds), lines: ['],
+    ['figures: the counties\' hover without the others', RPT, ".concat(rest.length ? ['Not among them: '", ".concat(false ? ['Not among them: '"],
+    ['figures: a county\'s "this year" every year', RPT, 'const inYear = f.thisYear.filter(r => r.county === c.county).length;', 'const inYear = c.cases;'],
+    ['figures: a county picked not said in its hover', RPT, ".concat([on ? 'Listed below; click again to show every county.'", ".concat([false ? 'Listed below; click again to show every county.'"],
+    ['figures: a month without detections "click to list them"', RPT, ": n ? ' · click to list them' : '')] };", ": ' · click to list them')] };"],
+    ['figures: the flocks\' bar hover against every flock', RPT, 'const p = pct(fl.commercial, fl.backyard);', 'const p = pct(fl.commercial, fl.total);'],
+    ['figures: a dairy herd\'s place called a flock', RPT, "r.flock ? (r.size ? r.size + ' flock' : '') : r.species,", "r.size ? r.size + ' flock' : '',"],
+    ['figures: a busy place lists every case', RPT, 'p.cases.slice(0, 6).map(line)', 'p.cases.map(line)'],
+    ['figures: a month\'s name one month late', RPT, 'const monthName = ym => MONTHS[+ym.slice(5, 7) - 1]', 'const monthName = ym => MONTHS[+ym.slice(5, 7) % 12]'],
+    // 2.9, the table check's figures: the HPAI update's page 1 figures on the update's date (tools/work-pc/check_hpai_table.R).
+    ['table check figures: a row detected after the date counted', TC, 'counted <- is.na(detected) | detected <= update_day', 'counted <- rep(TRUE, n_rows)'],
+    ['table check figures: a row without a date left out', TC, 'counted <- is.na(detected) | detected <= update_day', 'counted <- !is.na(detected) & detected <= update_day'],
+    ['table check figures: closed counted on today, not the update\'s date', TC, 'past_on_update <- ifelse(!is.na(closed_date), closed_date <= update_day,', 'past_on_update <- ifelse(!is.na(closed_date), closed_date <= on_day,'],
+    ['table check figures: a release closing on today, not the update\'s date', TC, 'ifelse(closed & release_closes, release <= update_day, closed))', 'ifelse(closed & release_closes, release <= on_day, closed))'],
+    ['table check figures: every kind of animal a flock', TC, 'flock <- counted & has_kind(names(KINDS)[1])', 'flock <- counted'],
+    ['table check figures: a two-kind row\'s animals among the birds', TC, '" affected (Flock/Herd Inventory of the flocks): ", num(sum(inv[flock & !two_kinds], na.rm = TRUE)),', '" affected (Flock/Herd Inventory of the flocks): ", num(sum(inv[flock], na.rm = TRUE)),'],
+    ['table check figures: a two-kind row\'s animals in the other kinds', TC, '  a <- sum(inv[counted & has_kind(k) & !two_kinds], na.rm = TRUE)', '  a <- sum(inv[counted & has_kind(k)], na.rm = TRUE)'],
+    ['table check figures: "Name County" not a Washington county', TC, 'c_key <- tolower(sub(" county$", "", c_text, ignore.case = TRUE))', 'c_key <- tolower(c_text)'],
+    ['table check figures: a row with neither a point nor a County taken from its point', TC, 'ifelse(mapped, NA_character_, "(not given)"))', 'NA_character_)'],
+    ['table check figures: the smallest county counts', TC, 'wa_counts <- sort(table(county[counted & county %in% WA_COUNTIES]), decreasing = TRUE)', 'wa_counts <- sort(table(county[counted & county %in% WA_COUNTIES]), decreasing = FALSE)'],
+    ['table check figures: this year from today', TC, 'year <- substr(update_day, 1, 4)', 'year <- substr(on_day, 1, 4)'],
+    ['table check figures: premises detected twice whatever the date', TC, 'points <- table(sprintf("%.5f,%.5f", lat, lon)[counted & mapped])', 'points <- table(sprintf("%.5f,%.5f", lat, lon)[mapped])'],
+    ['table check figures: the date never asked for', TC, 'if (identical(asked, "ask")) {', 'if (FALSE) {'],
+    ['table check figures: long lines not wrapped', TC, 'out <- c(out, "", wrap(fig_lines))', 'out <- c(out, "", fig_lines)'],
+    ['table check figures: only the five largest county counts', TC, 'paste(as.integer(wa_counts), collapse = ", ")', 'paste(head(as.integer(wa_counts), 5), collapse = ", ")'],
+    // 2.9, the release review's fixes and the guide.
+    ['Save for ArcGIS: a cell starting with = written as a formula', RF, 'const w = /^[=+\\-@\\t\\r]/.test(v) ? "\'" + v : v;', 'const w = v;'],
+    ['Save for ArcGIS: a guarded cell left unquoted', RF, 'return /[",\\r\\n]/.test(w) || w !== v ?', 'return /[",\\r\\n]/.test(w) ?'],
+    ['guide: a button the page does not have', GH, 'Press <span class="btn">Print / Save as PDF</span>.', 'Press <span class="btn">Print the update</span>.'],
+    ['guide: the twin without a button the page names', GT, '2. Press "Print / Save as PDF".', '2. Press "Print".'],
+    ['guide: flock sizes as before 2.9', GH, 'Small under 100 birds, Medium 100 to 999, Large 1,000 or more', 'Small under 100 birds, Medium 100 to 1,000, Large above'],
+    ['guide: the twin with a long line', GT, '  - The HPAI table, saved as a .csv file (in Excel: File, Save As, CSV).', '  - The HPAI table, saved as a .csv file (in Excel: File, Save As, CSV), the agreed table of the agency, as it is kept on the R drive.']
   ],
   page: [
     ['the loader stays open after a clean load', AP, "if (ready && !failed && !notes.length) $('load-fold').open = false;",
@@ -578,8 +713,8 @@ const GROUPS = {
       'const header = state.master.header;'],
     ['the boxes say nothing of a missing column', AP,
       "card.querySelector('strong').textContent = value === null ? note :", "card.querySelector('strong').textContent = value === null ? '0' :"],
-    ['at 320 pixels the results widen the page', HT, '.explore { grid-template-columns: minmax(0, 1fr); }',
-      '.explore { grid-template-columns: 1fr; }'],
+    ['at 320 pixels the results widen the page', HT, '@media (max-width: 767px) { .explore { grid-template-columns: minmax(0, 1fr); }',
+      '@media (max-width: 767px) { .explore { grid-template-columns: 1fr; }'],
     ['the sidebar scrolls away with the results', HT, '.em-controls { position: sticky;', '.em-controls { position: static;'],
     ['an added point\'s typed name not used', AP, '        p.name = typed || p.first;', '        void typed;'],
     ['a removed point\'s name given again', AP, 'const n = ++state.pointsAdded;', 'const n = state.points.length + 1;'],
@@ -705,7 +840,7 @@ const GROUPS = {
     ['the past box without its hover text', HT, '<div class="count-card" id="box-past" title="', '<div class="count-card" id="box-past" data-title="', ['e1b']],
     // 2.4: the shapes and the legend's rows; the view after each tick, date change, pick and stop of the play, still
     // during the play, clear of the legend; the home button; the chart's unpick.
-    ['every live mark a circle', AP, '      shape: E.animalShapeOf(read.type, p), shapes: E.animalShapesOf(read.type, p) }))\n      .concat(state.points', '      }))\n      .concat(state.points', ['view']],
+    ['every live mark a circle', AP, '      shape: E.animalShapeOf(read.type, p), shapes: E.animalShapesOf(read.type, p),\n      shared:', '\n      shared:', ['view']],
     ['the legend without its Animals rows', AP, 'const kinds = state.read ? E.animalKeys(', 'const kinds = false ? E.animalKeys(', ['view']],
     ['the home button keeps "Fit to Washington"', AP, '  if (home) { home.title =', '  if (false) { home.title =', ['view']],
     ['"Show past positives" does not fit', AP, '    state.fitNext = true;   // the view takes them in, or lets them go\n', '', ['view']],
@@ -858,7 +993,7 @@ const GROUPS = {
     ['the CVI tick on at the load', AP, '    state.cviKey = null;\n    state.cviOn = false;\n', '    state.cviKey = null;\n    state.cviOn = true;\n', ['results']],
     ['the CVI tick hidden with a master', AP, "$('em-cvi-field').hidden = !state.master;", "$('em-cvi-field').hidden = true;", ['results']],
     ['the CVI tick does nothing', AP, '    state.cviOn = $(\'em-cvi\').checked;\n', '', ['results']],
-    ['the map without the CVI premises', AP, 'positives, inside, outside, cvi, bounds }, fit);', 'positives, inside, outside, cvi: [], bounds }, fit);', ['results']],
+    ['the map without the CVI premises', AP, 'positives, inside, outside, cvi, bounds, shared }, fit);', 'positives, inside, outside, cvi: [], bounds, shared }, fit);', ['results']],
     ['the CVI premises in one color', AP, "lon: s.lon, color: CVI_COLORS.dest, r:", "lon: s.lon, color: CVI_COLORS.origin, r:", ['results']],
     ['the legend without the CVI premises', AP, "      if (ends.includes('dest')) line(cviMark(CVI_COLORS.dest), 'Destination in a zone');\n", '', ['results']],
     ['the fold\'s summary without "CVI movements"', AP, ".concat(cviOn() ? ['CVI movements'] : [])", '', ['results']],
@@ -998,7 +1133,84 @@ const GROUPS = {
     ['"Refine by species" left open at a new load', AP, "    $('em-refine').open = false;   // and closed", "    void 0;   // and closed", ['filter']],
     ['"Refine by species" keeps its search text at a new load', AP, "    $('em-refine-search').value = '';\n    state.columnsBy", "    state.columnsBy", ['filter']],
     ['a layer filtered to no site: the page not passing the filter', AP, 'E.countLine(s, state.unit, isFiltered(s.key) && !state.layers[s.key].points.length);', 'E.countLine(s, state.unit);', ['layers']],
-    ['a filtered layer whose only sites are rough said to have none matching', AP, 'isFiltered(s.key) && !state.layers[s.key].points.length);', 'isFiltered(s.key));', ['layers']]
+    ['a filtered layer whose only sites are rough said to have none matching', AP, 'isFiltered(s.key) && !state.layers[s.key].points.length);', 'isFiltered(s.key));', ['layers']],
+    // 2.9 step 2: the Report view's page 1 and print (report-view.js, app.js, index.html)
+    ['report: the update counts only the kinds ticked under "Animals"', AP, "RV.draw($('rp-preview'), { read: state.readAll, type: state.type, date,", "RV.draw($('rp-preview'), { read: state.read, type: state.type, date,", ['report']],
+    ['report: the date picked not used', AP, '      state.reportDate = v;\n      renderReport();', '      void v;\n      renderReport();', ['report']],
+    ['report: the print window\'s title not set', AP, '    document.title = RV.title(state.type, state.reportDate || todayIso());', '    void 0;', ['report']],
+    // The sidebar is hidden in the Report view on screen too (from the form's step), so the print rule's own line
+    // alone is no longer a mutant: today's text takes the screen rule away.
+    ['report: the sidebar shown beside the form and printed with the pages', HT, '  body.rp-on .em-controls, body.rp-on .em-main > :not(#em-view):not(#view-report) { display: none; }', '  body.rp-on .em-main > :not(#em-view):not(#view-report) { display: none; }', ['report', 'form']],
+    ['report: the pages printed at the preview\'s scale', HT, '    body.rp-on .rp-sheets { transform: none !important; }', '    body.rp-on .rp-sheets { }', ['report']],
+    ['report: "Page 1 of 1" on every page', 'site/emergency/report-view.js', "'Page ' + (i + 1) + ' of ' + all.length", "'Page ' + (i + 1) + ' of ' + (i + 1)", ['report']],
+    ['report: a block that does not fit left on its page', 'site/emergency/report-view.js', 'if (body.scrollHeight - 9 > body.clientHeight && body.children.length > 1) {', 'if (false) {', ['report']],
+    ['report: the pages not scaled to the column (320 pixels wide)', 'site/emergency/report-view.js', 'k = Math.min(1, avail / 816);', 'k = 1;', ['report']],
+    // 2.9 step 3: the cards' icons in the report's style
+    ['report: the cards\' icons always Filled', 'site/emergency/report-view.js', 'MI.svg(icon, style, 22)', "MI.svg(icon, 'filled', 22)", ['report']],
+    ['report: the icon style chosen not passed to the pages', 'site/emergency/report-view.js', 'const rp = type.report, style = ch.iconStyle,', "const rp = type.report, style = 'filled',", ['report']],
+    // 2.9 step 3: the Report view's form driven by the mouse and typing (report-form.js wire and show, app.js, index.html)
+    ['form: typed words drawn at once, not after the pause', AP, '    if (soon) reportSoon = root.setTimeout(renderReport, 250);\n    else renderReport();', '    renderReport();', ['form']],
+    ['form: the key messages\' list drawn again at every change', RF, 'if (list.dirty || list.of !== text) drawList(doc, text);', 'drawList(doc, text);', ['form']],
+    ['form: a message moved, the focus lost', RF, "redraw(sel(j, j === 0 || j === ms.length - 1 ? (j === 0 ? 'down' : 'up') : b.dataset.act));", 'redraw(null);', ['form']],
+    ['form: Escape does not close the icon list', RF, "if (e.key !== 'Escape' || list.picking < 0", "if (true || list.picking < 0", ['form']],
+    ['form: "Undo" puts the message back at the end', RF, 'ms.splice(i, 0, list.removed.m);', 'ms.push(list.removed.m);', ['form']],
+    ['form: "Put back" loses the message', RF, 't.messages.push(t.aside.splice(+b.dataset.back, 1)[0]);', 't.aside.splice(+b.dataset.back, 1);', ['form']],
+    ['form: the highlight tick not kept', RF, 'm.highlight = e.target.checked;', 'm.highlight = false;', ['form']],
+    ['form: the hotline, name and address boxes not kept', RF, 'if (at.length === 1) t[at[0]] = $(id).value; else t[at[0]][at[1]] = $(id).value;', 'if (at.length === 1) t[at[0]] = $(id).value;', ['form']],
+    ['form: "Ready to send" not kept', RF, "get().ready = $('rp-ready').checked;", 'get().ready = false;', ['form']],
+    ['form: the form printed with the pages', HT, 'body.rp-on .rp-layout > :not(.rp-side), ', '', ['form']],
+    ['form: the saved file not named for the report', AP, "name = RV.title(state.type, date) + ' report text.json';", "name = 'report text.json';", ['form']],
+    ['form: a file over a million bytes read', AP, 'if (file.size > 1e6) {', 'if (false) {', ['form']],
+    ['form: the file box not emptied after a load', AP, "    $('rp-load-file').value = '';\n", '', ['form']],
+    ['form: a report text loaded not drawn', AP, '    if (got.cleared) RF.clearPictures();\n    renderReport();', '    if (got.cleared) RF.clearPictures();', ['form']],
+    // 2.9, page 2 and the map's badge (the Chrome part "page2").
+    ['page 2 not printed', 'site/emergency/report-view.js', 'const p2 = ch.page2 ? page2Blocks(', 'const p2 = false ? page2Blocks(', ['page2']],
+    ['page 2 printed before the key messages', 'site/emergency/report-view.js', '.concat(rows, p2, more)', '.concat(p2, rows, more)', ['page2']],
+    ['page 2: WADDL\'s tests not printed largest first', 'site/emergency/report-view.js', '.sort((a, b) => b.value - a.value)', '', ['page2']],
+    ['page 2: the box without the hotline', 'site/emergency/report-view.js', '(i === 0 && (hot.name || hot.number) ?', '(false ?', ['page2']],
+    ['page 2: USDA\'s pictures not printed', 'site/emergency/report-view.js', "(pic ? '<img src=", "(false ? '<img src=", ['page2']],
+    ['form: a paste ignored', RF, 'if (!key || !p2()) return;', 'if (true) return;', ['page2']],
+    ['form: a press on a slot\'s button makes it wait (its click lost)', RF, 'if (!slot || e.target !== slot || pics.waiting', 'if (!slot || pics.waiting', ['page2']],
+    ['form: a picture read but not drawn', RF, '      pics.dirty = true;\n      changed(false);\n    };\n    reader.readAsDataURL(file);', '    };\n    reader.readAsDataURL(file);', ['page2']],
+    ['form: "Remove" leaves the picture', RF, 'pics[slot.dataset.pic] = null;', 'void 0;', ['page2']],
+    ['form: a file that is not a picture taken', RF, "if (!file || !/^image\\//.test(file.type)) {", "if (!file) {", ['page2']],
+    ['form: a category added, the focus lost', RF, "redraw('#rp-cats .rp-cat[data-i=\"' + (t.tests.cats.length - 1) + '\"] [data-k=\"name\"]');", 'redraw(null);', ['page2']],
+    ['form: a link moved, the focus lost', RF, "redraw(sel(j, j === 0 ? 'down' : j === list.length - 1 ? 'up' : b.dataset.act));", 'redraw(null);', ['page2']],
+    ['form: a "no detections" tick leaves its box', RF, "box.disabled = el.checked;\n      if (el.checked) box.value = '';", '', ['page2']],
+    ['form: "Save for ArcGIS" never shown', AP, "$('rp-arcgis').hidden = !text.p2;", "$('rp-arcgis').hidden = true;", ['page2']],
+    ['form: a report text for another month keeps the pictures', AP, '    if (got.cleared) RF.clearPictures();\n    renderReport();\n    const D', '    renderReport();\n    const D', ['page2']],
+    ['form: a report text loaded without the report\'s date', AP, 'RF.fromFile(await file.text(), state.type, date)', 'RF.fromFile(await file.text(), state.type)', ['page2']],
+    ['map: no badge on a premises detected twice', MP, '(p.shared > 1 ? p.shared : 1)', '1', ['page2']],
+    ['map: the hover without the box of cases at its point', MP, '(hover.shared ? hover.shared.map(', '(false ? hover.shared.map(', ['page2']],
+    ['map: the cases at a point counted among those shown only', AP, 'for (const p of read ? read.positives : [])', 'for (const p of shown)', ['page2']],
+    // 2.9, Figures: the switch, the drawing, the clicks, the hovers and the print (report-figures.js, app.js, index.html).
+    ['figures: the banner with the typed status', RFG, 'const w = RP.wording(f, o.type, {}, o.counties.length);', "const w = RP.wording(f, o.type, { status: 'free' }, o.counties.length);", ['figures']],
+    ['figures: Figures\' date not wired', AP, "for (const id of ['rp-date', 'rp-fig-date']) {", "for (const id of ['rp-date']) {", ['figures']],
+    ['figures: the form and pages hidden, not drawn out of sight', HT, 'body.rp-fig .rp-layout { position: absolute; left: -20000px; top: 0; width: 1200px; height: 0; overflow: hidden; visibility: hidden; }', 'body.rp-fig .rp-layout { display: none; }', ['figures']],
+    ['figures: Figures printed', HT, '    body.rp-on .rp-switch, body.rp-on .rp-fig { display: none !important; }\n', '', ['figures']],
+    ['figures: printing from Figures without the pages', HT, '    body.rp-fig .rp-layout { position: static !important; width: auto !important; height: auto !important; overflow: visible !important; visibility: visible !important; }\n', '', ['figures']],
+    ['figures: a county clicked again kept', RFG, 'pick = pick && pick.county === el.dataset.county ? null : { county: el.dataset.county };', 'pick = { county: el.dataset.county };', ['figures']],
+    ['figures: a month clicked ignored', RFG, 'pick = pick && pick.month === m ? null : { month: m };', 'pick = null;', ['figures']],
+    ['figures: a month without detections clickable', RFG, "      if (!el.hasAttribute('tabindex')) return true;   // a month without detections\n", '', ['figures']],
+    ['figures: Enter ignored', RFG, "if (e.key !== 'Enter' && e.key !== ' ') return;", 'return;', ['figures']],
+    ['figures: the focus lost after a click', RFG, 'if (back && root.document.activeElement === root.document.body) back.focus({ preventScroll: true });', '', ['figures']],
+    ['figures: a hover with the next figure\'s words', RFG, 'const t = tips[+el.dataset.tip], box', 'const t = tips[+el.dataset.tip + 1], box', ['figures']],
+    ['figures: a hover running past the right edge', RFG, 'if (left + box.offsetWidth > fig.clientWidth - 4) left = Math.max(4, x - r.left - box.offsetWidth - 12);', '', ['figures']],
+    ['figures: the hover kept when the mouse leaves', RFG, "      else hideTip(fig);\n    });\n    fig.addEventListener('pointerleave'", "    });\n    fig.addEventListener('pointerleave'", ['figures']],
+    ['figures: "Places | Counties" ignored', RFG, '      if (look === el.dataset.look) return true;\n      look = el.dataset.look;\n', '      if (look === el.dataset.look) return true;\n', ['figures']],
+    ['figures: a shaded county not clickable', RFG, "const hit = n ? ' data-county=\"' + esc(names[i])", "const hit = false ? ' data-county=\"' + esc(names[i])", ['figures']],
+    ['figures: the counties shaded one step up', RFG, "'<path d=\"' + d + '\" fill=\"' + P.shadeOf(n) + '\"", "'<path d=\"' + d + '\" fill=\"' + P.shadeOf(n + 1) + '\"", ['figures']],
+    ['figures: no clear columns on the month chart', 'site/emergency/report-view.js', '    if (hits) {\n', '    if (false) {\n', ['figures']],
+    ['figures: the month chart not brought to its latest months', RFG, "const refit = () => { const el = drawn && drawn.box.querySelector('.rp-fig-scroll'); if (el) el.scrollLeft = el.scrollWidth; };", 'const refit = () => {};', ['figures']],
+    ['figures: a phone\'s table keeps every column', HT, '    .rp-fig table.rp-dt th:nth-child(3), .rp-fig table.rp-dt td:nth-child(3), .rp-fig table.rp-dt th:nth-child(5), .rp-fig table.rp-dt td:nth-child(5) { display: none; }\n', '', ['figures']],
+    ['figures: a new load keeps the pick', AP, '    W.emergencyReportFigures.reset();\n', '', ['figures']],
+    ['figures: the Overview\'s link never shown', AP, "$('ov-to-figures').hidden = !reportOn;", "$('ov-to-figures').hidden = true;", ['figures']],
+    ['figures: the Overview\'s link opens Fill in', AP, "    state.reportMode = 'figures';\n    showView('report');", "    showView('report');", ['figures']],
+    ['figures: no zones around the active places', RFG, 'for (const p of all.filter(x => x.active)) {', 'for (const p of all.filter(x => false)) {', ['figures']],
+    // 2.9, the release review's fixes and the guide.
+    ['load: the note never says how to go on with a draft of another date', AP, "(got.reportDate ? ' To go on with that report ' +", "(false ? ' To go on with that report ' +", ['page2']],
+    ['guide: the form\'s link to it broken', HT, '<a href="making-the-update.html" target="_blank" rel="noopener" id="rp-guide">', '<a href="making-the-update.htm" target="_blank" rel="noopener" id="rp-guide">', ['guide']],
+    ['guide: the link opening in the same tab', HT, 'target="_blank" rel="noopener" id="rp-guide"', 'rel="noopener" id="rp-guide"', ['guide']]
   ]
 };
 

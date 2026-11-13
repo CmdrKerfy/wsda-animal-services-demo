@@ -123,6 +123,9 @@ async function launch() {
     handle: () => call('GET', sid + '/window'),
     switchTo: async handle => { await call('POST', sid + '/window', { handle }); await foreground(); await d.run('window.focus();return true;'); await sleep(150); },
     size: (width, height) => call('POST', sid + '/window/rect', { width, height }),
+    // 2.9: real typing into an element (WebDriver's Element Send Keys).
+    type: async (sel, text) => { const e = await call('POST', sid + '/element', { using: 'css selector', value: sel });
+      await call('POST', sid + '/element/' + Object.values(e)[0] + '/value', { text }); },
     async close() {
       // Close only windows exposed by this automation session; leave the user's other Safari windows alone.
       try {
@@ -3350,7 +3353,52 @@ async function runEM() {
         box: document.querySelector('#box-positives strong').textContent };`);
       check(nws.type === 'nws' && nws.show === 'zones' && nws.zones === 2 && nws.box === '8',
         'EM Safari: the screwworm outbreak picks New World screwworm and uses its two dispersal areas; eight active positives', nws);
-      fs.writeFileSync(path.join(out, 'safari_em_' + mode + '.png'), Buffer.from(await d.screenshot(), 'base64'));
+      // 2.9, the Report view: the update's pages drawn by Safari, the form by a real click and real typing, "Ready to
+      // send", Safari reading the print styles, and Figures' hover and click by the real pointer.
+      {
+      v0 = await d.run(`return ${S}.version;`);
+      await d.run(SET_FILES, '#files-input', [b64(path.join(tables, 'em_rules_report.csv'))]);
+      await d.waitFor(`${S}.version > ` + v0 + ` && !${S}.loading && !document.getElementById('show-report').hidden`, 20000, 'report table loaded');
+      await d.click('#show-report');
+      await d.run(`var i=document.getElementById('rp-date');i.value='2026-09-01';i.dispatchEvent(new Event('change',{bubbles:true}));return true;`);
+      await d.waitFor(`WSDA.emergencyReportView.last && WSDA.emergencyReportView.last.figures.date === '2026-09-01'`, 10000, 'the report on Sep 1');
+      const rp = await d.run(`var v=WSDA.emergencyReportView.last;return { shown: !document.getElementById('view-report').hidden,
+        fill: document.getElementById('rp-show-fill').getAttribute('aria-pressed'), pages: document.querySelectorAll('#view-report .rp-page').length,
+        drawn: v.pages, count: document.getElementById('rp-count').textContent, drafts: document.querySelectorAll('#view-report .rp-draft').length,
+        cases: v.figures.cases };`);
+      check(rp.shown && rp.fill === 'true' && rp.pages >= 2 && rp.pages === rp.drawn && rp.count === rp.pages + ' pages, as they print'
+        && rp.drafts === rp.pages && rp.cases > 0,
+      'EM Safari: a real click on "Report" shows Fill in and the update\'s pages, laid out by Safari, each with its DRAFT mark', rp);
+      await d.click('input[name="rp-status"][value="own"]');
+      await d.waitFor(`!document.getElementById('rp-own').hidden`, 5000, 'Write my own box');
+      await d.type('#rp-own', 'Typed in Safari for the update.');
+      await d.waitFor(`document.querySelector('#view-report .rp-page').innerText.indexOf('Typed in Safari for the update.') >= 0`, 5000, 'own wording printed');
+      check(true, 'EM Safari: a real click on "Write my own" and real typing: the first page prints the words typed');
+      await d.click('#rp-ready');
+      await d.waitFor(`document.querySelectorAll('#view-report .rp-draft').length === 0`, 5000, 'DRAFT marks gone');
+      const css = await d.run(`var page=null,print=false;Array.prototype.forEach.call(document.styleSheets,function(sh){var rs;try{rs=sh.cssRules;}catch(e){return;}
+        Array.prototype.forEach.call(rs,function(r){if(r.type===6)page=r.style.getPropertyValue('size');if(r.type===4&&/print/.test(r.media.mediaText)&&/rp-page/.test(r.cssText))print=true;});});
+        return { page: page, print: print };`);
+      check(css.page === 'letter' && css.print, 'EM Safari: a real click on "Ready to send" takes the DRAFT marks off; Safari reads the letter page and the print styles', css);
+      await d.click('#rp-show-figures');
+      await d.waitFor(`document.querySelectorAll('#rp-fig-body .rp-tile').length === 6`, 5000, 'Figures drawn');
+      const tileAt = await d.run(`var r=document.querySelector('#rp-fig-body .rp-tile').getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];`);
+      await d.move(tileAt[0], tileAt[1]);
+      await d.waitFor(`!document.querySelector('#rp-figures .rp-tipbox').hidden`, 5000, 'a tile\'s hover');
+      const tip = await d.run(`return document.querySelector('#rp-figures .rp-tipbox').innerText;`);
+      const all = await d.run(`var e=document.querySelector('#rp-fig-counties [data-county]');return { county: e.dataset.county,
+        rows: document.querySelectorAll('#rp-fig-table td:first-child').length };`);
+      // By the county's name: a click draws the list again.
+      const county = '#rp-fig-counties [data-county="' + all.county + '"]';
+      await d.click(county);
+      const narrowed = await d.run(`return { rows: document.querySelectorAll('#rp-fig-table td:first-child').length, head: document.querySelector('#rp-fig-table h3').textContent };`);
+      await d.click(county);
+      const back = await d.run(`return document.querySelectorAll('#rp-fig-table td:first-child').length;`);
+      check(tip.length > 20 && narrowed.rows > 0 && narrowed.rows < all.rows && narrowed.head.indexOf(all.county) >= 0 && back === all.rows,
+        'EM Safari: Figures by real pointer moves and clicks: a tile\'s hover, a county narrowing the table and a second click giving it back',
+        { tip: tip.slice(0, 80), all, narrowed, back });
+      await d.click('#rp-show-fill');
+      }
       const errors = await d.run('var e = window.__errors || []; window.__errors = []; return e;');
       check(!errors.length, 'EM Safari: no page errors', errors);
     }

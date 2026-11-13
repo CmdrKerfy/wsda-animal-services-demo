@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
+<link rel="icon" href="data:,">
+<title>Making the HPAI update</title>
+<!-- The Emergency guide for staff who make the monthly HPAI update in the Report view. Its plain-text twin,
+     MAKING_THE_HPAI_UPDATE.txt beside it, says the same; the Emergency unit suite checks that both name the page's
+     own buttons and folds. -->
+<style>
+  :root { --blue: #1c5a83; --teal: #245566; --light: #e8f3f6; --line: #c9d6dc; --text: #1f2a30; --muted: #56656d;
+    --ok: #2f6b1d; --ok-bg: #e4eedf; --warn: #9a3b00; --warn-bg: #fff1e0; --code-bg: #f4f6f7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.55 -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text); background: #fff; }
+  header { background: var(--blue); color: #fff; padding: 18px 16px; }
+  header h1 { margin: 0; font-size: 1.5rem; }
+  header p { margin: 4px 0 0; opacity: 0.9; }
+  header .file { background: rgba(255, 255, 255, 0.18); color: #fff; }
+  main { max-width: 820px; margin: 0 auto; padding: 8px 16px 48px; }
+  nav { background: var(--light); border-radius: 6px; padding: 10px 14px; margin: 16px 0; }
+  nav ol { margin: 4px 0 0; padding-left: 22px; }
+  nav a { color: var(--blue); }
+  h2 { color: var(--blue); font-size: 1.25rem; margin: 32px 0 8px; padding-top: 8px; border-top: 2px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 20px 0 6px; color: var(--teal); }
+  .step { display: inline-block; background: var(--blue); color: #fff; border-radius: 12px; padding: 0 9px; margin-right: 6px; font-size: 0.85rem; }
+  .file { font-family: Menlo, Consolas, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
+  .btn { display: inline-block; border: 1px solid var(--blue); color: var(--blue); border-radius: 4px; padding: 0 7px; font-size: 0.92em; white-space: nowrap; }
+  .tag { display: inline-block; border-radius: 3px; padding: 0 6px; font-size: 0.92em; white-space: nowrap; }
+  .tag.ok { color: var(--ok); background: var(--ok-bg); }
+  .tag.warn { color: var(--warn); background: var(--warn-bg); font-weight: 700; }
+  .tag.plain { color: var(--muted); background: var(--code-bg); }
+  .box { border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .tip { background: var(--light); border-left: 4px solid var(--blue); }
+  .careful { background: var(--warn-bg); border-left: 4px solid var(--warn); }
+  ol.do > li { margin: 6px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--light); }
+  .muted { color: var(--muted); font-size: 0.92rem; }
+  @media print { nav { display: none; } h2 { break-after: avoid; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Making the HPAI update</h1>
+  <p>Emergency Response dashboard &middot; for staff who make the monthly HPAI update &middot; also as
+    <span class="file">MAKING_THE_HPAI_UPDATE.txt</span> beside this page</p>
+</header>
+<main>
+<p>The dashboard makes the monthly HPAI update for you. You load the HPAI table, and the dashboard counts
+  Washington's figures and draws the pages. You type only what comes from other places (USDA's and WADDL's
+  numbers) and the words that change from month to month. Then you save it as a PDF.</p>
+<p>It takes about 20 minutes once you have last month's file. Nothing you load or type leaves your computer.</p>
+
+<nav aria-label="On this page"><strong>On this page</strong>
+  <ol>
+    <li><a href="#before">Before you start</a></li>
+    <li><a href="#open">Open the Report view</a></li>
+    <li><a href="#month">Each month, step by step</a></li>
+    <li><a href="#headings">What the fold headings tell you</a></li>
+    <li><a href="#print">Print or save the PDF</a></li>
+    <li><a href="#figures">Figures: the update's figures on screen</a></li>
+    <li><a href="#counting">How the update counts</a></li>
+    <li><a href="#wrong">When something looks wrong</a></li>
+  </ol>
+</nav>
+
+<h2 id="before">1. Before you start</h2>
+<p>Have these ready:</p>
+<ul>
+  <li><strong>The HPAI table</strong>, saved as a <span class="file">.csv</span> file (in Excel: File, Save As, CSV).</li>
+  <li><strong>Last month's report text</strong>, the small file you saved last month, named like
+    <span class="file">HPAI update 2026-09-01 report text.json</span>. The first time, you start without one.</li>
+  <li><strong>USDA's and WADDL's pages</strong>, open in other browser tabs, for the national, wild bird and testing
+    numbers. USDA's addresses are in the National (USDA) fold's address boxes; WADDL's are in the Wild birds and
+    testing (WADDL) fold's link lists.</li>
+</ul>
+
+<h2 id="open">2. Open the Report view</h2>
+<ol class="do">
+  <li>Open the Emergency Response dashboard and load the HPAI table under <strong>Load your data</strong>.</li>
+  <li>Above the map, press <span class="btn">Report</span> (beside <span class="btn">Map</span> and
+    <span class="btn">Overview</span>).</li>
+  <li>At the top, <span class="btn">Fill in</span> is pressed: the form is on the left and the update's pages are on
+    the right. The pages change as you type.</li>
+</ol>
+<div class="box tip">The pages always count the <strong>whole table</strong>, whatever the map's "Animals" ticks or dates
+  are set to.</div>
+
+<h2 id="month">3. Each month, step by step</h2>
+<p>The form is in folds. Click a fold's heading to open or close it. Work from the top down.</p>
+
+<h3><span class="step">1</span>Load last month's report text</h3>
+<p>Press <span class="btn">Load last month's</span> at the bottom of the form and pick last month's report text. It
+  fills in the words, the key messages, the boxes and the links. USDA's and WADDL's numbers and pictures stay
+  empty for the new month, but last month's numbers are kept to compare with.</p>
+<div class="box tip">To go on with a draft you saved <strong>this</strong> month, set the <strong>Report date</strong> to the
+  draft's date first, then load it: its numbers then come back too.</div>
+
+<h3><span class="step">2</span>Report date</h3>
+<p>Set the date the update is for. Every figure is counted as on that date; a row detected after it is left out.</p>
+
+<h3><span class="step">3</span>Washington: the status</h3>
+<p>Read the line "From the data on ..." at the top of the fold. It says how many active positives and zones there
+  are. Then pick the status sentence that fits it. If your pick doesn't fit the data, the fold says
+  <span class="tag warn">Check</span> and explains why. Pick <strong>Write my own</strong> only when no approved
+  wording fits.</p>
+<p>Also pick the <strong>milk testing stage</strong>, and tick <strong>Suspected livestock cases are being tested</strong>
+  only when that's true.</p>
+
+<h3><span class="step">4</span>Washington: from the data</h3>
+<p>Nothing to type: Washington's numbers fill themselves in. Choose <strong>the map's look</strong>:
+  <strong>Soft dots (no exact place)</strong> or <strong>Counties shaded by cases</strong>. Neither shows a real
+  farm's place. If you know of a gap (for example, cases not yet entered in the table), write it in the optional
+  note. You can't type over the numbers; the note is the way to explain one.</p>
+
+<h3><span class="step">5</span>Key messages</h3>
+<p>Each message has a headline, an icon, its words and an optional link. Tick <strong>Highlight</strong> to shade a
+  card. Use the arrows to move a message, <strong>Set aside</strong> to keep it for another month without printing it,
+  and <span class="btn">+ Add a message</span> for a new one. <strong>Icon style</strong> (Filled or Outline) changes
+  every card at once. The livestock card comes after your messages; it is made from the data.</p>
+
+<h3><span class="step">6</span>National (USDA)</h3>
+<p>Copy each number from USDA's page into its box, with USDA's <strong>As of</strong> date. Don't type the flocks in
+  all; the form adds them up.</p>
+<p>For <strong>USDA's maps, last 30 days</strong>, add a picture of each of USDA's three maps: press
+  <span class="btn">Add USDA's picture</span> and pick a saved picture, or take a snip of the map (on Windows,
+  Windows key + Shift + S), click the box and press Ctrl+V.</p>
+
+<h3><span class="step">7</span>Wild birds and testing (WADDL)</h3>
+<p>Type Washington's wild bird and wild mammal numbers. If there were none, tick "No wild bird detections reported in
+  the last 30 days" (or the mammal one) instead. Under <strong>Testing (WADDL)</strong>, type the PCR tests with
+  WADDL's <strong>As of</strong> date and the number for each category.</p>
+
+<h3><span class="step">8</span>Boxes and resources</h3>
+<p>The line under the title, the hotline, the "Report online at" address, the alternate-format line and the link
+  lists. They stay the same from month to month; change them only when they change.</p>
+
+<h3><span class="step">9</span>Save your work</h3>
+<ul>
+  <li><span class="btn">&#8595; Save report text</span> saves everything you typed in one small file (nothing from the
+    table). Keep it on the R drive; next month you load it in step 1.</li>
+  <li><span class="btn">&#8595; Save for ArcGIS</span> saves page 2's numbers as <span class="file">hpai-monthly-figures.csv</span>
+    with the Washington sentences, for the ArcGIS dashboard's monthly table, so you type them only once.</li>
+</ul>
+<div class="box careful">The pictures are not kept in the report text. Each month starts without them.</div>
+
+<h2 id="headings">4. What the fold headings tell you</h2>
+<p>Each fold's heading says how it stands, so you can see what's left without opening every fold:</p>
+<table>
+  <tr><th>The heading says</th><th>What it means</th></tr>
+  <tr><td><span class="tag ok">Matches the data</span> <span class="tag ok">Automatic</span> <span class="tag ok">All filled</span></td><td>Nothing to do.</td></tr>
+  <tr><td><span class="tag plain">Kept month to month</span> <span class="tag plain">3 messages</span></td><td>Fine as it is; look it over.</td></tr>
+  <tr><td><span class="tag warn">Check</span> <span class="tag warn">2 to check</span></td><td>Open the fold: a box with an orange edge says what looks wrong under it.</td></tr>
+  <tr><td><span class="tag warn">15 not filled &middot; 3 pictures</span></td><td>Boxes still empty and pictures still to add. An empty box prints "not filled", never last month's number.</td></tr>
+</table>
+<p>The form checks the numbers you type. It says so when:</p>
+<ul>
+  <li>an "As of" date is missing, more than a month old, or after the report's date;</li>
+  <li>a word is typed where a number goes;</li>
+  <li>a last-30-days number is larger than its total;</li>
+  <li>a total is lower than last month's, or the same as in the last two reports;</li>
+  <li>an address would not open.</li>
+</ul>
+<p>A check is a reminder, not a stop: if the number really is right, leave it.</p>
+
+<h2 id="print">5. Print or save the PDF</h2>
+<ol class="do">
+  <li>Every page says <strong>DRAFT</strong> until you tick <strong>Ready to send</strong> (beside the print button).
+    If something is still orange, the line beside it names the folds.</li>
+  <li>Press <span class="btn">Print / Save as PDF</span>.</li>
+  <li>In the print window, choose <strong>Save as PDF</strong> as the printer (Destination) and save. The file name
+    is already "HPAI update" and the date.</li>
+</ol>
+<p class="muted">Only the update's pages print, at letter size. If the colors are missing, tick "Background
+  graphics" under More settings.</p>
+
+<h2 id="figures">6. Figures: the update's figures on screen</h2>
+<p>Press <span class="btn">Figures</span> at the top of the Report view to read page 1's figures on screen. It is the
+  fallback if the ArcGIS dashboard is down.</p>
+<ul>
+  <li>Rest the pointer on any number, bar or month to see it and how it is counted.</li>
+  <li>Click a county or a month to list only its cases in the table. Click it again (or the &times; beside its name)
+    to see this year's cases again.</li>
+  <li>The map's <span class="btn">Places</span> | <span class="btn">Counties</span>: Places shows each case at its real
+    place, with the active ones' 3 and 10 km zones. <strong>Figures is for staff only</strong>; it never prints.
+    Printing from Figures prints the update's pages.</li>
+</ul>
+<p>The Overview's link <strong>The update's figures: Report</strong> opens Figures too.</p>
+
+<h2 id="counting">7. How the update counts</h2>
+<p>The update counts a little differently from the map and the Overview, so it matches the update as it has always
+  been published:</p>
+<ul>
+  <li><strong>Every row is a case.</strong> A premises detected twice counts twice; the update says how many were
+    detected more than once.</li>
+  <li><strong>A row without a map point still counts</strong>, in its county. It is left off only the map.</li>
+  <li><strong>A row detected after the report's date is left out</strong>, so an older update can be made again as it
+    read then. A row without a readable date counts in the totals but in no month.</li>
+  <li><strong>Flock size:</strong> Small under 100 birds, Medium 100 to 999, Large 1,000 or more.</li>
+  <li><strong>Active surveillance areas</strong> are the zones around the cases active on the report's date.</li>
+</ul>
+
+<h2 id="wrong">8. When something looks wrong</h2>
+<table>
+  <tr><th>What you see</th><th>What to do</th></tr>
+  <tr><td>No <span class="btn">Report</span> button</td><td>Load the HPAI table first. The button shows only for an emergency that has an update (today, HPAI).</td></tr>
+  <tr><td>A Washington number looks wrong</td><td>Check the report date first. Then use Figures: rest the pointer on the
+    number to see how it is counted, and click its county or month to list the cases behind it. A wrong number comes
+    from the table, so fix the table and load it again.</td></tr>
+  <tr><td>"Load last month's" says a part was not kept</td><td>The file was saved by an older version or changed by hand.
+    The form keeps what it could read and names the rest; fill those in again.</td></tr>
+  <tr><td>A picture won't go in</td><td>Click the picture's box first, then press Ctrl+V. A picture over 10 MB, or a file
+    that isn't a picture, is refused and the box says so.</td></tr>
+  <tr><td>The PDF still says DRAFT</td><td>Tick <strong>Ready to send</strong>, then print again.</td></tr>
+</table>
+</main>
+</body>
+</html>

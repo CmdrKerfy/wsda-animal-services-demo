@@ -1,0 +1,211 @@
+MAKING THE HPAI UPDATE (EMERGENCY RESPONSE)
+===========================================
+
+(The same guide as making-the-update.html beside this file, which opens in a browser.)
+
+The dashboard makes the monthly HPAI update for you. You load the HPAI table,
+and the dashboard counts Washington's figures and draws the pages. You type
+only what comes from other places (USDA's and WADDL's numbers) and the words
+that change from month to month. Then you save it as a PDF.
+
+It takes about 20 minutes once you have last month's file. Nothing you load
+or type leaves your computer.
+
+
+1. BEFORE YOU START
+-------------------
+
+Have these ready:
+  - The HPAI table, saved as a .csv file (in Excel: File, Save As, CSV).
+  - Last month's report text, the small file you saved last month, named like
+      HPAI update 2026-09-01 report text.json
+    The first time, you start without one.
+  - USDA's and WADDL's pages, open in other browser tabs, for the national,
+    wild bird and testing numbers. USDA's addresses are in the National
+    (USDA) fold's address boxes; WADDL's are in the Wild birds and testing
+    (WADDL) fold's link lists.
+
+
+2. OPEN THE REPORT VIEW
+-----------------------
+
+  1. Open the Emergency Response dashboard and load the HPAI table under
+     "Load your data".
+  2. Above the map, press "Report" (beside "Map" and "Overview").
+  3. At the top, "Fill in" is pressed: the form is on the left and the
+     update's pages are on the right. The pages change as you type.
+
+  Note: the pages always count the whole table, whatever the map's "Animals"
+  ticks or dates are set to.
+
+
+3. EACH MONTH, STEP BY STEP
+---------------------------
+
+The form is in folds. Click a fold's heading to open or close it. Work from
+the top down.
+
+STEP 1. Load last month's report text
+  Press "Load last month's" at the bottom of the form and pick last month's
+  report text. It fills in the words, the key messages, the boxes and the
+  links. USDA's and WADDL's numbers and pictures stay empty for the new month,
+  but last month's numbers are kept to compare with.
+  To go on with a draft you saved THIS month, set the Report date to the
+  draft's date first, then load it: its numbers then come back too.
+
+STEP 2. Report date
+  Set the date the update is for. Every figure is counted as on that date; a
+  row detected after it is left out.
+
+STEP 3. Washington: the status
+  Read the line "From the data on ..." at the top of the fold. It says how
+  many active positives and zones there are. Then pick the status sentence
+  that fits it. If your pick doesn't fit the data, the fold says "Check" (in
+  orange) and explains why. Pick "Write my own" only when no approved wording
+  fits.
+  Also pick the milk testing stage, and tick "Suspected livestock cases are
+  being tested" only when that's true.
+
+STEP 4. Washington: from the data
+  Nothing to type: Washington's numbers fill themselves in. Choose the map's
+  look: "Soft dots (no exact place)" or "Counties shaded by cases". Neither
+  shows a real farm's place. If you know of a gap (for example, cases not yet
+  entered in the table), write it in the optional note. You can't type over
+  the numbers; the note is the way to explain one.
+
+STEP 5. Key messages
+  Each message has a headline, an icon, its words and an optional link. Tick
+  "Highlight" to shade a card. Use the arrows to move a message, "Set aside"
+  to keep it for another month without printing it, and "+ Add a message"
+  for a new one. "Icon style" (Filled or Outline) changes every card at once.
+  The livestock card comes after your messages; it is made from the data.
+
+STEP 6. National (USDA)
+  Copy each number from USDA's page into its box, with USDA's "As of" date.
+  Don't type the flocks in all; the form adds them up.
+  For "USDA's maps, last 30 days", add a picture of each of USDA's three
+  maps: press "Add USDA's picture" and pick a saved picture, or take a snip
+  of the map (on Windows, Windows key + Shift + S), click the box and press
+  Ctrl+V.
+
+STEP 7. Wild birds and testing (WADDL)
+  Type Washington's wild bird and wild mammal numbers. If there were none,
+  tick "No wild bird detections reported in the last 30 days" (or the mammal
+  one) instead. Under "Testing (WADDL)", type the PCR tests with WADDL's
+  "As of" date and the number for each category.
+
+STEP 8. Boxes and resources
+  The line under the title, the hotline, the "Report online at" address, the
+  alternate-format line and the link lists. They stay the same from month to
+  month; change them only when they change.
+
+STEP 9. Save your work
+  - "Save report text" saves everything you typed in one small file (nothing
+    from the table). Keep it on the R drive; next month you load it in
+    step 1.
+  - "Save for ArcGIS" saves page 2's numbers as hpai-monthly-figures.csv with
+    the Washington sentences, for the ArcGIS dashboard's monthly table, so
+    you type them only once.
+  Careful: the pictures are not kept in the report text. Each month starts
+  without them.
+
+
+4. WHAT THE FOLD HEADINGS TELL YOU
+----------------------------------
+
+Each fold's heading says how it stands, so you can see what's left without
+opening every fold:
+
+  The heading says                      What it means
+  ------------------------------------  ------------------------------------
+  Matches the data, Automatic,          Nothing to do.
+  All filled (green)
+  Kept month to month, 3 messages       Fine as it is; look it over.
+  (gray)
+  Check, 2 to check (orange)            Open the fold: a box with an orange
+                                        edge says what looks wrong under it.
+  15 not filled . 3 pictures (orange)   Boxes still empty and pictures still
+                                        to add. An empty box prints "not
+                                        filled", never last month's number.
+
+The form checks the numbers you type. It says so when:
+  - an "As of" date is missing, more than a month old, or after the report's
+    date;
+  - a word is typed where a number goes;
+  - a last-30-days number is larger than its total;
+  - a total is lower than last month's, or the same as in the last two
+    reports;
+  - an address would not open.
+A check is a reminder, not a stop: if the number really is right, leave it.
+
+
+5. PRINT OR SAVE THE PDF
+------------------------
+
+  1. Every page says DRAFT until you tick "Ready to send" (beside the print
+     button). If something is still orange, the line beside it names the
+     folds.
+  2. Press "Print / Save as PDF".
+  3. In the print window, choose "Save as PDF" as the printer (Destination)
+     and save. The file name is already "HPAI update" and the date.
+
+Only the update's pages print, at letter size. If the colors are missing,
+tick "Background graphics" under More settings.
+
+
+6. FIGURES: THE UPDATE'S FIGURES ON SCREEN
+------------------------------------------
+
+Press "Figures" at the top of the Report view to read page 1's figures on
+screen. It is the fallback if the ArcGIS dashboard is down.
+  - Rest the pointer on any number, bar or month to see it and how it is
+    counted.
+  - Click a county or a month to list only its cases in the table. Click it
+    again (or the x beside its name) to see this year's cases again.
+  - The map's "Places | Counties": Places shows each case at its real place,
+    with the active ones' 3 and 10 km zones. Figures is for staff only; it
+    never prints. Printing from Figures prints the update's pages.
+The Overview's link "The update's figures: Report" opens Figures too.
+
+
+7. HOW THE UPDATE COUNTS
+------------------------
+
+The update counts a little differently from the map and the Overview, so it
+matches the update as it has always been published:
+  - Every row is a case. A premises detected twice counts twice; the update
+    says how many were detected more than once.
+  - A row without a map point still counts, in its county. It is left off
+    only the map.
+  - A row detected after the report's date is left out, so an older update
+    can be made again as it read then. A row without a readable date counts
+    in the totals but in no month.
+  - Flock size: Small under 100 birds, Medium 100 to 999, Large 1,000 or
+    more.
+  - Active surveillance areas are the zones around the cases active on the
+    report's date.
+
+
+8. WHEN SOMETHING LOOKS WRONG
+----------------------------
+
+No "Report" button
+  Load the HPAI table first. The button shows only for an emergency that has
+  an update (today, HPAI).
+
+A Washington number looks wrong
+  Check the report date first. Then use Figures: rest the pointer on the
+  number to see how it is counted, and click its county or month to list the
+  cases behind it. A wrong number comes from the table, so fix the table and
+  load it again.
+
+"Load last month's" says a part was not kept
+  The file was saved by an older version or changed by hand. The form keeps
+  what it could read and names the rest; fill those in again.
+
+A picture won't go in
+  Click the picture's box first, then press Ctrl+V. A picture over 10 MB, or a
+  file that isn't a picture, is refused and the box says so.
+
+The PDF still says DRAFT
+  Tick "Ready to send", then print again.

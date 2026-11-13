@@ -166,6 +166,8 @@
   .maplibregl-popup-content .tip-item + .tip-item { margin-top: 4px; }
   .maplibregl-popup-content hr { margin: 4px 0; border: 0; border-top: 1px solid var(--border); }
   .maplibregl-popup-content .tip-foot { color: var(--muted); margin-top: 4px; }
+  /* 2.9: the cases sharing a map point, in a gold-edged box under the positive's lines. */
+  .maplibregl-popup-content .tip-shared { margin-top: 5px; padding: 3px 6px; background: #fff6d6; border-left: 3px solid var(--wsda-gold); font-size: 0.85rem; }
   .map-screenshot svg, .map-fit svg { width: 15px; height: 15px; display: block; margin: auto; color: #333; }
   #em-legend { position: absolute; right: 8px; bottom: 32px; z-index: 3; background: white; border: 1px solid var(--border); padding: 6px 8px; max-width: 210px; max-height: 50%; overflow-x: hidden; overflow-y: auto; font-size: 12px; line-height: 1.3; }
   #em-legend summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; }
@@ -429,6 +431,293 @@
     .ov-panel { padding: 1.1rem 0.9rem 1.2rem; }
     .ov-table th, .ov-table td { padding-right: 1.1rem; }
   }
+  /* The Report view (2.9, E2): the update's pages as they print, letter size (816 by 1056 px at 96 per inch), scaled to
+     the column on screen; report-view.js draws them. */
+  #em-view .btn + .btn:not(:last-child) { border-radius: 0; }
+  .rp-bar-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; margin: 0 0 0.75rem; }
+  .rp-bar-top .rp-count { color: var(--muted); font-size: 0.82rem; }
+  .rp-note { color: var(--muted); font-size: 0.82rem; margin: -0.35rem 0 0.75rem; }
+  /* The form beside the pages: the Report view takes the page's width, the controls and the value boxes kept
+     for the Map and the Overview. */
+  body.rp-on .explore { grid-template-columns: minmax(0, 1fr); }
+  body.rp-on .em-controls, body.rp-on .em-main > :not(#em-view):not(#view-report) { display: none; }
+  .rp-layout { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 1rem; align-items: start; }
+  .rp-form { position: sticky; top: 0.5rem; max-height: calc(100vh - 1rem); overflow: auto; border: 1px solid var(--dark-blue-20);
+    border-radius: 6px; background: var(--dark-blue-5); padding: 0.75rem; }
+  .rp-form h2 { font-size: 1rem; margin: 0 0 0.4rem; color: var(--heading); }
+  .rp-form .lead, .rp-form .hint { font-size: 0.8rem; color: var(--black-60); margin: 0 0 0.6rem; }
+  .rp-form .hint { margin: 0.25rem 0 0; }
+  .rp-fold { background: #fff; border: 1px solid var(--dark-blue-20); border-radius: 4px; margin: 0 0 0.5rem; }
+  .rp-fold summary { cursor: pointer; padding: 0.45rem 0.6rem; font-weight: 600; font-size: 0.9rem; color: var(--heading); display: flex; gap: 0.4rem; align-items: center; }
+  .rp-fold summary .tag { margin-left: auto; font-weight: 400; font-size: 0.85rem; color: var(--black-60); text-align: right; }
+  .rp-fold summary .tag.ok { color: var(--wsda-evergreen); }
+  .rp-fold summary .tag.warn { color: #9a3b00; font-weight: 700; }
+  .rp-fold summary .tag.warn::before { content: "\25CF"; margin-right: 0.25rem; color: var(--wsda-orange); }
+  .rp-fold .body { padding: 0 0.6rem 0.6rem; }
+  .rp-form fieldset { border: 0; padding: 0; margin: 0.45rem 0 0; }
+  .rp-form legend, .rp-form .body > label:not(.radio), .rp-form #rp-livestock > label:not(.radio), .rp-form #rp-milk-own > label { display: block; font-size: 0.8rem;
+    font-weight: 600; color: var(--black-80); margin: 0.5rem 0 0.15rem; padding: 0; }
+  .rp-form input[type=text], .rp-form input[type=date], .rp-form select, .rp-form textarea { width: 100%; box-sizing: border-box;
+    border: 1px solid var(--dark-teal-40); border-radius: 3px; padding: 0.3rem 0.4rem; font: inherit; font-size: 0.85rem; background: #fff; }
+  .rp-form textarea { min-height: 3.6rem; resize: vertical; }
+  .rp-form .radio { display: flex; gap: 0.4rem; align-items: flex-start; font-size: 0.85rem; margin: 0.3rem 0; font-weight: 400; }
+  .rp-form .radio input { margin-top: 0.2rem; flex: none; }
+  .rp-form .auto { font-size: 0.8rem; background: var(--evergreen-15); border-left: 3px solid var(--wsda-evergreen); padding: 0.35rem 0.5rem; margin: 0.3rem 0 0; }
+  .rp-form .warning { font-size: 0.8rem; background: #fff1e0; border-left: 3px solid var(--wsda-orange); color: #5a2a00; padding: 0.35rem 0.5rem; margin: 0.4rem 0 0; }
+  .rp-form .warning[hidden], .rp-form [hidden] { display: none; }
+  .rp-icon-style { display: flex; flex-wrap: wrap; gap: 0 1rem; align-items: center; }
+  .rp-icon-style legend { width: 100%; }
+  .rp-icon-style .smp { color: var(--wsda-dark-teal); display: inline-flex; }
+  .rp-msg { border: 1px solid var(--dark-blue-20); border-radius: 4px; padding: 0.45rem 0.5rem; margin: 0.5rem 0 0; background: var(--dark-blue-5); }
+  .rp-msg .top { display: flex; align-items: center; gap: 0.2rem; font-size: 0.8rem; font-weight: 700; color: var(--heading); white-space: nowrap; }
+  .rp-msg .top .sp { flex: 1; }
+  .rp-msg.hl { border-color: var(--wsda-dark-teal); background: var(--dark-blue-10); box-shadow: inset 4px 0 0 var(--wsda-dark-teal); }
+  .rp-msg .top .radio { margin: 0 0.25rem 0 0; gap: 0.25rem; font-size: 0.75rem; font-weight: 600; color: var(--black-80); align-items: center; }
+  .rp-msg .top .radio input { margin: 0; }
+  .rp-msg .lines { font-size: 0.75rem; color: var(--black-60); margin: 0.15rem 0 0; }
+  .rp-msg .pair { font-size: 0.78rem; background: #fff7ec; border-left: 3px solid #f0b46a; color: #5a2a00; padding: 0.3rem 0.45rem; margin: 0.35rem 0 0; }
+  .rp-form .rp-msgs-where { font-size: 0.8rem; color: var(--black-80); margin: 0.5rem 0 0; }
+  .rp-msg .mini { border: 1px solid var(--dark-teal-40); background: #fff; border-radius: 3px; min-width: 1.6rem; height: 1.6rem; padding: 0;
+    font-size: 0.85rem; line-height: 1; color: var(--black-80); cursor: pointer; }
+  .rp-msg .mini:disabled { opacity: 0.4; cursor: default; }
+  .rp-msg label:not(.radio), .rp-msg .lab { display: block; font-size: 0.8rem; font-weight: 600; color: var(--black-80); margin: 0.4rem 0 0.15rem; }
+  .rp-msg .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+  .rp-icon-btn { display: flex; align-items: center; gap: 0.45rem; width: 100%; border: 1px solid var(--dark-teal-40); border-radius: 3px;
+    background: #fff; padding: 0.25rem 0.45rem; font: inherit; font-size: 0.85rem; color: var(--black-80); cursor: pointer; text-align: left; }
+  .rp-icon-btn .em-ic { color: var(--wsda-dark-teal); flex: none; }
+  .rp-icon-btn .caret { margin-left: auto; color: var(--black-60); }
+  .rp-picker { border: 1px solid var(--dark-teal-40); border-top: 0; border-radius: 0 0 3px 3px; background: #fff; padding: 0.3rem 0.45rem 0.45rem;
+    max-height: 260px; overflow: auto; }
+  .rp-picker .g b { display: block; font-size: 0.75rem; color: var(--black-60); margin: 0.3rem 0 0.15rem; }
+  .rp-picker .grid { display: flex; flex-wrap: wrap; gap: 3px; }
+  .rp-picker button { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    border: 1px solid var(--dark-blue-20); border-radius: 3px; background: #fff; color: var(--wsda-dark-teal); }
+  .rp-picker button:hover { background: var(--dark-blue-10); }
+  .rp-picker button[aria-pressed="true"] { border: 2px solid var(--wsda-dark-teal); background: var(--dark-blue-10); }
+  .rp-msg .mini.wide { min-width: 0; padding: 0 0.4rem; font-size: 0.75rem; }
+  .rp-aside { margin: 0.6rem 0 0; font-size: 0.8rem; border-top: 1px dashed var(--dark-teal-40); padding-top: 0.4rem; }
+  .rp-aside ul { list-style: none; margin: 0.25rem 0 0; padding: 0; }
+  .rp-aside li { display: flex; align-items: center; gap: 0.4rem; margin: 0.2rem 0; color: var(--black-80); }
+  .rp-aside li .em-ic { color: var(--wsda-dark-teal); flex: none; }
+  .rp-aside li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rp-aside .mini { border: 1px solid var(--dark-teal-40); background: #fff; border-radius: 3px; height: 1.6rem; padding: 0 0.45rem; font-size: 0.75rem; cursor: pointer; }
+  .rp-form .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+  .rp-form fieldset > label:not(.radio), .rp-form .row2 label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--black-80); margin: 0.4rem 0 0.15rem; }
+  .rp-file { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+  .rp-file .btn { font-size: 0.85rem; }
+  .rp-file-note { flex-basis: 100%; font-size: 0.8rem; margin: 0.2rem 0 0; color: var(--black-80); }
+  .rp-file-note.warn { background: #fff1e0; border-left: 3px solid var(--wsda-orange); color: #5a2a00; padding: 0.35rem 0.5rem; }
+  .rp-send { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .rp-ready { display: flex; align-items: center; gap: 0.35rem; font-weight: 600; color: var(--heading); }
+  .rp-ready-note { font-size: 0.82rem; color: var(--muted); margin: -0.35rem 0 0.75rem; text-align: right; }
+  .rp-ready-note:empty { display: none; }
+  .rp-ready-note.warn { color: #9a3b00; }
+  .rp-page .rp-draft { position: absolute; left: 0; right: 0; top: 40%; text-align: center; font-size: 170px; font-weight: 800; letter-spacing: 12px;
+    color: rgba(202, 48, 20, 0.09); transform: rotate(-28deg); pointer-events: none; line-height: 1; }
+  .rp-page .rp-draft-tag { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+    color: var(--wsda-crimson); border: 1px solid var(--wsda-crimson); border-radius: 3px; padding: 0 6px; background: #fff; text-transform: uppercase; }
+  .rp-msg-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+  .rp-page .rp-note-p { font-size: 10px; margin-top: 4px; padding: 3px 7px; border-left: 3px solid var(--wsda-dark-teal); background: var(--dark-blue-10); }
+  /* Page 2's folds (2.9): a box to check has an orange edge and its line under it; the
+     picture slots wait for a paste with a dashed edge; the categories and link lists in rows. */
+  .rp-p2f input { margin: 0; }
+  .rp-p2f.chk input, .rp-cat.chk input, .rp-link.chk input { border-color: #c25400; box-shadow: 0 0 0 1px #c25400; background: #fffaf3; }
+  .rp-form .why { color: #8a3a00; font-size: 0.72rem; line-height: 1.25; margin: 0.15rem 0 0.3rem; }
+  .rp-form .why::before { content: "\25CF"; color: var(--wsda-orange); margin-right: 0.25rem; }
+  .rp-cmp { font-size: 0.75rem; color: var(--black-80); background: var(--dark-blue-5); border-radius: 3px; padding: 0.25rem 0.45rem; margin: 0 0 0.4rem; }
+  .rp-form .lab { display: block; font-size: 0.8rem; font-weight: 600; color: var(--black-80); margin: 0.4rem 0 0.15rem; }
+  .rp-form input:disabled { background: var(--dark-blue-5); }
+  .rp-slot { display: grid; grid-template-columns: 1fr auto auto; gap: 0.3rem 0.4rem; align-items: center; border: 1px solid var(--dark-blue-20); border-radius: 4px;
+    padding: 0.4rem; margin: 0.35rem 0; font-size: 0.8rem; background: var(--dark-blue-5); cursor: pointer; }
+  .rp-slot b { grid-column: 1 / -1; color: var(--heading); }
+  .rp-slot img { grid-column: 1 / -1; max-width: 100%; max-height: 90px; justify-self: start; border: 1px solid var(--border); }
+  .rp-slot .none { color: #9a3b00; font-style: italic; }
+  .rp-slot .none.ready { color: var(--wsda-dark-teal); font-style: normal; font-weight: 700; }
+  .rp-slot .from { color: var(--black-80); }
+  .rp-slot .paste { grid-column: 1 / -1; font-size: 0.72rem; color: var(--wsda-dark-teal); }
+  .rp-slot.wait, .rp-slot:focus { outline: 2px dashed var(--wsda-dark-teal); outline-offset: 1px; background: var(--dark-blue-10); }
+  .rp-slot .btn { font-size: 0.85rem; }
+  .rp-cat { display: grid; grid-template-columns: 1fr 5.5rem 1.8rem; gap: 0.3rem; margin: 0.2rem 0; }
+  .rp-link { display: grid; grid-template-columns: 1fr 1fr 1.6rem 1.6rem 1.6rem; gap: 0.25rem; margin: 0.2rem 0; }
+  .rp-linkhead { display: grid; grid-template-columns: 1fr 1fr 5rem; gap: 0.25rem; font-size: 0.75rem; color: var(--black-60); }
+  .rp-link .mini, .rp-cat .mini { border: 1px solid var(--dark-teal-40); background: #fff; border-radius: 3px; padding: 0; height: 1.75rem; cursor: pointer; }
+  .rp-link .mini:disabled { opacity: 0.4; cursor: default; }
+  .rp-form .rp-add { margin-top: 0.3rem; font-size: 0.8rem; }
+  .rp-sub { margin: 0.3rem 0 0.5rem; }
+  /* Page 2 on the pages (2.9): a typed box left empty prints "not filled" in orange. */
+  .rp-page .rp-nf { color: #9a3b00; font-style: italic; font-weight: 400; }
+  .rp-tile .v .rp-nf { font-size: 13px; }
+  .rp-tiles.t3 { grid-template-columns: repeat(3, 1fr); }
+  .rp-p2 .rp-tile { padding: 3px 7px; }
+  .rp-p2 .rp-tile .v { font-size: 18px; }
+  .rp-maps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .rp-maps figure { margin: 0; border: 1px solid var(--dark-teal-20); border-radius: 3px; padding: 4px 6px; background: #fff; }
+  .rp-maps figcaption { font-size: 10.5px; font-weight: 700; color: var(--wsda-dark-teal); }
+  .rp-maps .sub { font-size: 9.5px; color: var(--black-60); }
+  .rp-pic { height: 104px; display: flex; align-items: center; justify-content: center; background: var(--dark-blue-5); margin: 3px 0; }
+  .rp-pic img { max-width: 100%; max-height: 100%; }
+  .rp-page .rp-p { font-size: 10px; margin: 0 0 3px; }
+  .rp-cap { font-size: 10.5px; font-weight: 700; color: var(--wsda-dark-teal); margin-top: 4px; }
+  .rp-bars { width: 100%; height: auto; display: block; }
+  .rp-call { background: var(--wsda-dark-teal); color: #fff; padding: 6px 9px; border-radius: 3px; font-size: 10px; line-height: 1.35; border-top: 3px solid var(--wsda-gold); }
+  .rp-call b { display: block; font-size: 11.5px; margin: 5px 0 1px; }
+  .rp-call b:first-child { margin-top: 0; }
+  .rp-page .rp-call a { color: #fff; }
+  .rp-call .ph { font-size: 10px; margin: 2px 0 0; }
+  .rp-call .ph span { font-size: 14px; font-weight: 700; margin-left: 3px; }
+  .rp-test { display: grid; grid-template-columns: 1.3fr 0.95fr 0.95fr; gap: 12px; align-items: start; }
+  .rp-res { display: grid; gap: 10px; font-size: 10px; }
+  .rp-res.r3 { grid-template-columns: repeat(3, 1fr); }
+  .rp-res.waddl { gap: 7px; }
+  .rp-res b { display: block; font-size: 10.5px; color: var(--wsda-dark-teal); margin-bottom: 2px; }
+  .rp-res a, .rp-res span { display: block; margin: 0 0 2px; overflow-wrap: anywhere; }
+  .rp-page h3 small a { color: #fff; }
+  @media (max-width: 767px) { .rp-layout { grid-template-columns: minmax(0, 1fr); } .rp-form { position: static; max-height: none; } }
+  .rp-preview { overflow: hidden; }
+  .rp-sheets { width: 816px; transform-origin: 0 0; }
+  .rp-page { width: 816px; height: 1056px; box-sizing: border-box; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); margin: 0 0 16px;
+    padding: 30px 40px 0; display: flex; flex-direction: column; position: relative; overflow: hidden; font-size: 11.5px; line-height: 1.38;
+    color: var(--black-80); font-family: "Open Sans", Arial, sans-serif; }
+  .rp-page a { color: var(--wsda-dark-blue); }
+  .rp-head { display: flex; align-items: center; gap: 12px; padding-bottom: 7px; border-bottom: 3px solid var(--wsda-dark-teal); box-shadow: 0 3px 0 var(--wsda-gold); }
+  .rp-head img { height: 38px; width: auto; }
+  .rp-head .t { flex: 1; }
+  .rp-head .t b { display: block; font-size: 19px; color: var(--wsda-dark-teal); }
+  .rp-head .t span { font-size: 11px; color: var(--black-60); }
+  .rp-head .d { text-align: right; font-size: 13px; font-weight: 600; color: var(--wsda-dark-teal); }
+  .rp-head .d small { display: block; font-weight: 400; font-size: 10px; color: var(--black-60); }
+  .rp-body { flex: 1; overflow: hidden; padding-top: 10px; }
+  .rp-blk { margin: 0 0 9px; }
+  .rp-blk.joined { margin-bottom: 0; }   /* a table block with the next block of the same table right under it */
+  table.rp-dt { table-layout: fixed; margin: 0; }
+  /* A bit more color (2.9): each section heading a dark teal band with a gold line under it, as
+     the original update's bars; a gold line under the page's head; pale blue tiles; each key message's icon in a soft
+     circle of the brand's colors in turn. They mean nothing: the data's colors are the only ones with a meaning. */
+  .rp-page h3 { font-size: 13px; color: #fff; background: var(--wsda-dark-teal); margin: 0 0 5px; padding: 2px 7px 1px;
+    border-bottom: 2px solid var(--wsda-gold); display: flex; align-items: baseline; gap: 8px; }
+  .rp-page h3 small { margin-left: auto; font-weight: 400; font-size: 10px; color: var(--dark-blue-10); }
+  .rp-src { font-size: 9.5px; color: var(--black-60); margin-top: 2px; }
+  .rp-none { margin: 4px 0; color: var(--black-80); font-style: italic; }
+  .rp-banner { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-left: 6px solid var(--wsda-evergreen);
+    background: var(--evergreen-15); border-radius: 3px; }
+  .rp-banner.act { border-left-color: var(--wsda-crimson); background: var(--crimson-8); }
+  .rp-banner .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--wsda-evergreen); flex: none; }
+  .rp-banner.act .dot { background: var(--wsda-crimson); }
+  .rp-banner b { font-size: 15px; display: block; }
+  .rp-banner span { font-size: 11px; color: var(--black-80); }
+  .rp-tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
+  .rp-tile { border: 1px solid var(--dark-teal-20); border-left: 4px solid var(--wsda-dark-teal); border-radius: 3px; padding: 5px 7px; background: var(--dark-blue-5); }
+  .rp-tile.act { background: var(--crimson-8); }
+  .rp-tile.act { border-left-color: var(--wsda-crimson); }
+  .rp-tile .l { font-size: 9.5px; color: var(--black-60); text-transform: uppercase; letter-spacing: .3px; }
+  .rp-tile .v { font-size: 21px; font-weight: 700; color: var(--wsda-dark-teal); line-height: 1.15; }
+  .rp-tile.act .v { color: var(--wsda-crimson); }
+  .rp-tile .s { font-size: 9.5px; color: var(--black-60); }
+  .rp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .rp-row.r2 { grid-template-columns: 1.6fr 1fr; }
+  .rp-map, .rp-chart { width: 100%; height: auto; display: block; }
+  .rp-under { font-size: 10.5px; margin-top: 8px; }
+  .rp-clist { columns: 2; column-gap: 12px; font-size: 10.5px; }
+  .rp-clist div { display: grid; grid-template-columns: 78px 1fr 22px; align-items: center; gap: 4px; break-inside: avoid; height: 14.5px; }
+  .rp-clist div span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .rp-clist i { display: block; height: 7px; background: var(--wsda-blue-green); border-radius: 1px; }
+  .rp-clist .out i { background: var(--black-40); }
+  .rp-clist em { font-style: normal; text-align: right; font-weight: 600; }
+  .rp-key { display: flex; gap: 10px; font-size: 9.5px; color: var(--black-80); margin-top: 3px; }
+  .rp-key i { display: inline-block; width: 12px; height: 9px; margin-right: 3px; vertical-align: -1px; }
+  .rp-split { margin: 0 0 9px; font-size: 10.5px; }
+  .rp-bar { display: flex; height: 16px; border-radius: 2px; overflow: hidden; margin-top: 2px; }
+  .rp-ends { display: flex; justify-content: space-between; font-size: 10px; margin-top: 2px; }
+  table.rp-dt { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  table.rp-dt th { text-align: left; color: var(--wsda-dark-teal); font-weight: 700; border-bottom: 2px solid var(--wsda-dark-teal); padding: 2px 5px; background: none; }
+  table.rp-dt td { border-bottom: 1px solid var(--dark-teal-20); padding: 2px 5px; }
+  .rp-ft { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+  .rp-pill { font-size: 9.5px; padding: 0 5px; border-radius: 8px; background: var(--dark-blue-10); color: var(--black-80); }
+  .rp-pill.act { background: var(--crimson-8); color: var(--wsda-crimson); font-weight: 700; }
+  .rp-more { font-size: 10px; font-style: italic; color: var(--black-80); margin-top: 3px; }
+  .rp-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .rp-card { display: grid; grid-template-columns: 30px 1fr; gap: 7px; border: 1px solid var(--dark-teal-20); border-radius: 4px; padding: 6px 8px;
+    background: var(--dark-blue-5); color: var(--black-80); font-size: 11px; line-height: 1.32; }
+  .rp-card > div { align-self: start; }   /* the words' own height, for the form's line counts */
+  .rp-card.hl { border-color: var(--wsda-dark-teal); background: var(--dark-blue-10); }
+  .rp-card .rp-ic { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .rp-card .rp-ic.a0 { background: #feeec5; } .rp-card .rp-ic.a1 { background: #e3f0d4; }
+  .rp-card .rp-ic.a2 { background: #dcf0f4; } .rp-card .rp-ic.a3 { background: #fde3d3; }
+  .rp-card .em-ic { color: var(--wsda-dark-teal); }
+  .rp-card b.h { display: block; color: var(--wsda-dark-teal); font-size: 12px; margin-bottom: 1px; }
+  .rp-card .rp-also { display: block; margin-top: 3px; }
+  .rp-foot { margin: 0 -40px; padding: 7px 40px 9px; background: var(--dark-blue-10); border-top: 2px solid var(--wsda-dark-teal); font-size: 10px; color: var(--black-80); }
+  .rp-foot .hot { font-size: 11.5px; color: var(--black-80); }
+  .rp-foot .hot b { color: var(--wsda-dark-teal); }
+  /* The Report view's "Figures | Fill in" (2.9) and Figures, page 1's figures on screen for reading (report-figures.js).
+     With Figures shown the form and the pages are kept out of sight but drawn (body.rp-fig), so a print from Figures
+     prints the update's pages; Figures itself never prints. */
+  .ov-to-rp { margin-left: auto; border: 0; background: none; padding: 0; font: inherit; font-size: 0.875rem; color: var(--wsda-dark-blue);
+    text-decoration: underline; cursor: pointer; }
+  .ov-to-rp[hidden] { display: none; }
+  .rp-switch { display: flex; margin: -0.25rem 0 0.75rem; max-width: 300px; }
+  .rp-switch .btn, .rp-look .btn { flex: 1 1 50%; border-radius: 0; font-weight: 400; font-size: 0.85rem; border-color: var(--muted); color: var(--muted); background: #fff; }
+  .rp-switch .btn:first-child, .rp-look .btn:first-child { border-radius: 4px 0 0 4px; }
+  .rp-switch .btn:last-child, .rp-look .btn:last-child { border-radius: 0 4px 4px 0; margin-left: -1px; }
+  .rp-switch .btn[aria-pressed="true"], .rp-look .btn[aria-pressed="true"] { background: var(--wsda-dark-teal); border-color: var(--wsda-dark-teal); color: #fff; }
+  body.rp-fig .rp-layout { position: absolute; left: -20000px; top: 0; width: 1200px; height: 0; overflow: hidden; visibility: hidden; }
+  .rp-fig { position: relative; font-size: 13px; line-height: 1.4; color: var(--black-80); max-width: 1240px; }
+  .rp-fig[hidden] { display: none; }
+  .rp-fig-bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 0 0 10px; font-size: 12.5px; color: var(--black-80); }
+  .rp-fig-bar label { font-weight: 600; color: var(--wsda-dark-teal); margin: 0; }
+  .rp-fig-bar input { border: 1px solid var(--dark-teal-40); border-radius: 3px; padding: 2px 5px; font-size: 0.85rem; }
+  .rp-fig-bar .note { flex: 1 1 320px; }
+  .rp-fig .rp-panel { border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; background: #fff; margin: 0 0 12px; }
+  .rp-fig .rp-banner { margin-bottom: 8px; }
+  .rp-fig .rp-tile .v { font-size: 26px; }
+  .rp-fig .rp-tile, .rp-fig .rp-split { cursor: default; }
+  .rp-fig h3 { font-size: 0.95rem; color: var(--wsda-dark-teal); margin: 0 0 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .rp-fig h3 small { margin-left: auto; font-weight: 400; font-size: 11px; color: var(--black-60); }
+  .rp-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 12px; align-items: start; }
+  .rp-grid .rp-panel { margin: 0 0 12px; }
+  .rp-look { display: inline-flex; margin-left: auto; }
+  .rp-look .btn { padding: 1px 10px; font-size: 0.85rem; }
+  .rp-fig .rp-key .pt { width: 8px; height: 8px; border-radius: 50%; background: var(--black-60); }
+  .rp-fig .rp-key .pt.act { background: var(--wsda-crimson); }
+  .rp-fig .rp-map [data-county], .rp-fig .rp-place { cursor: pointer; }
+  .rp-fig .rp-map path[data-county]:focus { outline: none; stroke: var(--wsda-dark-teal); stroke-width: 2; }
+  .rp-fig .rp-clist { font-size: 12px; }
+  .rp-fig .rp-clist div { height: 19px; cursor: pointer; border-radius: 2px; padding: 0 3px; grid-template-columns: 92px 1fr 22px; }
+  .rp-fig .rp-clist div.sel { background: var(--dark-blue-10); outline: 1.5px solid var(--wsda-dark-teal); }
+  .rp-fig-scroll { overflow-x: auto; }
+  .rp-fig .rp-chart .rp-hit { fill: transparent; }
+  .rp-fig .rp-chart .rp-hit[tabindex] { cursor: pointer; }
+  .rp-fig .rp-chart .rp-hit[tabindex]:hover, .rp-fig .rp-chart .rp-hit:focus { fill: rgba(36, 85, 102, 0.08); outline: none; }
+  .rp-fig .rp-chart .rp-hit.sel { fill: rgba(36, 85, 102, 0.16); }
+  .rp-fig .rp-chip { display: inline-flex; gap: 6px; align-items: center; background: var(--dark-blue-10); border: 1px solid var(--wsda-dark-teal); border-radius: 12px;
+    padding: 0 8px; font-size: 11.5px; color: var(--wsda-dark-teal); font-weight: 600; cursor: pointer; }
+  .rp-fig table.rp-dt { font-size: 12px; table-layout: auto; }
+  .rp-tipbox { position: absolute; z-index: 5; background: #fff; border: 1px solid var(--dark-teal-60); border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,.2);
+    padding: 4px 8px; font-size: 12px; line-height: 1.35; pointer-events: none; max-width: 280px; }
+  .rp-tipbox b { color: var(--wsda-dark-teal); }
+  .rp-tipbox[hidden] { display: none; }
+  @media (max-width: 600px) {
+    .rp-grid, .rp-fig .rp-row.r2 { grid-template-columns: minmax(0, 1fr); }
+    .rp-fig .rp-tiles { grid-template-columns: repeat(2, 1fr); }
+    .rp-fig .rp-clist { columns: 1; }
+    .rp-fig .rp-tile .v { font-size: 22px; }
+    .rp-fig table.rp-dt th:nth-child(3), .rp-fig table.rp-dt td:nth-child(3), .rp-fig table.rp-dt th:nth-child(5), .rp-fig table.rp-dt td:nth-child(5) { display: none; }
+    .rp-fig table.rp-dt { font-size: 11px; }
+    .rp-fig table.rp-dt th, .rp-fig table.rp-dt td { padding: 2px 3px; }
+  }
+  /* Printing from the Report view: only the pages, one per sheet, at their own size. */
+  @page { size: letter; margin: 0; }
+  @media print {
+    body.rp-on > :not(main), body.rp-on .em-controls, body.rp-on .em-main > :not(#view-report), body.rp-on .rp-layout > :not(.rp-side), body.rp-on .rp-side > :not(.rp-preview) { display: none !important; }
+    body.rp-on main, body.rp-on .explore, body.rp-on .em-main, body.rp-on #view-report, body.rp-on .rp-layout, body.rp-on .rp-side { display: block !important; margin: 0 !important; padding: 0 !important;
+      max-width: none !important; border: 0 !important; }
+    body.rp-on .rp-preview { height: auto !important; overflow: visible; }
+    body.rp-on .rp-sheets { transform: none !important; }
+    body.rp-on .rp-page { box-shadow: none; margin: 0; break-after: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body.rp-on .rp-page:last-child { break-after: auto; }
+    body.rp-on .rp-switch, body.rp-on .rp-fig { display: none !important; }
+    body.rp-fig .rp-layout { position: static !important; width: auto !important; height: auto !important; overflow: visible !important; visibility: visible !important; }
+  }
 </style>
 </head><body>
 <header class="top">
@@ -557,6 +846,7 @@
 <div class="tool-switch" id="em-view" role="group" aria-label="View" hidden>
 <button type="button" class="btn" id="show-map" data-view="map" aria-pressed="true" aria-controls="view-map"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Map</button>
 <button type="button" class="btn" id="show-overview" data-view="overview" aria-pressed="false" aria-controls="view-overview"><span class="btn-icon" data-icon="bar-chart" aria-hidden="true"></span>Overview</button>
+<button type="button" class="btn" id="show-report" data-view="report" aria-pressed="false" aria-controls="view-report" hidden><span class="btn-icon" data-em-icon="file-earmark-text" aria-hidden="true"></span>Report</button>
 </div>
 <div id="view-map">
 <div class="map-frame"><div class="ts-badge" id="em-badge" hidden></div><div class="dz-badge" id="dz-badge" hidden></div><div class="dz-label" id="dz-label" hidden></div><div id="em-map" role="region" aria-label="Emergency map" aria-describedby="em-map-alt"></div><div id="basemap-status" class="status warn" hidden><span></span> <button id="offline-back" type="button" class="btn"><span class="btn-icon" data-icon="map" aria-hidden="true"></span>Back to offline map</button></div><details id="em-legend" open><summary>Legend</summary><div id="em-legend-content"></div></details></div>
@@ -590,7 +880,7 @@
 </div>
 <div id="view-overview" hidden>
 <div class="ts-ov-badge"><div class="ts-badge" id="ov-badge"></div></div>
-<section class="ov-section" id="ov-s-glance" aria-labelledby="ov-h-glance"><div class="ov-section-head"><h2 id="ov-h-glance">At a glance</h2><p>The counties, animals and people of the active positives and their zones.</p></div>
+<section class="ov-section" id="ov-s-glance" aria-labelledby="ov-h-glance"><div class="ov-section-head"><h2 id="ov-h-glance">At a glance</h2><p>The counties, animals and people of the active positives and their zones.</p><button type="button" class="ov-to-rp" id="ov-to-figures" hidden>The update's figures: Report</button></div>
 <div class="count-cards" id="ov-boxes">
 <div class="count-card" id="ov-box-counties"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="map" aria-hidden="true"></span><span id="ov-counties-words">Counties with an active</span> <span class="nowrap"><span id="ov-counties-last">positive</span><button type="button" class="tip" aria-expanded="false" data-help="ov-counties" aria-controls="help-ov-counties" aria-label="About the counties box" title="On a day: how many counties have at least one active positive (not yet closed) on the day; under it, how many counties had any positive by then, since the first. Between dates: how many counties had a positive detected between the dates; under it, how many of them have an active one. A positive whose County is blank takes the county where it is mapped.">?</button></span></span><span class="card-note"></span></div>
 <div class="count-card" id="ov-box-animals"><strong>–</strong><span class="card-label"><span class="btn-icon card-ic" data-icon="clipboard-data" aria-hidden="true"></span>Animals at the active <span class="nowrap">positives<button type="button" class="tip" aria-expanded="false" data-help="ov-animals" aria-controls="help-ov-animals" aria-label="About animals at the active positives" title="The animals at the active positives, added up from the file's inventory column. Under it: the animals counted apart, how many active positives are of each flock type, and any positive without a count (left out, never counted as zero).">?</button></span></span><span class="card-note"></span></div>
@@ -615,11 +905,90 @@
 </section>
 <div class="chart-tip" id="em-chart-tip" role="tooltip" hidden></div>
 </div>
+<div id="view-report" hidden>
+<div class="rp-switch" role="group" aria-label="Report"><button type="button" class="btn" id="rp-show-figures" aria-pressed="false" aria-controls="rp-figures">Figures</button><button type="button" class="btn" id="rp-show-fill" aria-pressed="true" aria-controls="rp-form">Fill in</button></div>
+<div class="rp-fig" id="rp-figures" hidden>
+<div class="rp-fig-bar"><label for="rp-fig-date">Report date</label><input type="date" id="rp-fig-date"><span class="note">The update's figures, counted as the printed update counts them (every row of the HPAI table, mapped or not). Rest the pointer on a figure for how it is counted; click a county or a month to list its cases. <b>Internal:</b> the map shows each case's place; it is never printed.</span></div>
+<div id="rp-fig-body"></div>
+<div class="rp-tipbox" role="tooltip" hidden></div>
+</div>
+<div class="rp-layout">
+<div class="rp-form" id="rp-form" role="group" aria-labelledby="rp-form-h">
+<h2 id="rp-form-h">Fill in the report</h2>
+<p class="lead">The numbers come from the loaded file and fill themselves in. Only the parts below are typed or chosen. <a href="making-the-update.html" target="_blank" rel="noopener" id="rp-guide">Making the HPAI update</a> walks through it.</p>
+<details class="rp-fold" id="rp-f-date" open><summary>Report date<span class="tag" id="rp-t-date"></span></summary><div class="body">
+<label for="rp-date">Report date</label><input type="date" id="rp-date">
+<p class="hint">The counts are as on this date; a row detected after it is left out.</p></div></details>
+<details class="rp-fold" id="rp-f-status" open><summary>Washington: the status<span class="tag" id="rp-t-status"></span></summary><div class="body">
+<div class="auto" id="rp-data-line"></div>
+<fieldset><legend>The status sentence</legend>
+<label class="radio"><input type="radio" name="rp-status" value="free"><span id="rp-w-free"></span></label>
+<label class="radio"><input type="radio" name="rp-status" value="active"><span id="rp-w-active"></span></label>
+<label class="radio"><input type="radio" name="rp-status" value="own"><span>Write my own</span></label>
+<textarea id="rp-own" aria-label="Your own status sentence" hidden></textarea>
+<div class="warning" id="rp-status-warn" role="status" hidden></div></fieldset>
+<div id="rp-livestock">
+<label for="rp-milk">Milk testing stage (National Milk Testing Strategy)</label><select id="rp-milk"></select>
+<div id="rp-milk-own" hidden><label for="rp-milk-stage">The stage</label><input type="text" id="rp-milk-stage">
+<label for="rp-milk-text">The sentence after it</label><textarea id="rp-milk-text"></textarea></div>
+<div class="warning" id="rp-milk-warn" role="status" hidden></div>
+<label class="radio"><input type="checkbox" id="rp-suspected"><span>Suspected livestock cases are being tested</span></label></div>
+</div></details>
+<details class="rp-fold" id="rp-f-data" open><summary>Washington: from the data<span class="tag" id="rp-t-data"></span></summary><div class="body">
+<div class="auto" id="rp-data-auto"></div>
+<fieldset><legend>The map's look</legend>
+<label class="radio"><input type="radio" name="rp-map" value="dots"><span>Soft dots (no exact place)</span></label>
+<label class="radio"><input type="radio" name="rp-map" value="counties"><span>Counties shaded by cases</span></label></fieldset>
+<label for="rp-note-in">A note under Washington's figures (optional)</label><textarea id="rp-note-in"></textarea>
+<p class="hint">For a known gap, such as cases not yet entered. The numbers themselves are never typed.</p>
+</div></details>
+<details class="rp-fold" id="rp-f-msgs" open><summary>Key messages<span class="tag" id="rp-t-msgs"></span></summary><div class="body">
+<fieldset class="rp-icon-style"><legend>Icon style (every card)</legend>
+<label class="radio"><input type="radio" name="rp-icons" value="filled"><span class="smp" data-icon-sample="filled" aria-hidden="true"></span><span>Filled</span></label>
+<label class="radio"><input type="radio" name="rp-icons" value="outline"><span class="smp" data-icon-sample="outline" aria-hidden="true"></span><span>Outline</span></label></fieldset>
+<div id="rp-msgs"></div>
+<div class="rp-msg-actions"><button type="button" class="btn" id="rp-msg-add"><span aria-hidden="true">+</span> Add a message</button>
+<button type="button" class="btn" id="rp-msg-undo" hidden></button></div>
+<p class="rp-msgs-where" id="rp-msgs-where" role="status"></p>
+<div class="rp-aside" id="rp-aside" hidden></div>
+<p class="hint">The livestock card comes after these, drawn from the data.</p>
+</div></details>
+<details class="rp-fold" id="rp-f-nat" open hidden><summary>National (USDA)<span class="tag" id="rp-t-nat"></span></summary><div class="body" id="rp-nat"></div></details>
+<details class="rp-fold" id="rp-f-wild" open hidden><summary>Wild birds and testing (WADDL)<span class="tag" id="rp-t-wild"></span></summary><div class="body" id="rp-wild"></div></details>
+<details class="rp-fold" id="rp-f-boxes"><summary>Boxes and resources<span class="tag" id="rp-t-boxes"></span></summary><div class="body">
+<label for="rp-heading">The line under the title</label><textarea id="rp-heading"></textarea>
+<fieldset><legend>At every page's foot</legend>
+<label for="rp-hot-ask">The question before the hotline</label><input type="text" id="rp-hot-ask">
+<div class="row2"><div><label for="rp-hot-name">The hotline's name</label><input type="text" id="rp-hot-name"></div>
+<div><label for="rp-hot-number">Its number</label><input type="text" id="rp-hot-number"></div></div>
+<div class="row2"><div><label for="rp-online-label">"Report online at": its words</label><input type="text" id="rp-online-label"></div>
+<div><label for="rp-online-url">Its address</label><input type="text" id="rp-online-url" placeholder="https://..."></div></div>
+<label for="rp-alternate">The alternate-format line</label><textarea id="rp-alternate"></textarea></fieldset>
+<div id="rp-p2-boxes" hidden></div>
+<div class="warning" id="rp-boxes-warn" role="status" hidden></div>
+<p class="hint">Kept in the saved report text, so next month starts the same.</p>
+</div></details>
+<div class="rp-file"><button type="button" class="btn" id="rp-save" title="Saves the words and choices in this form (nothing from the table) as one small file, to keep for next month"><span aria-hidden="true">&#8595;</span> Save report text</button>
+<button type="button" class="btn" id="rp-arcgis" title="Saves page 2's figures and the update's sentences as the ArcGIS monthly table's file" hidden><span aria-hidden="true">&#8595;</span> Save for ArcGIS</button>
+<button type="button" class="btn" id="rp-load" title="Fills this form from a report text saved before; the numbers stay this table's">Load last month's</button>
+<input type="file" id="rp-load-file" accept=".json,application/json" hidden>
+<p class="rp-file-note" id="rp-file-note" role="status" hidden></p></div>
+</div>
+<div class="rp-side">
+<div class="rp-bar-top"><span class="rp-count" id="rp-count" role="status"></span><span class="rp-send">
+<label class="rp-ready"><input type="checkbox" id="rp-ready"> Ready to send</label>
+<button type="button" class="btn" id="rp-print" title="Opens your browser's print window with the update's pages only. Pick &quot;Save as PDF&quot; there for a PDF file."><span class="btn-icon" data-em-icon="printer" aria-hidden="true"></span>Print / Save as PDF</button></span></div>
+<p class="rp-ready-note" id="rp-ready-note" role="status"></p>
+<p class="rp-note" id="rp-note"></p>
+<div class="rp-preview" id="rp-preview"><div class="rp-sheets"></div></div>
+</div>
+</div>
+</div>
 </div>
 </section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.8 (2026-11-10)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.9 (2026-11-12)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="../shared/release.js"></script>
 <script src="../shared/zip.js"></script>
@@ -659,16 +1028,21 @@
 <script src="../shared/tiles.js"></script>
 <script src="../shared/labels.js"></script>
 <script src="../cvi/app/brandedmaps.js"></script>
+<script src="message-icons.js"></script>
 <script src="types.js"></script>
 <script src="types/hpai.js"></script>
 <script src="types/nws.js"></script>
 <script src="rules.js"></script>
+<script src="report.js"></script>
 <script src="icons.js"></script>
 <script src="map.js"></script>
 <script src="draw.js"></script>
 <script src="../cvi/app/previews.js"></script>
 <script src="branded.js"></script>
 <script src="chart.js"></script>
+<script src="report-view.js"></script>
+<script src="report-figures.js"></script>
+<script src="report-form.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

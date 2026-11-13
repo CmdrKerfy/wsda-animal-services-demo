@@ -190,7 +190,100 @@
       if (typeof url !== 'string' || !/^https:\/\/[^\s"<>]+$/.test(url)) fail(`links[${i}].url`, 'an https:// address');
       return { label: text(k.label, `links[${i}].label`, fail), url };
     });
+
+    // The printed update (2.9, E2): optional; a type without it has no Report view.
+    out.report = t.report === undefined ? null : report(t.report, out.kinds, fail);
     return out;
+  }
+
+  // The report's words, each checked (types/hpai.js says what each is). A link is a label and an https:// address.
+  function report(r, kinds, fail) {
+    if (!r || typeof r !== 'object') fail('report', 'the printed update\'s words, in { }');
+    const https = (v, field) => {
+      if (typeof v !== 'string' || !/^https:\/\/[^\s"<>]+$/.test(v)) fail(field, 'an https:// address');
+      return v;
+    };
+    const link = (v, field) => {
+      if (!v || typeof v !== 'object') fail(field, 'a label and an https:// address, in { }');
+      return { label: text(v.label, field + '.label', fail), url: https(v.url, field + '.url') };
+    };
+    const cases = {};
+    if (!r.cases || typeof r.cases !== 'object') fail('report.cases', 'the words for one case and for more of each kind, in { }');
+    for (const [key, w] of Object.entries(r.cases)) {
+      if (!kinds.some(k => k.key === key)) fail(`report.cases.${key}`, 'a kind\'s key (' + kinds.map(k => k.key).join(', ') + ')');
+      if (!Array.isArray(w) || w.length !== 2) fail(`report.cases.${key}`, 'two words: for one case and for more');
+      cases[key] = [text(w[0], `report.cases.${key}[0]`, fail), text(w[1], `report.cases.${key}[1]`, fail)];
+    }
+    if (r.livestock !== undefined && !kinds.some(k => k.key === r.livestock)) {
+      fail('report.livestock', 'a kind\'s key (' + kinds.map(k => k.key).join(', ') + ')');
+    }
+    if (!r.status || typeof r.status !== 'object') fail('report.status', 'the "free" and "active" wordings, in { }');
+    if (!Array.isArray(r.milk) || !r.milk.length) fail('report.milk', 'a list of one or more milk testing stages');
+    if (!Array.isArray(r.messages)) fail('report.messages', 'a list of key messages (it may be empty)');
+    return {
+      title: text(r.title, 'report.title', fail),
+      note: text(r.note, 'report.note', fail),
+      source: text(r.source, 'report.source', fail),
+      flocks: text(r.flocks, 'report.flocks', fail),
+      cases,
+      livestock: r.livestock === undefined ? null : r.livestock,
+      status: { free: text(r.status.free, 'report.status.free', fail), active: text(r.status.active, 'report.status.active', fail) },
+      milk: r.milk.map((m, i) => ({ stage: text(m && m.stage, `report.milk[${i}].stage`, fail),
+        text: text(m && m.text, `report.milk[${i}].text`, fail) })),
+      milkLink: link(r.milkLink, 'report.milkLink'),
+      map: link(r.map, 'report.map'),
+      messages: r.messages.map((m, i) => {
+        const at = `report.messages[${i}]`;
+        if (!m || typeof m !== 'object') fail(at, 'a key message, in { }');
+        if (!root.WSDA.emergencyMessageIcons.has(m.icon)) fail(at + '.icon', 'the name of a message icon (site/emergency/message-icons.js)');
+        return { headline: text(m.headline, at + '.headline', fail), icon: m.icon,
+          text: text(m.text, at + '.text', fail), link: m.link === undefined || m.link === null ? null : link(m.link, at + '.link'),
+          highlight: m.highlight === true };
+      }),
+      hotline: (() => {
+        if (!r.hotline || typeof r.hotline !== 'object') fail('report.hotline', 'the hotline\'s question, name and number, in { }');
+        return { ask: text(r.hotline.ask, 'report.hotline.ask', fail), name: text(r.hotline.name, 'report.hotline.name', fail),
+          number: text(r.hotline.number, 'report.hotline.number', fail) };
+      })(),
+      online: link(r.online, 'report.online'),
+      alternate: text(r.alternate, 'report.alternate', fail),
+      page2: r.page2 === undefined ? null : page2(r.page2, https, link, fail)
+    };
+  }
+  // Page 2's words (2.9; types/hpai.js says what each is): the sources, WADDL's sentence and categories, the "Report
+  // sick birds" box and the link lists, each a name and its links. A list's link may also be a mailto: address.
+  function page2(p, https, link, fail) {
+    const at = 'report.page2';
+    if (!p || typeof p !== 'object') fail(at, 'page 2\'s words, in { }');
+    const part = (v, field) => { if (!v || typeof v !== 'object') fail(field, 'in { }'); return v; };
+    const listLink = (l, field) => {
+      if (!l || typeof l !== 'object') fail(field, 'a label and an address, in { }');
+      if (typeof l.url !== 'string' || !/^(https:\/\/|mailto:)[^\s"<>]+$/.test(l.url)) fail(field + '.url', 'an https:// or mailto: address');
+      return { label: text(l.label, field + '.label', fail), url: l.url };
+    };
+    const lists = (v, field) => {
+      if (!Array.isArray(v)) fail(field, 'a list of link lists');
+      return v.map((g, i) => {
+        if (!g || typeof g !== 'object' || !Array.isArray(g.links)) fail(`${field}[${i}]`, 'a name and a list of links, in { }');
+        return { name: text(g.name, `${field}[${i}].name`, fail), links: g.links.map((l, j) => listLink(l, `${field}[${i}].links[${j}]`)) };
+      });
+    };
+    const n = part(p.national, at + '.national'), w = part(p.wild, at + '.wild'), t = part(p.testing, at + '.testing');
+    if (!Array.isArray(t.categories)) fail(at + '.testing.categories', 'a list of category names');
+    if (!Array.isArray(p.call) || !p.call.length) fail(at + '.call', 'the "Report sick birds" box\'s parts, a list');
+    return {
+      national: { source: https(n.source, at + '.national.source'), livestock: https(n.livestock, at + '.national.livestock'),
+        sequencing: https(n.sequencing, at + '.national.sequencing') },
+      wild: { source: https(w.source, at + '.wild.source') },
+      testing: { intro: text(t.intro, at + '.testing.intro', fail), since: text(t.since, at + '.testing.since', fail),
+        categories: t.categories.map((c, i) => text(c, `${at}.testing.categories[${i}]`, fail)), lists: lists(t.lists, at + '.testing.lists') },
+      call: p.call.map((c, i) => {
+        if (!c || typeof c !== 'object') fail(`${at}.call[${i}]`, 'a headline, its words and a link, in { }');
+        return { headline: text(c.headline, `${at}.call[${i}].headline`, fail), text: text(c.text, `${at}.call[${i}].text`, fail),
+          link: link(c.link, `${at}.call[${i}].link`) };
+      }),
+      resources: lists(p.resources, at + '.resources')
+    };
   }
 
   // Deep-freezes a checked type, so the page cannot change it by accident.

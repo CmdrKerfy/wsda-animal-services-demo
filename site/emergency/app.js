@@ -2,11 +2,13 @@
  * the shared checklist says what each file is (datasets.js). The positives, the facility layers, a zone file and the
  * CVI master are read into the rules (rules.js), and the page draws what the rules give.
  *
- * What it draws: the value boxes and the lines under them; then, under the "Map | Overview" switch, either the map
+ * What it draws: the value boxes and the lines under them; then, under the "Map | Overview | Report" switch, either the map
  * (map.js), its legend and the two result tabs ("Inside the zones": the "Zones" list, one fold per layer, the "nearest"
  * line, the rows not mapped; "CVI movements": CVI's own Premise Lookup match, lookup.js query, loaded unchanged, over
  * the zones), or the Overview (its three boxes, "Columns by", "Positives over time" from chart.js, the bars by county
- * and by layer, the counties and positives tables). Each new set of files opens on the Map, every fold closed.
+ * and by layer, the counties and positives tables), or the Report (2.9: the update's pages, report-view.js, from the
+ * whole file on the report's date, beside the form; or its "Figures", page 1's figures on screen, report-figures.js).
+ * Each new set of files opens on the Map, every fold closed.
  *
  * The sidebar's five folds: Load your data; Positives and zones (the type, the status ticks, the "Animals" ticks and
  * "Refine by species", the time views "On a day" and "Between dates" with the play, "Show closed positives", the rings
@@ -78,6 +80,10 @@
     basemap: '', neighbors: Object.create(null), population: { on: { cities: false, places: false, density: false }, missing: {} },
     populationFor: null,   // the positives file the population layers were last turned on for (its path, name and size)
     tab: 'inside', view: 'map', fitNext: false, columnsBy: 'status',
+    reportDate: null,   // 2.9: the Report's date, picked on the page (today until then)
+    reportText: null,   // 2.9: the Report form's words and choices (report-form.js), for the type loaded
+    reportTexts: Object.create(null),   // 2.9: each other type's report text, kept by its id while another is loaded
+    reportMode: 'fill',   // 2.9: the Report view's "Figures | Fill in", Fill in until Figures is picked
     master: null, masterReason: '', cvi: { years: [], quarters: QUARTERS.slice(), species: [], rawSpecies: [], end: 'either' }, cviRes: null,
     cviKey: null,
     cviOn: false   // 2.6: the tick "CVI movements", off at every load
@@ -220,7 +226,9 @@
     setSum('load-summary', ready ? what : '');
     if (ready && !failed && !notes.length) $('load-fold').open = false;
     // Each new set of files opens on the Map, as CVI opens on its maps: the zones and layers chosen there feed the Overview.
+    // Figures' county or month picked and its map's look start again too.
     state.view = 'map';
+    W.emergencyReportFigures.reset();
     renderAsOf();
     state.fitNext = true;
     // The population layers are on after each load of a positives file, so a lone positive does not open on empty
@@ -1233,9 +1241,26 @@
       ? EM.zoneFeatures(E.ringSites(targets, state.rings, state.unit), state.rings, null, state.unit) : [];
     const withZones = new Set(targets.map(p => p.index)), read = state.read, end = windowEnd();
     const shown = read ? read.positives.filter(p => E.inWindow(p, state.window) && (closedShown() || !E.isPast(p, end))) : [];
+    // A premises detected more than once (2.9): the cases at one map point (the same coordinates to 5
+    // decimals, as the Report view counts them), active or closed, whatever the dates shown: a badge on the mark with
+    // how many, and a box in its hover naming each case with its dates, the earliest first.
+    const atPoint = new Map(), pointOf = p => p.lat.toFixed(5) + ',' + p.lon.toFixed(5);
+    for (const p of read ? read.positives : []) {
+      if (!atPoint.has(pointOf(p))) atPoint.set(pointOf(p), []);
+      atPoint.get(pointOf(p)).push(p);
+    }
+    const shared = {};
+    for (const [at, list] of atPoint) {
+      if (list.length < 2) continue;
+      const ended = p => p.closedDate || (p.closed && p.quarantine && !p.releaseAfterToday ? p.quarantine : null);
+      shared[at] = { head: list.length + ' cases at this map point:', lines: list.slice().sort((a, b) => (a.detected || '9') < (b.detected || '9') ? -1 : 1).map(p =>
+        p.name + ': ' + (p.detected ? 'detected ' + E.dayLabel(p.detected) : 'no detection date') + ', ' +
+        (E.isPast(p, end) ? 'closed' + (ended(p) ? ' ' + E.dayLabel(ended(p)) : '') : 'active')) };
+    }
     const positives = shown.map(p => ({ lat: p.lat, lon: p.lon, label: positiveLabel(p),
       color: p.status ? p.status.color : NO_STATUS, past: E.isPast(p, end), withZones: withZones.has(p.index),
-      shape: E.animalShapeOf(read.type, p), shapes: E.animalShapesOf(read.type, p) }))
+      shape: E.animalShapeOf(read.type, p), shapes: E.animalShapesOf(read.type, p),
+      shared: (atPoint.get(pointOf(p)) || []).length, sharedAt: shared[pointOf(p)] ? pointOf(p) : '' }))
       .concat(state.points.map(p => ({ lat: p.lat, lon: p.lon, label: p.name, color: NO_STATUS, past: false, withZones: true })));
     const r = state.result, insideKeys = new Set(), inside = [], outside = [];
     if (r) {
@@ -1263,9 +1288,9 @@
     // The map is hidden while the Overview shows: a fit then waits until the Map is shown again. The play's steps ask
     // for no fit, so the view stays still while it plays; it fits once when the play stops (stopPlay).
     const fit = state.fitNext && state.view === 'map';
-    EM.draw(state.map, { zones: zones.concat(guide), pastZones, zoneTips: tips, tipFoot, positives, inside, outside, cvi, bounds }, fit);
+    EM.draw(state.map, { zones: zones.concat(guide), pastZones, zoneTips: tips, tipFoot, positives, inside, outside, cvi, bounds, shared }, fit);
     if (fit) state.fitNext = false;
-    state.mapData = { zones: zones.length, guide: guide.length, pastZones: pastZones.length, positives: positives.length,
+    state.mapData = { zones: zones.length, guide: guide.length, pastZones: pastZones.length, positives: positives.length, shared: Object.keys(shared).length,
       past: positives.filter(p => p.past).length, inside: inside.length, outside: outside.length, cvi: cvi.length };   // test hook
   }
 
@@ -1503,14 +1528,21 @@
     chartFrame = root.requestAnimationFrame(renderOverview);
   });
 
-  // ---- The Map | Overview switch and the Overview (2.3) ------------------------------------------------------------
+  // ---- The Map | Overview | Report switch and the Overview (2.3) ---------------------------------------------------
+  // Report (2.9) shows for a type with report words (types/hpai.js report); the print styles take the page only while
+  // it is the view shown (body.rp-on).
   function renderView() {
-    if (!state.read) state.view = 'map';
-    for (const v of ['map', 'overview']) {
+    const reportOn = !!(state.readAll && state.type.report);
+    $('show-report').hidden = !reportOn;
+    $('ov-to-figures').hidden = !reportOn;
+    if (!state.read || (state.view === 'report' && !reportOn)) state.view = 'map';
+    for (const v of ['map', 'overview', 'report']) {
       $('show-' + v).setAttribute('aria-pressed', String(state.view === v));
       $('view-' + v).hidden = state.view !== v;
     }
+    document.body.classList.toggle('rp-on', state.view === 'report');
     if (state.view === 'overview') renderOverview();
+    if (state.view === 'report') renderReport();
   }
   function showView(v) {
     if (v === state.view) return;
@@ -1524,6 +1556,140 @@
     }
   }
   document.querySelectorAll('#em-view [data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+
+  // ---- The Report view (2.9, E2): the update's pages from the whole file on the report's date (report-view.js) ----
+  // The date is today until one is picked; a row detected after it is left out, so a past month's update reads as it did then. The update counts
+  // every row of the file, whatever the "Animals" ticks and the time views, so the note says when they leave some out
+  // elsewhere on the page.
+  const RV = W.emergencyReportView, RF = W.emergencyReportForm, RFG = W.emergencyReportFigures;
+  // The form's report text (report-form.js) is kept while files of the same type are loaded again. Another type takes
+  // its own (its own words when new), and the text typed for the first is kept, so loading another type's file and
+  // coming back loses nothing typed; USDA's pictures, kept on the page only, go with the type they were added for.
+  function reportText() {
+    const id = state.type.id;
+    if (!state.reportText || state.reportText.type !== id) {
+      if (state.reportText) { state.reportTexts[state.reportText.type] = state.reportText; RF.clearPictures(); }
+      state.reportText = state.reportTexts[id] || RF.fresh(state.type);
+    }
+    return state.reportText;
+  }
+  function renderReport() {
+    const date = state.reportDate || todayIso(), text = reportText();
+    $('rp-date').value = date;
+    figuresFrame();
+    const r = RV.draw($('rp-preview'), { read: state.readAll, type: state.type, date, counties: root.CVIWA_GEO.counties.features,
+      labels: root.CVIWA_GEO.labels, choices: RF.choices(text, state.type, RF.pictures()) });
+    RF.show(document, state.type, text, r.figures, date, r);
+    $('rp-arcgis').hidden = !text.p2;
+    $('rp-count').textContent = plural(r.pages, 'page', 'pages') + ', as they print';
+    const notes = [];
+    if (r.figures.later) notes.push(plural(r.figures.later, 'row', 'rows') + ' detected after ' + W.emergencyReport.dateLong(date) + ' left out.');
+    if (state.read.positives.length + state.read.dropped.length < state.readAll.positives.length + state.readAll.dropped.length) {
+      notes.push('The update counts every kind of animal, whatever the "Animals" ticks.');
+    }
+    $('rp-note').textContent = notes.join(' ');
+    $('rp-note').hidden = !notes.length;
+    renderFigures(date);
+  }
+  // "Figures | Fill in" (2.9): Figures, page 1's figures on screen (report-figures.js), in place of the form and the
+  // pages. The pages are still drawn, out of sight (body.rp-fig, index.html), so printing from Figures prints the
+  // update, never the Figures. The switch is set before the pages are drawn, so they are measured where they show.
+  function figuresFrame() {
+    const fig = state.reportMode === 'figures';
+    $('rp-show-figures').setAttribute('aria-pressed', String(fig));
+    $('rp-show-fill').setAttribute('aria-pressed', String(!fig));
+    $('rp-figures').hidden = !fig;
+    document.body.classList.toggle('rp-fig', fig);
+  }
+  function renderFigures(date) {
+    if (state.reportMode !== 'figures') return;
+    $('rp-fig-date').value = date;
+    RFG.draw($('rp-fig-body'), { read: state.readAll, type: state.type, date, counties: root.CVIWA_GEO.counties.features,
+      labels: root.CVIWA_GEO.labels });
+  }
+  const showMode = mode => {
+    state.reportMode = mode;
+    renderReport();
+  };
+  $('rp-show-figures').addEventListener('click', () => { if (state.reportMode !== 'figures') showMode('figures'); });
+  $('rp-show-fill').addEventListener('click', () => { if (state.reportMode !== 'fill') showMode('fill'); });
+  RFG.wire($('rp-figures'));
+  // The Overview's link: the update's figures, in the Report view's Figures.
+  $('ov-to-figures').addEventListener('click', () => {
+    state.reportMode = 'figures';
+    showView('report');
+  });
+  // A choice draws the pages at once; typed words a moment after the typing stops.
+  let reportSoon = 0;
+  RF.wire(document, reportText, soon => {
+    root.clearTimeout(reportSoon);
+    if (soon) reportSoon = root.setTimeout(renderReport, 250);
+    else renderReport();
+  }, todayIso);
+  // The form's date and Figures' are one date: either moves both.
+  for (const id of ['rp-date', 'rp-fig-date']) {
+    $(id).addEventListener('change', () => {
+      const v = $(id).value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;   // a date being typed, or cleared: the last one stays
+      state.reportDate = v;
+      renderReport();
+    });
+  }
+  // "Save report text" downloads the form's words and choices (report-form.js toFile; nothing from the table), named
+  // for the report ("HPAI update 2026-09-01 report text.json"); "Load last month's" fills the form from one, the numbers
+  // staying this table's, and a report loaded is a draft until "Ready to send" is ticked again.
+  const fileNote = (how, words) => {
+    $('rp-file-note').textContent = words;
+    $('rp-file-note').className = 'rp-file-note' + (how === 'warn' ? ' warn' : '');
+    $('rp-file-note').hidden = !words;
+  };
+  $('rp-save').addEventListener('click', () => {
+    const date = state.reportDate || todayIso(), name = RV.title(state.type, date) + ' report text.json';
+    savePng(name, new Blob([RF.toFile(reportText(), state.type, date, todayIso())], { type: 'application/json' }));
+    fileNote('', 'Saved as "' + name + '" in your downloads. Keep it on the R drive for next month.');
+  });
+  // "Save for ArcGIS" (2.9, type once, use in both): page 2's figures and the update's sentences as one row in the
+  // ArcGIS monthly table's columns (report-form.js arcgisFile), to overwrite that table with.
+  $('rp-arcgis').addEventListener('click', () => {
+    const date = state.reportDate || todayIso(), last = RV.last, name = 'hpai-monthly-figures.csv';
+    const got = RF.arcgisFile(reportText(), state.type, date, last && last.words);
+    savePng(name, new Blob([got.csv], { type: 'text/csv' }));
+    fileNote(got.blanks ? 'warn' : '', 'Saved "' + name + '": page 2\'s figures and the status, livestock and milk testing sentences, in the ArcGIS ' +
+      'monthly table\'s columns. Overwrite that table with it.' + (got.blanks ? ' ' + plural(got.blanks, 'figure is', 'figures are') +
+      ' not filled: blank in the file, so ArcGIS shows them blank until typed. A blank is better than last month\'s number.' : ''));
+  });
+  $('rp-load').addEventListener('click', () => $('rp-load-file').click());
+  $('rp-load-file').addEventListener('change', async () => {
+    const file = $('rp-load-file').files[0];
+    $('rp-load-file').value = '';
+    if (!file) return;
+    if (file.size > 1e6) { fileNote('warn', '"' + file.name + '" is too big to be a report text saved from this page.'); return; }
+    const date = state.reportDate || todayIso(), got = RF.fromFile(await file.text(), state.type, date);
+    if (got.error) { fileNote('warn', '"' + file.name + '": ' + got.error); return; }
+    state.reportText = got.text;
+    // Page 2's numbers, dates and pictures start empty for another report date (its figures kept to compare with).
+    if (got.cleared) RF.clearPictures();
+    renderReport();
+    const D = W.emergencyReport.dateLong;
+    fileNote(got.notes.length ? 'warn' : '', 'Loaded "' + file.name + '"' + (got.reportDate ? ', the report text of ' + D(got.reportDate) : '') +
+      '. The numbers are this table\'s.' + (got.cleared ? ' Page 2\'s numbers, dates and pictures are left empty for ' + D(date) +
+        ': type this month\'s; last month\'s are kept to check them against.' + (got.reportDate ? ' To go on with that report ' +
+        'instead, set the report date to ' + D(got.reportDate) + ' and load the file again.' : '') : '') + (got.notes.length ? ' ' + got.notes.join(' ') : ''));
+  });
+  // The print window's title names the PDF ("HPAI update 2026-09-01.pdf"); the page's own title comes back after.
+  $('rp-print').addEventListener('click', () => {
+    const was = document.title;
+    document.title = RV.title(state.type, state.reportDate || todayIso());
+    root.addEventListener('afterprint', () => { document.title = was; }, { once: true });
+    root.print();
+  });
+  root.addEventListener('resize', () => {
+    if (state.view !== 'report') return;
+    RV.fit($('rp-preview'));
+    if (state.reportMode === 'figures') RFG.refit();
+  });
+  // The pages measured again once the brand font is in (the fallback font's lines are a different length).
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (state.view === 'report') renderReport(); });
 
   // The 2020 Census tracts for the people estimate: the population density layer's file (shared/population.js),
   // loaded the first time the Overview needs it and decoded once. While it loads the people box says so.

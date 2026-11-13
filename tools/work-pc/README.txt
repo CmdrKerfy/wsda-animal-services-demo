@@ -10,9 +10,12 @@ How to run it
   1. Unzip this ZIP into one folder (all three files together).
   2. Double-click CHECK_HPAI_TABLE.bat.
   3. In the file window, choose the HPAI table (the .csv the page reads).
-  4. The report is shown in the window and saved in the same folder as
+  4. The window asks for the date of an HPAI update to compare with:
+     type it (for example 9/1/2026) and press Enter, or press Enter
+     alone for today.
+  5. The report is shown in the window and saved in the same folder as
      hpai_table_check_YYYY-MM-DD.txt. The folder opens by itself.
-  5. Read the report before sending it to anyone.
+  6. Read the report before sending it to anyone.
 
 What the report holds (counts only)
   - the rows, and each column's name, what the page reads it as, and its
@@ -46,6 +49,16 @@ What the report holds (counts only)
     day" on today and "Between dates" from the first detection to today
     (a closed date or a release date after the last detection counts
     here, not above).
+  - the HPAI update's page 1 figures on the date typed, counted as the
+    update counts them (every row a case, mapped or not; a row detected
+    after the date left out), to compare with an update already sent:
+    the cases, those active on the date, the flocks (commercial,
+    backyard), the birds affected, the other kinds of animal, how many
+    counties have a case and every county's count, largest first (never
+    their names), this year's detections and the month of the last one, and
+    the premises detected more than once. A row with a map point but a
+    blank County is counted apart: the page finds its county from the
+    point, which this check cannot.
 
 What it never does
   - It never changes or copies the table, and opens nothing else.

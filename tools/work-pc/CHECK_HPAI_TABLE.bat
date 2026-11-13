@@ -112,7 +112,9 @@ echo  Checking: "%PICKED_NAME%"
 echo.
 
 REM --vanilla: no profile or saved workspace is read; base R needs nothing else.
-"%R_EXE%" --vanilla "%HERE_NOSLASH%\check_hpai_table.R" "%PICKED%" "%REPORT%"
+REM "ask": the check asks for the date of the update to compare with (Enter for
+REM today), so what is typed is read by R, never by this window's commands.
+"%R_EXE%" --vanilla "%HERE_NOSLASH%\check_hpai_table.R" "%PICKED%" "%REPORT%" "%TODAY%" ask
 set "RC=%ERRORLEVEL%"
 
 echo.

@@ -123,6 +123,17 @@ backgrounds this document mentions.
   hatched); a type file with a slip named in a red notice over the sidebar. CVI and Infrastructure have no kinds of
   animal (CVI's "Refine by species" picks raw species within its species groups, as the Emergency page's CVI tab now
   does).
+- **Emergency Response's HPAI update (version 2.9):** a "Report" view makes the monthly HPAI update from the table,
+  with its own counting, which differs from the rest of the page on purpose so the update matches what the agency
+  has always published: every row is a case (a premises detected twice counts twice); a row without a map point counts
+  in its totals and its county (the map, the value boxes and the Overview leave it off their counts, as before); a
+  row without a readable date counts in every total, in no month; a row detected after the report's date is left out;
+  and the update counts the whole file, every kind of animal, whatever the "Animals" ticks. The printed map never shows
+  a real place (one dot per case at a spread spot inside its county, or counties shaded); "Figures", for screens only,
+  shows the real places. CVI and Infrastructure have no such view.
+- **A flock of exactly 1,000 birds is Large (version 2.9):** the update's size line read "Large = 1,000+", so the
+  Emergency page's flock size classes are Small under 100, Medium 100 to 999 and Large 1,000 or more, everywhere on the
+  page (the map's hover, the Overview, the update). Before 2.9 a flock of exactly 1,000 was Medium.
 - **Emergency Response's animal filter (version 2.7):** "Animals" ticks under "Zones around", one per kind among the
   positives read, rows that could not be mapped included (birds, cattle, other animals, by their marks' shapes), none
   with one kind, every kind ticked again at each load of a positives file or change of the emergency type. An unticked

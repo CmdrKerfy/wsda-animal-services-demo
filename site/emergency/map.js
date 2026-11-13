@@ -24,7 +24,9 @@
  * draw(st, data, fit) -> draws data: { zones and pastZones: [GeoJSON Feature with properties { color, label, zid }],
  *   zoneTips: for each zid, [{ km, head, text }] (the hover's lines for that zone, each under its heading head, the
  *   positive's name, or '' for none), tipFoot (the hover's last line, the "as of" date), positives: [{ lat, lon, label (lines split by "\n"), color, past, withZones, shape (rules.js animalShapeOf), shapes (rules.js animalShapesOf: a mixed positive's marks side by side; shape when left out) }], inside and outside:
- *   [{ lat, lon, label (lines split by "\n"), shape, color }], cvi: [{ lat, lon, label, color, r (the ring's radius) }] (2.6), bounds: [west, south, east, north] or null }; fit: true fits the view to the
+ *   [{ lat, lon, label (lines split by "\n"), shape, color }], cvi: [{ lat, lon, label, color, r (the ring's radius) }] (2.6), bounds: [west, south, east, north] or null,
+ *   shared: { at: { head, lines } } (2.9: the cases sharing a map point, for the hover; a positive's shared, how many
+ *   cases share its point, draws the badge, and its sharedAt names its entry) }; fit: true fits the view to the
  *   bounds
  * viewBounds(zones, pastZones, positives) -> the bounds that take in all of them, or null
  * setPicking(st, on, onPick) -> while on, a click on the map calls onPick(lon, lat), with a crosshair cursor
@@ -32,7 +34,8 @@
  * setSketch(st, features) -> the drawing's sketch: features with properties { kind: 'fill' | 'side' | 'next' | 'mid' |
  *   'corner', color, r (a corner's radius) }
  * hoverAt(st, point) (as st.hoverAt) -> the hover at a point of the screen, or null: { items: [{ head, lines }],
- *   foot, points } (foot the "as of" line under the zones, else ''; points true for positives or a site)
+ *   foot, points, shared } (foot the "as of" line under the zones, else ''; points true for positives or a site;
+ *   shared, for positives at a point with more than one case, [{ head, lines }], in a gold-edged box)
  * zoneFeatures(sites, rings, n, unit) -> the ring shapes of ring sites (proximity.bandShapes), each with its ring's
  *   color, label, site and ring number; the ring distances in unit ("km" or "mi"), turned into km by rules.js toKm;
  *   polygonFeatures(zones, color) -> zone polygons as features (drawn true for a zone drawn on the map) */
@@ -57,19 +60,22 @@
     geometry: { type: 'Point', coordinates: [p.lon, p.lat] }, properties: { label: p.label, color: p.color, r: p.r || 10 } })) });
   const dots = list => ({ type: 'FeatureCollection', features: list.map((p, i) => ({ type: 'Feature', id: i + 1,
     geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-    properties: { label: p.label, mark: positiveId(p), opacity: p.past ? 0.55 : 1, lon: p.lon, lat: p.lat } })) });
+    properties: { label: p.label, mark: positiveId(p), opacity: p.past ? 0.55 : 1, lon: p.lon, lat: p.lat, at: p.sharedAt || '' } })) });
 
   // A positive's mark (2.4): its animal's shape (rules.js animalShapeOf) filled in its status
   // color, with a white halo and a near-black outline, half larger than the circle before (radius 7 with zones, else
   // 5); a past one white inside with an edge in its status color, faded by the layer. A positive naming more than one
   // kind (2.8, rules.js animalShapesOf) gets each kind's shape side by side, the row centered on its spot. Drawn at
   // twice the size for sharp edges; made again when a basemap's new style asks for it.
-  const OUTLINE = '#1a1a1a', HALO = 2, LARGER = 1.5;
+  // 2.9: a premises detected more than once (cases at the same map point) has a small dark teal badge
+  // at the mark's top right with how many cases share the point (9+ past nine), whatever the dates shown.
+  const OUTLINE = '#1a1a1a', HALO = 2, LARGER = 1.5, BADGE = '#245566', BADGE_R = 5.5;
   const shapesOf = p => (p.shapes && p.shapes.length ? p.shapes : [p.shape || 'circle']);
   const positiveId = p => 'em-positive:' + shapesOf(p).join('+') + ':' + (p.past ? 'past' : 'now') + ':' +
-    (p.withZones ? 'zones' : 'none') + ':' + p.color;
-  function positiveImage(shapes, past, withZones, color) {
-    const k = 2, r = (withZones ? 7 : 5) * LARGER, half = Math.ceil(r + 5 + 2 * HALO);
+    (p.withZones ? 'zones' : 'none') + ':' + (p.shared > 1 ? p.shared : 1) + ':' + p.color;
+  function positiveImage(shapes, past, withZones, color, shared) {
+    // With a badge the picture has room around it on every side, so the mark stays centered on its spot.
+    const k = 2, r = (withZones ? 7 : 5) * LARGER, pad = shared > 1 ? BADGE_R + 1 : 0, half = Math.ceil(r + 5 + 2 * HALO + pad);
     const step = 2 * (r + 1.25) + 2;   // one shape's width and a little room before the next
     const c = root.document.createElement('canvas');
     c.width = (2 * half + (shapes.length - 1) * step) * k;
@@ -93,11 +99,26 @@
       g.lineWidth = past ? 1 : 1.6;
       g.stroke(path);
     });
+    if (shared > 1) {
+      const x = half + (shapes.length - 1) * step + r * 0.8, y = half - r * 0.8;
+      g.beginPath();
+      g.arc(x, y, BADGE_R, 0, 2 * Math.PI);
+      g.fillStyle = BADGE;
+      g.fill();
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 1.2;
+      g.stroke();
+      g.fillStyle = '#ffffff';
+      g.font = '700 ' + (shared > 9 ? 6.5 : 8) + 'px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(shared > 9 ? '9+' : String(shared), x, y + 0.5);
+    }
     return g.getImageData(0, 0, c.width, c.height);
   }
   function addPositive(map, id) {
-    const m = /^em-positive:([a-z+-]+):(past|now):(zones|none):(.+)$/.exec(id);
-    if (m && !map.hasImage(id)) map.addImage(id, positiveImage(m[1].split('+'), m[2] === 'past', m[3] === 'zones', m[4]), { pixelRatio: 2 });
+    const m = /^em-positive:([a-z+-]+):(past|now):(zones|none):(\d+):(.+)$/.exec(id);
+    if (m && !map.hasImage(id)) map.addImage(id, positiveImage(m[1].split('+'), m[2] === 'past', m[3] === 'zones', m[5], +m[4]), { pixelRatio: 2 });
   }
 
   // The CVI premises' size by the zoom: 0.4 of full at the state's view (zoom 6 and out), full from zoom 10 in.
@@ -185,7 +206,8 @@
       pick: st.em.pick,
       draw: st.em.draw,
       tips: d.zoneTips || [],
-      tipFoot: d.tipFoot || ''
+      tipFoot: d.tipFoot || '',
+      shared: d.shared || {}
     };
     // The marks' pictures first, so the marks show as soon as the map has drawn.
     (d.outside || []).concat(d.inside || []).forEach(p => M().addMark(st.map, p.shape || 'circle', p.color));
@@ -261,8 +283,11 @@
         return { items: ends.concat(site ? [String(site.properties.label)] : []).map(item), foot: '', points: true };
       }
       if (points[0].layer.id !== 'em_positives') return { items: [item(points[0].properties.label)], foot: '', points: true };
-      const labels = [...new Set(points.filter(f => f.layer.id === 'em_positives').map(f => String(f.properties.label)))];
-      return { items: labels.map(item), foot: '', points: true };
+      const ps = points.filter(f => f.layer.id === 'em_positives');
+      const labels = [...new Set(ps.map(f => String(f.properties.label)))];
+      // A map point with more than one case (2.9): a box naming each case at it, with its dates.
+      const shared = [...new Set(ps.map(f => String(f.properties.at || '')).filter(at => st.em.shared[at]))].map(at => st.em.shared[at]);
+      return Object.assign({ items: labels.map(item), foot: '', points: true }, shared.length ? { shared } : {});
     }
     const lines = new Map();
     for (const f of query(ZONE_LAYERS)) {
@@ -308,6 +333,7 @@
     const html = it => '<div class="tip-item">' + (it.head ? '<strong>' + esc(it.head) + '</strong>' +
       (it.lines.length ? '<br>' : '') : '') + it.lines.map(esc).join('<br>') + '</div>';
     return hover.items.map(html).join(hover.points ? '<hr>' : '') +
+      (hover.shared ? hover.shared.map(s => '<div class="tip-shared">' + esc(s.head) + '<br>' + s.lines.map(esc).join('<br>') + '</div>').join('') : '') +
       (hover.foot ? '<div class="tip-foot">' + esc(hover.foot) + '</div>' : '') +
       (hover.context ? '<hr>' + hover.context.map(html).join('') : '');
   }
@@ -326,7 +352,7 @@
       if (!hover) { st.clearHover(); return; }
       map.getCanvas().style.cursor = st.picking ? '' : 'default';
       const text = it => [it.head].concat(it.lines).join('\n');
-      st.hoverLabel = hover.items.map(text).concat(hover.foot || [], (hover.context || []).map(text))
+      st.hoverLabel = hover.items.map(text).concat((hover.shared || []).map(text), hover.foot || [], (hover.context || []).map(text))
         .join('\n\n');   // test hook
       tip.setLngLat(e.lngLat).setHTML(hoverHtml(hover)).addTo(map);
     });

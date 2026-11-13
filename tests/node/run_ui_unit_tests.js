@@ -299,6 +299,16 @@ const SHARED_ONLY = [':root', 'body', 'header.top', 'header.top h1', '.badge', '
   '.ctl-row .links button', '.facility-swatch.facility-mark-box'];
 // Text sizes under 0.75rem kept on the maps by design (county and place names, region names; px values).
 const SMALL_OK = ['.county-label', '.county-label.pc-name', '.state-label', '.lg-cl'];
+// The Emergency Report's printed pages (2.9, E2: .rp-page and its parts, site/emergency/index.html) are a letter-size
+// document at print sizes (body 11.5 px, notes 9.5 px), as the map picture is: their sizes are the agreed
+// update's look, so the floor is the screen's only. Their colors are the brand's names all the same.
+const PRINTED = sel => /^(table)?\.rp-/.test(sel) && sel !== '.rp-bar-top' && !sel.startsWith('.rp-bar-top ') && !sel.startsWith('.rp-note');
+// The Emergency Report's own warning and card colors (2.9), kept as agreed: the brand has no orange dark enough for
+// text, so the form's orange "Check" set (its warnings, the orange edges, "not filled") keeps its own; the key messages'
+// four icon circles keep their soft tints; the live map's hover keeps its gold box for cases at one map point. Colors
+// only: their sizes meet the floor as every other rule does.
+const REPORT_KEEP = ['.maplibregl-popup-content .tip-shared', '.rp-fold summary .tag.warn', '.rp-form .warning', '.rp-msg .pair',
+  '.rp-file-note.warn', '.rp-ready-note.warn', '.rp-p2f.chk input', '.rp-form .why', '.rp-slot .none', '.rp-page .rp-nf', '.rp-card .rp-ic.a'];
 const CONTROL = /(^|[\s,>])(button|select|input|textarea|summary)\b|\.btn\b|\.links\b|-toggle\b|\.tip\b|\.dt-filter|\.dt-page/;
 function rules(cssText) {
   const out = [];
@@ -321,7 +331,8 @@ sheets.forEach(sh => {
     const keep = MAP_KEEP.some(k => r.sel.startsWith(k) || r.sel.includes(', ' + k));
     if (sh.name !== 'shared/brand.css') {
       const hex = (r.decl.match(/#[0-9a-fA-F]{3,6}\b/g) || []).filter(h => !['#fff', '#ffffff'].includes(h.toLowerCase()));
-      check(keep || !hex.length, sh.name + ': "' + r.sel.slice(0, 60) + '" uses the color names (or is a map item)', hex);
+      const kept = keep || (sh.name === 'emergency/index.html' && REPORT_KEEP.some(k => r.sel.startsWith(k)));
+      check(kept || !hex.length, sh.name + ': "' + r.sel.slice(0, 60) + '" uses the color names (or is a map item)', hex);
       check(SHARED_ONLY.indexOf(r.sel) < 0, sh.name + ': "' + r.sel + '" is left to shared/brand.css');
     }
     const s = sizeRem(r.decl);
@@ -330,6 +341,7 @@ sheets.forEach(sh => {
       check(s.value >= 1 || r.sel === '.legend-panel', sh.name + ': "' + r.sel + '" sizes in em only where nothing nests (the legend panel)', s);
       return;
     }
+    if (s.rem < 0.75 && PRINTED(r.sel)) return;
     if (s.rem < 0.75) {
       underFloor++;
       check(SMALL_OK.indexOf(r.sel) >= 0, sh.name + ': "' + r.sel + '" under 0.75rem only for map names', s);

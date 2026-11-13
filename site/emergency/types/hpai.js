@@ -69,6 +69,26 @@
  *                 file's species column to keys, default is used when no species word matches. A suggested layer
  *                 whose file is not loaded is skipped
  *   links         reference pages (label and https address), opened in a new tab from the type's "?"
+ *   report        the printed update made in the Report view (2.9); a type without it has no Report view. Its fields:
+ *                   title, note  the update's title and the line under it
+ *                   source       the table named in the source line ("WSDA HPAI table")
+ *                   flocks       what the status sentence is about ("domestic flocks"): the first kind's cases
+ *                   cases        each kind's words for one case and for more ("flock", "flocks"); a kind left out is
+ *                                "<label> case"
+ *                   livestock    the kind the livestock card counts (a kind's key); left out, no livestock card
+ *                   status       the approved status wordings: free (no active flock) and active
+ *                   milk         the milk testing stages: each its stage and the sentence printed after it
+ *                   milkLink, map, online  links: a label and an https address (the milk testing strategy, the
+ *                                outbreak map, the address printed in the foot)
+ *                   messages     the key messages a new report starts with: headline, icon (a name from
+ *                                site/emergency/message-icons.js), text, an optional link, highlight true for a shaded card
+ *                   hotline      the foot's hotline: ask (its question), name and number
+ *                   alternate    the alternate-format line at every page's foot
+ *                   page2        optional, page 2 (its numbers are typed each month in the form): national { source,
+ *                                livestock, sequencing } and wild { source }, https addresses; testing { intro (WADDL's
+ *                                sentence), since (its tests' start), categories (names), lists }; call, the "Report
+ *                                sick birds" box's parts { headline, text, link }; resources, the link lists. A list is
+ *                                { name, links: [{ label, url (https:// or mailto:) }] }; left out, no page 2
  *
  * Positives are points (a latitude and a longitude each). An emergency whose detections are whole counties is not
  * covered yet; zones by county would be the way to add it (site/shared/facilities.js countyMembership).
@@ -141,6 +161,103 @@
     links: [
       { label: 'USDA APHIS: avian influenza', url: 'https://www.aphis.usda.gov/livestock-poultry-disease/avian/avian-influenza' },
       { label: 'CDC: bird flu', url: 'https://www.cdc.gov/bird-flu/' }
-    ]
+    ],
+    // The printed update (2.9, E2), from WSDA's update of September 1, 2026 (its wording and links; the source of truth
+    // for the figures). A new report starts from these.
+    report: {
+      title: 'Highly Pathogenic Avian Influenza (HPAI) Update',
+      note: 'Updates are issued as needed; the links lead to each source.',
+      source: 'WSDA HPAI table',
+      flocks: 'domestic flocks',
+      cases: { birds: ['flock', 'flocks'], cattle: ['dairy herd', 'dairy herds'],
+        other: ['premises with other animals', 'premises with other animals'] },
+      livestock: 'cattle',
+      status: {
+        free: 'Washington is currently considered free of highly pathogenic avian influenza in domestic flocks.',
+        active: 'Washington has active detections of highly pathogenic avian influenza in domestic flocks.'
+      },
+      milk: [
+        { stage: 'Unaffected / Stage 4', text: 'Using statistical sampling and a phased approach for sampling frequency, ' +
+          'Washington state has demonstrated the absence of the virus.' }
+      ],
+      milkLink: { label: 'National Milk Testing Strategy (NMTS)',
+        url: 'https://www.aphis.usda.gov/sites/default/files/national-milk-testing-strategy-5-stage.pdf' },
+      map: { label: 'Washington State Avian Influenza Outbreak Map', url: 'https://arcg.is/05KT8S' },
+      // The update's own key messages; the livestock one is drawn from the data (report.js wording).
+      messages: [
+        { headline: 'Protect your flock', icon: 'shield-check',
+          text: 'Highly pathogenic avian influenza (HPAI) A(H5) viruses have been detected in U.S. wild birds, commercial ' +
+            'poultry and backyard flocks beginning in January 2022. Biosecurity is the best way to protect a flock:',
+          link: { label: 'USDA\'s Defend the Flock program',
+            url: 'https://www.aphis.usda.gov/aphis/ourfocus/animalhealth/animal-disease-information/avian/defend-the-flock-program' } },
+        { headline: 'Low risk to the public', icon: 'person',
+          text: 'CDC currently considers the current strain of avian influenza circulating in the U.S. to be low risk to the ' +
+            'general public. However, people with close or prolonged contact with infected birds, animals, or their ' +
+            'environments are at higher risk of infection and should be aware of the risk of exposure to avian influenza ' +
+            'so that they can take proper precautions and wear appropriate personal protective equipment (PPE). CDC Guidance:',
+          link: { label: 'Reducing Exposure for Workers to Avian Influenza A Viruses', url: 'https://www.cdc.gov/bird-flu/worker-safety/index.html' } },
+        { headline: 'Moving dairy cattle', icon: 'truck', highlight: true,
+          text: 'Lactating dairy cattle moving interstate from States with Unaffected State Status under the National Milk ' +
+            'Testing Strategy are no longer required to be tested for highly pathogenic avian influenza (HPAI) H5N1 before ' +
+            'movement. See the updated',
+          link: { label: 'APHIS Requirements and Recommendations for HPAI H5N1 Virus in Livestock',
+            url: 'https://www.aphis.usda.gov/sites/default/files/aphis-requirements-hpai-livestock-2026.pdf' } }
+      ],
+      hotline: { ask: 'Sick birds?', name: 'Sick Bird Hotline', number: '1-800-606-3056' },
+      online: { label: 'agr.wa.gov/birdflu', url: 'https://agr.wa.gov/birdflu' },
+      alternate: 'Do you need this publication in an alternate format? Contact WSDA at (360) 902-1976 or TTY Relay 800-833-6388.',
+      // Page 2 (2.9): the national, wild-bird and testing figures typed from USDA APHIS and WADDL each month; here
+      // only their sources, WADDL's sentence and categories, the "Report sick birds" box and the link lists, as the
+      // update of September 1, 2026 has them (staff change them in the form; the numbers start empty).
+      page2: {
+        national: { source: 'https://www.aphis.usda.gov/aphis/ourfocus/animalhealth/animal-disease-information/avian/avian-influenza/hpai-2022/2022-hpai-commercial-backyard-flocks',
+          livestock: 'https://www.aphis.usda.gov/livestock-poultry-disease/avian/avian-influenza/hpai-detections/hpai-confirmed-cases-livestock',
+          sequencing: 'https://www.aphis.usda.gov/livestock-poultry-disease/avian/avian-influenza/hpai-detections/livestock/testing-and-science' },
+        wild: { source: 'https://www.aphis.usda.gov/livestock-poultry-disease/avian/avian-influenza/hpai-detections/wild-birds' },
+        testing: {
+          intro: 'The Washington Animal Disease Diagnostic Laboratory (WADDL) collaborates closely with state and federal agencies to ' +
+            'actively monitor, understand, and mitigate the spread of highly pathogenic avian influenza virus (HPAI H5N1) across dairy ' +
+            'cattle, poultry, and other animal species.',
+          since: 'January 1, 2024',
+          categories: ['Animal Feed', 'Domestic Cats', 'Domestic Cattle/Milk', 'Domestic Mammal (Other)', 'Domestic Poultry',
+            'Not Specified', 'Wild Birds', 'Wildlife'],
+          lists: [
+            { name: 'Avian influenza testing information', links: [
+              { label: 'Clinical Lactating Dairy Cattle', url: 'https://waddl.vetmed.wsu.edu/2024/04/01/highly-pathogenic-avian-influenza-detected-in-dairy-cattle/' },
+              { label: 'Interstate Movement of Lactating Dairy Cattle',
+                url: 'https://waddl.vetmed.wsu.edu/2024/04/26/faq-clinically-normal-lactating-cows-for-interstate-movement-testing-cattle-for-highly-pathogenic-avian-influenza-hpai/' },
+              { label: 'Poultry testing information', url: 'https://waddl.vetmed.wsu.edu/2022/11/09/avian-influenza-fact-sheet/' },
+              { label: 'Avian Influenza testing in cats and dogs FAQ', url: 'https://waddl.vetmed.wsu.edu/2025/02/24/avian-influenza-testing-in-cats-and-dogs-faq/' }] },
+            { name: 'Quick links', links: [
+              { label: 'Submit a sample', url: 'https://waddl.vetmed.wsu.edu/submit-a-sample/' },
+              { label: 'Sample packing guidelines', url: 'https://waddl.vetmed.wsu.edu/packaging-and-shipping/' },
+              { label: 'Sample shipping guidelines', url: 'https://waddl.vetmed.wsu.edu/shipping/' }] }
+          ]
+        },
+        // The box's two parts; the hotline's name and number (from "Boxes and resources") follow the first.
+        call: [
+          { headline: 'Report Sick Birds to WSDA', text: 'If a flock experiences sudden death or illness of multiple birds, submit a report ' +
+            'through Washington State Department of Agriculture\'s', link: { label: 'online reporting tool',
+              url: 'https://survey123.arcgis.com/share/a384e90f69744f2e846135a9ce80027f' } },
+          { headline: 'Report Sick Wild Birds to WDFW', text: 'Sick or dead wild birds should not be touched or moved and can be reported ' +
+            'using the Washington Department of Fish and Wildlife\'s', link: { label: 'online reporting tool', url: 'https://wdfw.wa.gov/species-habitats/diseases/bird-flu' } }
+        ],
+        resources: [
+          { name: 'Animal health', links: [
+            { label: 'agr.wa.gov/birdflu', url: 'https://agr.wa.gov/birdflu' },
+            { label: 'avhealth@agr.wa.gov', url: 'mailto:avhealth@agr.wa.gov' },
+            { label: 'For veterinarians', url: 'https://cms.agr.wa.gov/WSDAKentico/Documents/Pubs/488-KeyInsightsFAQVetsAvianInfluenza.pdf' },
+            { label: 'For backyard flock owners', url: 'https://cms.agr.wa.gov/WSDAKentico/Documents/Pubs/482-BirdFluFAQ.pdf' }] },
+          { name: 'Wild birds and wildlife', links: [
+            { label: 'Washington Dept. of Fish and Wildlife', url: 'https://wdfw.wa.gov/species-habitats/diseases/bird-flu' },
+            { label: 'USGS Avian Influenza Surveillance', url: 'https://www.usgs.gov/centers/nwhc/science/avian-influenza-surveillance' },
+            { label: 'USDA APHIS wild bird data', url: 'https://www.aphis.usda.gov/livestock-poultry-disease/avian/avian-influenza/hpai-detections/wild-birds' },
+            { label: 'USDA APHIS wildlife data', url: 'https://www.aphis.usda.gov/livestock-poultry-disease/avian/avian-influenza/hpai-detections/mammals' }] },
+          { name: 'Public health', links: [
+            { label: 'Washington (Dept. of Health)', url: 'https://doh.wa.gov/you-and-your-family/illness-and-disease-z/avian-influenza' },
+            { label: 'National (CDC)', url: 'https://www.cdc.gov/bird-flu/situation-summary/index.html' }] }
+        ]
+      }
+    }
   });
 })(typeof window !== 'undefined' ? window : globalThis);

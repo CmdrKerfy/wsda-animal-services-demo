@@ -5,7 +5,8 @@
 // type and the made-up third type in tests/synthetic/em_made_up_type.js), the dataset list (site/emergency/datasets.js)
 // and its recognition through the shared recognize.js (positives by their marker columns, the collision cases, the
 // zone kind and the shapefile reason), the Emergency sample, bundle.json's shared entries, the guide's Emergency
-// part and the chart (site/emergency/chart.js, its copied text widths and axis breaks against CVI's chartsvg.js), and
+// part and the chart (site/emergency/chart.js, its copied text widths and axis breaks against CVI's chartsvg.js), the
+// HPAI update's figures (site/emergency/report.js, 2.9) by hand and against the R reference, and
 // the work-PC table check (tools/work-pc/check_hpai_table.R, run with Rscript) against the page's counts. The page's
 // own files run unchanged in Node.
 // Usage (repository root): node tests/node/run_em_unit_tests.js   (also writes the fixtures, make_em_fixtures.js)
@@ -15,8 +16,8 @@ const SITE = path.join(ROOT, 'site');
 for (const f of ['cvi/app/csv.js', 'cvi/app/master.js', 'cvi/app/scaling.js', 'cvi/app/summary.js', 'cvi/app/lookup.js',
   'shared/zip.js', 'shared/load.js', 'shared/recognize.js', 'shared/bundle.js', 'shared/checklist.js',
   'shared/sample.js', 'shared/guide.js', 'shared/zones.js', 'shared/proximity.js', 'shared/facility-datasets.js',
-  'cvi/datasets.js', 'infrastructure/datasets.js', 'emergency/datasets.js', 'emergency/sample.js', 'emergency/types.js',
-  'emergency/types/hpai.js', 'emergency/types/nws.js', 'emergency/rules.js', 'emergency/chart.js']) {
+  'cvi/datasets.js', 'infrastructure/datasets.js', 'emergency/datasets.js', 'emergency/sample.js', 'emergency/message-icons.js',
+  'emergency/types.js', 'emergency/types/hpai.js', 'emergency/types/nws.js', 'emergency/rules.js', 'emergency/report.js', 'emergency/report-form.js', 'emergency/chart.js']) {
   require(path.join(SITE, f));
 }
 // The Overview's map data, as the page loads them: the county shapes and the 2020 Census tracts, decoded by
@@ -24,7 +25,7 @@ for (const f of ['cvi/app/csv.js', 'cvi/app/master.js', 'cvi/app/scaling.js', 'c
 globalThis.window = globalThis.window || globalThis;
 for (const f of ['shared/population.js', 'geo/wa-counties.js', 'geo/tracts-wa.js', 'shared/facilities.js']) require(path.join(SITE, f));
 const { recognize: R, bundle: B, checklist: C, guide: G, zones: Z, emergencyTypes: T, emergencyRules: E,
-  proximity: PX } = globalThis.WSDA;
+  proximity: PX, emergencyReport: RP, emergencyReportForm: RF } = globalThis.WSDA;
 const EM = globalThis.WSDA.profiles.emergency, CVI = globalThis.WSDA.profiles.cvi;
 const INF = globalThis.WSDA.profiles.infrastructure;
 const FX = require(path.join(ROOT, 'tests', 'synthetic', 'make_em_fixtures.js'));
@@ -128,9 +129,79 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
   bad(t => { t.kinds[1].words = []; }, /"kinds\[1\]\.words" should be a list of one or more words/, 'a kind before the last with no words');
   bad(t => { t.kinds[2].nameEach = 'yes'; }, /"kinds\[2\]\.nameEach" should be true or false/, 'nameEach as a word');
   bad(t => { t.kinds[2].words.push('Dairy'); }, /"kinds\[2\]\.words" should be words no earlier kind has \("dairy" is in kinds\[1\], "Cattle", too\)/, 'a word in two kinds');
+  // The printed update's words (2.9): optional, each checked; a type without them has no Report view.
+  bad(t => { t.report = 'HPAI update'; }, /"report" should be the printed update's words, in \{ \}/, 'report words that are a word');
+  bad(t => { delete t.report.title; }, /"report\.title" should be a text/, 'a report with no title');
+  bad(t => { t.report.cases.pigs = ['pig farm', 'pig farms']; }, /"report\.cases\.pigs" should be a kind's key \(birds, cattle, other\)/, 'case words for a kind the type does not have');
+  bad(t => { t.report.cases.birds = ['flock']; }, /"report\.cases\.birds" should be two words: for one case and for more/, 'one case word only');
+  bad(t => { t.report.livestock = 'dairy'; }, /"report\.livestock" should be a kind's key/, 'a livestock kind the type does not have');
+  bad(t => { delete t.report.status.free; }, /"report\.status\.free" should be a text/, 'no "free" status wording');
+  bad(t => { t.report.milk = []; }, /"report\.milk" should be a list of one or more milk testing stages/, 'no milk testing stage');
+  bad(t => { t.report.map.url = 'http://arcg.is/05KT8S'; }, /"report\.map\.url" should be an https:\/\/ address/, 'an outbreak map over http');
+  bad(t => { t.report.messages[0].link = { label: 'Defend the Flock' }; }, /"report\.messages\[0\]\.link\.url" should be an https:\/\/ address/, 'a message link without an address');
+  bad(t => { delete t.report.messages[1].headline; }, /"report\.messages\[1\]\.headline" should be a text/, 'a message without a headline');
+  bad(t => { t.report.messages[2].icon = 'bell'; }, /"report\.messages\[2\]\.icon" should be the name of a message icon/, 'a message icon that is not one');
+  bad(t => { t.report.messages[0].icon = 'constructor'; }, /"report\.messages\[0\]\.icon" should be the name of a message icon/, 'a message icon named after an object\'s own field');
+  bad(t => { delete t.report.messages[1].icon; }, /"report\.messages\[1\]\.icon" should be the name of a message icon/, 'a message without an icon');
+  // Page 2's words (2.9): the sources over https; a list's link https or mailto:; the box's parts a list.
+  bad(t => { t.report.page2.national.source = 'http://www.aphis.usda.gov/'; }, /"report\.page2\.national\.source" should be an https:\/\/ address/, 'page 2: a source over http');
+  bad(t => { t.report.page2.resources[0].links[1].url = 'avhealth@agr.wa.gov'; }, /"report\.page2\.resources\[0\]\.links\[1\]\.url" should be an https:\/\/ or mailto: address/,
+    'page 2: a list\'s email address without mailto:');
+  bad(t => { t.report.page2.call[0].link.url = 'mailto:a@b.c'; }, /"report\.page2\.call\[0\]\.link\.url" should be an https:\/\/ address/, 'page 2: the box\'s link a mailto: (a page only)');
+  bad(t => { t.report.page2.call = []; }, /"report\.page2\.call" should be the "Report sick birds" box's parts, a list/, 'page 2: no "Report sick birds" box');
+  bad(t => { delete t.report.page2.testing.lists[1].name; }, /"report\.page2\.testing\.lists\[1\]\.name" should be a text/, 'page 2: a link list without its heading');
+  bad(t => { t.report.page2.testing.categories = 'Wild Birds'; }, /"report\.page2\.testing\.categories" should be a list of category names/, 'page 2: the categories not a list');
+  {
+    const t = good(); t.id = 'test-no-page2'; delete t.report.page2;
+    const p = hpai.report.page2;
+    check(T.check(t).report.page2 === null && p.resources[0].links[1].url === 'mailto:avhealth@agr.wa.gov' && p.testing.categories.length === 8
+      && same(p.testing.lists.map(g => g.name + ' ' + g.links.length), ['Avian influenza testing information 4', 'Quick links 3'])
+      && same(p.resources.map(g => g.name + ' ' + g.links.length), ['Animal health 4', 'Wild birds and wildlife 4', 'Public health 2']) && p.call.length === 2,
+    'types: page 2\'s words: none is fine (no page 2); HPAI\'s from the update of September 1, 2026 (8 categories, the lists, the box\'s two parts)', p);
+  }
+  {
+    const t = good();
+    t.id = 'test-report'; delete t.report.livestock; t.report.messages[0].link = null; delete t.report.messages[1].link;
+    const c = T.check(t), plain = good(); plain.id = 'test-no-report'; delete plain.report;
+    check(c.report.livestock === null && c.report.messages[0].link === null && c.report.messages[1].link === null
+      && c.report.messages[2].highlight === true && c.report.messages[0].highlight === false && T.check(plain).report === null
+      && T.get('nws').report === null && hpai.report.messages.length === 3 && hpai.report.cases.cattle[1] === 'dairy herds',
+      'types: report words: no livestock kind, a message without a link and a type without a report (New World screwworm\'s) are fine', c.report);
+  }
+  {   // The key messages' icons (2.9, message-icons.js): 44 in six groups, each in both styles, from the sets passed.
+    const MI = globalThis.WSDA.emergencyMessageIcons, keys = Object.keys(MI.ICONS), gs = MI.groups();
+    check(keys.length === 44 && gs.map(g => g.name + ' ' + g.icons.length).join(', ') === 'General 16, Animals 13, Farm and dairy 3, ' +
+      'Biosecurity and testing 5, Rules and events 2, Contact and places 5' && gs[1].icons[1].key === 'turkey' && gs[1].icons[1].label === 'Turkey',
+      'message icons: 44 in the form\'s six groups, in order', gs.map(g => g.name + ' ' + g.icons.length));
+    const from = s => { const n = {}; for (const k of keys) { const w = MI.ICONS[k][s].from.replace(/,.*$/, ''); n[w] = (n[w] || 0) + 1; } return n; };
+    const drawnKeys = keys.filter(k => MI.ICONS[k].filled.from === 'drawn for this page' && MI.ICONS[k].outline.from === 'drawn for this page');
+    check(same(from('filled'), { OCHA: 18, 'Phosphor fill': 17, 'Healthicons filled': 5, 'drawn for this page': 4 })
+      && same(from('outline'), { Phosphor: 35, Healthicons: 5, 'drawn for this page': 4 }) && drawnKeys.join() === 'turkey,sheep,goat,silo',
+      'message icons: Filled from OCHA 18, Phosphor fill 17, Healthicons 5; Outline from Phosphor 35, Healthicons 5; turkey, sheep, goat and silo drawn in both',
+      [from('filled'), from('outline'), drawnKeys]);
+    const PATH = /^[MmLlHhVvCcSsQqTtAaZz0-9.,\s+eE-]+$/, wrong = [];
+    for (const k of keys) for (const s of MI.STYLES) {
+      const ic = MI.ICONS[k][s], box = ic.box.split(' ').map(Number), out = MI.svg(k, s, 22);
+      const ok = box.length === 4 && box.every(Number.isFinite) && box[2] > 0 && box[3] > 0 && ic.parts.length > 0
+        && ic.parts.every(p => PATH.test(p[0]) && (p.length === 1 || p[1] === 'e' || (typeof p[1] === 'number' && p[1] > 0)))
+        && out.startsWith('<svg class="em-ic" viewBox="' + ic.box + '" width="22" height="22"') && (out.match(/<path /g) || []).length === ic.parts.length
+        && (out.match(/fill-rule="evenodd"/g) || []).length === ic.parts.filter(p => p[1] === 'e').length
+        && (out.match(/stroke-width="/g) || []).length === ic.parts.filter(p => typeof p[1] === 'number').length;
+      if (!ok) wrong.push(k + ' ' + s);
+    }
+    check(!wrong.length, 'message icons: every icon draws in both styles: its own grid, each shape a path, its fill rule and lines kept', wrong);
+    check(MI.svg('cow', 'filled', 16) !== MI.svg('cow', 'outline', 16) && MI.svg('cow', 'sideways', 16) === MI.svg('cow', 'filled', 16)
+      && MI.svg('cow', undefined, 16) === MI.svg('cow', 'filled', 16) && MI.svg('cow').includes('width="22"')
+      && MI.svg('bell', 'filled') === '' && (() => { try { return MI.svg('toString'); } catch (e) { return 'threw'; } })() === ''
+      && !MI.has('constructor') && !MI.has(undefined) && MI.has('silo'),
+      'message icons: Filled unless "outline", 22 pixels unless sized; a name that is not an icon draws nothing');
+    check(hpai.report.messages.map(m => m.icon).join() === 'shield-check,person,truck' && MI.has('droplet'),
+      'message icons: HPAI\'s three messages and the livestock card (droplet) name icons that exist');
+  }
   {   // The last kind may have no words (it takes every species no other kind names); a kind's word defaults to its label.
     const t = good();
     t.id = 'test-kinds'; t.kinds = [{ key: 'birds', label: 'Birds', words: ['bird'] }, { key: 'rest', label: 'Every other animal' }];
+    delete t.report;   // its case words name kinds this test type does not have
     const c = T.check(t);
     check(same(c.kinds, [{ key: 'birds', label: 'Birds', word: 'birds', words: ['bird'], nameEach: false },
       { key: 'rest', label: 'Every other animal', word: 'every other animal', words: [], nameEach: false }]),
@@ -155,7 +226,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
   'types: a refused type is noted with its message for the page\'s red notice (no file outside a page), and not added (2.8)', T.problems());
   {   // A type that names no columns takes E1a's names; the unit "mi" is accepted.
     const t = good();
-    t.id = 'test-defaults'; delete t.columns; delete t.closed.dateColumn; delete t.kinds; delete t.title;
+    t.id = 'test-defaults'; delete t.columns; delete t.closed.dateColumn; delete t.kinds; delete t.title; delete t.report;
     t.closed.column = 'Surveillance Closed'; t.zones.unit = 'mi';
     const c = T.check(t);
     check(same(c.columns, { id: ['AnimalDiseaseReportId'], detected: ['Detection Date'], disease: ['Disease Name'], status: [],
@@ -592,13 +663,14 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     'past on its Close Date (on or before the end counts); still under quarantine until its Quarantine Release');
     const e1aRead = E.readPositives(posRows[0], posRows.slice(1), hpai);
     check(!e1aRead.positives.some(p => E.stillQuarantined(e1aRead, p, null)), 'a file without a quarantine column never says "still under quarantine"');
-    check(same(agByLine.map(p => p.size), ['Large', 'Small', 'Medium', 'Medium', 'Large', 'Small', null, 'Small', 'Large', 'Large', 'Small', 'Small']),
-      'flock size classes from the inventories (99 Small, 100 and 1,000 Medium, 1,001 Large; blank none)', agByLine.map(p => p.size));
+    check(same(agByLine.map(p => p.size), ['Large', 'Small', 'Large', 'Medium', 'Large', 'Small', null, 'Small', 'Large', 'Large', 'Small', 'Small']),
+      'flock size classes from the inventories (99 Small, 100 Medium, 1,000 and 1,001 Large; blank none)', agByLine.map(p => p.size));
     check(E.inventoryOf('1,250,000') === 1250000 && E.inventoryOf(' 2,400 ') === 2400 && E.inventoryOf('35') === 35 && E.inventoryOf('0') === 0
       && E.inventoryOf('') === null && E.inventoryOf('1,25') === null && E.inventoryOf('12,3456') === null && E.inventoryOf('-5') === null
       && E.inventoryOf('about 40') === null, 'inventories: thousands commas read; a blank or unreadable one is none, never zero');
-    check(E.sizeClass(99) === 'Small' && E.sizeClass(100) === 'Medium' && E.sizeClass(1000) === 'Medium' && E.sizeClass(1001) === 'Large'
-      && E.sizeClass(0) === 'Small' && E.sizeClass(null) === null, 'size classes at their edges');
+    check(E.sizeClass(99) === 'Small' && E.sizeClass(100) === 'Medium' && E.sizeClass(999) === 'Medium' && E.sizeClass(1000) === 'Large'
+      && E.sizeClass(1001) === 'Large'
+      && E.sizeClass(0) === 'Small' && E.sizeClass(null) === null, 'size classes at their edges (2.9: 1,000 Large)');
     check(E.bigNumber(4133418) === '4.1M' && E.bigNumber(1000000) === '1M' && E.bigNumber(999999) === '999,999' && E.bigNumber(18535) === '18,535'
       && E.bigNumber(35) === '35', 'big numbers: "4.1M" from a million, thousands commas below', E.bigNumber(4133418));
     check(E.numbersLine(ag, agGroups.current) === '2 commercial, 3 backyard, 1.3M birds, 35 cattle; 1 without an inventory',
@@ -1068,7 +1140,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     vm.createContext(ctx);
     for (const f of ['cvi/app/csv.js', 'cvi/app/scaling.js', 'shared/proximity.js', 'shared/zones.js', 'geo/wa-counties.js',
       'shared/facilities.js', 'shared/brand.js', 'shared/branded.js', 'shared/tiles.js', 'shared/labels.js',
-      'cvi/app/brandedmaps.js', 'emergency/types.js', 'emergency/types/hpai.js', 'emergency/types/nws.js', 'emergency/rules.js',
+      'cvi/app/brandedmaps.js', 'emergency/message-icons.js', 'emergency/types.js', 'emergency/types/hpai.js', 'emergency/types/nws.js', 'emergency/rules.js',
       'emergency/icons.js', 'emergency/branded.js']) {
       vm.runInContext(fs.readFileSync(path.join(SITE, f), 'utf8'), ctx, { filename: f });
     }
@@ -1576,7 +1648,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(same(pr.rows.map(r => r[0]), ['Skagit 01', 'Skagit 02', 'Lewis 02', 'Idaho 01', 'Umatilla 01', 'Whatcom 01', 'Franklin 01',
       'Benton 01', 'Yakima 02', 'Lewis 01', 'Yakima 01', 'Positive 4 (Kittitas)'])
       && same(pr.rows[1], ['Skagit 02', 'Oct 3, 2026', 'Skagit', 'Large', 'Commercial', 'Chicken', 'Active', ''])
-      && same(pr.rows[6], ['Franklin 01', 'Mar 15, 2026', 'Franklin', 'Medium', 'Commercial', 'Turkey', 'Closed', 'Jun 30, 2026']),
+      && same(pr.rows[6], ['Franklin 01', 'Mar 15, 2026', 'Franklin', 'Large', 'Commercial', 'Turkey', 'Closed', 'Jun 30, 2026']),
     'positives table: newest first, the undated last; dates written out; the county from the location when blank', pr.rows.slice(0, 2));
     check(!/MARKED-ADDRESS|Synthetic Town|Landfill/.test(JSON.stringify([ovCounties, pr])), 'overview: no Premises, Address, City or Disposal Method reaches a table');
     const boxes = E.overviewBoxes(ov, ovWin, COUNTIES, ovPeople);
@@ -2330,6 +2402,717 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       'how-to: the plain-text twin with Windows\' line ends and short lines; the page loads its Copy script from a file');
   }
 
+  // ---- 8b. The HPAI update's figures (2.9, E2: site/emergency/report.js) ---------------------------------------
+  // em_rules_report.csv on Sep 1, 2026: every figure worked out by hand from its 17 rows (make_em_fixtures.js), then
+  // the same figures against the R reference below.
+  {
+    const RR = FX.RULES.report, rRows = csvOf(RR.positives);
+    const rRead = E.readPositives(rRows[0], rRows.slice(1), hpai, RR.today);
+    const COUNTY_SHAPES = globalThis.CVIWA_GEO.counties.features;
+    const f = RP.figures(rRead, RR.date, COUNTY_SHAPES);
+    check(f.cases === 16 && f.later === 1 && f.undated === 1 && f.noPoint === 3 && f.active === 3,
+      'report: 16 cases on the date (Skagit 11, detected after it, left out; Pierce 11 without a date and the three rows without a point counted); 3 active (Thurston 11 without a point among them)',
+      [f.cases, f.later, f.undated, f.noPoint, f.active]);
+    check(same(f.flocks, { total: 14, commercial: 2, backyard: 10, others: [['Live Bird Market', 1]], untyped: 1, active: 2,
+      birds: { commercial: 1251000, backyard: 196, rest: 200 } }),
+      'report: the flocks are the bird rows (the two-kind one among them; the dairy herd and the goats not): 2 commercial, 10 backyard, one of another type as written, one without a type; their birds by type (King 11 and Franklin 11 commercial; the two-kind Lewis 11 in none, Clark 11 blank; the market\'s 200 the rest), adding up to the birds affected',
+      f.flocks);
+    check(f.flocks.birds.commercial + f.flocks.birds.backyard + f.flocks.birds.rest === f.birds,
+      'report: the flocks\' birds by type add up to the birds affected');
+    check(same(f.kinds.map(k => [k.key, k.cases, k.active, k.animals, k.missing]),
+      [['birds', 14, 2, 1251396, 1], ['cattle', 2, 1, 3550, 0], ['other', 1, 0, 6, 0]]) && f.birds === 1251396 && same(f.mixed, { cases: 1, animals: 30 }),
+      'report: the animals by kind (birds 1,251,396 with one blank inventory counted, never zero; the dairy herd\'s 3,550 cattle; 6 goats); the two-kind row a case of both, its 30 animals in neither',
+      [f.kinds, f.mixed]);
+    check(same(f.counties.map(c => [c.county, c.cases, c.active, c.flocks, c.washington]),
+      [['Franklin', 2, 1, 1, true], ['King', 2, 0, 2, true], ['Pierce', 2, 0, 2, true], ['Snohomish', 2, 0, 2, true], ['Yakima', 2, 1, 2, true],
+        ['Clark', 1, 0, 1, true], ['Lewis', 1, 0, 1, true], ['Thurston', 1, 1, 1, true], ['Whatcom', 1, 0, 0, true], ['Multnomah', 1, 0, 1, false],
+        [RP.COUNTY_NOT_GIVEN, 1, 0, 1, false]]) && f.countiesAffected === 9,
+      'report: the counties ("king county" is King; a row without a point in its County; one with neither "county not given"; Multnomah kept as written, not one of Washington\'s); 9 Washington counties',
+      f.counties);
+    check(same(f.thisYear.map(r => [r.detected, r.county, r.size, r.flockType, r.species, r.active]),
+      [['2026-03-14', 'Franklin', 'Large', 'Commercial', 'Turkey', false], ['2026-06-10', 'Lewis', 'Small', 'Backyard', 'Cattle, Chicken', false],
+        ['2026-07-01', 'Whatcom', 'Small', 'Backyard', 'Meat Goat', false], ['2026-08-20', 'Franklin', 'Large', 'Commercial', 'Dairy cattle', true],
+        ['2026-08-25', 'Yakima', 'Small', 'Backyard', 'Chicken', true], ['2026-08-28', 'Thurston', 'Small', 'Backyard', 'Chicken', true]]),
+      'report: this year\'s detections, oldest first (the turkey flock of exactly 1,000 Large)', f.thisYear);
+    const busy = f.byMonth.filter(m => m.commercial || m.backyard || m.other).map(m => [m.month, m.commercial, m.backyard, m.other]);
+    check(f.last === '2026-08-28' && f.daysSince === 4 && f.byMonth.length === 55 && f.byMonth[0].month === '2022-03'
+      && f.byMonth[54].month === '2026-09' && same(busy, [['2022-03', 1, 0, 0], ['2022-04', 0, 1, 0], ['2023-03', 0, 0, 1],
+        ['2023-11', 0, 1, 0], ['2024-01', 0, 1, 0], ['2024-02', 0, 1, 0], ['2025-02', 0, 1, 0], ['2025-05', 0, 0, 1],
+        ['2025-09', 0, 1, 0], ['2026-03', 1, 0, 0], ['2026-06', 0, 1, 0], ['2026-07', 0, 0, 1], ['2026-08', 0, 2, 1]]),
+      'report: the last detection 4 days before the date; 55 months, March 2022 to September 2026, commercial and backyard flocks and every other row; the undated row in none',
+      [f.last, f.daysSince, busy]);
+    check(same(f.zones, { active: 2, counties: 2 }) && same(f.twice, { premises: 1, rows: 2 }),
+      'report: zones around the 2 active rows with a point, in 2 counties (Thurston 11, active without a point, has none); one premises detected twice (Yakima 11 and 12 at the same point)', [f.zones, f.twice]);
+    check(RP.statusFits('free', f) === false && RP.statusFits('active', f) === true && RP.statusFits('own', f) === null
+      && RP.statusFits('free', RP.figures(rRead, '2026-08-01', COUNTY_SHAPES)) === true,
+      'report: the status wording checked against the active flocks ("free" does not fit Yakima 12; it fits Aug 1, when only the goats were active; staff\'s own words not checked)');
+    // Page 1's words (2.9 step 2), from the figures and types/hpai.js report.
+    const w = RP.wording(f, hpai, {}, COUNTY_SHAPES.length);
+    check(w.banner.active && w.banner.headline === '3 active detections: 2 flocks · 1 dairy herd'
+      && w.banner.line === hpai.report.status.active + ' Last detection Aug 28, 2026, 4 days ago.',
+      'report words: the banner counts every kind, split by kind; the status wording that fits the data; the last detection', w.banner);
+    check(same(w.tiles.map(t => [t.label, t.value, t.sub, !!t.active]), [
+      ['Active now', '3', '2 flocks · 1 dairy herd', true], ['This year', '6', 'detections in 2026', false],
+      ['Flocks since 2022', '14', '2 commercial · 10 backyard · 2 other', false], ['Birds affected', '1.25M', '1,251,396 since 2022, 1 without a count', false],
+      ['Counties', '9', 'of 39, since 2022', false], ['Last detection', 'Aug 28', '4 days ago', false]]),
+      'report words: the six tiles (the market and the untyped flock "other"; the blank inventory said, never zero)', w.tiles);
+    check(same(w.also, ['2 dairy herds (3,550 cattle)', '1 premises with other animals (6 other animals)', '1 case naming more than one kind of animal'])
+      && w.zones === 'Surveillance areas are active around 2 cases in 2 counties.'
+      && /1 case without a detection date: in the totals only\.$/.test(w.source),
+      'report words: the other kinds named apart; the zones line; the source line names the undated row', [w.also, w.zones, w.source]);
+    check(w.livestock.highlight && w.livestock.headline === '1 active livestock case in Washington'
+      && w.livestock.text === 'There is 1 active confirmed livestock case in Washington state (2 cases since 2022).'
+      && same(w.livestock.others, ['Other animals: 1 case since 2022, none active.']) && w.livestock.stage === 'Unaffected / Stage 4',
+      'report words: the livestock card from the data (the active cattle case, the total beside it), the other farm animals a line of their own', w.livestock);
+    const aug1 = RP.wording(RP.figures(rRead, '2026-08-01', COUNTY_SHAPES), hpai, { suspected: true }, 39);
+    check(aug1.banner.headline === '1 active detection: 1 premises with other animals; none in domestic flocks'
+      && aug1.banner.line.startsWith(hpai.report.status.free)
+      && aug1.livestock.headline === 'Suspected livestock cases in Washington' && aug1.livestock.highlight
+      && aug1.livestock.text === 'There are no active confirmed livestock cases in Washington state; suspected cases are being tested (1 case since 2022).',
+      'report words: Aug 1, the goats active alone ("free" fits the flocks); "suspected" ticked; the two-kind row the one cattle case by then',
+      [aug1.banner, aug1.livestock]);
+    const own = RP.wording(f, hpai, { status: 'own', own: '  Our own words.  ' }, 39);
+    check(own.status === 'Our own words.' && own.banner.line.startsWith('Our own words. Last detection'),
+      'report words: staff\'s own status words, trimmed');
+    const undatedOnly = RP.wording(RP.figures(rRead, '2021-01-01', COUNTY_SHAPES), hpai, {}, 39);
+    check(undatedOnly.banner.headline === '1 active detection: 1 flock' && undatedOnly.banner.line.endsWith('No detection date in the table yet.')
+      && undatedOnly.tiles[5].value === 'None' && undatedOnly.tiles[5].sub === '' && undatedOnly.since === '2021',
+      'report words: before every dated detection, the undated Pierce 11 alone, still active; no last detection', undatedOnly);
+    const none = RP.wording(RP.figures(Object.assign({}, rRead, { positives: [], dropped: [] }), RR.date, COUNTY_SHAPES), hpai, {}, 39);
+    check(none.banner.headline === 'No active detections in domestic flocks' && none.banner.line === hpai.report.status.free + ' No detection yet.'
+      && none.tiles.map(t => t.value).join() === '0,0,0,0,0,None' && none.zones === 'There are no currently active surveillance areas.'
+      && none.livestock.text === 'There are no confirmed or suspected livestock cases in Washington state.' && !none.also.length,
+      'report words: a table with no rows: none active, "free", no surveillance areas, the update\'s own livestock sentence', none);
+    check(RP.dateLong('2026-09-01') === 'September 1, 2026' && RP.dateShort('2026-04-02') === 'Apr 2, 2026' && RP.dateTable('2026-03-19') === '3/19/26'
+      && RP.short(4133418) === '4.13M' && RP.short(12000000) === '12M' && RP.short(66540) === '66,540' && RP.short(1250000) === '1.25M',
+      'report words: the dates ("September 1, 2026", "Apr 2, 2026", "3/19/26") and the short numbers (4.13M, 12M, 66,540)');
+    // The printed map's dots: one per case of a Washington county, inside it, the same at every drawing, the active first.
+    const dots = RP.spread(f, COUNTY_SHAPES), again = RP.spread(f, COUNTY_SHAPES);
+    const shapeOf = n => COUNTY_SHAPES.find(x => x.properties.name === n).geometry.coordinates;
+    check(dots.length === 14 && same(dots, again)
+      && f.counties.filter(c => c.washington).every(c => dots.filter(d => d.county === c.county).length === c.cases
+        && dots.filter(d => d.county === c.county && d.active).length === c.active)
+      && dots.every(d => shapeOf(d.county).some(poly => RP.inside([d.lon, d.lat], poly))),
+      'report map: one dot per case in each of the 9 Washington counties (14), inside its county, the same twice, the active ones counted; Multnomah and "county not given" none', dots.length);
+    const pts = new Set(rRead.positives.map(p => p.lat.toFixed(5) + ',' + p.lon.toFixed(5)));
+    check(dots.every(d => !pts.has(d.lat.toFixed(5) + ',' + d.lon.toFixed(5))), 'report map: no dot at a case\'s own point');
+    const islands = RP.spread({ counties: [{ county: 'San Juan', cases: 40, active: 3, washington: true }] }, COUNTY_SHAPES);
+    check(islands.length === 40 && islands.every(d => shapeOf('San Juan').some(poly => RP.inside([d.lon, d.lat], poly)))
+      && islands.filter(d => d.active).length === 3, 'report map: 40 dots on the San Juan islands, each on land');
+    const early = RP.figures(rRead, '2021-01-01', COUNTY_SHAPES);
+    check(early.cases === 1 && early.later === 16 && early.last === null && early.daysSince === null && !early.byMonth.length && !early.thisYear.length,
+      'report: before every detection only the undated row is counted; no last detection, no months', [early.cases, early.later]);
+    check(RP.SIZE_LINE === 'Small under 100 · Medium 100 to 999 · Large 1,000 or more' && RP.daysBetween('2026-02-28', '2026-03-01') === 1
+      && RP.daysBetween('2024-02-28', '2024-03-01') === 2, 'report: the size line\'s words; days between dates by the calendar (leap years)');
+    // The page's own counts are not changed by the report's: the read still leaves the rows without a point off its groups.
+    check(E.groups(rRead, E.dayView(E.windowOf(rRead.positives), RR.date)).current.length === 2 && rRead.dropped.length === 3,
+      'report: the page\'s own groups unchanged (the three rows without a point still "not mapped" there)');
+    const ORACLE_R = path.join(ROOT, 'local-test-artifacts', 'em', 'oracle_em.json');
+    const oR = fs.existsSync(ORACLE_R) ? JSON.parse(fs.readFileSync(ORACLE_R, 'utf8')).report : null;
+    check(!!oR, 'R reference: the report\'s figures present (run Rscript tests/oracle/em_oracle.R)');
+    if (oR) {
+      for (const k of ['cases', 'later', 'undated', 'noPoint', 'active', 'flocks', 'kinds', 'birds', 'mixed', 'counties',
+        'countiesAffected', 'thisYear', 'last', 'daysSince', 'byMonth', 'zones', 'twice']) {
+        check(same(f[k], oR[k]), 'R reference: report: the same ' + k, { page: f[k], r: oR[k] });
+      }
+    }
+  }
+
+  // ---- 8i. The Report view's form (2.9, E2: site/emergency/report-form.js) ------------------------------------------
+  // The words and choices staff type beside the pages: a new report text from the update's own words, what the pages
+  // are drawn with, each fold's heading and warnings on em_rules_report.csv (Sep 1, 2026: 2 active flocks and the
+  // dairy herd; Aug 1: only the goats), the cards' lines and hints, and the saved report text read back.
+  // A form check that throws (a mutant) is one failed check, and the suite goes on.
+  try {
+    const RR = FX.RULES.report, rRows = csvOf(RR.positives);
+    const rRead = E.readPositives(rRows[0], rRows.slice(1), hpai, RR.today);
+    const SHAPES = globalThis.CVIWA_GEO.counties.features;
+    const sep1 = RP.figures(rRead, '2026-09-01', SHAPES), aug1 = RP.figures(rRead, '2026-08-01', SHAPES);
+    const copy = o => JSON.parse(JSON.stringify(o));
+    // fresh: the update's own words, copied (the type's own words never change with the form).
+    const t0 = RF.fresh(hpai);
+    check(t0.type === 'hpai' && t0.status === null && t0.own === '' && t0.milk === 0 && same(t0.milkOwn, { stage: '', text: '' })
+      && t0.suspected === false && t0.mapLook === 'dots' && t0.note === '' && t0.iconStyle === 'filled' && same(t0.aside, []) && t0.ready === false,
+    'form: a new report text: the wording that fits the data, the first milk stage, Soft dots, Filled icons, not ready to send', t0);
+    check(same(t0.messages.map(m => [m.headline, m.icon, m.link.label, m.highlight]), [
+      ['Protect your flock', 'shield-check', 'USDA\'s Defend the Flock program', false],
+      ['Low risk to the public', 'person', 'Reducing Exposure for Workers to Avian Influenza A Viruses', false],
+      ['Moving dairy cattle', 'truck', 'APHIS Requirements and Recommendations for HPAI H5N1 Virus in Livestock', true]])
+      && t0.messages.every((m, i) => m.text === hpai.report.messages[i].text && m.link.url === hpai.report.messages[i].link.url),
+    'form: a new report text: the update\'s three key messages, their icons, words, links and the highlighted third', t0.messages);
+    check(t0.heading === hpai.report.note && same(t0.hotline, { ask: 'Sick birds?', name: 'Sick Bird Hotline', number: '1-800-606-3056' })
+      && same(t0.online, { label: 'agr.wa.gov/birdflu', url: 'https://agr.wa.gov/birdflu' }) && t0.alternate === hpai.report.alternate,
+    'form: a new report text: the line under the title, the hotline, "report online at" and the alternate-format line from the update', t0);
+    // The type's words are read-only: a message shared with it, not copied, could not be typed into.
+    let typed = true;
+    try { t0.messages[0].headline = 'Changed'; t0.hotline.number = '0'; } catch (e) { typed = false; }
+    check(typed && t0.messages[0].headline === 'Changed' && hpai.report.messages[0].headline === 'Protect your flock' && hpai.report.hotline.number === '1-800-606-3056'
+      && RF.fresh(hpai).messages[0].headline === 'Protect your flock',
+    'form: typing in the form leaves the update\'s own words as they were (a new report text has them again)');
+
+    // choices: what the pages are drawn with.
+    const c0 = RF.choices(RF.fresh(hpai), hpai);
+    check(c0.status === undefined && c0.own === '' && same(c0.milk, hpai.report.milk[0]) && c0.suspected === false && c0.mapLook === 'dots'
+      && c0.note === '' && c0.iconStyle === 'filled' && c0.draft === true && c0.messages.length === 3
+      && same(c0.messages[2].link, { label: hpai.report.messages[2].link.label, url: hpai.report.messages[2].link.url }) && c0.messages[2].highlight === true,
+    'form: the pages from a new report text: the wording that fits, the update\'s milk stage and messages, a draft', c0);
+    check(same(c0.page, { note: hpai.report.note, hotline: { ask: 'Sick birds?', name: 'Sick Bird Hotline', number: '1-800-606-3056' },
+      online: { label: 'agr.wa.gov/birdflu', url: 'https://agr.wa.gov/birdflu' }, alternate: hpai.report.alternate }),
+    'form: the pages\' title line and foot from the form\'s boxes', c0.page);
+    const t1 = RF.fresh(hpai);
+    t1.messages = [
+      { headline: '  Spaced  ', icon: 'truck', text: '  words  ', link: { label: '', url: '' }, highlight: false },
+      { headline: '', icon: 'truck', text: '   ', link: { label: 'Gone', url: 'https://example.org' }, highlight: true },
+      { headline: 'Words only', icon: 'person', text: '', link: { label: 'A page', url: '' }, highlight: false },
+      { headline: 'Address only', icon: 'person', text: '', link: { label: '', url: 'https://example.org/a' }, highlight: false },
+      { headline: 'Not an address', icon: 'person', text: '', link: { label: 'Click', url: 'javascript:alert(1)' }, highlight: false },
+      { headline: 'Bare', icon: 'person', text: '', link: { label: 'Site', url: 'example.org' }, highlight: false }];
+    const c1 = RF.choices(t1, hpai);
+    check(same(c1.messages.map(m => m.headline), ['Spaced', 'Words only', 'Address only', 'Not an address', 'Bare']) && c1.messages[0].text === 'words',
+      'form: an empty message (no headline, no words) left off the pages; the words trimmed', c1.messages);
+    check(c1.messages[0].link === null && same(c1.messages[1].link, { label: 'A page', url: null })
+      && same(c1.messages[2].link, { label: 'https://example.org/a', url: 'https://example.org/a' }),
+    'form: a link: none without words or an address; words without an address print as words; an address alone prints as itself', c1.messages.map(m => m.link));
+    check(same(c1.messages[3].link, { label: 'Click', url: null }) && same(c1.messages[4].link, { label: 'Site', url: null }),
+      'form: a link that is not http(s) (javascript:, or no https://) prints as words only, never as a link', c1.messages.map(m => m.link));
+    t1.ready = true; t1.mapLook = 'counties'; t1.iconStyle = 'outline'; t1.status = 'own'; t1.own = ' Ours. '; t1.note = ' A gap. ';
+    t1.heading = ' A line. '; t1.online = { label: '', url: 'agr.wa.gov' };
+    const c1b = RF.choices(t1, hpai);
+    check(c1b.draft === false && c1b.mapLook === 'counties' && c1b.iconStyle === 'outline' && c1b.status === 'own' && c1b.note === 'A gap.'
+      && c1b.page.note === 'A line.' && same(c1b.page.online, { label: 'agr.wa.gov', url: null }),
+    'form: "Ready to send" leaves the DRAFT mark off; Counties shaded, Outline, staff\'s own status, the note and title line trimmed; "report online at" with an address that would not open prints its words', c1b);
+    t1.mapLook = 'squares'; t1.iconStyle = 'bold';
+    check(RF.choices(t1, hpai).mapLook === 'dots' && RF.choices(t1, hpai).iconStyle === 'filled',
+      'form: a map look or icon style that is not one draws Soft dots and Filled');
+    t1.milk = 'own'; t1.milkOwn = { stage: ' Stage 2 ', text: ' Sampling. ' };
+    check(same(RF.choices(t1, hpai).milk, { stage: 'Stage 2', text: 'Sampling.' }), 'form: staff\'s own milk stage and its sentence, trimmed');
+    t1.milk = 5;
+    check(same(RF.choices(t1, hpai).milk, hpai.report.milk[0]), 'form: a milk stage the type does not have prints the first');
+
+    // checks: each fold's heading and warnings.
+    const k0 = RF.checks(RF.fresh(hpai), hpai, sep1, '2026-09-01');
+    check(same(k0.date.tag, { words: 'September 1, 2026', how: '' }), 'form: the date fold says the report\'s date', k0.date);
+    check(k0.status.picked === 'active' && same(k0.status.tag, { words: 'Check', how: 'warn' }) && k0.status.statusWarn === ''
+      && k0.status.milkWarn === '1 active dairy herd on September 1, 2026: check the milk testing stage.',
+    'form: Sep 1: the wording that fits is "active"; the dairy herd active, so the milk stage asks to be checked', k0.status);
+    check(k0.status.dataLine === 'From the data on September 1, 2026: 2 active flocks, 1 active dairy herd, 0 active premises with other animals; surveillance areas around 2 cases.',
+      'form: the data\'s line beside the status, every kind', k0.status.dataLine);
+    const k1 = RF.checks(RF.fresh(hpai), hpai, aug1, '2026-08-01');
+    check(k1.status.picked === 'free' && same(k1.status.tag, { words: 'Matches the data', how: 'ok' }) && k1.status.milkWarn === '',
+      'form: Aug 1 (only the goats active): "free" fits, the dairy herd not active, "Matches the data"', k1.status);
+    const tFree = RF.fresh(hpai); tFree.status = 'free';
+    check(RF.checks(tFree, hpai, sep1, '2026-09-01').status.statusWarn === 'The data has 2 active flocks on September 1, 2026: this wording says there are none. Pick the other wording, or write your own.',
+      'form: "free" picked while flocks are active: the warning names them');
+    const tAct = RF.fresh(hpai); tAct.status = 'active';
+    const kAct = RF.checks(tAct, hpai, aug1, '2026-08-01');
+    check(kAct.status.statusWarn === 'The data has no active flocks on August 1, 2026: this wording says there are some. Pick the other wording, or write your own.'
+      && kAct.status.tag.how === 'warn', 'form: "active" picked with no active flock: the warning, and the fold says "Check"', kAct.status);
+    const tOwn = RF.fresh(hpai); tOwn.status = 'own';
+    check(RF.checks(tOwn, hpai, aug1, '2026-08-01').status.statusWarn === 'Write the sentence, or pick an approved wording.',
+      'form: "Write my own" with nothing written asks for the sentence');
+    tOwn.own = '  Anything at all.  ';
+    const kOwn = RF.checks(tOwn, hpai, aug1, '2026-08-01');
+    check(kOwn.status.statusWarn === '' && same(kOwn.status.tag, { words: 'Your own wording', how: '' }),
+      'form: staff\'s own sentence is not checked against the data: "Your own wording"', kOwn.status);
+    const tMilk = RF.fresh(hpai); tMilk.milk = 'own'; tMilk.milkOwn = { stage: 'Stage 2', text: '' };
+    check(RF.checks(tMilk, hpai, aug1, '2026-08-01').status.milkWarn === 'Write the stage and its sentence.'
+      && RF.checks(tMilk, hpai, sep1, '2026-09-01').status.milkWarn === '1 active dairy herd on September 1, 2026: check the milk testing stage. Write the stage and its sentence.',
+    'form: a milk stage of staff\'s own without its sentence asks for both (after the active herd\'s reminder)');
+    tMilk.milkOwn = { stage: '', text: 'Sampling.' };
+    check(RF.checks(tMilk, hpai, aug1, '2026-08-01').status.milkWarn === 'Write the stage and its sentence.', 'form: a milk sentence without its stage asks for both');
+    tMilk.milkOwn = { stage: 'Stage 2', text: 'Sampling.' };
+    check(RF.checks(tMilk, hpai, aug1, '2026-08-01').status.milkWarn === '', 'form: a milk stage of staff\'s own with both written: no warning');
+    const noLv = copy(hpai); noLv.report.livestock = null;
+    const tNoLv = RF.fresh(noLv); tNoLv.milk = 'own';
+    check(RF.checks(tNoLv, noLv, sep1, '2026-09-01').status.milkWarn === '', 'form: a type without a livestock card has no milk stage to check');
+    check(same(k0.data.tag, { words: 'Automatic', how: 'ok' })
+      && k0.data.auto === 'Filled in from the file, never typed: 2 commercial flocks, 10 backyard flocks, 1,251,396 birds affected, 9 counties; the cases by county; 6 detections in 2026; the map.',
+    'form: the figures fold says "Automatic" and lists what the file fills in', k0.data.auto);
+    // The boxes.
+    check(same(k0.boxes.warns, []) && same(k0.boxes.tag, { words: 'Kept month to month', how: '' }), 'form: the update\'s own boxes: no warning, "Kept month to month"', k0.boxes);
+    const tBox = RF.fresh(hpai); tBox.hotline.number = '  ';
+    check(same(RF.checks(tBox, hpai, sep1, '2026-09-01').boxes.warns, ['The hotline has no number: the foot prints without one.'])
+      && RF.checks(tBox, hpai, sep1, '2026-09-01').boxes.tag.how === 'warn', 'form: the hotline without a number: a warning, the fold says "Check"');
+    tBox.hotline.number = '1'; tBox.online.url = 'agr.wa.gov/birdflu';
+    check(same(RF.checks(tBox, hpai, sep1, '2026-09-01').boxes.warns, ['The address after "report online at" does not start with https:// (or http://), so it would not open: it prints as words only.']),
+      'form: "report online at" with an address that would not open: a warning');
+    tBox.online.url = '';
+    check(same(RF.checks(tBox, hpai, sep1, '2026-09-01').boxes.warns, ['"Report online at" has no address: it prints as words only.']),
+      'form: "report online at" without an address: a warning');
+    tBox.online.url = 'http://agr.wa.gov/birdflu';
+    check(same(RF.checks(tBox, hpai, sep1, '2026-09-01').boxes.warns, []), 'form: an http:// address opens: no warning');
+    // The key messages' warnings and heading.
+    const kM = RF.checks(t1, hpai, sep1, '2026-09-01');
+    check(same(kM.messages.warns[0], []) && same(kM.messages.warns[1], ['Message 2 is empty, so it is left off the pages: write it, or remove it.'])
+      && same(kM.messages.warns[2], ['The link has words but no address: it prints as words only.']) && same(kM.messages.warns[3], [])
+      && same(kM.messages.warns[4], ['This address does not start with https:// (or http://), so it would not open: it prints as words only. Copy it from the browser\'s address bar.'])
+      && kM.messages.warns[5].length === 1 && same(kM.messages.tag, { words: 'Check: 4 messages', how: 'warn' }),
+    'form: each message\'s warnings (empty; link words without an address; an address that would not open); the fold counts the messages to check', kM.messages);
+    check(same(k0.messages.tag, { words: '3 messages', how: '' }) && same(k0.messages.warns, [[], [], []]),
+      'form: the update\'s own messages: no warning, "3 messages"', k0.messages.tag);
+    const tNone = RF.fresh(hpai); tNone.messages = [];
+    check(same(RF.checks(tNone, hpai, sep1, '2026-09-01').messages.tag, { words: 'No messages', how: '' }), 'form: no key messages: "No messages", nothing to check');
+    const tOne = RF.fresh(hpai); tOne.messages = tOne.messages.slice(0, 1);
+    check(RF.checks(tOne, hpai, sep1, '2026-09-01').messages.tag.words === '1 message', 'form: one key message: "1 message"');
+    // "Still to check": the folds that say "Check", in the form's order.
+    // Page 2's two folds (step 4) say "Check" until their boxes are filled.
+    const P2 = ['National (USDA)', 'Wild birds and testing (WADDL)'];
+    check(same(k0.checking, ['Washington: the status'].concat(P2)) && same(k1.checking, P2),
+      'form: "Ready to send" names the folds still saying "Check" (Sep 1, the milk stage; both days, page 2 not filled)', [k0.checking, k1.checking]);
+    const tAll = RF.fresh(hpai); tAll.messages.push({ headline: '', icon: 'truck', text: '', link: { label: '', url: '' }, highlight: false }); tAll.hotline.number = '';
+    check(same(RF.checks(tAll, hpai, sep1, '2026-09-01').checking, ['Washington: the status', 'Key messages'].concat(P2, 'Boxes and resources')),
+      'form: every fold saying "Check" named, in the form\'s order');
+    // The cards as drawn: each message's lines (the empty one not printed), a hint for a card much longer than the one
+    // beside it, the pages they print on.
+    const tL = RF.fresh(hpai);
+    tL.messages = ['A', '', 'B', 'C', 'D', 'E'].map(h => ({ headline: h, icon: 'truck', text: '', link: { label: '', url: '' }, highlight: false }));
+    const cards = [{ m: 0, page: 1, row: 0, lines: 3 }, { m: 1, page: 1, row: 0, lines: 12 },
+      { m: 2, page: 2, row: 1, lines: 8 }, { m: 3, page: 2, row: 1, lines: 4 },
+      { m: 4, page: 2, row: 2, lines: 6 }, { m: 'lv', page: 3, row: 2, lines: 2 }];
+    const kL = RF.checks(tL, hpai, sep1, '2026-09-01', cards).messages;
+    check(same(kL.lines, [3, null, 12, 8, 4, 6]), 'form: each printed message\'s lines on its card (the empty one, not printed, none)', kL.lines);
+    check(kL.pairs[2] === 'Message 3 runs about 12 lines, the card beside it 3 (message 1): shorten it, or move the messages so the long ones sit together.'
+      && kL.pairs[0] === '', 'form: a card much longer than the one beside it gets a hint; the short one none', kL.pairs);
+    check(kL.pairs[3] === 'Message 4 runs about 8 lines, the card beside it 4 (message 5): shorten it, or move the messages so the long ones sit together.',
+      'form: twice as long and four lines more, exactly: the hint (8 lines beside 4)', kL.pairs);
+    check(kL.pairs[5] === 'Message 6 runs about 6 lines, the card beside it 2 (the livestock card): shorten it, or move the messages so the long ones sit together.',
+      'form: beside the livestock card, the hint names it', kL.pairs);
+    const near = RF.checks(tL, hpai, sep1, '2026-09-01', [{ m: 0, page: 1, row: 0, lines: 7 }, { m: 1, page: 1, row: 0, lines: 4 },
+      { m: 2, page: 1, row: 1, lines: 5 }, { m: 3, page: 1, row: 1, lines: 2 }]).messages.pairs;
+    check(near.every(p => p === ''), 'form: no hint for 7 lines beside 4 (not twice as long) or 5 beside 2 (only three more)', near);
+    check(same(kL.pages, [1, 2]), 'form: the key messages print on pages 1 and 2 (the livestock card\'s page 3 not counted)', kL.pages);
+    const noCards = RF.checks(tL, hpai, sep1, '2026-09-01').messages;
+    check(noCards.lines.every(n => n === null) && noCards.pairs.every(p => p === '') && same(noCards.pages, []),
+      'form: without the drawn cards (the unit suite): no lines, hints or pages', noCards);
+
+    // The saved report text: one small file of the form's words and choices, read back field by field.
+    const tS = RF.fresh(hpai);
+    Object.assign(tS, { status: 'own', own: 'Our words.', milk: 'own', milkOwn: { stage: 'Stage 2', text: 'Sampling.' }, suspected: true,
+      mapLook: 'counties', note: 'A gap.', iconStyle: 'outline', heading: 'A line.', alternate: 'Call us.', ready: true });
+    tS.messages[0].highlight = true; tS.messages[1].icon = 'turkey'; tS.aside.push(tS.messages.pop());
+    tS.hotline = { ask: 'Q?', name: 'N', number: '1' }; tS.online = { label: 'L', url: 'https://example.org' };
+    const words = RF.toFile(tS, hpai, '2026-09-01', '2026-09-03'), o = JSON.parse(words);
+    check(o.kind === 'WSDA Emergency Response report text' && o.version === 1 && o.type === 'hpai' && o.reportDate === '2026-09-01' && o.saved === '2026-09-03'
+      && same(Object.keys(o), ['kind', 'version', 'type', 'reportDate', 'saved', 'text']) && words.endsWith('}\n'),
+    'saved report text: the kind, version, type, the report\'s date and the day saved first', Object.keys(o));
+    check(same(Object.keys(o.text).sort(), Object.keys(RF.fresh(hpai)).filter(k => k !== 'type').sort())
+      && !/Franklin|Yakima|1,251,396|SYN-|46\.\d{3}/.test(words),
+    'saved report text: the form\'s words and choices only, nothing from the table', Object.keys(o.text));
+    const back = RF.fromFile(words, hpai);
+    // Read back as a draft, page 2's figures kept to compare with next month (past, step 4).
+    const tSDraft = Object.assign(copy(tS), { ready: false, past: o.text.past, pastLoaded: true });
+    check(same(back.text, tSDraft) && same(back.notes, []) && back.saved === '2026-09-03' && back.reportDate === '2026-09-01',
+      'saved report text: read back the same, every field (messages, set aside, boxes), with no notes', back);
+    check(back.text.ready === false, 'saved report text: a report text loaded is a draft ("Ready to send" unticked)');
+    const freshBack = RF.fromFile(RF.toFile(RF.fresh(hpai), hpai, '2026-09-01', '2026-09-01'), hpai).text;
+    check(same(Object.assign(copy(freshBack), { past: [] }), Object.assign(RF.fresh(hpai), { pastLoaded: true })) && freshBack.past.length === 1,
+      'saved report text: a new report text saved and read back is the update\'s own');
+    // Files that are not one.
+    const notOne = { error: 'This file is not a report text saved from this page.' };
+    const doc = (o2) => JSON.stringify(Object.assign({ kind: 'WSDA Emergency Response report text', version: 1, type: 'hpai', text: {} }, o2));
+    check(same(RF.fromFile('not json {', hpai), notOne) && same(RF.fromFile('null', hpai), notOne) && same(RF.fromFile('[1,2]', hpai), notOne)
+      && same(RF.fromFile('"words"', hpai), notOne) && same(RF.fromFile(JSON.stringify({ kind: 'Something else', version: 1 }), hpai), notOne),
+    'saved report text: a file that is not one (not JSON, empty, a list, words, another kind) refused');
+    check(same(RF.fromFile(doc({ version: undefined }), hpai), notOne) && same(RF.fromFile(doc({ version: 0 }), hpai), notOne)
+      && same(RF.fromFile(doc({ version: '1' }), hpai), notOne) && same(RF.fromFile(doc({ version: 1.5 }), hpai), notOne),
+    'saved report text: a file of the right kind without a version number (missing, 0, "1", 1.5) refused as not one');
+    check(same(RF.fromFile(doc({ version: 2 }), hpai), { error: 'This report text was saved by a newer version of the page: open it there.' }),
+      'saved report text: a newer version refused, and said so');
+    check(same(RF.fromFile(doc({ type: 'nws' }), hpai), { error: 'This report text is for another emergency type (nws), not Highly pathogenic avian influenza (HPAI).' }),
+      'saved report text: another emergency type\'s refused, both named');
+    check(String(RF.fromFile(doc({ type: 'x'.repeat(100) }), hpai).error).includes('(' + 'x'.repeat(40) + ')'), 'saved report text: another type\'s name cut to 40 characters');
+    const bare = RF.fromFile(doc({ text: undefined }), hpai);
+    check(same(bare.text, Object.assign(RF.fresh(hpai), { pastLoaded: true })) && same(bare.notes, []) && bare.saved === null && bare.reportDate === null,
+      'saved report text: a file with nothing in it gives the update\'s own, no notes, no dates');
+    // Each field checked: a value the page does not know is left at the update's own and named.
+    const odd = RF.fromFile(doc({ saved: 'Nov 11', reportDate: '2026-9-1', text: { status: 'maybe', own: 5, milk: 3, suspected: 'true', mapLook: 'squares',
+      note: ['a'], iconStyle: 'bold', heading: 7, hotline: { ask: null, name: 'Hotline', number: 12 }, alternate: 'Call.', ready: true } }), hpai);
+    check(odd.text.status === null && odd.text.own === '' && odd.text.milk === 0 && odd.text.suspected === false && odd.text.mapLook === 'dots'
+      && odd.text.note === '' && odd.text.iconStyle === 'filled' && odd.text.heading === hpai.report.note && odd.text.hotline.ask === 'Sick birds?'
+      && odd.text.hotline.name === 'Hotline' && odd.text.hotline.number === '1-800-606-3056' && odd.text.alternate === 'Call.' && odd.text.ready === false
+      && odd.saved === null && odd.reportDate === null,
+    'saved report text: each value that is not one the page knows left at the update\'s own; the good ones kept; dates not YYYY-MM-DD none', odd.text);
+    check(same(odd.notes, [
+      'The status choice is not one this page knows: the wording that fits the data instead.',
+      'The status sentence was not words: left empty.',
+      'The milk testing stage saved is not one of this page\'s: "Unaffected / Stage 4" instead.',
+      'The map\'s look is not one this page knows: Soft dots instead.',
+      'The note was not words: left empty.',
+      'The icon style is not one this page knows: Filled instead.',
+      'The line under the title was not words: the update\'s own kept.',
+      'The hotline\'s question was not words: the update\'s own kept.',
+      'The hotline\'s number was not words: the update\'s own kept.']),
+    'saved report text: each value left out named in the form\'s own words', odd.notes);
+    const odd2 = RF.fromFile(doc({ text: { milk: 0.5, messages: 'three', aside: {} } }), hpai);
+    check(odd2.text.milk === 0 && same(odd2.text.messages, RF.fresh(hpai).messages) && same(odd2.text.aside, [])
+      && same(odd2.notes, ['The milk testing stage saved is not one of this page\'s: "Unaffected / Stage 4" instead.',
+        'The key messages were not a list: the update\'s own kept.', 'The messages set aside were not a list: none kept.']),
+    'saved report text: a milk stage that is not a whole number, messages that are not a list: the update\'s own', odd2.notes);
+    const odd3 = RF.fromFile(doc({ text: { milk: 'own', messages: [null, 'x', { headline: 4, text: 'W', icon: 'bell', highlight: 'yes', link: { label: 'L', url: 9 } },
+      { headline: 'H', icon: 'turkey', highlight: true, link: 'none' }] } }), hpai);
+    check(odd3.text.milk === 'own' && same(odd3.text.messages, [
+      { headline: '', icon: 'information', text: 'W', link: { label: 'L', url: '' }, highlight: false },
+      { headline: 'H', icon: 'turkey', text: '', link: { label: '', url: '' }, highlight: true }]),
+    'saved report text: messages read one by one: things that are not messages dropped; a headline that is not words, an unknown icon, a highlight that is not true', odd3.text.messages);
+    check(same(odd3.notes, ['Message 1\'s headline was not words: left empty.', 'Message 1\'s address was not words: left empty.',
+      'Message 1\'s icon is not one of the page\'s: Information instead.']), 'saved report text: each message\'s values left out named', odd3.notes);
+    const big = RF.fromFile(doc({ text: { own: 'w'.repeat(6000), messages: Array.from({ length: 70 }, (_, i) => ({ headline: 'M' + i })),
+      aside: [{ headline: 'Kept', icon: 'truck' }] } }), hpai);
+    check(big.text.own.length === 5000 && big.text.messages.length === 60 && big.text.messages[59].headline === 'M59'
+      && same(big.text.aside.map(m => [m.headline, m.icon]), [['Kept', 'truck']]) && same(big.notes, []),
+    'saved report text: words cut at 5,000 characters, at most 60 messages; the set-aside ones read back', [big.text.own.length, big.text.messages.length]);
+  } catch (e) { check(false, 'form: the form\'s checks stopped', String(e && e.stack || e)); }
+
+  // ---- 8j. Page 2 of the update (2.9: report-form.js page 2) ---------------------------------------------------------
+  // The boxes typed from USDA and WADDL each month, filled from the update of September 1, 2026: each check's words and
+  // its edges, the counts in the folds' headings, page 2 as it prints, "Save for ArcGIS" against the ArcGIS build
+  // sheet's file, and the saved report text keeping last month's figures to compare with. A check that throws (a
+  // mutant) is one failed check, and the suite goes on.
+  try {
+    const copy = o => JSON.parse(JSON.stringify(o));
+    const RR = FX.RULES.report, rRows = csvOf(RR.positives);
+    const sep1Fig = RP.figures(E.readPositives(rRows[0], rRows.slice(1), hpai, RR.today), '2026-09-01', globalThis.CVIWA_GEO.counties.features);
+    const p0 = RF.fresh(hpai).p2, P = hpai.report.page2;
+    check(p0.nat.source === P.national.source && p0.nat.lvSource === P.national.livestock && p0.nat.sequencing === P.national.sequencing
+      && ['asOf', 'birds', 'states', 'commercial', 'backyard', 'c30', 'lastFlock', 'lastLivestock'].every(k => p0.nat[k] === '')
+      && same(Object.entries(p0.wild).sort(), Object.entries({ since: '', window: '', d30: '', m30: '', d30None: false, m30None: false }).sort()) && p0.tests.asOf === '' && p0.tests.total === ''
+      && p0.tests.intro === P.testing.intro && same(p0.tests.cats.map(c => c.n), Array(8).fill('')) && p0.tests.cats[2].name === 'Domestic Cattle/Milk'
+      && same(p0.testingLists.map(l => l.length), [4, 3]) && same(p0.resources.map(l => l.length), [4, 4, 2]) && p0.call[1].label === 'online reporting tool',
+    'page 2: a new report text: the sources, WADDL\'s sentence, the categories\' names, the box and the lists from the update; every number and date empty', p0);
+    const noP2 = copy(hpai); noP2.id = 'test-no-page2'; delete noP2.report.page2;
+    const tNoP2 = T.check(noP2);
+    check(RF.fresh(tNoP2).p2 === null && RF.choices(RF.fresh(tNoP2), tNoP2).page2 === null && same(RF.checks(RF.fresh(tNoP2), tNoP2, sep1Fig, '2026-09-01').checking, ['Washington: the status']),
+      'page 2: a type with report words but none for page 2 has no page 2: none printed, no folds to check');
+    p0.nat.birds = '1'; p0.tests.cats.push({ name: 'x', n: '' }); p0.resources[0][0].label = 'changed';
+    check(hpai.report.page2.testing.categories.length === 8 && hpai.report.page2.resources[0].links[0].label === 'agr.wa.gov/birdflu' && RF.fresh(hpai).p2.nat.birds === '',
+      'page 2: typing into the form never changes the type\'s own words');
+
+    // Dates and numbers as staff type them.
+    check(same(['September 1, 2026', 'Sep 1, 2026', 'Sept. 1, 2026', 'sep 1 2026', '9/1/2026', '09/01/2026', '2026-09-01'].map(RF.dateOf), Array(7).fill('2026-09-01')),
+      'page 2: a date typed in words, short words, 9/1/2026 or 2026-09-01');
+    check(same(['', '  '].map(RF.dateOf), [null, null]) && same(['Feb 30, 2026', '13/1/2026', 'Ma 3, 2026', 'soon', '2026', 'Smarch 1, 2026'].map(RF.dateOf), Array(6).fill('')),
+      'page 2: no date is null; a day that does not exist, a 13th month, "Ma" (March or May), words, a year alone: not a date (\'\')');
+    check(RF.numOf('1,032', 'int') === 1032 && RF.numOf(' 690 ', 'int') === 690 && RF.numOf('0.15', 'num') === 0.15 && RF.numOf('.5', 'num') === 0.5
+      && RF.numOf('', 'int') === null && Number.isNaN(RF.numOf('2.5', 'int')) && Number.isNaN(RF.numOf('about 2', 'num')) && Number.isNaN(RF.numOf('-3', 'int'))
+      && Number.isNaN(RF.numOf('208.33M', 'num')), 'page 2: numbers: commas and spaces allowed; a whole number for counts; words, a minus or "M" are not numbers');
+
+    // The update's figures, filled as on September 1, with four slips typed on purpose (checked against
+    // August 1's and July 1's figures).
+    const SEPT = { asOf: 'September 1, 2026', birds: '208.33', states: '50', commercial: '1032', backyard: '1211', territories: '1', c30: '3', b30: '4',
+      birds30: '0.15', regional30: '3', lastFlock: 'September 1, 2026', lvStates: '1', lvCases: '2', lvRegional: '0', lastLivestock: 'August 14, 2026' };
+    const filled = () => {
+      const t = RF.fresh(hpai);
+      Object.assign(t.p2.nat, SEPT);
+      Object.assign(t.p2.wild, { since: '690', window: 'July 28 to August 27, 2026', d30None: true, m30None: true });
+      Object.assign(t.p2.tests, { asOf: 'September 1, 2026', total: '9575' });
+      [195, 41, 6920, 148, 2937, 4, 2627, 424].forEach((n, i) => { t.p2.tests.cats[i].n = String(n); });
+      return t;
+    };
+    const tF = filled(), kF = RF.page2Checks(tF, '2026-09-01', 3);
+    check(same(kF.why, {}) && same(kF.nat.tag, { words: 'All filled', how: 'ok' }) && same(kF.wild.tag, { words: 'All filled', how: 'ok' })
+      && kF.flocks === 2243 && kF.flocksLine === 'Flocks in all: 2,243 (added up, never typed)',
+    'page 2: the update of September 1 typed in full, with the three pictures: nothing to check, "All filled", the flocks added up (2,243)', kF);
+    check(kF.compared === 'Compared with: nothing loaded, so "lower than last month" and "the same two reports running" are not checked. Load last month\'s report text to check them.',
+      'page 2: nothing loaded: the line says what is not checked', kF.compared);
+    const tS = filled();
+    Object.assign(tS.p2.nat, { asOf: 'July 30, 2026', backyard: '1201', c30: '1320' });
+    tS.past = [{ date: '2026-07-01', values: { 'nat.birds': '208.33', 'nat.backyard': '1200', cats: {} } },
+      { date: '2026-08-01', values: { 'nat.birds': '208.33', 'nat.backyard': '1211', 'nat.commercial': '1032', cats: {} } },
+      { date: '2026-09-01', values: { 'nat.backyard': '9999', cats: {} } }];
+    tS.pastLoaded = true;
+    const kS = RF.page2Checks(tS, '2026-09-01', 2);
+    check(same(kS.why, {
+      'nat.asOf': 'July 30, 2026 is 33 days before the report\'s date. Is it USDA\'s latest?',
+      'nat.birds': '208.33, the same as the last two reports (July 1 and August 1). Still current on USDA\'s page?',
+      'nat.backyard': '1,201 is lower than last month\'s 1,211. A number since the outbreak began never goes down.',
+      'nat.c30': '1,320 in the last 30 days is more than the 1,032 commercial flocks since the outbreak began.' }),
+    'page 2: four slips typed on purpose, each with its line: an old "as of", the same number two reports running, lower than last month\'s, a last-30-days number above its total', kS.why);
+    check(same(kS.nat.tag, { words: '4 to check · 1 picture', how: 'warn' }) && kS.nat.checks === 4 && kS.flocks === 2233
+      && kS.compared === 'Compared with: the report text of August 1, 2026 (loaded).',
+    'page 2: the National fold counts them ("4 to check") and the picture to add; compared with the latest report before the date (its own date\'s left out)', [kS.nat, kS.compared]);
+    check(RF.page2Checks(Object.assign(copy(tS), { pastLoaded: false }), '2026-09-01', 3).compared === 'Compared with: the report text of August 1, 2026.',
+      'page 2: last month\'s figures not loaded from a file (kept from before): no "(loaded)"');
+    // The edges: 31 days old is fine, 32 a check; a date after the report's; the same number but last month only; a
+    // number above its total by one, and equal to it; a number lower only than the month before last.
+    const edge = (change, past) => { const t = filled(); change(t.p2); if (past) t.past = past; return RF.page2Checks(t, '2026-09-01', 3).why; };
+    check(same(edge(p => { p.nat.asOf = 'August 1, 2026'; p.tests.asOf = '7/31/2026'; }), {
+      'tests.asOf': 'July 31, 2026 is 32 days before the report\'s date. Is it WADDL\'s latest?' }),
+    'page 2: an "as of" date 31 days before the report\'s is fine, 32 days is a check (WADDL\'s too)');
+    check(same(edge(p => { p.nat.lastFlock = 'September 14, 2026'; p.nat.lastLivestock = 'Sept 2, 2026'; }), {
+      'nat.lastFlock': 'September 14, 2026 is after the report\'s date (September 1, 2026).', 'nat.lastLivestock': 'September 2, 2026 is after the report\'s date (September 1, 2026).' }),
+    'page 2: a date after the report\'s is a check (the report\'s own date is fine)');
+    check(same(edge(p => { p.nat.lastFlock = 'Smarch 1'; }), { 'nat.lastFlock': '"Smarch 1" is not a date. Type it as September 1, 2026 or 9/1/2026.' }),
+      'page 2: words where a date goes: a check, with the two ways to type one');
+    check(same(edge(() => {}, [{ date: '2026-08-01', values: { 'nat.birds': '208.33', cats: {} } }]), {})
+      && same(edge(() => {}, [{ date: '2026-08-01', values: { 'nat.birds': '208.33', cats: {} } }, { date: '2026-07-01', values: { 'nat.birds': '208.32', cats: {} } }]), {}),
+    'page 2: the same number as last month alone, or as last month but not the month before: no check');
+    check(same(edge(() => {}, [{ date: '2026-08-01', values: { 'nat.states': '50', 'nat.territories': '1', cats: {} } },
+      { date: '2026-07-01', values: { 'nat.states': '50', 'nat.territories': '1', cats: {} } }]), {}),
+    'page 2: States and Territories may stay the same month to month: never "the same two reports running"');
+    check(same(edge(p => { p.nat.b30 = '1212'; p.nat.c30 = '1032'; p.nat.birds30 = '208.34'; }), {
+      'nat.b30': '1,212 in the last 30 days is more than the 1,211 backyard flocks since the outbreak began.',
+      'nat.birds30': '208.34 in the last 30 days is more than the 208.33 million birds since the outbreak began.' }),
+    'page 2: a last-30-days number above its total by one is a check; equal to it is fine (commercial 1,032 of 1,032)');
+    check(same(edge(() => {}, [{ date: '2026-08-01', values: { 'nat.commercial': '1032', cats: {} } }, { date: '2026-07-01', values: { 'nat.commercial': '2000', cats: {} } }]), {}),
+      'page 2: "lower than last month\'s" looks at last month only (the month before\'s larger number is not compared)');
+    check(same(edge(p => { p.wild.since = '689'; p.tests.total = '9,574'; }, [{ date: '2026-08-01', values: { 'wild.since': '690', 'tests.total': '9575', cats: {} } }]), {
+      'wild.since': '689 is lower than last month\'s 690. A number since 2021 never goes down.',
+      'tests.total': '9,574 is lower than last month\'s 9,575. A count of tests run never goes down.' }),
+    'page 2: Washington\'s wild birds since 2021 and WADDL\'s tests never go down either');
+    check(same(edge(p => { p.nat.birds30 = 'about 2'; p.nat.states = '50 states'; p.tests.total = 'n/a'; }), {
+      'nat.states': '"50 states" is not a number. Type it as USDA shows it, e.g. 1032.', 'nat.birds30': '"about 2" is not a number. Type it as USDA shows it, e.g. 0.15.',
+      'tests.total': '"n/a" is not a number. Type it as WADDL shows it, e.g. 1032.' }),
+    'page 2: words where a number goes: a check naming the source to copy from (USDA or WADDL)');
+    check(same(edge(p => { p.nat.source = 'www.aphis.usda.gov'; p.nat.sequencing = ''; }), {
+      'nat.source': 'This address does not start with https://, so it would not open. Copy it from the browser\'s address bar.' }),
+    'page 2: a source address that would not open is a check; one left empty is not');
+    check(same(edge(p => { p.tests.cats[0].n = 'many'; p.tests.cats.push({ name: '', n: '12' }, { name: '', n: '' }); p.testingLists[1][0].url = 'waddl.vetmed.wsu.edu';
+      p.testingLists[0][2].url = ''; }), {
+      'cat.0': '"many" is not a number. Type the tests as WADDL shows them, e.g. 2937.', 'cat.8': 'This category has a number but no name.',
+      'list.0.2': 'The link has words but no address: it prints as words only.', 'list.1.0': 'This address would not open: it prints as words only.' }),
+    'page 2: WADDL\'s categories (a word, a number with no name; an empty row ignored) and its lists\' links (no address, one that would not open)');
+
+    // Nothing typed, and the worst case: the boxes counted, the "as of" dates said, three slips.
+    const tE = RF.fresh(hpai), kE = RF.page2Checks(tE, '2026-09-01', 0);
+    check(same(kE.nat.tag, { words: '15 not filled · 3 pictures', how: 'warn' }) && same(kE.wild.tag, { words: '14 not filled', how: 'warn' })
+      && same(kE.why, { 'nat.asOf': 'Not filled. Type the date on USDA\'s page.', 'tests.asOf': 'Not filled. Type the date on WADDL\'s page.' })
+      && kE.flocks === null && kE.flocksLine === 'Flocks in all: not filled (added up, never typed)',
+    'page 2: nothing typed: "15 not filled · 3 pictures" (the worst case), WADDL\'s 14 (its 8 categories too), each "as of" said', [kE.nat, kE.wild, kE.why]);
+    Object.assign(tE.p2.nat, { c30: '5000', birds30: 'about 2', lastFlock: 'September 14, 2026' });
+    const kW = RF.page2Checks(tE, '2026-09-01', 1);
+    check(same(kW.why, { 'nat.asOf': 'Not filled. Type the date on USDA\'s page.',
+      'nat.c30': '5,000 in the last 30 days, and the total since the outbreak began is not filled: the two cannot be compared.',
+      'nat.birds30': '"about 2" is not a number. Type it as USDA shows it, e.g. 0.15.',
+      'nat.lastFlock': 'September 14, 2026 is after the report\'s date (September 1, 2026).', 'tests.asOf': 'Not filled. Type the date on WADDL\'s page.' })
+      && same(kW.nat.tag, { words: '3 to check · 12 not filled · 2 pictures', how: 'warn' }),
+    'page 2: the worst case: a last-30-days number with its total not filled, a word for a number, a date after the report\'s; counted apart from the boxes not filled', kW);
+    const tN = RF.fresh(hpai); tN.p2.wild.d30None = true; tN.p2.wild.d30 = '7';
+    check(RF.page2Checks(tN, '2026-09-01', 0).wild.blanks === 13 && !('wild.d30' in RF.page2Checks(tN, '2026-09-01', 0).why),
+      'page 2: "No wild bird detections reported" ticked: the box is not counted or checked, whatever it holds');
+
+    // Page 2 as it prints (report-view.js draws these words): commas, the dates in words, the flocks added up, the sources.
+    const chF = RF.choices(tS, hpai, { flocks: { url: 'data:image/png;base64,AAAA' }, livestock: null, wild: null }).page2;
+    check(chF.nat.commercial === '1,032' && chF.nat.backyard === '1,201' && chF.nat.flocks === '2,233' && chF.nat.flocks30 === '1,324' && chF.nat.birds === '208.33'
+      && chF.nat.lastLivestock === 'August 14, 2026' && chF.nat.asOf === 'July 30, 2026' && chF.nat.source === P.national.source
+      && same(chF.maps, { flocks: 'data:image/png;base64,AAAA', livestock: null, wild: null }) && chF.wild.d30None && chF.wild.d30 === null,
+    'page 2 printed: numbers with their commas, the flocks added up (never typed), the dates in words, the pictures added; a value typed as it is (a check never changes it)', chF.nat);
+    const tP = filled(); tP.p2.nat.birds = ''; tP.p2.nat.lastFlock = '9/1/2026'; tP.p2.nat.lvSource = 'aphis.gov'; tP.p2.tests.cats[1].n = '';
+    tP.p2.resources[2].push({ label: '', url: '' }, { label: 'Words only', url: 'not an address' });
+    const chP = RF.choices(tP, hpai, null).page2;
+    check(chP.nat.birds === null && chP.nat.lastFlock === 'September 1, 2026' && chP.nat.lvSource === null && same(chP.maps, { flocks: null, livestock: null, wild: null })
+      && same(chP.tests.cats[1], { name: 'Domestic Cats', n: null, value: 0 }) && chP.tests.since === 'January 1, 2024'
+      && same(chP.resources[2].links.slice(-1), [{ label: 'Words only', url: null }]) && chP.resources[2].links.length === 3 && chP.resources[2].name === 'Public health',
+    'page 2 printed: a box left empty is "not filled" (null), never last month\'s; a link that would not open its words alone; an empty link row left out', chP);
+
+    // "Save for ArcGIS": the ArcGIS dashboard's monthly table, hpai-monthly-figures.csv, its columns and its September 1 row.
+    const ARC_HEAD = 'report_date,wa_status,wa_livestock,wa_milk_stage,us_as_of,us_birds_m,us_flocks,us_commercial,us_backyard,us_states,us_territories,' +
+      'us_30d_commercial,us_30d_backyard,us_30d_birds_m,us_30d_regional,us_lv_states,us_lv_cases,us_lv_regional,us_last_flock,us_last_livestock,wild_window,' +
+      'wild_since_2021,wild_birds_30d,wild_mammals_30d,waddl_tests,waddl_since';
+    const ARC_SEPT = '"September 1, 2026",Washington is currently considered free of highly pathogenic avian influenza in domestic flocks.,There are no confirmed ' +
+      'or suspected livestock cases in Washington state.,Unaffected / Stage 4,"September 1, 2026",208.33,2243,1032,1211,50,1,3,4,0.15,3,1,2,0,"September 1, 2026",' +
+      '"August 14, 2026","July 28 to August 27, 2026",690,No detections reported,No detections reported,9575,"January 1, 2024"';
+    const sWords = { status: hpai.report.status.free, livestock: { text: 'There are no confirmed or suspected livestock cases in Washington state.', stage: 'Unaffected / Stage 4' } };
+    const arc = RF.arcgisFile(tF, hpai, '2026-09-01', sWords);
+    check(RF.ARC_COLS.join(',') === ARC_HEAD && arc.csv === ARC_HEAD + '\r\n' + ARC_SEPT + '\r\n' && arc.blanks === 0,
+      'Save for ArcGIS: the monthly table\'s columns, and the update of September 1 typed in full gives its September 1 row', arc.csv);
+    // A typed cell that a spreadsheet would read as a formula is written as words, a single quote before it.
+    const tFm = filled(); tFm.p2.wild.window = '=cmd|\' /C calc\'!A0'; tFm.p2.nat.birds = '+5'; tFm.p2.nat.states = '@SUM(1)';
+    const arcFm = RF.arcgisFile(tFm, hpai, '2026-09-01', sWords).csv;
+    check(arcFm.includes('"\'=cmd|\' /C calc\'!A0"') && arcFm.includes('"\'+5"') && arcFm.includes('"\'@SUM(1)"') && !/,[=+@]/.test(arcFm),
+      'Save for ArcGIS: a cell starting with =, + or @ is written as words (a single quote before it, quoted)', arcFm);
+    const tQ = filled(); tQ.p2.nat.commercial = '1,032'; tQ.p2.nat.birds = ''; tQ.p2.nat.backyard = ''; tQ.p2.wild.d30None = false; tQ.p2.wild.d30 = '12';
+    const arcQ = RF.arcgisFile(tQ, hpai, '2026-09-01', { status: 'Our "own" words, with a comma.', livestock: null });
+    const rowQ = R.parseCsv(arcQ.csv)[1];
+    check(rowQ[1] === 'Our "own" words, with a comma.' && rowQ[2] === '' && rowQ[5] === '' && rowQ[6] === '' && rowQ[7] === '1032' && rowQ[8] === '' && rowQ[22] === '12'
+      && arcQ.blanks === 5 && rowQ.length === 26,
+    'Save for ArcGIS: a sentence with quotes and a comma kept whole; a number with no commas; a box not filled blank (and the flocks it adds to), counted', rowQ);
+    check(RF.arcgisFile(RF.fresh(hpai), hpai, '2026-09-01', sWords).blanks === 21,
+      'Save for ArcGIS: nothing typed: the file still has its row, 21 figures blank');
+
+    // The saved report text: page 2 kept with this month's figures, and last month's to compare with.
+    const words = RF.toFile(tS, hpai, '2026-09-01', '2026-09-03'), o = JSON.parse(words);
+    check(same(o.text.past.map(p => p.date), ['2026-09-01', '2026-08-01']) && o.text.past[0].values['nat.backyard'] === '1201'
+      && o.text.past[0].values.cats['Domestic Cattle/Milk'] === '6920' && !('nat.asOf' in o.text.past[0].values) && !words.includes('data:image'),
+    'saved report text: this report\'s figures (its own date\'s replaced) and the latest before it, two at most; no dates or pictures among them', o.text.past);
+    const sameDay = RF.fromFile(words, hpai, '2026-09-01');
+    check(!sameDay.cleared && same(sameDay.text.p2, tS.p2) && same(sameDay.notes, []),
+      'saved report text: loaded for the same report date: page 2 read back as typed, every box', sameDay.text.p2);
+    const next = RF.fromFile(words, hpai, '2026-10-01');
+    check(next.cleared && next.text.p2.nat.birds === '' && next.text.p2.nat.asOf === '' && next.text.p2.wild.window === '' && !next.text.p2.wild.d30None
+      && next.text.p2.tests.total === '' && next.text.p2.tests.cats.every(c => c.n === '') && next.text.p2.tests.cats[2].name === 'Domestic Cattle/Milk'
+      && next.text.p2.nat.source === tS.p2.nat.source && same(next.text.p2.resources, tS.p2.resources) && same(next.text.p2.call, tS.p2.call)
+      && same(next.text.past.map(p => [p.date, Object.entries(p.values).sort()]), o.text.past.map(p => [p.date, Object.entries(p.values).sort()])),
+    'saved report text: loaded for another month: page 2\'s numbers, dates and ticks empty (never last month\'s); the sources, categories\' names, box and lists kept; the figures kept to compare', next.text.p2);
+    check(RF.fromFile(words, hpai).cleared === true, 'saved report text: loaded with no report date given: page 2\'s figures left empty');
+    const kNext = RF.page2Checks(Object.assign(next.text, { p2: Object.assign(next.text.p2, { nat: Object.assign(next.text.p2.nat, { backyard: '1200', birds: '208.33' }) }) }),
+      '2026-10-01', 3);
+    check(kNext.why['nat.backyard'] === '1,200 is lower than last month\'s 1,201. A number since the outbreak began never goes down.'
+      && kNext.why['nat.birds'] === '208.33, the same as the last two reports (August 1 and September 1). Still current on USDA\'s page?'
+      && kNext.compared === 'Compared with: the report text of September 1, 2026 (loaded).',
+    'saved report text: next month, the checks compare with the file\'s two months ("lower than last month\'s 1,201"; 208.33 three months running)', kNext.why);
+    const docP = text => JSON.stringify({ kind: 'WSDA Emergency Response report text', version: 1, type: 'hpai', reportDate: '2026-09-01', text });
+    const oddP = RF.fromFile(docP({ p2: { nat: { birds: 5, source: ['x'] }, tests: { cats: 'none', intro: 3 }, resources: 'list', call: [{ headline: 7 }] },
+      past: [{ date: 'Aug 1', values: {} }, { date: '2026-08-01', values: { 'nat.birds': 12, 'nat.states': '50', 'x.y': '1', cats: { A: '1', B: 2 } } }, 'x'] }), hpai, '2026-09-01');
+    check(oddP.text.p2.nat.birds === '' && oddP.text.p2.nat.source === P.national.source && oddP.text.p2.tests.cats.length === 8 && oddP.text.p2.tests.intro === P.testing.intro
+      && oddP.text.p2.call[0].headline === P.call[0].headline && same(oddP.text.past, [{ date: '2026-08-01', values: { 'nat.states': '50', cats: { A: '1' } } }]),
+    'saved report text: page 2\'s values that are not words left at the update\'s own (or empty); only well-made months kept, and only their numbers', oddP.text);
+    check(same(oddP.notes, ['Page 2\'s "Data source (address)" was not words: the update\'s own kept.', 'Page 2\'s "Birds affected (millions)" was not words: left empty.',
+      'WADDL\'s sentence was not words: the update\'s own kept.', 'WADDL\'s categories were not a list: the update\'s own kept.',
+      'The resources lists were not a list: the update\'s own kept.', '"Report sick birds" part 1\'s headline was not words: the update\'s own kept.']),
+    'saved report text: page 2\'s values left out named', oddP.notes);
+
+    // The boxes' and the "Ready to send" line's checks.
+    const tB = filled(); tB.p2.call[1].url = 'wdfw.wa.gov'; tB.p2.resources[1][2].url = 'aphis.usda.gov/wild';
+    const kB = RF.checks(tB, hpai, sep1Fig, '2026-09-01', null, 3);
+    check(same(kB.boxes.warns, ['The "Report sick birds" box, part 2: its address does not start with https://, so it would not open.',
+      'Wild birds and wildlife, link 3 ("USDA APHIS wild bird data"): its address would not open, so it prints as words only.']) && kB.boxes.tag.words === 'Check'
+      && same(kB.nat.tag, { words: 'All filled', how: 'ok' }) && same(kB.checking, ['Washington: the status', 'Boxes and resources']),
+    'page 2: the box\'s and the resources\' addresses checked in "Boxes and resources"; page 2 filled: its folds not named beside "Ready to send"', kB.boxes);
+    check(RF.checks(tB, hpai, sep1Fig, '2026-09-01', null, 2).checking.includes('National (USDA)'),
+      'page 2: a picture still to add keeps the National fold named beside "Ready to send"');
+  } catch (e) { check(false, 'page 2: the checks stopped', String(e && e.stack || e)); }
+
+  // ---- 8k. Figures, the update's figures on screen (2.9: report.js picked, places, hover) --------------------------
+  // The report scenario on Sep 1, 2026 (em_rules_report.csv): what a county or a month clicked lists, the map's places,
+  // and every hover's words, worked out by hand from its rows. A check that throws (a mutant) is one failed check.
+  try {
+    const RR = FX.RULES.report, rRows = csvOf(RR.positives), SH = globalThis.CVIWA_GEO.counties.features;
+    const rRead = E.readPositives(rRows[0], rRows.slice(1), hpai, RR.today);
+    const f = RP.figures(rRead, '2026-09-01', SH), w = RP.wording(f, hpai, {}, 39);
+    const strip = r => ({ detected: r.detected, county: r.county, size: r.size, flockType: r.flockType, species: r.species, active: r.active });
+    // Every row counted, in the table's shape: oldest first, the undated last, with its point and whether it is a flock.
+    check(f.listed.length === f.cases && f.listed[15].detected === null && f.listed[15].county === 'Pierce'
+      && f.listed.filter(r => r.lat === null).length === f.noPoint && f.listed.filter(r => r.lat === null).every(r => r.lon === null)
+      && f.listed.slice(0, 15).every((r, i, a) => !i || a[i - 1].detected <= r.detected)
+      && same(f.listed.filter(r => r.detected && r.detected.startsWith('2026')).map(strip), f.thisYear),
+    'figures: every row listed in the table\'s shape, oldest first, Pierce 11 (no date) last; this year\'s rows the same as the table\'s', f.listed.map(r => [r.detected, r.county]));
+    check(same(f.listed.filter(r => r.detected && r.detected.startsWith('2026')).map(r => r.flock), [true, true, false, false, true, true]),
+      'figures: a flock is a row of birds (the two-kind Lewis row one; the goats and the dairy herd not)', f.listed.map(r => r.flock));
+    // What the table lists for a pick.
+    const none = RP.picked(f, null), fr = RP.picked(f, { county: 'Franklin' }), ng = RP.picked(f, { county: RP.COUNTY_NOT_GIVEN });
+    check(none.heading === '2026 detections' && none.chip === null && same(none.rows, f.thisYear) && none.of === 6 && none.none === 'No detections in 2026 so far.',
+      'figures: nothing picked: this year\'s 6 detections', none);
+    check(fr.heading === '2026 detections' && fr.chip === 'Franklin' && same(fr.rows.map(r => r.detected), ['2026-03-14', '2026-08-20']) && fr.of === 6,
+      'figures: Franklin clicked: its 2 cases this year, "2 of 6"', fr);
+    check(ng.chip === 'Not given' && ng.rows.length === 0 && ng.none === 'No detections in 2026 in Not given so far.',
+      'figures: "county not given" clicked: named "Not given", none this year, said so', ng);
+    const aug = RP.picked(f, { month: '2026-08' }), mar22 = RP.picked(f, { month: '2022-03' }), jun23 = RP.picked(f, { month: '2023-06' });
+    check(aug.heading === 'Detections' && aug.chip === 'August 2026' && same(aug.rows.map(r => r.county), ['Franklin', 'Yakima', 'Thurston']) && aug.of === 6,
+      'figures: August 2026 clicked: its 3 cases (the dairy herd among them), "3 of 6"', aug);
+    check(mar22.chip === 'March 2022' && same(mar22.rows.map(strip), [{ detected: '2022-03-10', county: 'King', size: 'Large', flockType: 'Commercial', species: 'Chicken', active: false }])
+      && mar22.of === null, 'figures: a month of another year (March 2022) lists its case, with no "of" (it is not in this year\'s table)', mar22);
+    check(jun23.rows.length === 0 && jun23.none === 'No detections in June 2023.', 'figures: a month without detections says so', jun23);
+    // The map's places: one per point, the closed first.
+    const pl = RP.places(f), yak = pl.find(p => p.cases.length === 2);
+    check(pl.length === 12 && pl.reduce((s, p) => s + p.cases.length, 0) === f.cases - f.noPoint && pl.filter(p => p.active).length === 2
+      && pl.slice(10).every(p => p.active) && yak && yak.active && same(yak.cases.map(r => [r.detected, r.active]), [['2025-02-10', false], ['2026-08-25', true]]),
+    'figures: 12 places for the 13 rows with a point (Yakima 11 and 12 at one, active by 12); the 2 active places last; Thurston 11, without a point, on none',
+      pl.map(p => [p.cases.length, p.active]));
+    // Two premises 55 m apart are two places; the same point to 5 decimals (about a metre) is one.
+    const near = (lat, lon) => ({ detected: '2026-01-02', county: 'Adams', size: 'Small', flockType: 'Backyard', species: 'Chicken', active: false, flock: true, lat, lon });
+    check(RP.places({ listed: [near(47.0001, -118.5), near(47.0006, -118.5)] }).length === 2
+      && RP.places({ listed: [near(47.000011, -118.500002), near(47.000014, -118.500004)] }).length === 1,
+    'figures: two premises 55 m apart are two places; the same point to 5 decimals one');
+    // The hovers: each tile's number and how it is counted.
+    const tips = [0, 1, 2, 3, 4, 5].map(i => RP.hover.tile(f, hpai, w, i, 39));
+    check(same(tips[0], { head: 'Active now', text: '3', lines: ['2 flocks · 1 dairy herd',
+      'A case is active until its Close Date, or its Quarantine Release when its status says closed; counted on Sep 1, 2026.',
+      'Every kind of animal, mapped or not. Surveillance areas are active around 2 cases in 2 counties.'] }), 'figures: the "Active now" hover', tips[0]);
+    check(same(tips[1], { head: 'This year', text: '6 detections in 2026', lines: [
+      'Detected (Confirmed Diagnosis, else Date Reported) in 2026, on or before Sep 1, 2026; listed in the table below.', '1 case without a detection date: in no year.'] }),
+    'figures: the "This year" hover (the undated case in no year)', tips[1]);
+    check(same(tips[2], { head: 'Flocks since 2022', text: '14', lines: ['2 commercial, 10 backyard, 1 Live Bird Market, 1 without a type, by Flock/Herd Type.',
+      'Every row of birds is a flock; herds and other animals are not.', '1 premises detected more than once (the same map point): each detection counts.'] }),
+    'figures: the flocks\' hover (by type, as written; a premises detected twice counted twice)', tips[2]);
+    check(same(tips[3], { head: 'Birds affected', text: '1,251,396', lines: ['Flock/Herd Inventory added up over the rows of birds since 2022.',
+      '1 row without a count left out, never counted as zero.', '1 row naming more than one kind of animal: in no kind\'s total.'] }),
+    'figures: the birds\' hover (the whole number; the blank and the two-kind row said)', tips[3]);
+    check(same(tips[4], { head: 'Counties', text: '9 of 39', lines: ['Washington\'s counties with a case since 2022.',
+      'A case\'s county is its County column, else the county of its map point (or the nearest within 2 km).',
+      'Not among them: Multnomah (not a Washington county); 1 case with no county and no map point.'] }), 'figures: the counties\' hover', tips[4]);
+    check(same(tips[5], { head: 'Last detection', text: 'August 28, 2026', lines: ['The latest detection on or before Sep 1, 2026, 4 days before it.'] }),
+      'figures: the last detection\'s hover', tips[5]);
+    const aug1 = RP.figures(rRead, '2026-08-01', SH), t0 = RP.hover.tile(aug1, hpai, RP.wording(aug1, hpai, {}, 39), 0, 39);
+    const day = RP.figures(rRead, '2026-08-28', SH), t5 = RP.hover.tile(day, hpai, RP.wording(day, hpai, {}, 39), 5, 39);
+    check(t0.text === '1' && t0.lines[0] === '1 premises with other animals' && /counted on Aug 1, 2026\.$/.test(t0.lines[1])
+      && t0.lines[2] === 'Every kind of animal, mapped or not. Surveillance areas are active around 1 case in 1 county.'
+      && t5.lines[0] === 'The latest detection on or before Aug 28, 2026, the day of this update.',
+    'figures: the hovers follow the date (Aug 1: the goats alone active; Aug 28: the day of the update)', [t0, t5]);
+    // A county's, a month's, a bar's and a place's hover.
+    const cy = name => f.counties.find(c => c.county === name);
+    check(same(RP.hover.county(f, cy('Franklin'), false), { head: 'Franklin', text: '2 cases since 2022, 2 in 2026, 1 active', lines: ['Click to list its 2026 cases.'] })
+      && same(RP.hover.county(f, cy('Franklin'), true).lines, ['Listed below; click again to show every county.'])
+      && same(RP.hover.county(f, cy('King'), false).text, '2 cases since 2022, 0 in 2026')
+      && same(RP.hover.county(f, cy('Multnomah'), false).lines, ['Not a Washington county (as the table writes it).', 'Click to list its 2026 cases.'])
+      && same(RP.hover.county(f, cy(RP.COUNTY_NOT_GIVEN), false), { head: 'Not given', text: '1 case since 2022, 0 in 2026',
+        lines: ['No county and no map point in the table.', 'Click to list its 2026 cases.'] }),
+    'figures: a county\'s hover (its cases since the start and this year, the active ones; picked or not; Multnomah and "Not given" said)');
+    const mo = ym => f.byMonth.find(m => m.month === ym);
+    check(same(RP.hover.month(f, mo('2026-08'), false), { head: 'August 2026', text: '3 detections', lines: ['0 commercial, 2 backyard, 1 other · click to list them'] })
+      && same(RP.hover.month(f, mo('2026-08'), true).lines, ['0 commercial, 2 backyard, 1 other · listed below; click again to show 2026\'s'])
+      && same(RP.hover.month(f, mo('2022-03'), false), { head: 'March 2022', text: '1 detection', lines: ['1 commercial, 0 backyard · click to list them'] })
+      && same(RP.hover.month(f, mo('2023-06'), false), { head: 'June 2023', text: '0 detections', lines: ['0 commercial, 0 backyard'] }),
+    'figures: a month\'s hover (by flock type, "other" only when there is any; no click words for a month without detections)');
+    check(same(RP.hover.split(f, hpai, 'flocks'), { head: 'Flocks', text: '12 commercial or backyard', lines: [
+      'Commercial 2 (17%), backyard 10 (83%), by Flock/Herd Type.', 'Other types and rows without a type are not in the bar.'] })
+      && same(RP.hover.split(f, hpai, 'animals'), { head: 'Birds affected', text: '1,251,196 in commercial or backyard flocks', lines: [
+        'Commercial 1,251,000 (100%), backyard 196 (0%).', 'Flock/Herd Inventory added up by Flock/Herd Type; a blank left out.'] }),
+    'figures: the commercial and backyard bars\' hovers (the bars\' own percentages)');
+    const dairy = pl.find(p => p.cases.length === 1 && p.cases[0].species === 'Dairy cattle');
+    const closed = pl.find(p => p.cases.length === 1 && p.cases[0].detected === '2022-03-10');
+    check(same(RP.hover.place(yak), { head: '2 cases at this place, 1 active', text: '', lines: ['Detected Feb 10, 2025 · Backyard · Small flock · closed',
+      'Detected Aug 25, 2026 · Backyard · Small flock · active', 'Yakima · its place in the table: internal only, never printed.'] })
+      && same(RP.hover.place(dairy).head, 'Active case') && same(RP.hover.place(dairy).lines[0], 'Detected Aug 20, 2026 · Commercial · Dairy cattle')
+      && same(RP.hover.place(closed), { head: 'Closed case', text: '', lines: ['Detected Mar 10, 2022 · Commercial · Large flock',
+        'King · its place in the table: internal only, never printed.'] }),
+    'figures: a place\'s hover (a premises detected twice lists both; a dairy herd by its species, not as a flock; a closed flock)');
+    const eight = { lon: 0, lat: 0, active: false, cases: Array(8).fill(null).map((x, i) => ({ detected: '2024-01-0' + (i + 1), county: 'Adams', size: '', flockType: '',
+      species: 'Chicken', active: false, flock: true })) };
+    const h8 = RP.hover.place(eight);
+    check(h8.head === '8 cases at this place' && h8.lines.length === 8 && h8.lines[6] === 'and 2 more' && h8.lines[0] === 'Detected Jan 1, 2024 · closed',
+      'figures: a place of 8 cases lists 6 and "and 2 more"; a blank type and size left out of the line', h8.lines);
+    // An empty table: nothing to pick or place.
+    const empty = RP.figures(Object.assign({}, rRead, { positives: [], dropped: [] }), '2026-09-01', SH);
+    check(RP.places(empty).length === 0 && RP.picked(empty, null).rows.length === 0 && same(RP.hover.tile(empty, hpai, RP.wording(empty, hpai, {}, 39), 5, 39),
+      { head: 'Last detection', text: 'none', lines: [] }) && RP.monthName('2022-10') === 'October 2022',
+    'figures: an empty table: no places, nothing listed, the last detection "none"; a month\'s name');
+  } catch (e) { check(false, 'figures: the checks stopped', String(e && e.stack || e)); }
+
+  // ---- 8l. The guide "Making the HPAI update" (2.9: site/emergency/making-the-update.html) --------------------------
+  // Every button, fold, tick and heading word the guide names is the page's own (index.html and the Report view's
+  // scripts), and its plain-text twin, MAKING_THE_HPAI_UPDATE.txt, names the same; the twin opens in Notepad as it is.
+  try {
+    const html = fs.readFileSync(path.join(SITE, 'emergency', 'making-the-update.html'), 'utf8');
+    const txt = fs.readFileSync(path.join(SITE, 'emergency', 'MAKING_THE_HPAI_UPDATE.txt'), 'utf8');
+    const plain = t => t.replace(/<[^>]+>/g, '').replace(/&#8595;/g, '↓').replace(/&times;/g, '×').replace(/&middot;/g, '·')
+      .replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    const page = plain(html), twin = txt.replace(/\s+/g, ' ');
+    const code = ['index.html', 'app.js', 'report-form.js', 'report-view.js', 'report-figures.js', 'types/hpai.js']
+      .map(f => fs.readFileSync(path.join(SITE, 'emergency', f), 'utf8')).join('\n').replace(/\\'/g, "'").replace(/&#8595;/g, '↓');
+    const NAMES = ['Load your data', 'Report', 'Map', 'Overview', 'Fill in', 'Figures', 'Load last month\'s', 'Report date',
+      'Washington: the status', 'From the data on', 'Write my own', 'Suspected livestock cases are being tested',
+      'Washington: from the data', 'Soft dots (no exact place)', 'Counties shaded by cases', 'Key messages', 'Highlight',
+      'Set aside', 'Add a message', 'Icon style', 'National (USDA)', 'As of', 'USDA\'s maps, last 30 days',
+      'Add USDA\'s picture', 'Wild birds and testing (WADDL)', 'No wild bird detections reported in the last 30 days',
+      'Testing (WADDL)', 'Boxes and resources', 'Report online at', 'Save report text', 'Save for ArcGIS',
+      'hpai-monthly-figures.csv', ' report text.json', 'Matches the data', 'Automatic', 'All filled', 'Kept month to month',
+      'to check', 'not filled', 'Ready to send', 'Print / Save as PDF', 'HPAI update', 'Places', 'Counties',
+      'The update\'s figures: Report'];
+    const missing = NAMES.filter(n => !code.includes(n)), notInPage = NAMES.filter(n => !page.includes(n.trim()) && !/json$/.test(n)),
+      notInTwin = NAMES.filter(n => !twin.includes(n.trim()) && !/json$/.test(n));
+    check(!missing.length, 'guide: every name it gives is the page\'s own (a button, fold, tick or heading word)', missing);
+    check(!notInPage.length && !notInTwin.length, 'guide: the page and its plain-text twin name the same', { notInPage, notInTwin });
+    check(page.includes('Small under 100 birds, Medium 100 to 999, Large 1,000 or more') && RP.SIZE_LINE.includes('Medium 100 to 999')
+      && E.sizeClass(1000) === 'Large' && E.sizeClass(999) === 'Medium' && twin.includes('Medium 100 to 999, Large 1,000 or'),
+    'guide: its flock sizes are the rules\' (1,000 Large)', RP.SIZE_LINE);
+    check(!/[^\r]\n/.test(txt) && txt.split('\r\n').every(l => l.length < 100) && !/[^\x20-\x7e\r\n]/.test(txt),
+      'guide: the plain-text twin with Windows\' line ends, lines under 100 characters, plain ASCII');
+    const idx = fs.readFileSync(path.join(SITE, 'emergency', 'index.html'), 'utf8');
+    check(/<a href="making-the-update\.html" target="_blank" rel="noopener" id="rp-guide">Making the HPAI update<\/a>/.test(idx)
+      && /<title>Making the HPAI update<\/title>/.test(html) && !/<script/i.test(html),
+    'guide: the form\'s opening line links it, in a new tab; the guide has no script');
+  } catch (e) { check(false, 'guide: the checks stopped', String(e && e.stack || e)); }
+
   // ---- 9. The rules against the R reference ------------------------------------------------------------------
   const ORACLE = path.join(ROOT, 'local-test-artifacts', 'em', 'oracle_em.json');
   if (!fs.existsSync(ORACLE)) check(false, 'R reference missing: run Rscript tests/oracle/em_oracle.R first');
@@ -2706,14 +3489,59 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     };
     // The day the check takes as today: the suites' fixed today, unless named.
     const TODAY = '2026-10-30';
-    const runCheck = (file, day) => {
-      const out = path.join(OUTD, path.basename(file).replace(/\.csv$/, '') + (day ? '_' + day : '') + '.txt');
+    // update: the HPAI update's date (2.9), or "ask" with input, the words typed in the window.
+    const runCheck = (file, day, update, input) => {
+      const out = path.join(OUTD, path.basename(file).replace(/\.csv$/, '') + (day ? '_' + day : '') + (update ? '_u' + update.replace(/\W/g, '') : '') + '.txt');
       const hash = () => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'), before = hash();
-      try { execFileSync('Rscript', ['--vanilla', SCRIPT, file, out, day || TODAY], { stdio: 'pipe' }); }
+      let shown = '';
+      try { shown = execFileSync('Rscript', ['--vanilla', SCRIPT, file, out, day || TODAY].concat(update ? [update] : []), { input: input || '', stdio: 'pipe' }).toString(); }
       catch (e) { return { failed: String(e.stderr || e.message).slice(0, 300) }; }
       if (hash() !== before) return { failed: 'the table changed' };
-      return { text: fs.readFileSync(out, 'utf8') };
+      return { text: fs.readFileSync(out, 'utf8'), shown };
     };
+    // The update's figures (2.9) read back from the report: its lines joined again where the report wraps them.
+    const figuresOf = text => {
+      const i = text.indexOf('The HPAI update\'s figures on ');
+      if (i < 0) return null;
+      const body = text.slice(i).split('\r\n\r\n')[0].replace(/\r\n {4,}/g, ' ');
+      const m = (re, k) => { const x = re.exec(body); return x ? x.slice(1).map(v => /^[\d,]+$/.test(v) ? Number(v.replace(/,/g, '')) : v) : null; };
+      return { day: m(/^The HPAI update's figures on (\w+ \d+, \d{4})( \(the date typed was not read as a date, so today's\))?, as the update counts them$/m),
+        cases: m(/^ {2}Cases: (\d+) \(left out, detected after the date: (\d+); without a readable detection date, in the totals only: (\d+); without a map point: (\d+)\)$/m),
+        active: m(/^ {2}Active on the date: (\d+) \(birds (\d+), cattle (\d+), other animals (\d+)\); around a map point, so with zones: (\d+)$/m),
+        flocks: m(/^ {2}Flocks \(the rows of birds\): (\d+): commercial (\d+), backyard (\d+), another type (\d+), without a type (\d+); active on the date (\d+)$/m),
+        birds: m(/^ {2}Birds affected \(Flock\/Herd Inventory of the flocks\): ([\d,]+) \(without a count: (\d+)\); in the commercial flocks ([\d,]+), the backyard ones ([\d,]+)$/m),
+        kinds: m(/^ {2}The other kinds: cattle (\d+) cases?(?: \(([\d,]+) animals(?:, (\d+) without a count)?\))?, other animals (\d+) cases?(?: \(([\d,]+) animals(?:, (\d+) without a count)?\))?; naming more than one kind (\d+) cases? \(([\d,]+) animals, in no kind's total\)$/m),
+        counties: m(/^ {2}Counties: (\d+) of Washington's 39 have a case; their counts, largest first: ([\d, ]+|none); not a Washington county (\d+) cases?; county not given (\d+) cases?$/m),
+        fromPoint: m(/^ {2}\((\d+) cases? ha(?:s|ve) a map point and a blank County: the page finds their county from the point; not counted in the counties here\)$/m),
+        year: m(/^ {2}This year \((\d{4})\): (\d+) detections?; the last detection in (\w+ \d{4}|no month \(no readable date\))$/m),
+        twice: m(/^ {2}Premises detected more than once \(the same map point\): (\d+) \((\d+) cases\)$/m) };
+    };
+    // The same, from report.js's figures on the date (the counties as the check can read them: a row with a map point
+    // and a blank County takes its point's county on the page, which the check names apart).
+    const SHAPES = globalThis.CVIWA_GEO.counties.features, WA_NAMES = new Set(SHAPES.map(x => x.properties.name));
+    const figuresPage = (read, date, dayWords, slip) => {
+      const f = RP.figures(read, date, SHAPES), k = key => f.kinds.find(x => x.key === key);
+      const kindPart = x => [x.cases, x.cases ? x.animals : undefined, x.cases && x.missing ? x.missing : undefined];
+      const named = f.rows.map(p => txt(p.county) ? E.countyOf(p, SHAPES) : p.lat === null ? 'not given' : null);
+      const counts = new Map();
+      named.filter(c => WA_NAMES.has(c)).forEach(c => counts.set(c, (counts.get(c) || 0) + 1));
+      const top = [...counts.values()].sort((a, b) => b - a);
+      const fromPoint = named.filter(c => c === null).length;
+      const year = f.thisYear.length;
+      return { day: [dayWords, slip ? ' (the date typed was not read as a date, so today\'s)' : undefined],
+        cases: [f.cases, f.later, f.undated, f.noPoint], active: [f.active, k('birds').active, k('cattle').active, k('other').active, f.zones.active],
+        flocks: [f.flocks.total, f.flocks.commercial, f.flocks.backyard, f.flocks.others.reduce((s, o) => s + o[1], 0), f.flocks.untyped, f.flocks.active],
+        birds: [f.birds, f.kinds[0].missing, f.flocks.birds.commercial, f.flocks.birds.backyard],
+        kinds: kindPart(k('cattle')).concat(kindPart(k('other')), [f.mixed.cases, f.mixed.animals]),
+        counties: [counts.size, top.length ? top.join(', ') : 'none', named.filter(c => c && c !== 'not given' && !WA_NAMES.has(c)).length,
+          named.filter(c => c === 'not given').length].map(v => /^\d+$/.test(String(v)) && typeof v === 'string' ? Number(v) : v),
+        fromPoint: fromPoint ? [fromPoint] : null, year: [Number(date.slice(0, 4)), year, f.last ? RP.monthName(f.last.slice(0, 7)) : 'no month (no readable date)'],
+        twice: [f.twice.premises, f.twice.rows], countiesAffected: f.countiesAffected };
+    };
+    // The two compared: the check's own figures, and its counties against the page's own count when no row takes its
+    // county from its point.
+    const sameFigures = (r, p) => r && same(Object.assign({}, r, { countiesAffected: p.countiesAffected }), p)
+      && (p.fromPoint || r.counties[0] === p.countiesAffected);
 
     // The page's own reading of a table, in the report's terms.
     const ORD = ['1st', '2nd', '3rd'];
@@ -2885,6 +3713,46 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
         { r: [r.today, r.todayWords, r.noDay], page: [page.today, page.noDay] });
       check(!leaks(run.text, page).length && !/[^\r]\n/.test(run.text), 'table check: ' + name + ': no Case ID, address, coordinate, county name or full date; Windows line ends',
         leaks(run.text, page));
+      // The update's figures (2.9), counted on today when no date is given, as report.js counts them.
+      const fr = figuresOf(run.text), fp = figuresPage(page.read, TODAY, 'October 30, 2026');
+      check(sameFigures(fr, fp), 'table check: ' + name + ': the update\'s figures on today (no date given), as report.js counts them', { r: fr, page: fp });
+    }
+    // The update's figures on the update's own date (2.9): the report scenario on Sep 1 and Aug 1, 2026 and Dec 31,
+    // 2025 (another year), as report.js
+    // counts them; the date asked for in the window (as CHECK_HPAI_TABLE.bat runs it), Enter for today, and a date that
+    // is not one said so and counted on today.
+    {
+      const file = path.join(FXD, FX.RULES.report.positives), page = pageOf(file);
+      for (const [iso, words] of [['2026-09-01', 'September 1, 2026'], ['2026-08-01', 'August 1, 2026'], ['2025-12-31', 'December 31, 2025']]) {
+        const run = runCheck(file, TODAY, iso), fr = run.text ? figuresOf(run.text) : null, fp = figuresPage(page.read, iso, words);
+        check(!run.failed && sameFigures(fr, fp) && !leaks(run.text, page).length,
+          'table check: the report scenario: the update\'s figures on ' + words + ' as report.js counts them, no name or full date', { r: fr, page: fp });
+      }
+      // A case closed by its release date (no Close Date) is active on an update's date before the release:
+      // em_rules_closed_day.csv on Jan 15, 2024, Yakima 12 released Feb 1, 2024.
+      const cd = path.join(FXD, 'em_rules_closed_day.csv'), cdPage = pageOf(cd), cdRun = runCheck(cd, TODAY, '2024-01-15');
+      const cdR = cdRun.text ? figuresOf(cdRun.text) : null, cdP = figuresPage(cdPage.read, '2024-01-15', 'January 15, 2024');
+      check(!cdRun.failed && sameFigures(cdR, cdP) && cdR.active && cdR.active[0] === 2,
+        'table check: em_rules_closed_day.csv on Jan 15, 2024: 2 active (Yakima 12, closed by its release on Feb 1, 2024, and the undated Yakima 18), as report.js', { r: cdR, page: cdP });
+      const sep = figuresOf(runCheck(file, TODAY, '2026-09-01').text || '');
+      check(sep && sep.cases && same(sep.cases, [16, 1, 1, 3]) && same(sep.flocks, [14, 2, 10, 1, 1, 2]) && same(sep.birds, [1251396, 1, 1251000, 196])
+        && same(sep.counties, [9, '2, 2, 2, 2, 2, 1, 1, 1, 1', 1, 1]) && same(sep.year, [2026, 6, 'August 2026']),
+      'table check: the report scenario on Sep 1, 2026, by hand: 16 cases, 14 flocks (2 commercial, 10 backyard), 1,251,396 birds, 9 counties, 6 this year', sep);
+      const typed = runCheck(file, TODAY, 'ask', '9/1/2026\n'), enter = runCheck(file, TODAY, 'ask', '\n'), slip = runCheck(file, TODAY, 'ask', 'Sept 1\n');
+      const t = typed.text ? figuresOf(typed.text) : null, e = enter.text ? figuresOf(enter.text) : null, s = slip.text ? figuresOf(slip.text) : null;
+      const dayOf = x => (x && x.day) || [];
+      check(t && same(t.cases, sep.cases) && dayOf(t)[0] === 'September 1, 2026'
+        && /^\n {2}To compare with an update already sent, type its date \(for example 9\/1\/2026\),\n {2}or press Enter for today: \n/.test(typed.shown)
+        && e && dayOf(e)[0] === 'October 30, 2026' && !dayOf(e)[1] && same(e.cases, [17, 0, 1, 3])
+        && s && dayOf(s)[0] === 'October 30, 2026' && dayOf(s)[1] === ' (the date typed was not read as a date, so today\'s)',
+      'table check: the date asked for in the window: 9/1/2026 typed counts on Sep 1; Enter on today; "Sept 1" said not read, counted on today',
+        { t: t && t.day, e: e && [e.day, e.cases], s: s && s.day, shown: (typed.shown || '').slice(0, 160) });
+      const part = (typed.text || '').slice((typed.text || '').indexOf('The HPAI update\'s figures on ')).split('\r\n\r\n')[0];
+      const wide = part.split('\r\n').filter(l => l.length > 116);
+      check(part.length > 200 && !wide.length, 'table check: the update\'s figures without a line wider than 116 characters (Notepad without scrolling sideways)', wide);
+      const bat = fs.readFileSync(path.join(ROOT, 'tools', 'work-pc', 'CHECK_HPAI_TABLE.bat'), 'latin1');
+      check(/^"%R_EXE%" --vanilla "%HERE_NOSLASH%\\check_hpai_table\.R" "%PICKED%" "%REPORT%" "%TODAY%" ask\r$/m.test(bat),
+        'table check: CHECK_HPAI_TABLE.bat runs the check with today and "ask", so R asks for the update\'s date');
     }
     // The edge table, as written in the fixture: each case named.
     const edge = reportOf(runCheck(path.join(FXD, 'em_table_check_edge.csv')).text || '');

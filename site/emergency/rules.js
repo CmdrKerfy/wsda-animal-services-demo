@@ -95,7 +95,7 @@
  *
  * The report's numbers:
  *   inventoryOf(text) -> a whole number (thousands commas allowed), or null; never zero for a blank.
- *   sizeClass(n) -> "Small" under 100, "Medium" 100 to 1,000, "Large" over 1,000, or null.
+ *   sizeClass(n) -> "Small" under 100, "Medium" 100 to 999, "Large" 1,000 or more, or null.
  *   numbersLine(read, list) -> "4 commercial, 67 backyard, 4.1M birds" (the flock type with the most animals first;
  *     each kind's totals: "1.2M birds, 3,550 cattle, 12 goats"; "; 2 without an inventory" when some are blank), or
  *     null. bigNumber(n) -> "4.1M", or "18,535" under a million.
@@ -426,11 +426,12 @@
     return Number(s.replace(/,/g, ''));
   }
 
-  // The flock size class, as the agency's HPAI update defines it: Small under 100, Medium 100 to 1,000, Large over
-  // 1,000; null without an inventory.
+  // The flock size class, as the agency's HPAI update defines it: Small under 100, Medium 100 to 999, Large 1,000 or
+  // more (2.9: the update's "1,000+" read as 1,000 or more; 2.8 and before counted 1,000 as Medium); null without
+  // an inventory.
   function sizeClass(n) {
     if (n === null || n === undefined) return null;
-    return n < 100 ? 'Small' : n <= 1000 ? 'Medium' : 'Large';
+    return n < 100 ? 'Small' : n < 1000 ? 'Medium' : 'Large';
   }
 
   function statusChoices(type, positives) {

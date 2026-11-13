@@ -101,6 +101,9 @@
 //                             row's group and the count closed on a day not known for six days and two ranges
 //   em_rules_species.csv      (2.8) twenty active positives, one per species case: each row's kind, its count word
 //                             and whether it is listed, and the animals' totals by word
+//   em_rules_report.csv       (2.9) the HPAI update's figures on Sep 1, 2026: 17 rows, one per counting rule (a premises
+//                             detected twice, rows without a point, a County not Washington's, an undated row, a row
+//                             after the report's date, a dairy herd, goats, two kinds, 1,000 birds, blank types)
 // The made-up third type is tests/synthetic/em_made_up_type.js (not generated).
 // Deterministic: no clock, no random numbers (the speed set's generator has a fixed seed).
 //
@@ -493,9 +496,59 @@ RULES_FILES['em_rules_species.csv'] = csv([['Case ID', 'Confirmed Diagnosis', 'L
   .concat(SPECIES_ROWS.map((r, k) => ['SYN-S-' + String(k + 1).padStart(2, '0'), '9/1/2026', (46.5 + k / 100).toFixed(4), '-120.5000', r[0], r[1]]
     .map(quoted))));
 const SPECIES_RULES = { positives: 'em_rules_species.csv' };
+// The HPAI update's figures (2.9, E2; rules.json "report"), on the report's date Sep 1, 2026: every rule of the update's
+// counting, one row each: a premises detected twice (Yakima 11 and 12, the same point); a row without a point counted
+// in its County ("snohomish county"), one with neither ("county not given") and an active one (Thurston 11: in the
+// totals and its county, no zones); a County that is not Washington's
+// ("Multnomah", kept as written, not one of Washington's counties); a row without a readable date (in the totals, in no
+// month); a row detected after the report's date (left out); a dairy herd (cattle, counted apart from the flocks),
+// goats (other animals) and a species naming two kinds (a case of each, its animals in neither); a flock of exactly
+// 1,000 (Large); a blank inventory (counted as missing, never zero); a blank and an unusual Flock/Herd Type.
+// [Case ID, Date Reported, Close Date, Confirmed Diagnosis, Quarantine Release, County, Latitude, Longitude, Status,
+//  Flock/Herd Type, Production Type, Species, Flock/Herd Inventory]
+const REPORT_ROWS = [
+  ['King 11', '3/9/2022', '6/1/2022', '3/10/2022', '6/15/2022', 'King', '47.4800', '-121.9000', 'Closed', 'Commercial',
+    'Commercial Table Egg Layer', 'Chicken', '1,250,000'],
+  ['King 12', '4/1/2022', '', '4/2/2022', '5/20/2022', 'king county', '47.3100', '-122.2000', 'Closed', 'Backyard',
+    'WOAH Non-Poultry', 'Chicken', '35'],
+  ['Snohomish 11', '11/19/2023', '1/5/2024', '11/20/2023', '1/10/2024', 'Snohomish', '48.0500', '-122.1000', 'Closed',
+    'Backyard', 'WOAH Non-Poultry', 'Duck', '12'],
+  ['Snohomish 12', '1/4/2024', '3/1/2024', '1/5/2024', '', 'snohomish county', '', '', 'Closed', 'Backyard',
+    'WOAH Non-Poultry', 'Chicken', '40'],
+  ['Unknown 11', '1/31/2024', '4/1/2024', '2/1/2024', '', '', '', '', 'Closed', 'Backyard', 'WOAH Non-Poultry', 'Chicken',
+    '20'],
+  ['Franklin 11', '3/13/2026', '5/1/2026', '3/14/2026', '5/20/2026', 'Franklin', '46.4000', '-119.0500', 'Closed',
+    'Commercial', 'Commercial Meat Turkey', 'Turkey', '1,000'],
+  ['Franklin 12', '8/19/2026', '', '8/20/2026', '', 'Franklin', '46.5500', '-118.9000', 'Active', 'Commercial',
+    'Commercial Dairy', 'Dairy cattle', '3,550'],
+  ['Yakima 11', '2/9/2025', '4/1/2025', '2/10/2025', '4/15/2025', 'Yakima', '46.6000', '-120.5000', 'Closed', 'Backyard',
+    'WOAH Non-Poultry', 'Chicken', '22'],
+  ['Yakima 12', '8/24/2026', '', '8/25/2026', '', 'Yakima', '46.6000', '-120.5000', 'Active', 'Backyard',
+    'WOAH Non-Poultry', 'Chicken', '18'],
+  ['Whatcom 11', '6/30/2026', '8/15/2026', '7/1/2026', '8/20/2026', 'Whatcom', '48.8000', '-122.4000', 'Closed',
+    'Backyard', 'Non-Poultry', 'Meat Goat', '6'],
+  ['Lewis 11', '6/9/2026', '7/20/2026', '6/10/2026', '7/25/2026', 'Lewis', '46.6000', '-122.6000', 'Closed', 'Backyard',
+    'WOAH Non-Poultry', 'Cattle, Chicken', '30'],
+  ['Pierce 11', '', '2/1/2025', '', '2/10/2025', 'Pierce', '47.1000', '-122.3000', 'Closed', 'Backyard',
+    'WOAH Non-Poultry', 'Chicken', '15'],
+  ['Skagit 11', '9/14/2026', '', '9/15/2026', '', 'Skagit', '48.4500', '-122.3000', 'Active', 'Commercial',
+    'Commercial Broiler', 'Chicken', '50,000'],
+  ['Clark 11', '5/4/2025', '7/1/2025', '5/5/2025', '7/10/2025', 'Clark', '45.7000', '-122.6000', 'Closed', '',
+    'WOAH Non-Poultry', 'Chicken', ''],
+  ['Pierce 12', '3/2/2023', '5/1/2023', '3/3/2023', '5/10/2023', 'Pierce', '47.2000', '-122.4000', 'Closed',
+    'Live Bird Market', 'Live Bird Market', 'Mixed poultry', '200'],
+  ['Multnomah 11', '9/1/2025', '10/15/2025', '9/2/2025', '10/20/2025', 'Multnomah', '45.6200', '-122.6500', 'Closed',
+    'Backyard', 'WOAH Non-Poultry', 'Duck', '9'],
+  ['Thurston 11', '8/27/2026', '', '8/28/2026', '', 'Thurston', '', '', 'Active', 'Backyard', 'WOAH Non-Poultry',
+    'Chicken', '25']
+];
+RULES_FILES['em_rules_report.csv'] = csv([AGREED_HEAD].concat(REPORT_ROWS.map((r, k) => [r[0], r[1], r[2], r[3], r[4],
+  address(300 + 2 * k), address(301 + 2 * k), 'Synthetic Town', r[5], r[6], r[7], r[8], 'H5N1 2.3.4.4b', r[9], r[10], r[11],
+  r[12], r[12], '1', 'Landfill'].map(quoted))));
+const REPORT_RULES = { positives: 'em_rules_report.csv', date: '2026-09-01', today: '2026-10-30' };
 
 // The page's zones.geojson for the scenario, as zonesGeoJson writes it, for the R reference to read with sf.
-for (const f of ['site/shared/zones.js', 'site/emergency/types.js', 'site/emergency/types/hpai.js',
+for (const f of ['site/shared/zones.js', 'site/emergency/message-icons.js', 'site/emergency/types.js', 'site/emergency/types/hpai.js',
   'site/emergency/rules.js']) {
   require('vm').runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), sandbox);
 }
@@ -600,6 +653,7 @@ const RULES = {
   views: VIEWS_RULES,
   closedDay: CLOSED_DAY_RULES,
   species: SPECIES_RULES,
+  report: REPORT_RULES,
   drawn: DRAWN_RULES,
   counties: { positives: 'em_rules_counties.csv', nearKm: 2 }
 };

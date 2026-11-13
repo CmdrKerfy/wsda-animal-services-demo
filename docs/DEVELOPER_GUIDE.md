@@ -233,13 +233,19 @@ small page part (named in the line). "Data" means it only holds values.
 
 | File | Kind | What it does |
 |---|---|---|
-| `index.html` | Page | The page and its styles: the sidebar's five folds (Load your data; Positives and zones with the "Animals" ticks, "Refine by species", the time views, the rings and "Draw a zone"; Layers to check; More options; Export & Preview), the value boxes, the "Map \| Overview" switch, the map with its badge and the two result tabs, and the Overview's sections with "Columns by". Each "?" has its help text here. |
+| `index.html` | Page | The page and its styles: the sidebar's five folds (Load your data; Positives and zones with the "Animals" ticks, "Refine by species", the time views, the rings and "Draw a zone"; Layers to check; More options; Export & Preview), the value boxes, the "Map \| Overview \| Report" switch, the Report view (its form, pages, "Figures \| Fill in" and print styles), the map with its badge and the two result tabs, and the Overview's sections with "Columns by". Each "?" has its help text here. |
 | `app.js` | Page | The page's wiring (`WSDA.emergency`): reads the files into the rules, keeps the page's state (the whole file in `state.readAll`, the kinds and species ticked in `state.read`, which every view reads), draws the sidebar's controls, the boxes, the legend, the tabs and the Overview, runs the play, the zone set and the CVI query, and builds the Export ZIP and the map picture's input. Its header lists the state and which parts read the whole file. |
 | `map.js` | Page | The Emergency kind of CVI's map adapter (`WSDA.emergencyMap`): the zones, the past positives, the positives in their kinds' marks (side by side for a positive of several kinds), the sites inside and the faded others, the CVI premises, a drawn zone and the drawing's sketch, the hovers, and the view's fit. |
 | `rules.js` | Pure | Every rule the page counts by, with no page work, so the unit suite and the R reference check them directly (`WSDA.emergencyRules`): reading the positives and their kinds, the views and the play, the zones and what lies inside them, the value boxes and the lines under them, the Overview's counts, the drawn zones, the CVI query's input and the Export's rows. Its header lists each function's input and output. |
 | `chart.js` | Pure | The charts as SVG text (`WSDA.emergencyChart`): "Positives over time" (stacked columns with a key, the day's line or the dates' band, one keyboard stop) and the Overview's stacked horizontal bars (CVI's `chartsvg.js` hbars, copied). |
 | `branded.js` | Pure | The map picture (PNG), a copy of Premise Lookup's branded page (`site/cvi/app/brandedmaps.js`; `WSDA.emergencyBranded`): its model (the title, the period line, the boxes, the zones, the key, the POSITIVES panel with each row's sites inside by layer, the CVI premises, the names picked, Streets), fitted so every row and layer is named, and its SVG. |
-| `icons.js` | Pure | The page's own icons (the two time views and "Draw a zone"'s shapes), as path data for the map picture and inline SVG for the page, kept out of CVI's `icons.js` (`WSDA.emergencyIcons`). |
+| `icons.js` | Pure | The page's own icons (the two time views and "Draw a zone"'s shapes, the Report button and "Print / Save as PDF"), as path data for the map picture and inline SVG for the page, kept out of CVI's `icons.js` (`WSDA.emergencyIcons`). |
+| `report.js` | Pure | The HPAI update's figures (`WSDA.emergencyReport`), counted the update's own way on the report's date (every row a case, mapped or not; a row detected after the date left out), for the printed pages and Figures alike, so the two always agree; also the update's wordings, the soft dots' spots inside each county, what a county or month clicked lists and each figure's hover. Checked by the unit suite and the R reference. |
+| `report-view.js` | Page | The Report view's letter-size pages as they print (`WSDA.emergencyReportView`): page 1 from the figures, page 2 from the form's typed numbers and pictures, the blocks flowing onto pages by measuring, the DRAFT mark until "Ready to send"; its drawing parts are shared with Figures. |
+| `report-form.js` | Page | The Report view's form (`WSDA.emergencyReportForm`): the report text (words and choices only, never the table's numbers), each fold's heading and checks, the typed numbers' checks on page 2, "Save report text" and "Load last month's", "Save for ArcGIS" (`hpai-monthly-figures.csv`), and the picture slots. |
+| `report-figures.js` | Page | The Report view's "Figures" (`WSDA.emergencyReportFigures`): page 1's figures on screen, a hover on every figure, a county or month clicked narrowing this year's table, the map's "Places \| Counties" with the real places (screens only; never printed). |
+| `making-the-update.html`, `MAKING_THE_HPAI_UPDATE.txt` | Record | The guide "Making the HPAI update" for staff, linked from the Report view's form, and its plain-text twin; the unit suite checks that every button and fold they name is the page's own, so a renamed control needs the same change in both. |
+| `message-icons.js` | Data | The key messages' 44 icons in two styles, Filled and Outline (`WSDA.emergencyMessageIcons`), from OCHA's humanitarian icons, Phosphor Icons and Healthicons, with four drawn for the page; sources in `site/PROVENANCE.md`, Phosphor's license in `phosphor-icons-LICENSE.txt`. |
 | `draw.js` | Page | "Draw a zone": the drawing and editing mode on the live map (the map's events, the sketch, the label beside the pointer, the badge, the keys); the rules it uses are `rules.js`'s (`WSDA.emergencyDraw`). |
 | `types.js` | Pure | The emergency types' list: checks each type file's fields, picks the type for a positives file (`WSDA.emergencyTypes`). |
 | `types/hpai.js` | Data | The HPAI type; its top comment explains every field. |
@@ -290,11 +296,28 @@ the table. It goes to the work PC as its own ZIP, `WSDA_HPAI_table_check.zip`, a
 | File | What it does |
 |---|---|
 | `CHECK_HPAI_TABLE.bat` | Double-clicked: finds Rscript as the CVI tools do (`CVI_RSCRIPT` first), asks for the table in a Windows file window, runs the R check and saves its report beside itself (`hpai_table_check_YYYY-MM-DD.txt`). Windows line ends, plain ASCII. |
-| `check_hpai_table.R` | The check, base R only: the page's CSV reader, column names, dates, coordinates and groups written again (from `site/cvi/app/csv.js`, `site/emergency/rules.js`, `types.js` and `types/hpai.js`). The report holds counts only, never a Case ID, an address, a coordinate, a county's name or a full date: a category value found in one row only (other than a status, closed or quarantine word), or one holding a date, a coordinate, a county's name or a Case ID, is shown by its shape (each letter an a, each digit a 9), and a first row is taken as the header only when it holds a needed column's name of three letters or more. Its groups (active, closed, still under quarantine, not known, not mapped) are given on the last detection date, with the closed positives by their closing day (Close Date, release date, not known), and, from 2.5, on the day it is run, as the page opens both views (a third argument, a day, stands in for today in the tests). From 2.8 it adds up Flock/Herd Inventory and Depop Inventory over every row, mapped or not, every kind of animal, each cell read as the page reads an inventory, to compare with the HPAI update's "birds affected". The Emergency unit suite runs it on the synthetic HPAI tables and compares every count with the page's, and checks that its column names and words are the HPAI type's. |
+| `check_hpai_table.R` | The check, base R only: the page's CSV reader, column names, dates, coordinates and groups written again (from `site/cvi/app/csv.js`, `site/emergency/rules.js`, `types.js` and `types/hpai.js`). The report holds counts only, never a Case ID, an address, a coordinate, a county's name or a full date: a category value found in one row only (other than a status, closed or quarantine word), or one holding a date, a coordinate, a county's name or a Case ID, is shown by its shape (each letter an a, each digit a 9), and a first row is taken as the header only when it holds a needed column's name of three letters or more. Its groups (active, closed, still under quarantine, not known, not mapped) are given on the last detection date, with the closed positives by their closing day (Close Date, release date, not known), and, from 2.5, on the day it is run, as the page opens both views (a third argument, a day, stands in for today in the tests). From 2.8 it adds up Flock/Herd Inventory and Depop Inventory over every row, mapped or not, every kind of animal, each cell read as the page reads an inventory, to compare with the HPAI update's "birds affected". From 2.9 it ends with the update's page 1 figures on a date it asks for in the window (Enter for today), counted as `report.js` counts them: the cases, the active ones, the flocks, the birds affected, how many counties have a case and every county's count largest first (never a name), this year's detections and the premises detected more than once; a row with a map point and a blank County is counted apart, since the check has no county shapes. The unit suite compares this part with `report.js` on the synthetic tables at several dates. The Emergency unit suite runs it on the synthetic HPAI tables and compares every count with the page's, and checks that its column names and words are the HPAI type's. |
 | `README.txt` | The note for staff: how to run it, what the report holds and never holds. |
 
 A change to the HPAI type's column names or words, or to how `rules.js` reads a table, needs the same change in
 `check_hpai_table.R`; the unit suite fails until both agree.
+
+### The ArcGIS zones tool (`tools/arcgis-zones/`)
+
+An ArcGIS Pro toolbox for the agency's GIS staff, outside the pages (from 2.9): each month it rebuilds the public HPAI
+map's zones and a cases table with no location from the agreed HPAI table, the same .csv file the Emergency page
+reads, counted by the same rules. It writes only to the new layers it makes the starter file for, and refuses any
+other layer by its fields.
+
+| File | What it does |
+|---|---|
+| `HPAI_Zones.pyt` | The toolbox: "Rebuild the HPAI zones and cases table" ("Check only" ticked each time it opens; the table's coordinate warnings shown before it runs; a copy in a file geodatabase, then add and remove with a rollback) and "Make the starter file" (the empty zones layer and cases table, their fields set up). |
+| `zone_rules.py` | The rules in plain Python, no ArcGIS: the columns, the dates, active or closed on a day, the kinds of animal, rows detected after the day left out, each case's 3 km zone and 3 to 10 km ring as the page's own circles, one public set of zones per map point (`Online_Live`), the cases table's nine fields, the check and the rows to fix. Premises, Address and City are never read. |
+| `README.txt` | The note for GIS staff: setting up the layers once, then each month's run. |
+| `tests/` | `test_zone_rules.py` compares the rules with the page's `rules.js` and `report.js` (run by `dashboard_rules.js` in Node) on every synthetic HPAI table at six dates; `test_toolbox.py` runs the toolbox on a stand-in `arcpy` (`fake_arcpy/`). `python3 -m unittest discover -s tools/arcgis-zones/tests -v`. |
+
+A change to the HPAI type's column names or words, or to how `rules.js` decides active or closed, needs the same
+change in `zone_rules.py`; its tests fail until both agree.
 
 ### Vendored library (`site/vendor/`)
 
@@ -451,6 +474,13 @@ The Emergency Response dashboard names no emergency in its code: each emergency 
      of the facility layer list, the manifest): `bySpecies` maps words in a positives file's species column to keys,
      `default` is used when no word matches. A suggested layer whose file is not loaded is skipped;
    - `links`: reference pages (label and an `https://` address), shown behind the type's "?" and opened in a new tab.
+   - `report` (2.9, optional): the HPAI update made in the Report view; a type without it has no Report button. It
+     holds the update's own words, never a number: the title, the source line, the status wordings, the milk testing
+     stages, the links, the key messages a new report starts with (each message's icon a name from
+     `site/emergency/message-icons.js`; `types.js` refuses an unknown one), the hotline, the alternate-format line and,
+     optionally, `page2` (the national and testing sources, WADDL's categories and link lists, the "Report sick birds"
+     box, the resources). Every field is explained at the top of `types/hpai.js`; `types.js` names any field that is
+     missing or of the wrong form, as for the others.
    If none of the type's column names is one of the positives file's marker columns (`MARKERS` in
    `site/emergency/datasets.js`: Case ID, Confirmed Diagnosis, Close Date, Subtype, and the earlier forms), add one of
    them there, so the landing page and the Emergency page recognize its file.

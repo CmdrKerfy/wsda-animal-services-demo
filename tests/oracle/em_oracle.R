@@ -24,7 +24,7 @@
 #     written that falls in Washington the other way round "looks swapped"), the names, the detection date
 #     (Confirmed Diagnosis, else Date Reported) and the closed date read with as.Date, each positive's group on two
 #     end dates (past: its Close Date on or before the end, else Status Closed) and still under quarantine, the flock
-#     size classes (Small under 100, Medium 100 to 1,000, Large over 1,000) and the current positives' counts by flock
+#     size classes (Small under 100, Medium 100 to 999, Large 1,000 or more) and the current positives' counts by flock
 #     type and their animals; the inside rows with rings in miles (1 mile = 1.609344 km, the distance shown in miles);
 #     days since the last positive for each ring of each positive with zones and for the zone file's zone (read with
 #     sf and tested with GEOS); and the page's zones.geojson read with sf: each polygon valid (st_is_valid), each
@@ -50,6 +50,9 @@
 #   - the kinds of animal (2.8; rules.json "species"): each row's kind, the word its animals are counted under and
 #     whether its species is listed, and the animals' totals by word, from the scope's rule written fresh, with the
 #     kinds' words read from site/emergency/types/hpai.js.
+#   - the HPAI update's figures (2.9, E2; rules.json "report"): every row counted on the report's date, mapped or not,
+#     the kinds, the flocks by type, the animals, the counties, this year's rows, the months, the zones and the premises
+#     detected twice, from the scope's rules;
 #   - the drawn zones' scenario (2.6; rules.json "drawn"): each corner list's area in an equal-area projection (NAD83
 #     / Conus Albers, EPSG:5070), its sides followed as straight lines in longitude and latitude; the sites inside
 #     (sf and GEOS); the squares' half-widths; each test shape's validity (st_is_valid); and the page's zones.geojson
@@ -306,7 +309,7 @@ release <- as_day(ap[["Quarantine Release"]])
 inv_t <- trimws(ap[["Flock/Herd Inventory"]])
 inv_ok <- grepl("^[0-9]+$", inv_t) | grepl("^[0-9]{1,3}(,[0-9]{3})+$", inv_t)
 inventory <- ifelse(inv_ok, suppressWarnings(as.numeric(gsub(",", "", inv_t))), NA)
-size <- ifelse(is.na(inventory), NA, ifelse(inventory < 100, "Small", ifelse(inventory <= 1000, "Medium", "Large")))
+size <- ifelse(is.na(inventory), NA, ifelse(inventory < 100, "Small", ifelse(inventory < 1000, "Medium", "Large")))
 flock <- tolower(trimws(ap[["Flock/Herd Type"]]))
 # HPAI counts cattle apart from the birds: a species with one of these words at the start of a word.
 cattle <- grepl("(^|[^a-z0-9])(cattle|dairy|bovine|cow)", tolower(trimws(ap[["Species"]])))
@@ -422,7 +425,7 @@ o_release <- as_day(op[["Quarantine Release"]])
 o_inv_t <- trimws(op[["Flock/Herd Inventory"]])
 o_inv <- ifelse(grepl("^[0-9]+$", o_inv_t) | grepl("^[0-9]{1,3}(,[0-9]{3})+$", o_inv_t),
                 suppressWarnings(as.numeric(gsub(",", "", o_inv_t))), NA)
-o_size <- ifelse(is.na(o_inv), "", ifelse(o_inv < 100, "Small", ifelse(o_inv <= 1000, "Medium", "Large")))
+o_size <- ifelse(is.na(o_inv), "", ifelse(o_inv < 100, "Small", ifelse(o_inv < 1000, "Medium", "Large")))
 o_cattle <- grepl("(^|[^a-z0-9])(cattle|dairy|bovine|cow)", tolower(trimws(op[["Species"]])))
 o_end <- as.Date(ov$asOf)
 o_start <- min(o_det[o_mapped], na.rm = TRUE)
@@ -624,8 +627,9 @@ sr <- rules$species
 sp <- read_fixture(sr$positives)
 s_species <- gsub("\\s+", " ", tolower(trimws(sp[["Species"]])))
 any_words <- any(vapply(hp_kinds, function(k) length(k$words) > 0, logical(1)))
-species_rows <- lapply(seq_len(nrow(sp)), function(r) {
-  v <- s_species[r]
+# A species' kinds (v in lowercase, spaces single): the kinds with a word at the start of one of its words, a word inside
+# a longer word of another kind left out; no species, the first kind; a species no kind names, the last.
+kind_hits <- function(v) {
   # Where w (of kind i) starts a word of v (1-based), left out where a longer word of another kind starts there.
   starts <- function(w, i) {
     m <- gregexpr(w, v, fixed = TRUE)[[1]]
@@ -641,6 +645,14 @@ species_rows <- lapply(seq_len(nrow(sp)), function(r) {
   }
   unlisted <- v != "" && !length(at) && any_words
   if (!length(at)) { at <- if (v == "") 1L else length(hp_kinds); hits <- NA_character_ }
+  list(at = at, hits = hits, unlisted = unlisted)
+}
+species_rows <- lapply(seq_len(nrow(sp)), function(r) {
+  v <- s_species[r]
+  kh <- kind_hits(v)
+  at <- kh$at
+  hits <- kh$hits
+  unlisted <- kh$unlisted
   mixed <- length(at) > 1
   k <- hp_kinds[[at[1]]]
   own <- if (is.na(hits[1])) v else hits[1]
@@ -801,6 +813,99 @@ cat(sprintf("closed day: %d rows; on a day %s; between dates %s\n", nrow(cp),
             paste(vapply(closed_day_out$ranges, function(v) sprintf("%s to %s %d active %d closed", v$range[1], v$range[2],
                                                                     v$active, v$closed), ""), collapse = ", ")))
 
+# The HPAI update's figures (2.9, E2; rules.json "report"), worked out from the scope's rules (section 4): every row
+# on the report's date, mapped or not, a row detected after it left out and an undated one in the totals only;
+# closed on the date as the closed-day rules above (its Close Date; else, closed by its Status, its release date on or
+# before the date, a release after today not taken; else, closed by its Status, on any date); the kinds from the
+# species words; the county as the Overview's (the County column, else the county shape holding the point), a row
+# with neither "county not given"; the flocks the rows of the first kind, by Flock/Herd Type; a premises detected
+# twice when two rows have the same point (five decimals).
+rr <- rules$report
+rp <- read_fixture(rr$positives)
+r_date <- as.Date(rr$date)
+r_lat <- num(trimws(rp[["Latitude"]]))
+r_lon <- num(trimws(rp[["Longitude"]]))
+r_mapped <- usable(r_lat, r_lon)
+r_conf <- trimws(rp[["Confirmed Diagnosis"]])
+r_det <- as_day(ifelse(nzchar(r_conf), r_conf, trimws(rp[["Date Reported"]])))
+r_keep <- is.na(r_det) | r_det <= r_date
+r_status_closed <- tolower(trimws(rp[["Status"]])) %in% c("closed", "yes", "y", "true", "1")
+r_close <- as_day(rp[["Close Date"]])
+r_release <- as_day(rp[["Quarantine Release"]])
+r_release[!is.na(r_release) & r_release > as.Date(rr$today)] <- NA
+r_day <- r_close
+r_day[is.na(r_close) & r_status_closed] <- r_release[is.na(r_close) & r_status_closed]
+r_active <- !((is.na(r_close) & r_status_closed & is.na(r_release)) | (!is.na(r_day) & r_day <= r_date))
+r_inv_t <- trimws(rp[["Flock/Herd Inventory"]])
+r_inv <- ifelse(grepl("^[0-9]+$", r_inv_t) | grepl("^[0-9]{1,3}(,[0-9]{3})+$", r_inv_t),
+                suppressWarnings(as.numeric(gsub(",", "", r_inv_t))), NA)
+r_size <- ifelse(is.na(r_inv), NA, ifelse(r_inv < 100, "Small", ifelse(r_inv < 1000, "Medium", "Large")))
+r_at <- lapply(gsub("\\s+", " ", tolower(trimws(rp[["Species"]]))), function(v) kind_hits(v)$at)
+r_mixed <- vapply(r_at, length, integer(1)) > 1
+r_flock <- vapply(r_at, function(a) 1L %in% a, logical(1))
+r_type <- trimws(rp[["Flock/Herd Type"]])
+r_cty <- trimws(rp[["County"]])
+r_county <- ifelse(!r_mapped & !nzchar(r_cty), "county not given",
+                   county_of(r_cty, ifelse(r_mapped, r_lat, NA), ifelse(r_mapped, r_lon, NA), rules$counties$nearKm))
+k <- which(r_keep)
+r_kinds <- lapply(seq_along(hp_kinds), function(i) {
+  of <- k[vapply(r_at[k], function(a) i %in% a, logical(1))]
+  own <- k[!r_mixed[k] & vapply(r_at[k], function(a) a[1] == i, logical(1))]
+  list(key = hp_kinds[[i]]$key, label = hp_kinds[[i]]$label, cases = length(of), active = sum(r_active[of]),
+       animals = sum(r_inv[own], na.rm = TRUE), missing = sum(is.na(r_inv[own])))
+})
+fk <- k[r_flock[k]]
+f_type <- tolower(r_type[fk])
+f_other <- r_type[fk][!(f_type %in% c("commercial", "backyard", ""))]
+f_other_n <- table(f_other)
+f_other_n <- f_other_n[order(-as.integer(f_other_n), names(f_other_n), method = "radix")]
+fb <- fk[!r_mixed[fk]]
+f_btype <- tolower(r_type[fb])
+wa_names <- as.character(county_sf$name)
+r_counties <- lapply(unique(r_county[k]), function(cn) {
+  of <- k[r_county[k] == cn]
+  list(county = cn, cases = length(of), active = sum(r_active[of]), flocks = sum(r_flock[of]), washington = cn %in% wa_names)
+})
+c_ord <- order(!vapply(r_counties, function(c) c$washington, logical(1)), -vapply(r_counties, function(c) c$cases, 0),
+               vapply(r_counties, function(c) c$county, ""), method = "radix")
+dk <- k[!is.na(r_det[k])]
+yk <- dk[format(r_det[dk], "%Y") == format(r_date, "%Y")]
+yk <- yk[order(r_det[yk], yk)]
+r_months <- format(seq(as.Date(format(min(r_det[dk]), "%Y-%m-01")), as.Date(format(r_date, "%Y-%m-01")), by = "month"), "%Y-%m")
+m_type <- ifelse(r_flock, tolower(r_type), "")
+r_by_month <- lapply(r_months, function(m) {
+  of <- dk[format(r_det[dk], "%Y-%m") == m]
+  list(month = m, commercial = sum(m_type[of] == "commercial"), backyard = sum(m_type[of] == "backyard"),
+       other = sum(!(m_type[of] %in% c("commercial", "backyard"))))
+})
+zk <- k[r_mapped[k] & r_active[k]]
+pts <- table(sprintf("%.5f,%.5f", r_lat[k[r_mapped[k]]], r_lon[k[r_mapped[k]]]))
+r_last <- max(r_det[dk])
+report_out <- list(
+  date = rr$date, cases = length(k), later = sum(!r_keep), undated = sum(is.na(r_det[k])), noPoint = sum(!r_mapped[k]),
+  active = sum(r_active[k]),
+  flocks = list(total = length(fk), commercial = sum(f_type == "commercial"), backyard = sum(f_type == "backyard"),
+                others = lapply(names(f_other_n), function(w) list(w, as.integer(f_other_n[[w]]))),
+                untyped = sum(f_type == ""), active = sum(r_active[fk]),
+                # the flocks' animals by type (2.9 step 2: the Commercial and backyard bars); a two-kind row's in
+                # none, a blank inventory left out
+                birds = list(commercial = sum(r_inv[fb][f_btype == "commercial"], na.rm = TRUE),
+                             backyard = sum(r_inv[fb][f_btype == "backyard"], na.rm = TRUE),
+                             rest = sum(r_inv[fb][!(f_btype %in% c("commercial", "backyard"))], na.rm = TRUE))),
+  kinds = r_kinds, birds = r_kinds[[1]]$animals,
+  mixed = list(cases = sum(r_mixed[k]), animals = sum(r_inv[k][r_mixed[k]], na.rm = TRUE)),
+  counties = r_counties[c_ord], countiesAffected = sum(vapply(r_counties, function(c) c$washington, logical(1))),
+  thisYear = lapply(yk, function(i) list(detected = format(r_det[i]), county = r_county[i],
+                                         size = if (is.na(r_size[i])) NA else r_size[i], flockType = r_type[i],
+                                         species = trimws(rp[["Species"]][i]), active = r_active[i])),
+  last = format(r_last), daysSince = as.numeric(r_date - r_last), byMonth = r_by_month,
+  zones = list(active = length(zk), counties = length(unique(r_county[zk]))),
+  twice = list(premises = sum(pts > 1), rows = sum(pts[pts > 1])))
+cat(sprintf("report: %d cases on %s (%d later left out, %d undated, %d without a point), %d active; flocks %d commercial, %d backyard; birds %s; %d Washington counties; %d this year; last %s, %d days\n",
+            report_out$cases, rr$date, report_out$later, report_out$undated, report_out$noPoint, report_out$active,
+            report_out$flocks$commercial, report_out$flocks$backyard, format(report_out$birds, big.mark = ","),
+            report_out$countiesAffected, length(yk), report_out$last, report_out$daysSince))
+
 out <- list(
   generated_by = "tests/oracle/em_oracle.R",
   r_version = R.version.string,
@@ -822,6 +927,7 @@ out <- list(
   views = views_out,
   closedDay = closed_day_out,
   species = species_out,
+  report = report_out,
   drawn = drawn_out
 )
 dir.create(dirname(out_file), recursive = TRUE, showWarnings = FALSE)

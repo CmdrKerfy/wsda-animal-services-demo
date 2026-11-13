@@ -1,9 +1,11 @@
 # HPAI table check: the shape and the counts of an HPAI positives table, as the Emergency Response page reads it.
 #
 # Run by CHECK_HPAI_TABLE.bat beside it (double-click), or by hand:
-#   Rscript --vanilla check_hpai_table.R <the table .csv> [<the report .txt>] [<a day, YYYY-MM-DD>]
+#   Rscript --vanilla check_hpai_table.R <the table .csv> [<the report .txt>] [<a day, YYYY-MM-DD>] [<the update's date>]
 # The report goes to the second path, else to hpai_table_check_YYYY-MM-DD.txt beside this script. It is printed in
-# the window too. The third, for the project's tests, is the day the page is taken to be opened on, in place of today.
+# the window too. The third, for the project's tests, is the day the page is taken to be opened on, in place of today
+# ("today", or none, for today). The fourth is the date of the HPAI update to count its figures on (2.9): a date, or
+# "ask" to ask for it in the window (CHECK_HPAI_TABLE.bat), Enter for today; none, today.
 #
 # Base R only: no packages, nothing installed. The table is only read: never changed, never copied. Nothing else is
 # opened and nothing is sent anywhere.
@@ -15,6 +17,8 @@
 # only (other than a status, closed or quarantine word), or one holding a date, a coordinate, a county's name or a
 # Case ID, is shown by its shape (each letter an a, each digit a 9), as is a column name of that kind. Flock/Herd
 # Inventory and Depop Inventory are added up over every row (2.8), to compare with the HPAI update's "birds affected".
+# At the end, the HPAI update's page 1 figures as the update counts them (2.9, site/emergency/report.js) on the
+# update's date, to compare with an update already sent: the counties by their number and counts only, never names.
 #
 # The page's rules are written again here, from site/emergency/rules.js, types.js and types/hpai.js and the CSV
 # reader site/cvi/app/csv.js: the columns it reads (the first name the file has wins, any case; a name holding
@@ -26,7 +30,7 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 1 || !nzchar(args[1])) {
-  cat("Usage: Rscript --vanilla check_hpai_table.R <the table .csv> [<the report .txt>] [<a day, YYYY-MM-DD>]\n")
+  cat("Usage: Rscript --vanilla check_hpai_table.R <the table .csv> [<the report .txt>] [<a day, YYYY-MM-DD>] [<the update's date, or ask>]\n")
   quit(save = "no", status = 2)
 }
 table_path <- args[1]
@@ -225,7 +229,7 @@ number_of <- function(v) {
 usable <- function(lat, lon) !is.na(lat) & !is.na(lon) & abs(lat) <= 90 & abs(lon) <= 180
 
 # The day the page is taken to be opened on: today, or the third argument (the project's tests).
-on_day <- if (length(args) >= 3 && nzchar(args[3])) date_of(args[3])$date else today
+on_day <- if (length(args) >= 3 && nzchar(args[3]) && args[3] != "today") date_of(args[3])$date else today
 if (is.na(on_day)) {
   cat("The day must be written YYYY-MM-DD. Nothing was changed.\n")
   quit(save = "no", status = 2)
@@ -538,6 +542,93 @@ if (is.na(end)) {
   out <- c(out, "", paste0("What the page opens on, today (", day_words, "), in both views:"), groups_on(on_day),
     "  (\"On a day\" opens on today, \"Between dates\" from the first detection to today: the same positives.)")
 }
+
+# ---- The HPAI update's figures (2.9) -------------------------------------------------------------------------------
+# Page 1's figures as the update counts them (site/emergency/report.js figures), on the update's date, to compare
+# with an update already sent (its PDF): every row is a case, mapped or not; a row detected after the date is left
+# out, and one without a readable detection date counts in the totals only; active or closed on the date as above;
+# the flocks are the rows of birds, by their Flock/Herd Type; the animals are added up by kind, a cell not read left
+# out; a row naming two kinds is a case of each, its animals in neither. Counts only: the counties by how many there
+# are and every county's count, largest first (never their names), the last detection by its month.
+day_text <- function(d) paste0(month.name[as.integer(substr(d, 6, 7))], " ", as.integer(substr(d, 9, 10)), ", ",
+  substr(d, 1, 4))
+asked <- if (length(args) >= 4) args[4] else ""
+if (identical(asked, "ask")) {
+  # CHECK_HPAI_TABLE.bat asks here, so what is typed never passes through the Windows command line.
+  cat("\n  To compare with an update already sent, type its date (for example 9/1/2026),\n",
+    "  or press Enter for today: ", sep = "")
+  asked <- tryCatch(readLines(file("stdin"), n = 1, warn = FALSE), error = function(e) "")
+  if (!length(asked)) asked <- ""
+  cat("\n")
+}
+update_day <- if (nzchar(trimws(asked))) date_of(asked)$date else on_day
+update_note <- if (is.na(update_day)) {
+  update_day <- on_day
+  " (the date typed was not read as a date, so today's)"
+} else ""
+counted <- is.na(detected) | detected <= update_day
+past_on_update <- ifelse(!is.na(closed_date), closed_date <= update_day,
+  ifelse(closed & release_closes, release <= update_day, closed))
+active_now <- counted & !past_on_update
+kinds_of <- vapply(col_cells(col$species), function(v) sub(", not listed$", "", kind_of(v)), character(1))
+has_kind <- function(k) vapply(strsplit(kinds_of, " and ", fixed = TRUE), function(x) k %in% x, logical(1))
+two_kinds <- grepl(" and ", kinds_of, fixed = TRUE)
+inv_text <- col_cells(col$inventory)
+inv <- ifelse(reads_as_animals(inv_text), as.numeric(gsub(",", "", inv_text)), NA_real_)
+flock <- counted & has_kind(names(KINDS)[1])
+f_type <- tolower(col_cells(col$flockType))
+num <- function(n) formatC(n, format = "f", digits = 0, big.mark = ",")
+# The county as report.js reads it: the County column (any capitals, with or without "County"), a Washington county by
+# its name and any other as written; without one, "not given" when the row has no map point. A row with a map point
+# and a blank County takes its point's county on the page, which needs the county shapes this check does not have.
+c_text <- gsub("\\s+", " ", col_cells(col$county))
+c_key <- tolower(sub(" county$", "", c_text, ignore.case = TRUE))
+county <- ifelse(c_text != "", ifelse(c_key %in% tolower(WA_COUNTIES), WA_COUNTIES[match(c_key, tolower(WA_COUNTIES))], c_text),
+  ifelse(mapped, NA_character_, "(not given)"))
+from_point <- counted & is.na(county)
+wa_counts <- sort(table(county[counted & county %in% WA_COUNTIES]), decreasing = TRUE)
+year <- substr(update_day, 1, 4)
+dated <- counted & !is.na(detected)
+last <- if (any(dated)) max(detected[dated]) else NA_character_
+points <- table(sprintf("%.5f,%.5f", lat, lon)[counted & mapped])
+kind_line <- function(k, word) {
+  n <- sum(counted & has_kind(k))
+  a <- sum(inv[counted & has_kind(k) & !two_kinds], na.rm = TRUE)
+  paste0(word, " ", plural(n, "case", "cases"), if (n) paste0(" (", num(a), " animals", { m <- sum(counted & has_kind(k) & !two_kinds & is.na(inv))
+    if (m) paste0(", ", m, " without a count") else "" }, ")") else "")
+}
+others <- sum(flock & !(f_type %in% c("commercial", "backyard", "")))
+# A long line goes on under itself, indented, so the report reads without scrolling sideways in Notepad.
+wrap <- function(x) unlist(lapply(x, function(l) {
+  lead <- nchar(l) - nchar(sub("^ +", "", l))
+  strwrap(l, width = 116, indent = lead, exdent = lead + 4)
+}))
+fig_lines <- c(paste0("The HPAI update's figures on ", day_text(update_day), update_note, ", as the update counts them"),
+  "(every row a case, mapped or not; a row detected after this date left out; counts only):",
+  paste0("  Cases: ", sum(counted), " (left out, detected after the date: ", sum(!counted), "; without a readable detection date,",
+    " in the totals only: ", sum(counted & is.na(detected)), "; without a map point: ", sum(counted & !mapped), ")"),
+  paste0("  Active on the date: ", sum(active_now), " (", paste(vapply(names(KINDS), function(k) paste(tolower(k), sum(active_now & has_kind(k))),
+    character(1)), collapse = ", "), "); around a map point, so with zones: ", sum(active_now & mapped)),
+  paste0("  Flocks (the rows of ", tolower(names(KINDS)[1]), "): ", sum(flock), ": commercial ", sum(flock & f_type == "commercial"),
+    ", backyard ", sum(flock & f_type == "backyard"), ", another type ", others, ", without a type ", sum(flock & f_type == ""),
+    "; active on the date ", sum(flock & active_now)),
+  paste0("  ", names(KINDS)[1], " affected (Flock/Herd Inventory of the flocks): ", num(sum(inv[flock & !two_kinds], na.rm = TRUE)),
+    " (without a count: ", sum(flock & !two_kinds & is.na(inv)), "); in the commercial flocks ",
+    num(sum(inv[flock & !two_kinds & f_type == "commercial"], na.rm = TRUE)), ", the backyard ones ",
+    num(sum(inv[flock & !two_kinds & f_type == "backyard"], na.rm = TRUE))),
+  paste0("  The other kinds: ", kind_line(names(KINDS)[2], tolower(names(KINDS)[2])), ", ", kind_line(names(KINDS)[3], tolower(names(KINDS)[3])),
+    "; naming more than one kind ", plural(sum(counted & two_kinds), "case", "cases"), " (",
+    num(sum(inv[counted & two_kinds], na.rm = TRUE)), " animals, in no kind's total)"),
+  paste0("  Counties: ", length(wa_counts), " of Washington's 39 have a case; their counts, largest first: ",
+    if (length(wa_counts)) paste(as.integer(wa_counts), collapse = ", ") else "none",
+    "; not a Washington county ", plural(sum(counted & !is.na(county) & county != "(not given)" & !(county %in% WA_COUNTIES)), "case", "cases"),
+    "; county not given ", plural(sum(counted & county %in% "(not given)"), "case", "cases")),
+  if (any(from_point)) paste0("  (", plural(sum(from_point), "case has", "cases have"), " a map point and a blank County: the page ",
+    "finds their county from the point; not counted in the counties here)") else character(0),
+  paste0("  This year (", year, "): ", plural(sum(dated & substr(detected, 1, 4) == year), "detection", "detections"),
+    "; the last detection in ", if (is.na(last)) "no month (no readable date)" else month_year(last)),
+  paste0("  Premises detected more than once (the same map point): ", sum(points > 1), " (", sum(points[points > 1]), " cases)"))
+out <- c(out, "", wrap(fig_lines))
 
 out <- c(out, "", paste0("Saved as ", basename(report_path), " beside CHECK_HPAI_TABLE.bat. Read it before sending it."))
 cat(out, sep = "\n")

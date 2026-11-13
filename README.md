@@ -9,7 +9,8 @@ show them on maps, charts and branded pictures. Nothing is installed or uploaded
 - **Emergency Response (preview)**: positives of an animal disease emergency (HPAI, with New World screwworm as a
   second example) with their zones, the sites inside them and the CVI movements that touch them; current and past
   positives, a date window with a play by week or month, an Overview (counties, animals, the people inside the zones,
-  positives over time, bars and tables), km or miles, CSV and GeoJSON exports and a branded PNG.
+  positives over time, bars and tables), km or miles, CSV and GeoJSON exports, a branded PNG, and a Report view that
+  makes the monthly HPAI update from the table (a form beside the printed pages, and its figures on screen).
 
 The repository holds synthetic (made-up) test data only. It is internal WSDA work, not licensed for reuse until WSDA
 decides; third-party materials keep their own terms (`site/PROVENANCE.md`).
@@ -21,6 +22,7 @@ decides; third-party materials keep their own terms (`site/PROVENANCE.md`).
 | [`site/`](site/README.md) | The pages themselves. Open `site/index.html`, or host the `site/` folder as it is. [`site/README.md`](site/README.md) explains opening, hosting and loading data, and the known limits. |
 | [`tests/`](tests/README.md) | Node and browser test suites, mutation runners, R reference scripts and synthetic fixtures; how to run them and the full regression chain. |
 | [`tools/work-pc/`](tools/work-pc/README.txt) | The HPAI table check for the agency's computer: a double-click file and a base-R script that show an HPAI table's shape and counts as the Emergency page reads them (counts only, the table never changed). |
+| [`tools/arcgis-zones/`](tools/arcgis-zones/README.txt) | An ArcGIS Pro toolbox for GIS staff: rebuilds the public HPAI map's zones and a cases table with no location from the same HPAI table, by the Emergency page's rules. |
 | [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md) | How the pages are put together, a file map and where to change what. |
 | [`docs/DELIBERATE_DIFFERENCES.md`](docs/DELIBERATE_DIFFERENCES.md) | Where the CVI dashboard differs from CVI's own app on purpose, and why. |
 | [`docs/FUTURE_ENHANCEMENTS.md`](docs/FUTURE_ENHANCEMENTS.md) | Work recorded for later. |

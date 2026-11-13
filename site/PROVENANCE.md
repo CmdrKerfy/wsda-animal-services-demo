@@ -341,4 +341,18 @@ that function run unmodified. Its HPAI layer keys are those of the facility laye
 (`facility_overlays_manifest.csv`); only the key names were taken. From version 2.5 the time views' two icons are in
 Emergency's own file (`emergency/icons.js`): the pin is Bootstrap Icons' `geo-alt-fill` (MIT, the same path as in
 `cvi/app/icons.js`), and the span (two bars with an arrow between them) was drawn for this page on Bootstrap Icons'
-16-unit grid; it is not a Bootstrap icon.
+16-unit grid; it is not a Bootstrap icon. From version 2.9 the same file holds two more Bootstrap Icons, copied unchanged from
+`bsicons::bs_icon()` (bsicons 0.1.2, 2026-11-10; nothing installed): `file-earmark-text` and `printer` (the Report
+button and "Print / Save as PDF"). The Report's key-message icons (2.9) are in `emergency/message-icons.js`, in two
+styles, their path data copied unchanged from the published SVG files (downloaded 2026-11-10 and read as text by a
+script; nothing installed, nothing loaded at run time). Filled: OCHA Humanitarian Icons v2 (UN OCHA, CC0 1.0, public
+domain; <https://github.com/UN-OCHA/humanitarian-icons>, the main branch's `SVG/black` files; 18 icons), then Phosphor
+Icons' fill weight (`@phosphor-icons/core` 2.1.1, MIT, © 2023 Phosphor Icons; 17), then Healthicons' filled icons
+(`healthicons` 3.1.0, CC0 1.0, public domain; 5). Outline: Phosphor's regular weight (35), then Healthicons' outline
+icons (5). The file names each icon's set and source file. Phosphor's MIT notice is
+`emergency/phosphor-icons-LICENSE.txt`, identical to the package's `LICENSE`. The turkey, sheep, goat and silo are in
+none of these sets: they were drawn for this page on Phosphor's 256-unit grid in both styles, and are not Phosphor
+icons. The Report's
+default wording, links, hotline and alternate-format line (`emergency/types/hpai.js` `report`) are WSDA's own, from its
+HPAI update of September 1, 2026 and its brand guide (AGR Publication No. 140-608); of the update's links, the one
+wrapped in an Outlook "safelinks" address is kept as the address inside it.

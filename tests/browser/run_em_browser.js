@@ -8,7 +8,7 @@
 //          Emergency sample loaded on the page itself and its download byte-identical to the Node copy
 //   page   the page with the sample: what the map draws, the value boxes, every fold closed after the load, the type
 //          picker in its fold's header, the type's "?" and its links, the zone file switch, a ring distance, the
-//          density limits (at most six visible controls outside folds; at most one sentence of at most 25 words per
+//          density limits (at most seven visible controls outside folds, six before 2.9's Report button; at most one sentence of at most 25 words per
 //          section), at 1280 and 320 pixels wide; pictures in local-test-artifacts/em/page/
 //   results  the tabs: "Inside the zones" (a fold per layer, the "nearest" line, the left-out fold, "include
 //          roughly"), the boxes without the optional columns, the CVI movements without a master and with one (its
@@ -62,6 +62,18 @@
 //          buttons); its worked example followed on a copy of the
 //          site (four ticks, the marks moved); a word left in two kinds and quotes made curly, each giving the red
 //          notice and a type picker without HPAI (the copy in local-test-artifacts/em/kinds/, deleted after)
+//   report 2.9, E2, the Report view's page 1 from the loaded file (the report scenario on Sep 1, 2026): the button, the
+//          head, banner, tiles, source line, counties, map, months, this year's table, cards and foot as the unit suite
+//          works them out; every row counted whatever the "Animals" ticks; another date; the print styles, the PDF's
+//          letter-size pages and the print window's title; 320 pixels wide (pictures and the PDF in
+//          local-test-artifacts/em/report/)
+//   figures 2.9, the Report view's "Figures" by real mouse clicks, moves and Enter: the switch, the tiles as printed, the
+//          banner from the data only, the one date, each kind of hover, a county and a month narrowing the table and
+//          back, the map's "Places | Counties", printing from Figures, 320 pixels wide, Fill in again, a new load and the
+//          Overview's link (pictures and a PDF in local-test-artifacts/em/report-figures/)
+//   guide  2.9, the guide "Making the HPAI update" (site/emergency/making-the-update.html): the form's opening line
+//          links it in a new tab, nothing covering it; the guide opens with no script, each of its contents' links leads to
+//          its section, and it fits 1280 and 320 pixels wide
 //   speed  the one-second step at full size: 40 positives against 30,000 points, every step of a whole play timed by
 //          the page's own hook, without a master, with the 50,000-row synthetic master (make_scale_master.js) and with
 //          the CVI movements tab open
@@ -87,7 +99,7 @@ const FIXED_TODAY = 'window.WSDA_EMERGENCY_TODAY = ' + JSON.stringify(TODAY) + '
 const PAGE = process.env.EM_PAGE_URL || pathToFileURL(path.join(ROOT, 'site', 'index.html')).href;
 const SITE = new URL('.', PAGE).href;
 const CHROME = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'view', 'overview', 'draw', 'filter', 'layers', 'cvifilter', 'byanimal', 'kinds', 'speed'];
+const ALL_PARTS = ['load', 'page', 'results', 'e1b', 'png', 'chart', 'view', 'overview', 'draw', 'filter', 'layers', 'cvifilter', 'byanimal', 'kinds', 'report', 'form', 'page2', 'figures', 'guide', 'speed'];
 const asked = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const PARTS = asked.length ? asked : ALL_PARTS;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -459,7 +471,8 @@ async function partPage(b) {
   check(same(st.sums, ['positives, 7 facility files and a zone file', '3\u00a0and\u00a010\u00a0km rings, closed hidden', '7 layers']),
     'page: the folds\' summaries ("Positives and zones" says its settings, the counts being in the boxes)', st.sums);
   d = await p.eval(DENSITY);
-  check(d.controls.length <= 6, 'density: at most six visible controls outside folds when the page opens (sample loaded)', d.controls);
+  // Seven from 2.9: the Report button, the switch's third view (six before).
+  check(d.controls.length <= 7, 'density: at most seven visible controls outside folds when the page opens (sample loaded)', d.controls);
   check(Object.values(d.sections).every(x => x.sentences <= 1 && x.words <= 25), 'density: at most one sentence of at most 25 words per section', d.sections);
   await shot('sample_1280_folded');
   // The type picker in the fold's header: choosing does not fold; the "?" opens the fold and its note with the links.
@@ -1288,8 +1301,8 @@ async function partE1b(b) {
   check(await p.eval(`document.getElementById('em-type').value`) === 'nws',
     'e1b: a new set of files picks the type again (a pick made for the earlier files does not carry over)');
   const d = await p.eval(DENSITY);
-  check(d.controls.length <= 6 && Object.values(d.sections).every(x => x.sentences <= 1 && x.words <= 25),
-    'e1b: density with the screwworm outbreak loaded: at most six visible controls, one short sentence per section', d);
+  check(d.controls.length <= 7 && Object.values(d.sections).every(x => x.sentences <= 1 && x.words <= 25),
+    'e1b: density with the screwworm outbreak loaded: at most seven visible controls, one short sentence per section', d);
   await p.eval(`['positives-fold'].forEach(id => document.getElementById(id).open = true); true`);
   const d2 = await p.eval(DENSITY);
   check(Object.values(d2.sections).every(x => x.sentences <= 1 && x.words <= 25),
@@ -1506,7 +1519,7 @@ async function partChart(b) {
   await b.send('Emulation.clearDeviceMetricsOverride', {}, p.sid);
 }
 
-// The one-second step at full size (scope section 3, "Speed"): the speed set both sides of the rules check (40
+// The one-second step at full size (the agreed "Speed" rule): the speed set both sides of the rules check (40
 // positives and 30,000 points, tests/synthetic/make_em_fixtures.js) written as a positives file in the agreed columns,
 // detected two days apart over twelve weeks (every eighth one closed), and a markets layer of 30,000 points; then the
 // 50,000-row synthetic CVI master (tests/synthetic/make_scale_master.js). Every step of a whole play is timed by the
@@ -3808,6 +3821,1039 @@ async function partDraw(b) {
 
 // 2.8, "Changing the kinds of animals" (site/emergency/changing-kinds.html) followed on a copy of the site, the page
 // itself, and the "?" of the line naming species not listed. The copy, in local-test-artifacts/em/kinds/site, is opened over file:// in either mode.
+// ---- report: 2.9, E2, the Report view's page 1 from the loaded file, and print --------------------------------------
+// The report scenario (em_rules_report.csv, 17 rows, one per rule; its figures worked out by hand in the unit suite
+// and in R) on Sep 1, 2026: the Report button, page 1's figures as printed, every row counted whatever the "Animals"
+// ticks, a later date, the print styles (only the pages, one per sheet), the PDF's pages and the print window's title,
+// 320 pixels wide; pictures and the PDF in local-test-artifacts/em/report/.
+async function partReport(b) {
+  const p = b.page, OUTR = path.join(OUT, 'report');
+  fs.mkdirSync(OUTR, { recursive: true });
+  const shot = async (name, full) => fs.writeFileSync(path.join(OUTR, name + '.png'),
+    Buffer.from((await b.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: !!full }, p.sid)).data, 'base64'));
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+  check(await p.eval(`document.getElementById('show-report').hidden && document.getElementById('em-view').hidden`),
+    'report: nothing loaded: no Report button');
+  await p.setFiles('#files-input', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await emReady(p);
+  check(await p.eval(`!document.getElementById('show-report').hidden && WSDA.emergency.state.view === 'map'
+    && document.getElementById('show-report').textContent.trim() === 'Report'`), 'report: the file loaded: the Report button, the page on the Map');
+  await p.click(`document.getElementById('show-report').click()`);
+  await p.waitFor(`!document.getElementById('view-report').hidden && WSDA.emergencyReportView.last`, 10000, 'Report shown');
+  const today = await p.eval(`document.getElementById('rp-date').value`);
+  check(today === TODAY && await p.eval(`document.body.classList.contains('rp-on') && document.getElementById('view-map').hidden
+    && document.getElementById('view-overview').hidden && document.getElementById('show-report').getAttribute('aria-pressed') === 'true'`),
+    'report: the Report view on today\'s date (Oct 30, 2026), the Map and Overview hidden', today);
+  // The date picked as staff would: typed into the date box.
+  const setDate = async iso => {
+    await p.eval(`(() => { const i = document.getElementById('rp-date'); i.focus(); i.value = ${JSON.stringify(iso)};
+      i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    let drawn = true;
+    try {
+      await p.waitFor(`WSDA.emergencyReportView.last.figures.date === ${JSON.stringify(iso)}`, 5000, 'report on ' + iso);
+    } catch (e) { drawn = false; }
+    check(drawn, 'report: the date typed (' + iso + ') is the update\'s date, the pages drawn again', iso);
+    await p.eval('document.fonts.ready.then(() => new Promise(r => setTimeout(r, 100)))');
+  };
+  await setDate('2026-09-01');
+  const PAGE1 = `(() => { const pg = document.querySelector('#rp-preview .rp-page'), t = s => (pg.querySelector(s) || {}).textContent || '';
+    return { pages: document.querySelectorAll('#rp-preview .rp-page').length, count: document.getElementById('rp-count').textContent,
+      note: document.getElementById('rp-note').hidden ? '' : document.getElementById('rp-note').textContent,
+      date: t('.rp-head .d'), title: t('.rp-head .t b'), banner: t('.rp-banner b'), line: t('.rp-banner div span'),
+      tiles: Array.from(pg.querySelectorAll('.rp-tile')).map(e => [e.querySelector('.l').textContent, e.querySelector('.v').textContent,
+        (e.querySelector('.s') || {}).textContent || '', e.classList.contains('act')]),
+      src: Array.from(pg.querySelectorAll('.rp-src')).map(e => e.textContent),
+      counties: Array.from(pg.querySelectorAll('.rp-clist div')).map(e => [e.querySelector('span').textContent, e.querySelector('em').textContent, !e.classList.contains('out')]),
+      dots: pg.querySelectorAll('.rp-map circle[filter]').length, active: pg.querySelectorAll('.rp-map circle[data-active]').length,
+      under: t('.rp-under'), mapLink: (pg.querySelector('.rp-under a') || {}).href,
+      months: new Set(Array.from(pg.querySelectorAll('.rp-chart rect')).map(r => r.getAttribute('data-month'))).size,
+      rows: Array.from(pg.querySelectorAll('table.rp-dt tr')).slice(1).map(r => Array.from(r.cells).map(c => c.textContent)),
+      cards: Array.from(document.querySelectorAll('#rp-preview .rp-card b.h')).map(e => e.textContent),
+      cardPage: Array.from(document.querySelectorAll('#rp-preview .rp-page')).findIndex(x => x.querySelector('.rp-card')) + 1,
+      links: Array.from(document.querySelectorAll('#rp-preview .rp-card a')).map(a => a.href),
+      icons: Array.from(document.querySelectorAll('#rp-preview .rp-card')).map(c => { const s = c.querySelector('svg.em-ic');
+        return s ? [s.getAttribute('viewBox'), s.getAttribute('width'), getComputedStyle(s).color, s.querySelectorAll('path').length] : null; }),
+      feet: Array.from(document.querySelectorAll('#rp-preview .rp-foot')).length,
+      foot: t('.rp-foot'), pg: t('.rp-head .pg') }; })()`;
+  let r = await p.eval(PAGE1);
+  check(r.date.startsWith('September 1, 2026') && r.title === 'Highly Pathogenic Avian Influenza (HPAI) Update' && r.pg === 'Page 1 of ' + r.pages
+    && r.pages >= 1 && r.count === r.pages + (r.pages === 1 ? ' page' : ' pages') + ', as they print',
+    'report: the page\'s head: the title, the date and "Page 1 of n"; the count beside the date', r);
+  check(r.banner === '3 active detections: 2 flocks · 1 dairy herd'
+    && r.line === 'Washington has active detections of highly pathogenic avian influenza in domestic flocks. Last detection Aug 28, 2026, 4 days ago.',
+    'report: the banner as the unit suite works it out (every kind, split by kind; the wording that fits)', [r.banner, r.line]);
+  check(same(r.tiles, [['Active now', '3', '2 flocks · 1 dairy herd', true], ['This year', '6', 'detections in 2026', false],
+    ['Flocks since 2022', '14', '2 commercial · 10 backyard · 2 other', false], ['Birds affected', '1.25M', '1,251,396 since 2022, 1 without a count', false],
+    ['Counties', '9', 'of 39, since 2022', false], ['Last detection', 'Aug 28', '4 days ago', false]]),
+    'report: the six tiles as printed', r.tiles);
+  check(r.src[0] === 'Source: WSDA HPAI table, as of September 1, 2026. Every row is a case, mapped or not, since the start of the outbreak in 2022.'
+    + ' 1 case without a detection date: in the totals only. Also since 2022: 2 dairy herds (3,550 cattle) · 1 premises with other animals (6 other animals)'
+    + ' · 1 case naming more than one kind of animal.', 'report: the source line and the other kinds named apart', r.src[0]);
+  check(same(r.counties, [['Franklin', '2', true], ['King', '2', true], ['Pierce', '2', true], ['Snohomish', '2', true], ['Yakima', '2', true],
+    ['Clark', '1', true], ['Lewis', '1', true], ['Thurston', '1', true], ['Whatcom', '1', true], ['Multnomah', '1', false], ['Not given', '1', false]])
+    && r.src.includes('Multnomah: not a Washington county; Not given: no county and no map point in the table.'),
+    'report: the cases by county, the most first; Multnomah and "not given" last, each said under the list', [r.counties, r.src]);
+  check(r.dots === 14 && r.active === 3 && /Surveillance areas are active around 2 cases in 2 counties\.$/.test(r.under)
+    && r.mapLink === 'https://arcg.is/05KT8S', 'report: the map: a dot per case of a Washington county (14), the 3 active in crimson; the outbreak map\'s link; the zones line', r);
+  check(r.months === 13, 'report: the months with detections drawn (13 of the 55)', r.months);
+  check(same(r.rows, [['3/14/26', 'Franklin', 'Large', 'Commercial', 'Turkey', 'Released'], ['6/10/26', 'Lewis', 'Small', 'Backyard', 'Cattle, Chicken', 'Released'],
+    ['7/1/26', 'Whatcom', 'Small', 'Backyard', 'Meat Goat', 'Released'], ['8/20/26', 'Franklin', 'Large', 'Commercial', 'Dairy cattle', 'Active'],
+    ['8/25/26', 'Yakima', 'Small', 'Backyard', 'Chicken', 'Active'], ['8/28/26', 'Thurston', 'Small', 'Backyard', 'Chicken', 'Active']]),
+    'report: this year\'s detections, oldest first, with the flock of exactly 1,000 Large', r.rows);
+  check(same(r.cards, ['Protect your flock', 'Low risk to the public', 'Moving dairy cattle', '1 active livestock case in Washington'])
+    && r.links.includes('https://www.aphis.usda.gov/sites/default/files/national-milk-testing-strategy-5-stage.pdf') && r.links.every(u => u.startsWith('https://'))
+    && /Sick birds\? Call the Sick Bird Hotline, 1-800-606-3056, or report online at agr\.wa\.gov\/birdflu/.test(r.foot)
+    && /alternate format\? Contact WSDA at \(360\) 902-1976 or TTY Relay 800-833-6388\./.test(r.foot)
+    && r.feet === r.pages && r.pages === 3 && r.cardPage === 2 && r.note === '1 row detected after September 1, 2026 left out.',
+    'report: the key messages and the livestock card from the data (on page 2: six of this year\'s rows fill page 1), page 2\'s blocks after them (3 pages); their links; the hotline and the alternate-format line on every page; Skagit 11, after the date, said left out', r);
+  // The cards' icons (2.9 step 3, message-icons.js): Filled by default, OCHA's shield, person and truck on their own grids
+  // and Phosphor's filled drop for the livestock card, 22 pixels, in the dark teal.
+  const TEAL = 'rgb(36, 85, 102)';
+  check(same(r.icons, [['0 0 44 48', '22', TEAL, 1], ['0 0 33.99994 44', '22', TEAL, 2], ['0 0 40 48', '22', TEAL, 2], ['0 0 256 256', '22', TEAL, 1]]),
+    'report: the cards\' icons Filled by default (OCHA\'s shield, person and truck; Phosphor\'s filled drop), 22 pixels, in the dark teal', r.icons);
+  // Outline, chosen with the form's "Icon style", then Filled again.
+  await p.click(`document.querySelector('input[name="rp-icons"][value="outline"]').click()`);
+  try {
+    await p.waitFor(`document.querySelector('#rp-preview .rp-card svg.em-ic').getAttribute('viewBox') === '0 0 256 256'`, 5000, 'Outline drawn');
+  } catch (e) { /* the check below names it */ }
+  const outline = (await p.eval(PAGE1)).icons;
+  await p.click(`document.querySelector('input[name="rp-icons"][value="filled"]').click()`);
+  try {
+    await p.waitFor(`document.querySelector('#rp-preview .rp-card svg.em-ic').getAttribute('viewBox') !== '0 0 256 256'`, 5000, 'Filled drawn');
+  } catch (e) { /* the check below names it */ }
+  check(same(outline, [['0 0 256 256', '22', TEAL, 1], ['0 0 256 256', '22', TEAL, 1], ['0 0 256 256', '22', TEAL, 1], ['0 0 256 256', '22', TEAL, 1]])
+    && same((await p.eval(PAGE1)).icons, r.icons),
+    'report: with the Outline style every card takes Phosphor\'s regular icon; back to Filled after', outline);
+  await shot('report_1280');
+  // Every row counted whatever the "Animals" ticks: cattle unticked leaves the update as it was, and the note says so.
+  await p.click(`(() => { const t = Array.from(document.querySelectorAll('#em-animals input[type=checkbox]')).find(i => i.value === 'cattle'); t.click(); })()`);
+  await p.waitFor(`/whatever the "Animals" ticks/.test(document.getElementById('rp-note').textContent)`, 5000, 'note shown');
+  const r2 = await p.eval(PAGE1);
+  check(same(r2.tiles, r.tiles) && r2.note === '1 row detected after September 1, 2026 left out. The update counts every kind of animal, whatever the "Animals" ticks.',
+    'report: cattle unticked under "Animals": the update unchanged, and the note says why', r2.note);
+  await p.click(`(() => { const t = Array.from(document.querySelectorAll('#em-animals input[type=checkbox]')).find(i => i.value === 'cattle'); t.click(); })()`);
+  await p.waitFor(`!/Animals/.test(document.getElementById('rp-note').textContent)`, 5000, 'note back');
+  // On screen, the Report view takes the page's width: the sidebar's controls and the value boxes are hidden.
+  const onScreen = await p.eval(`(() => { const shown = s => Array.from(document.querySelectorAll(s)).filter(e => e.getClientRects().length).length;
+    return { aside: shown('.em-controls'), boxes: shown('#em-boxes'), form: shown('#rp-form') }; })()`);
+  check(same(onScreen, { aside: 0, boxes: 0, form: 1 }), 'report: on screen the sidebar and the value boxes are hidden beside the form', onScreen);
+  // The print styles: only the pages, at their own size, one per sheet; the PDF's pages are the preview's.
+  await b.send('Emulation.setEmulatedMedia', { media: 'print' }, p.sid);
+  const pr = await p.eval(`(() => { const shown = s => Array.from(document.querySelectorAll(s)).filter(e => e.getClientRects().length).length;
+    const pg = document.querySelector('.rp-page').getBoundingClientRect();
+    return { aside: shown('.em-controls'), top: shown('header.top'), foot: shown('footer.foot'), bar: shown('.rp-bar-top'), boxes: shown('#em-boxes'),
+      pages: shown('.rp-page'), w: pg.width, h: pg.height, scale: getComputedStyle(document.querySelector('.rp-sheets')).transform }; })()`);
+  await b.send('Emulation.setEmulatedMedia', { media: '' }, p.sid);
+  check(pr.aside === 0 && pr.top === 0 && pr.foot === 0 && pr.bar === 0 && pr.boxes === 0 && pr.pages === r.pages && pr.w === 816 && pr.h === 1056
+    && pr.scale === 'none', 'report: printed, only the pages show, each 8.5 by 11 inches, not scaled', pr);
+  const pdf = Buffer.from((await b.send('Page.printToPDF', { preferCSSPageSize: true, printBackground: true }, p.sid)).data, 'base64');
+  fs.writeFileSync(path.join(OUTR, 'report_2026-09-01.pdf'), pdf);
+  const pdfPages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+  const mediaBox = (pdf.toString('latin1').match(/\/MediaBox\s*\[\s*0 0 ([\d.]+) ([\d.]+)\s*\]/) || []).slice(1).map(Number);
+  check(pdfPages === r.pages && Math.round(mediaBox[0]) === 612 && Math.round(mediaBox[1]) === 792,
+    'report: the PDF has the preview\'s pages, each letter size (612 by 792 points)', { pdfPages, pages: r.pages, mediaBox });
+  // "Print / Save as PDF": the print window's title names the file; the page's own title comes back after.
+  const titles = await p.eval(`(() => { const was = document.title, real = window.print; let during = null;
+    window.print = () => { during = document.title; };
+    document.getElementById('rp-print').click(); window.print = real;
+    window.dispatchEvent(new Event('afterprint')); return { was, during, after: document.title }; })()`);
+  check(titles.during === 'HPAI update 2026-09-01' && titles.after === titles.was, 'report: printing, the title "HPAI update 2026-09-01" (the PDF\'s name), then the page\'s own again', titles);
+  // A later date: the September row comes in; an earlier one leaves later rows out, and the note says how many.
+  await setDate('2026-08-01');
+  const r3 = await p.eval(PAGE1);
+  check(r3.banner === '1 active detection: 1 premises with other animals; none in domestic flocks' && r3.line.startsWith('Washington is currently considered free')
+    && r3.note === '4 rows detected after August 1, 2026 left out.' && r3.date.startsWith('August 1, 2026'),
+    'report: on Aug 1 only the goats are active ("free" in domestic flocks); the four rows after it (Franklin 12, Yakima 12, Thurston 11, Skagit 11) left out, as the note says', [r3.banner, r3.note]);
+  await setDate('2026-09-01');
+  // 320 pixels wide: the pages scaled into the column, nothing wider than the screen.
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 800, deviceScaleFactor: 2, mobile: true }, p.sid);
+  await p.eval('new Promise(r => setTimeout(r, 300))');
+  const ph = await p.eval(`(() => { const b = document.getElementById('rp-preview').getBoundingClientRect(), pg = document.querySelector('.rp-page').getBoundingClientRect();
+    return { wide: document.documentElement.scrollWidth, box: Math.round(b.width), page: Math.round(pg.width), right: Math.round(pg.right) }; })()`);
+  check(ph.wide <= 320 && ph.page <= ph.box && ph.right <= 320, 'report: 320 pixels wide: the page scaled into the column, no sideways scrolling', ph);
+  await shot('report_320');
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+}
+
+// ---- form: 2.9, E2, the Report view's form (report-form.js) driven as staff would -----------------------------------
+// The report scenario on Sep 1, 2026 (2 active flocks and the dairy herd): each fold's heading, the status, the milk
+// testing stage, the map's look, the note, the key messages (typed, highlighted, moved, an icon picked, set aside and
+// put back, removed and undone, added), the icon style, the boxes, "Ready to send" and the DRAFT mark, the print, and
+// "Save report text" and "Load last month's" (a file that is not one, a value the page does not know, a file too big).
+// Clicks are the mouse's and words are typed (Chrome's own input events); the milk stage's list is chosen by its value
+// (a native list). Pictures and the saved files in local-test-artifacts/em/report-form/.
+async function partForm(b) {
+  const p = b.page, OUTF = path.join(OUT, 'report-form');
+  fs.rmSync(OUTF, { recursive: true, force: true });
+  fs.mkdirSync(OUTF, { recursive: true });
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+  await p.setFiles('#files-input', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await emReady(p);
+  await p.click(`document.getElementById('show-report').click()`);
+  await p.waitFor(`!document.getElementById('view-report').hidden && WSDA.emergencyReportView.last`, 10000, 'Report shown');
+  await p.eval(`(() => { const i = document.getElementById('rp-date'); i.value = '2026-09-01'; i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await p.waitFor(`WSDA.emergencyReportView.last.figures.date === '2026-09-01'`, 5000, 'report on Sep 1');
+  // The mouse on an element's middle (scrolled into view first), typing (the words replace the box's), and keys.
+  const mouse = async sel => {
+    const at = await p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({ block: 'center' });
+      const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    if (!at) throw new Error('form: nothing at ' + sel);
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
+    }
+  };
+  const press = async (key, keyCode) => {
+    for (const type of ['keyDown', 'keyUp']) await b.send('Input.dispatchKeyEvent', { type, key, code: key, windowsVirtualKeyCode: keyCode }, p.sid);
+  };
+  const typeIn = async (sel, words) => {
+    await p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.scrollIntoView({ block: 'center' }); e.focus(); e.select(); })()`);
+    if (words) await b.send('Input.insertText', { text: words }, p.sid);
+    else await press('Backspace', 8);
+  };
+  const radio = (name, value) => `label:has(> input[name="${name}"][value="${value}"])`;
+  const settle = () => p.eval('new Promise(r => setTimeout(r, 400))');
+  const PAGES = `(() => { const pv = document.getElementById('rp-preview'), q = s => Array.from(pv.querySelectorAll(s));
+    return { pages: q('.rp-page').length, drafts: q('.rp-draft').length, draftTags: q('.rp-draft-tag').length,
+      line: (pv.querySelector('.rp-banner div span') || {}).textContent, head: (pv.querySelector('.rp-head') || {}).textContent,
+      cards: q('.rp-card').map(c => [c.querySelector('b.h').textContent, c.classList.contains('hl')]),
+      cardLinks: q('.rp-card').map(c => { const a = c.querySelector('a'); return a ? a.href : null; }),
+      icons: q('.rp-card .rp-ic svg').map(s => s.getAttribute('viewBox')), firstIcon: (pv.querySelector('.rp-card .rp-ic') || {}).innerHTML,
+      lv: (q('.rp-card').pop() || {}).textContent, note: (pv.querySelector('.rp-note-p') || {}).textContent || '',
+      shaded: q('.rp-map path[data-cases]').length, key: (pv.querySelector('.rp-key') || {}).textContent || '', dots: q('.rp-map circle[filter]').length,
+      feet: q('.rp-foot').map(f => f.textContent), footLinks: q('.rp-foot a').map(a => a.href) }; })()`;
+  const FORM = `(() => { const $ = id => document.getElementById(id), tag = id => [$(id).textContent, $(id).className];
+    const said = el => el.hidden ? '' : el.textContent, a = document.activeElement;
+    return { tags: { date: tag('rp-t-date'), status: tag('rp-t-status'), data: tag('rp-t-data'), msgs: tag('rp-t-msgs'), boxes: tag('rp-t-boxes') },
+      status: (document.querySelector('input[name="rp-status"]:checked') || {}).value, statusWarn: said($('rp-status-warn')), milkWarn: said($('rp-milk-warn')),
+      boxesWarn: said($('rp-boxes-warn')), own: !$('rp-own').hidden, milkOwn: !$('rp-milk-own').hidden,
+      msgs: Array.from(document.querySelectorAll('#rp-msgs .rp-msg')).map(m => ({ h: m.querySelector('[data-f="headline"]').value, hl: m.classList.contains('hl'),
+        warn: said(m.querySelector('[data-warn]')), lines: m.querySelector('[data-lines]').textContent })),
+      aside: $('rp-aside').hidden ? [] : Array.from($('rp-aside').querySelectorAll('li span')).map(s => s.textContent), undo: said($('rp-msg-undo')),
+      where: $('rp-msgs-where').textContent, ready: $('rp-ready').checked, readyNote: [$('rp-ready-note').textContent, $('rp-ready-note').className],
+      fileNote: [said($('rp-file-note')), $('rp-file-note').className], picker: !!document.querySelector('#rp-msgs .rp-picker'),
+      focus: a ? (a.id || (a.dataset.act ? a.dataset.act + '@' + ((a.closest('.rp-msg') || {}).dataset || {}).i : '') || (a.dataset.back !== undefined ? 'back' + a.dataset.back : '') || a.tagName) : null }; })()`;
+  const form = () => p.eval(FORM), pages = () => p.eval(PAGES);
+  // A wait for the pages that runs out is a failed check named for what the pages should show, and the part goes on.
+  const waitPages = async (cond, label) => {
+    try { await p.waitFor(`(pg => ${cond})(${PAGES})`, 5000, label); } catch (e) { check(false, 'form: the pages show: ' + label, await pages()); }
+  };
+  const shot = async name => fs.writeFileSync(path.join(OUTF, name + '.png'),
+    Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' }, p.sid)).data, 'base64'));
+
+  // 1. The form beside the pages on Sep 1: each fold's heading; the dairy herd active, so the milk stage asks to be checked.
+  let f = await form(), g = await pages();
+  check(same(f.tags, { date: ['September 1, 2026', 'tag'], status: ['Check', 'tag warn'], data: ['Automatic', 'tag ok'], msgs: ['3 messages', 'tag'],
+    boxes: ['Kept month to month', 'tag'] }) && f.status === 'active' && f.statusWarn === ''
+    && f.milkWarn === '1 active dairy herd on September 1, 2026: check the milk testing stage.',
+  'form: each fold\'s heading on Sep 1 (the date, "Check" for the active dairy herd\'s milk stage, "Automatic", the messages, the boxes); the wording that fits ticked', f);
+  check(g.drafts === g.pages && g.draftTags === g.pages && g.pages === 3 && !f.ready
+    && same(f.readyNote, ['Every page says DRAFT until this is ticked. Still to check: Washington: the status, National (USDA), Wild birds and testing (WADDL).', 'rp-ready-note warn']),
+  'form: every page marked DRAFT until "Ready to send"; the line beside it names the fold still saying "Check"', [g.drafts, g.pages, f.readyNote]);
+  check(f.msgs.length === 3 && f.msgs.every(m => /^About \d+ lines? on the card\.$/.test(m.lines)) && f.where === 'The key messages print on page 2 (3 pages in all).',
+    'form: each message\'s lines on its card, and the page the messages print on', [f.msgs.map(m => m.lines), f.where]);
+  await shot('form_1280');
+
+  // 2. The status: "free" while flocks are active warns; "Write my own" opens the box, and the words typed print after a pause.
+  await mouse(radio('rp-status', 'free'));
+  await waitPages(`/^Washington is currently considered free/.test(pg.line)`, 'free wording printed');
+  f = await form();
+  check(f.statusWarn === 'The data has 2 active flocks on September 1, 2026: this wording says there are none. Pick the other wording, or write your own.'
+    && f.tags.status[0] === 'Check', 'form: "free" clicked while 2 flocks are active: printed, with the warning', f.statusWarn);
+  await mouse(radio('rp-status', 'own'));
+  f = await form();
+  check(f.own && f.statusWarn === 'Write the sentence, or pick an approved wording.', 'form: "Write my own" clicked: its box shown, asking for the sentence', f);
+  await typeIn('#rp-own', 'Washington is watching two flocks closely.');
+  const soon = (await pages()).line;
+  await waitPages(`pg.line.startsWith('Washington is watching two flocks closely.')`, 'own words printed');
+  f = await form();
+  check(!soon.startsWith('Washington is watching') && f.statusWarn === '' && f.focus === 'rp-own',
+    'form: the words typed print a moment after the typing stops, the box keeping the focus; no warning', { soon, f: f.focus });
+  await mouse(radio('rp-status', 'active'));
+  await waitPages(`/^Washington has active detections/.test(pg.line)`, 'active wording printed');
+  check(!(await form()).own, 'form: an approved wording clicked: the own box hidden, that wording printed');
+
+  // 3. The milk testing stage: "Write my own" asks for both the stage and its sentence; they print on the livestock card.
+  await p.eval(`(() => { const s = document.getElementById('rp-milk'); s.value = 'own'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await typeIn('#rp-milk-stage', 'Stage 2');
+  await settle();
+  f = await form();
+  check(f.milkOwn && f.milkWarn === '1 active dairy herd on September 1, 2026: check the milk testing stage. Write the stage and its sentence.',
+    'form: a milk stage of staff\'s own: its boxes shown; the stage alone asks for its sentence', f.milkWarn);
+  await typeIn('#rp-milk-text', 'Bulk tank sampling continues monthly.');
+  await waitPages(`/Stage 2/.test(pg.lv) && /Bulk tank sampling continues monthly\\./.test(pg.lv)`, 'own milk stage printed');
+  check((await form()).milkWarn === '1 active dairy herd on September 1, 2026: check the milk testing stage.',
+    'form: the stage and its sentence typed: printed on the livestock card, the reminder for the active herd left');
+  await p.eval(`(() => { const s = document.getElementById('rp-milk'); s.value = '0'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await waitPages(`/Unaffected \\/ Stage 4/.test(pg.lv)`, 'update\'s milk stage back');
+  check(!(await form()).milkOwn, 'form: the update\'s own milk stage picked again: the own boxes hidden, its stage printed');
+  await mouse('label:has(> #rp-suspected)');
+  const sus = await p.eval(`[document.getElementById('rp-suspected').checked, WSDA.emergency.state.reportText.suspected]`);
+  await mouse('label:has(> #rp-suspected)');
+  check(same(sus, [true, true]) && !(await p.eval(`WSDA.emergency.state.reportText.suspected`)), 'form: "Suspected livestock cases" ticked and unticked by the mouse', sus);
+
+  // 4. The map's look and the note.
+  await mouse(radio('rp-map', 'counties'));
+  await waitPages(`pg.shaded > 0`, 'counties shaded');
+  g = await pages();
+  check(g.shaded === 39 && g.dots === 0 && g.key === 'Cases:12 to 34 to 78 or more', 'form: "Counties shaded" clicked: the 39 counties shaded, the key under the map, no dots', g);
+  await mouse(radio('rp-map', 'dots'));
+  await waitPages(`pg.dots === 14`, 'dots back');
+  await typeIn('#rp-note-in', 'Two counties reported late.');
+  await waitPages(`pg.note === 'Note: Two counties reported late.'`, 'note printed');
+  g = await pages();
+  check(g.dots === 14 && g.shaded === 0 && g.note === 'Note: Two counties reported late.', 'form: "Soft dots" again (14 dots); the note typed prints under Washington\'s figures', g);
+
+  // 5. The key messages.
+  await p.eval(`document.getElementById('rp-m0-headline').dataset.mark = 'kept'; true`);
+  await typeIn('#rp-m0-headline', 'Protect every flock');
+  await waitPages(`pg.cards[0][0] === 'Protect every flock'`, 'headline printed');
+  f = await form();
+  check(f.focus === 'rp-m0-headline' && await p.eval(`document.getElementById('rp-m0-headline').dataset.mark === 'kept'`),
+    'form: a headline typed prints on its card; the box typed in is the same one, still with the focus (the list not drawn again)', f.focus);
+  await mouse('#rp-msgs .rp-msg[data-i="0"] label:has(> input[data-f="highlight"])');
+  await waitPages(`pg.cards[0][1] === true`, 'card highlighted');
+  check((await form()).msgs[0].hl, 'form: "Highlight" ticked: the card shaded on the page and in the form');
+  await mouse('#rp-msgs .rp-msg[data-i="2"] [data-act="up"]');
+  await waitPages(`pg.cards[1][0] === 'Moving dairy cattle'`, 'moved up');
+  g = await pages(); f = await form();
+  check(same(g.cards.map(c => c[0]), ['Protect every flock', 'Moving dairy cattle', 'Low risk to the public', '1 active livestock case in Washington'])
+    && f.focus === 'up@1', 'form: the third message moved up: the cards in the new order, the focus on its arrow', [g.cards, f.focus]);
+  await mouse('#rp-msgs .rp-msg[data-i="0"] [data-act="pick"]');
+  f = await form();
+  check(f.picker && await p.eval(`document.activeElement.getAttribute('aria-pressed') === 'true' && document.activeElement.dataset.key === 'shield-check'`),
+    'form: the icon button clicked: the icon list open, the focus on the icon in use', f.picker);
+  await mouse('#rp-msgs .rp-picker [data-key="turkey"]');
+  // The turkey as the browser writes it back (a <path/> read as <path></path>).
+  await waitPages(`pg.firstIcon === Object.assign(document.createElement('div'), { innerHTML: WSDA.emergencyMessageIcons.svg('turkey', 'filled', 22) }).innerHTML`, 'turkey printed');
+  f = await form();
+  check(!f.picker && f.focus === 'pick@0', 'form: an icon picked: the card takes it, the list closes, the focus back on the icon button', f);
+  await mouse('#rp-msgs .rp-msg[data-i="1"] [data-act="pick"]');
+  await press('Escape', 27);
+  f = await form();
+  check(!f.picker && f.focus === 'pick@1', 'form: Escape closes the icon list, the focus back on its button', f);
+  await typeIn('#rp-m2-url', 'www.cdc.gov/bird-flu');
+  await waitPages(`pg.cardLinks[2] === null`, 'link words only');
+  f = await form();
+  check(f.msgs[2].warn === 'This address does not start with https:// (or http://), so it would not open: it prints as words only. Copy it from the browser\'s address bar.'
+    && same(f.tags.msgs, ['Check: 1 message', 'tag warn']), 'form: an address without https:// warned, the card\'s link words printed without a link, the fold says "Check"', f.msgs[2]);
+  await typeIn('#rp-m2-url', 'https://www.cdc.gov/bird-flu/worker-safety/index.html');
+  await waitPages(`pg.cardLinks[2] === 'https://www.cdc.gov/bird-flu/worker-safety/index.html'`, 'link back');
+  await mouse('#rp-msgs .rp-msg[data-i="1"] [data-act="aside"]');
+  await waitPages(`pg.cards.length === 3`, 'set aside');
+  f = await form(); g = await pages();
+  check(same(f.aside, ['Moving dairy cattle']) && f.msgs.length === 2 && f.focus === 'back0' && !g.cards.some(c => c[0] === 'Moving dairy cattle'),
+    'form: "Set aside": the message off the pages, listed under "Set aside", the focus on its "Put back"', [f.aside, f.focus]);
+  await mouse('#rp-aside [data-back="0"]');
+  await waitPages(`pg.cards.length === 4`, 'put back');
+  f = await form(); g = await pages();
+  check(same(f.aside, []) && same(g.cards.map(c => c[0]).slice(0, 3), ['Protect every flock', 'Low risk to the public', 'Moving dairy cattle']) && f.focus === 'rp-m2-headline',
+    'form: "Put back": the message back at the end of the list and the pages', [g.cards, f.focus]);
+  await mouse('#rp-msgs .rp-msg[data-i="0"] [data-act="remove"]');
+  await waitPages(`pg.cards.length === 3`, 'removed');
+  f = await form();
+  check(f.undo === 'Undo: put message 1 back' && f.msgs.length === 2 && f.msgs[0].h === 'Low risk to the public', 'form: a message removed: off the list and the pages; "Undo" offered', f.undo);
+  await mouse('#rp-msg-undo');
+  await waitPages(`pg.cards.length === 4 && pg.cards[0][0] === 'Protect every flock'`, 'undone');
+  f = await form();
+  check(f.undo === '' && f.msgs[0].h === 'Protect every flock' && f.msgs[0].hl && f.focus === 'rp-m0-headline',
+    'form: "Undo": the message back in its place, still highlighted; "Undo" gone', f);
+  await mouse('#rp-msg-add');
+  await settle();
+  f = await form(); g = await pages();
+  check(f.msgs.length === 4 && f.msgs[3].warn === 'Message 4 is empty, so it is left off the pages: write it, or remove it.' && f.focus === 'rp-m3-headline'
+    && g.cards.length === 4 && same(f.tags.msgs, ['Check: 1 message', 'tag warn']),
+  'form: "Add a message": an empty one, the focus in its headline, warned and left off the pages until written', f);
+  await typeIn('#rp-m3-headline', 'Fair season');
+  await waitPages(`pg.cards.length === 5 && pg.cards[3][0] === 'Fair season'`, 'new message printed');
+  check((await form()).msgs[3].warn === '', 'form: the new message\'s headline typed: printed before the livestock card, the warning gone');
+  await mouse(radio('rp-icons', 'outline'));
+  await waitPages(`pg.icons.every(v => v === '0 0 256 256')`, 'outline icons');
+  g = await pages();
+  check(g.icons.length === 5, 'form: "Outline" clicked: every card\'s icon in the outline style (the livestock card\'s too)', g.icons);
+
+  // 6. The boxes: the foot of every page and the line under the title, warnings for a missing address or number.
+  await mouse('#rp-f-boxes > summary');
+  await typeIn('#rp-hot-number', '1-800-555-0100');
+  await waitPages(`pg.feet.every(t => t.includes('1-800-555-0100'))`, 'hotline printed');
+  check((await pages()).feet.length === 3, 'form: the hotline\'s number typed prints in the foot of every page');
+  await typeIn('#rp-online-url', '');
+  await waitPages(`!pg.footLinks.includes('https://agr.wa.gov/birdflu')`, 'online link gone');
+  f = await form();
+  check(f.boxesWarn === '"Report online at" has no address: it prints as words only.' && same(f.tags.boxes, ['Check', 'tag warn'])
+    && same(f.readyNote, ['Every page says DRAFT until this is ticked. Still to check: Washington: the status, National (USDA), Wild birds and testing (WADDL), Boxes and resources.', 'rp-ready-note warn']),
+  'form: "report online at" emptied: its words print without a link, warned, the fold named beside "Ready to send"', f);
+  await typeIn('#rp-online-url', 'https://agr.wa.gov/birdflu');
+  await typeIn('#rp-heading', 'Issued on the first of each month.');
+  await waitPages(`pg.head.includes('Issued on the first of each month.') && pg.footLinks.includes('https://agr.wa.gov/birdflu')`, 'heading printed');
+  check((await form()).boxesWarn === '', 'form: the line under the title typed prints under it; the address back, no warning');
+
+  // 7. "Ready to send": the DRAFT mark off every page, the folds still saying "Check" named; the print.
+  await mouse('label.rp-ready');
+  await waitPages(`pg.drafts === 0 && pg.draftTags === 0`, 'draft off');
+  f = await form();
+  check(f.ready && same(f.readyNote, ['Still to check: Washington: the status, National (USDA), Wild birds and testing (WADDL).', 'rp-ready-note warn']),
+    'form: "Ready to send" ticked: no DRAFT mark; still names the fold saying "Check"', f.readyNote);
+  await b.send('Emulation.setEmulatedMedia', { media: 'print' }, p.sid);
+  const prReady = await p.eval(`(() => { const shown = s => Array.from(document.querySelectorAll(s)).filter(e => e.getClientRects().length).length;
+    return { form: shown('#rp-form'), pages: shown('.rp-page'), drafts: shown('.rp-draft'), ready: shown('.rp-send') }; })()`);
+  await b.send('Emulation.setEmulatedMedia', { media: '' }, p.sid);
+  await mouse('label.rp-ready');
+  await waitPages(`pg.drafts === pg.pages`, 'draft back');
+  await b.send('Emulation.setEmulatedMedia', { media: 'print' }, p.sid);
+  const prDraft = await p.eval(`(() => { const shown = s => Array.from(document.querySelectorAll(s)).filter(e => e.getClientRects().length).length;
+    return { form: shown('#rp-form'), pages: shown('.rp-page'), drafts: shown('.rp-draft'), tags: shown('.rp-draft-tag') }; })()`);
+  await b.send('Emulation.setEmulatedMedia', { media: '' }, p.sid);
+  check(prReady.form === 0 && prReady.ready === 0 && prReady.drafts === 0 && prReady.pages === 3 && prDraft.form === 0 && prDraft.drafts === 3 && prDraft.tags === 3,
+    'form: printed, the form never shows; a draft prints DRAFT on every page, a report ready to send none', { prReady, prDraft });
+
+  // 8. "Save report text": one small file named for the report, the form's words and choices.
+  const DL = path.join(OUTF, 'download');
+  fs.mkdirSync(DL, { recursive: true });
+  await b.send('Browser.setDownloadBehavior', { behavior: 'allowAndName', downloadPath: DL, eventsEnabled: true });
+  const download = new Promise(res => {
+    let name = null;
+    const t = setTimeout(() => { b.listeners.splice(b.listeners.indexOf(h), 1); res({ state: 'timeout', name }); }, 20000);
+    const h = m => {
+      if (m.method === 'Browser.downloadWillBegin') name = m.params.suggestedFilename;
+      if (m.method === 'Browser.downloadProgress' && (m.params.state === 'completed' || m.params.state === 'canceled')) {
+        clearTimeout(t);
+        b.listeners.splice(b.listeners.indexOf(h), 1);
+        res({ state: m.params.state, guid: m.params.guid, name });
+      }
+    };
+    b.listeners.push(h);
+  });
+  await mouse('#rp-save');
+  const d = await download;
+  await b.send('Browser.setDownloadBehavior', { behavior: 'default' });
+  const SAVED = path.join(OUTF, 'HPAI update 2026-09-01 report text.json');
+  if (d.state === 'completed') fs.renameSync(path.join(DL, d.guid), SAVED);
+  const savedWords = fs.existsSync(SAVED) ? fs.readFileSync(SAVED, 'utf8') : '';
+  const pageWords = await p.eval(`WSDA.emergencyReportForm.toFile(WSDA.emergency.state.reportText, WSDA.emergency.state.type, '2026-09-01', '2026-10-30')`);
+  f = await form();
+  check(d.state === 'completed' && d.name === 'HPAI update 2026-09-01 report text.json' && savedWords === pageWords
+    && same(f.fileNote, ['Saved as "HPAI update 2026-09-01 report text.json" in your downloads. Keep it on the R drive for next month.', 'rp-file-note']),
+  'form: "Save report text" downloads "HPAI update 2026-09-01 report text.json", the form\'s words and choices, and says where', { d, note: f.fileNote });
+  const so = savedWords ? JSON.parse(savedWords) : { text: {} };
+  check(same((so.text.messages || []).map(m => m.headline), ['Protect every flock', 'Low risk to the public', 'Moving dairy cattle', 'Fair season'])
+    && so.text.messages[0].icon === 'turkey' && so.text.messages[0].highlight === true && so.text.iconStyle === 'outline' && so.text.note === 'Two counties reported late.'
+    && so.text.hotline.number === '1-800-555-0100' && so.text.heading === 'Issued on the first of each month.' && !/Franklin|Yakima|Thurston|SYN-/.test(savedWords),
+  'form: the saved file has what was typed and chosen (the messages, the turkey, the highlight, Outline, the note, the boxes), nothing from the table', so.text);
+
+  // 9. "Load last month's": the form back as saved, a draft; files that are not one refused, the form left as it was.
+  await typeIn('#rp-m0-headline', 'Something else');
+  await mouse(radio('rp-icons', 'filled'));
+  await mouse('label.rp-ready');
+  await waitPages(`pg.cards[0][0] === 'Something else' && pg.drafts === 0`, 'changed before loading');
+  await p.setFiles('#rp-load-file', [SAVED]);
+  await waitPages(`pg.cards[0][0] === 'Protect every flock' && pg.drafts === pg.pages`, 'loaded');
+  f = await form(); g = await pages();
+  check(f.msgs[0].h === 'Protect every flock' && f.msgs.length === 4 && !f.ready && g.icons.every(v => v === '0 0 256 256')
+    && same(f.fileNote, ['Loaded "HPAI update 2026-09-01 report text.json", the report text of September 1, 2026. The numbers are this table\'s.', 'rp-file-note'])
+    && await p.eval(`document.getElementById('rp-load-file').value === '' && document.getElementById('rp-note-in').value === 'Two counties reported late.'`),
+  'form: "Load last month\'s": the form and the pages as saved, a draft again ("Ready to send" unticked), and the note says so', f);
+  await p.setFiles('#rp-load-file', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await p.waitFor(`/em_rules_report\\.csv/.test(document.getElementById('rp-file-note').textContent)`, 5000, 'csv refused');
+  f = await form();
+  check(same(f.fileNote, ['"em_rules_report.csv": This file is not a report text saved from this page.', 'rp-file-note warn']) && f.msgs[0].h === 'Protect every flock',
+    'form: a table loaded as a report text refused, said in orange; the form left as it was', f.fileNote);
+  const ODD = path.join(OUTF, 'odd report text.json');
+  fs.writeFileSync(ODD, savedWords.replace('"mapLook": "dots"', '"mapLook": "squares"').replace('"Fair season"', '"Fair weather"'));
+  await p.setFiles('#rp-load-file', [ODD]);
+  await p.waitFor(`/odd report text/.test(document.getElementById('rp-file-note').textContent)`, 5000, 'odd loaded');
+  f = await form();
+  check(same(f.fileNote, ['Loaded "odd report text.json", the report text of September 1, 2026. The numbers are this table\'s. The map\'s look is not one this page knows: Soft dots instead.',
+    'rp-file-note warn']) && f.msgs[3].h === 'Fair weather', 'form: a saved file with a value the page does not know: the rest loaded, that one named in orange', f.fileNote);
+  const BIG = path.join(OUTF, 'big.json');
+  fs.writeFileSync(BIG, JSON.stringify({ kind: 'WSDA Emergency Response report text', version: 1, type: 'hpai', text: { note: 'x'.repeat(1100000) } }));
+  await p.setFiles('#rp-load-file', [BIG]);
+  await p.waitFor(`/big\\.json/.test(document.getElementById('rp-file-note').textContent)`, 5000, 'big refused');
+  f = await form();
+  check(same(f.fileNote, ['"big.json" is too big to be a report text saved from this page.', 'rp-file-note warn']) && f.msgs[3].h === 'Fair weather',
+    'form: a file over a million bytes refused before it is read; the form left as it was', f.fileNote);
+  await p.eval(`document.getElementById('rp-form').scrollTop = 0; window.scrollTo(0, 0); true`);
+  await shot('form_after');
+  // The report text is kept while the table is loaded again.
+  await p.setFiles('#files-input', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await emReady(p);
+  check(await p.eval(`WSDA.emergency.state.reportText.messages[3].headline === 'Fair weather'`), 'form: the table loaded again: the form\'s words kept');
+  // Another type's file in between (New World screwworm, no report words): the words typed for HPAI come back with it.
+  // (With HPAI the only type with report words, the page never makes another type's text, so this holds with or
+  // without app.js's one text per type; that guards a second type with report words.)
+  let vT = await p.eval('WSDA.emergency.state.version');
+  await p.setFiles('#files-input', [path.join(TABLES, 'em_nws_synthetic_positives.csv')]);
+  await emReady(p, vT);
+  const between = await p.eval(`[WSDA.emergency.state.type.id, document.getElementById('show-report').hidden]`);
+  vT = await p.eval('WSDA.emergency.state.version');
+  await p.setFiles('#files-input', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await emReady(p, vT);
+  check(same(between, ['nws', true]) && await p.eval(`WSDA.emergency.state.type.id === 'hpai' && WSDA.emergency.state.reportText.messages[3].headline === 'Fair weather'`),
+    'form: a screwworm file loaded in between (no Report button), then the HPAI table again: the form\'s words kept', between);
+  fs.rmSync(DL, { recursive: true, force: true });
+}
+
+// ---- page2: 2.9, E2, page 2 of the update (report-form.js page 2) and a premises detected twice on the map ----------
+// Real typing and mouse clicks: page 2's boxes filled from the update of September 1, 2026, the checks' lines and the
+// folds' headings, the "no detections" ticks, a category and a link added, moved and removed, USDA's pictures picked
+// as a file and pasted (a paste with words refused), "Save for ArcGIS" and "Save report text" downloaded and read, and
+// "Load last month's" for another month leaving page 2's figures and pictures empty; then the map's badge and hover box
+// for Yakima 11 and 12 (one map point). A paste is sent as the page's own paste event with a picture on it, since a
+// headless browser has no clipboard of its own.
+async function partPage2(b) {
+  const p = b.page, OUTF = path.join(OUT, 'report-page2'), DL = path.join(OUTF, 'download');
+  fs.rmSync(OUTF, { recursive: true, force: true });
+  fs.mkdirSync(DL, { recursive: true });
+  // The picture slots wait for a paste when they take the focus: a headless page has it only with focus emulation.
+  await b.send('Emulation.setFocusEmulationEnabled', { enabled: true }, p.sid);
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+  await p.setFiles('#files-input', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await emReady(p);
+  await p.click(`document.getElementById('show-report').click()`);
+  await p.waitFor(`!document.getElementById('view-report').hidden && WSDA.emergencyReportView.last`, 10000, 'Report shown');
+  const setDate = iso => p.eval(`(() => { const i = document.getElementById('rp-date'); i.value = '${iso}'; i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await setDate('2026-09-01');
+  await p.waitFor(`WSDA.emergencyReportView.last.figures.date === '2026-09-01'`, 5000, 'report on Sep 1');
+  const mouse = async sel => {
+    const at = await p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({ block: 'center' });
+      const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    // Nothing to click (a step before it failed): a failed check, and the part goes on.
+    if (!at) { check(false, 'page2: nothing to click at ' + sel); return; }
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
+    }
+  };
+  const typeIn = async (sel, words) => {
+    await p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.scrollIntoView({ block: 'center' }); e.focus(); e.select(); })()`);
+    if (words) await b.send('Input.insertText', { text: words }, p.sid);
+    else for (const type of ['keyDown', 'keyUp']) await b.send('Input.dispatchKeyEvent', { type, key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 }, p.sid);
+  };
+  const box = id => '#rp-p2-' + id;
+  // What the form and the pages show: the folds' headings, every box's line, the pages' page 2.
+  const SHOWN = `(() => { const $ = id => document.getElementById(id), pv = $('rp-preview'), q = s => Array.from(pv.querySelectorAll(s));
+    const h3s = q('.rp-page h3').map(h => h.firstChild.textContent);
+    const blk = name => { const h = q('.rp-page h3').find(x => x.firstChild.textContent === name); return h ? h.closest('.rp-blk') : null; };
+    const tiles = name => { const k = blk(name); return k ? Array.from(k.querySelectorAll('.rp-tile')).map(t => [t.querySelector('.l').textContent, t.querySelector('.v').textContent,
+      (t.querySelector('.s') || {}).textContent || '']) : []; };
+    const said = el => el.hidden ? '' : el.textContent;
+    return { nat: $('rp-t-nat').textContent, natHow: $('rp-t-nat').className, wild: $('rp-t-wild').textContent, boxes: $('rp-t-boxes').textContent,
+      why: Object.fromEntries(Array.from(document.querySelectorAll('#rp-form [data-why]')).filter(e => !e.hidden).map(e => [e.dataset.why, e.textContent])),
+      edges: Array.from(document.querySelectorAll('#rp-form .chk')).length, compared: $('rp-p2-cmp').textContent, flocks: $('rp-p2-flocks').textContent,
+      boxesWarn: said($('rp-boxes-warn')), fileNote: said($('rp-file-note')), readyNote: $('rp-ready-note').textContent,
+      pages: q('.rp-page').length, h3s, national: tiles('National (USDA)'), wildTiles: tiles('Washington: wild birds and wild mammals'),
+      natSrc: (blk('National (USDA)') || { querySelector: () => null }).querySelector('.rp-src') ? blk('National (USDA)').querySelector('.rp-src').textContent : '',
+      maps: q('.rp-maps figure').map(f => [f.querySelector('figcaption').textContent, !!f.querySelector('img'), f.querySelector('.sub:last-child').textContent]),
+      imgs: q('.rp-maps img').map(i => i.src.slice(0, 22)), notFilled: q('.rp-page .rp-nf').length,
+      testing: blk('Testing (WADDL)') ? blk('Testing (WADDL)').querySelector('.rp-p').textContent : '',
+      bars: q('.rp-bars text[text-anchor="end"]').map(t => t.textContent), barValues: q('.rp-bars text[font-weight="700"]').map(t => t.textContent),
+      quick: blk('Testing (WADDL)') ? Array.from(blk('Testing (WADDL)').querySelectorAll('.rp-res > div')).map(d => Array.from(d.children).map(c => c.textContent)) : [],
+      call: (pv.querySelector('.rp-call') || {}).textContent || '', resources: blk('Resources') ? Array.from(blk('Resources').querySelectorAll('.rp-res a')).map(a => a.href) : [],
+      slots: Array.from(document.querySelectorAll('#rp-pics .rp-slot')).map(s => ({ k: s.dataset.pic, wait: s.classList.contains('wait'), img: !!s.querySelector('img'),
+        st: said(s.querySelector('[data-st]')), from: (s.querySelector('.from') || {}).textContent || '', paste: said(s.querySelector('[data-paste]')),
+        btn: s.querySelector('[data-pic-act="add"]').textContent })),
+      focus: document.activeElement ? (document.activeElement.getAttribute('aria-label') || document.activeElement.id || document.activeElement.className) : '' }; })()`;
+  const shown = () => p.eval(SHOWN);
+  // A wait that runs out is a failed check named for what it waited for, and the part goes on.
+  const soft = async (expr, label) => { try { await p.waitFor(expr, 3000, label); } catch (e) { check(false, 'page2: ' + label); } };
+  const waitShown = async (cond, label) => {
+    try { await p.waitFor(`(s => ${cond})(${SHOWN})`, 5000, label); } catch (e) { check(false, 'page2: the page shows: ' + label, await shown()); }
+  };
+  const shot = async name => fs.writeFileSync(path.join(OUTF, name + '.png'),
+    Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' }, p.sid)).data, 'base64'));
+  // A download started by a click: its name and words.
+  const downloaded = async (sel, file) => {
+    await b.send('Browser.setDownloadBehavior', { behavior: 'allowAndName', downloadPath: DL, eventsEnabled: true });
+    const done = new Promise(res => {
+      let name = null;
+      const t = setTimeout(() => { b.listeners.splice(b.listeners.indexOf(h), 1); res({ state: 'timeout', name }); }, 20000);
+      const h = m => {
+        if (m.method === 'Browser.downloadWillBegin') name = m.params.suggestedFilename;
+        if (m.method === 'Browser.downloadProgress' && (m.params.state === 'completed' || m.params.state === 'canceled')) {
+          clearTimeout(t);
+          b.listeners.splice(b.listeners.indexOf(h), 1);
+          res({ state: m.params.state, guid: m.params.guid, name });
+        }
+      };
+      b.listeners.push(h);
+    });
+    await mouse(sel);
+    const d = await done;
+    await b.send('Browser.setDownloadBehavior', { behavior: 'default' });
+    if (d.state === 'completed') fs.renameSync(path.join(DL, d.guid), path.join(OUTF, file));
+    return Object.assign(d, { words: fs.existsSync(path.join(OUTF, file)) ? fs.readFileSync(path.join(OUTF, file), 'utf8') : '' });
+  };
+
+  // 1. Nothing typed yet: the folds count the boxes not filled and the pictures to add; page 2 prints "not filled".
+  let s = await shown();
+  check(s.nat === '15 not filled · 3 pictures' && s.natHow === 'tag warn' && s.wild === '14 not filled' && s.pages === 3
+    && same(s.why, { 'nat.asOf': 'Not filled. Type the date on USDA\'s page.', 'tests.asOf': 'Not filled. Type the date on WADDL\'s page.' })
+    && s.flocks === 'Flocks in all: not filled (added up, never typed)' && s.notFilled === 20 && s.maps.every(m => !m[1])
+    && same(s.h3s.slice(-6), ['Key messages', 'National (USDA)', 'States with detections, last 30 days', 'Washington: wild birds and wild mammals', 'Testing (WADDL)', 'Resources']),
+  'page2: nothing typed: "15 not filled · 3 pictures" and WADDL\'s "14 not filled"; page 2\'s blocks after the key messages, "not filled" where a box is empty', s);
+
+  // 2. The update of September 1 typed into the National fold, box by box.
+  const NAT = [['nat-asOf', 'September 1, 2026'], ['nat-birds', '208.33'], ['nat-states', '50'], ['nat-commercial', '1032'], ['nat-backyard', '1211'], ['nat-territories', '1'],
+    ['nat-c30', '3'], ['nat-b30', '4'], ['nat-birds30', '0.15'], ['nat-regional30', '3'], ['nat-lastFlock', '9/1/2026'], ['nat-lvStates', '1'], ['nat-lvCases', '2'],
+    ['nat-lvRegional', '0'], ['nat-lastLivestock', 'Aug 14, 2026']];
+  for (const [id, words] of NAT) await typeIn(box(id), words);
+  await waitShown(`s.nat === '3 pictures' && s.national.length === 6 && s.national[1][1] === '2,243'`, 'National typed');
+  s = await shown();
+  check(same(s.national, [['Birds affected', '208.33M', 'since 2022'], ['Flocks', '2,243', '1,032 commercial · 1,211 backyard'], ['States', '50', 'and 1 territory'],
+    ['Flocks, 30 days', '7', '3 commercial · 4 backyard'], ['Birds, 30 days', '0.15M', 'in those flocks'], ['Livestock, 30 days', '2', 'cases in 1 state']])
+    && s.flocks === 'Flocks in all: 2,243 (added up, never typed)' && /^Regional confirmations in the last 30 days: 3 flocks, 0 livestock\./.test(s.natSrc)
+    && same(s.maps.map(m => m[2]), ['Data source', 'Data source', 'Data source']) && s.h3s.includes('National (USDA)'),
+  'page2: the National boxes typed: the six tiles as the update has them, the flocks added up (2,243, never typed), the 30 days\' flocks added up (7)', s.national);
+  check((s.maps[0] || [])[0] === 'Domestic flocks' && /Last reported detection: September 1, 2026/.test(await p.eval(`(document.querySelector('.rp-maps figure .sub') || {}).textContent || ''`)),
+    'page2: a date typed 9/1/2026 prints as "September 1, 2026"');
+  // A slip: an old "as of" date and a last-30-days number above its total, each said under its box, the heading counting.
+  await typeIn(box('nat-asOf'), 'July 30, 2026');
+  await typeIn(box('nat-c30'), '1320');
+  await waitShown(`s.nat === '2 to check · 3 pictures'`, 'two slips counted');
+  s = await shown();
+  check(same(s.why, { 'nat.asOf': 'July 30, 2026 is 33 days before the report\'s date. Is it USDA\'s latest?',
+    'nat.c30': '1,320 in the last 30 days is more than the 1,032 commercial flocks since the outbreak began.', 'tests.asOf': 'Not filled. Type the date on WADDL\'s page.' }) && s.edges === 3
+    && (s.national[3] || [])[1] === '1,324' && /National \(USDA\)/.test(s.readyNote),
+  'page2: two slips typed: an orange edge and a line under each, the heading "2 to check"; the pages print what was typed (a check never changes a number)', s);
+  await typeIn(box('nat-asOf'), 'September 1, 2026');
+  await typeIn(box('nat-c30'), '3');
+  await waitShown(`s.nat === '3 pictures' && !s.why['nat.c30']`, 'slips fixed');
+
+  // 3. Wild birds and testing: the boxes, the "no detections" ticks, WADDL's numbers.
+  await typeIn(box('wild-since'), '690');
+  await typeIn(box('wild-window'), 'July 28 to August 27, 2026');
+  await typeIn(box('wild-d30'), '5');
+  await mouse('label:has(> #rp-p2-wild-d30None)');
+  await mouse('label:has(> #rp-p2-wild-m30None)');
+  await typeIn(box('tests-asOf'), 'September 1, 2026');
+  await typeIn(box('tests-total'), '9,575');
+  const N = [195, 41, 6920, 148, 2937, 4, 2627, 424];
+  for (let i = 0; i < N.length; i++) await typeIn(`#rp-cats .rp-cat[data-i="${i}"] [data-k="n"]`, String(N[i]));
+  await waitShown(`s.wild === 'All filled' && s.barValues.length === 8 && !s.barValues.includes('not filled')`, 'WADDL typed');
+  s = await shown();
+  const ticked = await p.eval(`[document.getElementById('rp-p2-wild-d30').disabled, document.getElementById('rp-p2-wild-d30').value, WSDA.emergency.state.reportText.p2.wild.d30None]`);
+  check(same(s.wildTiles, [['Wild birds since 2021', '690', 'detections'], ['Wild birds, last 30 days', 'None', 'no detections reported'],
+    ['Wild mammals, last 30 days', 'None', 'no detections reported']]) && same(ticked, [true, '', true]),
+  'page2: "No wild bird detections" ticked by the mouse: its box emptied and grayed, "None, no detections reported" printed', [s.wildTiles, ticked]);
+  check(same(s.bars, ['Domestic Cattle/Milk', 'Domestic Poultry', 'Wild Birds', 'Wildlife', 'Animal Feed', 'Domestic Mammal (Other)', 'Domestic Cats', 'Not Specified'])
+    && same(s.barValues, ['6,920', '2,937', '2,627', '424', '195', '148', '41', '4']) && /There have been over 9,575 HPAI PCR tests run for Washington since January 1, 2024\.$/.test(s.testing),
+  'page2: WADDL\'s tests by category printed largest first, "Not Specified" last; the total as typed with its comma', [s.bars, s.barValues]);
+  // A category added with the mouse (the new row takes the focus), typed, printed; then removed.
+  await mouse('#rp-cat-add');
+  await soft(`document.activeElement && document.activeElement.closest('.rp-cat[data-i="8"]')`, 'the new category focused');
+  await b.send('Input.insertText', { text: 'Swine' }, p.sid);
+  await typeIn('#rp-cats .rp-cat[data-i="8"] [data-k="n"]', 'lots');
+  await waitShown(`s.why['cat.8'] && s.wild === '1 to check'`, 'category checked');
+  s = await shown();
+  check(s.why['cat.8'] === '"lots" is not a number. Type the tests as WADDL shows them, e.g. 2937.' && s.bars.includes('Swine'),
+    'page2: "+ Add a category" clicked: a new row, focused; a word for its tests is a check ("1 to check"), printed as typed', s.why);
+  await mouse('#rp-cats .rp-cat[data-i="8"] [data-act="remove"]');
+  await waitShown(`s.wild === 'All filled' && !s.bars.includes('Swine')`, 'category removed');
+  // A link added to WADDL's Quick links, with an address that would not open; moved up; removed.
+  await mouse('[data-list-add="testingLists.1"]');
+  await soft(`document.activeElement && document.activeElement.closest('[data-list="testingLists.1"] .rp-link[data-i="3"]')`, 'the new link focused');
+  await b.send('Input.insertText', { text: 'Report form' }, p.sid);
+  await typeIn('[data-list="testingLists.1"] .rp-link[data-i="3"] [data-k="url"]', 'waddl.vetmed.wsu.edu/form');
+  await waitShown(`s.wild === '1 to check'`, 'link checked');
+  s = await shown();
+  check(s.why['list.1.3'] === 'This address would not open: it prints as words only.' && same(s.quick[1], ['Quick links', 'Submit a sample', 'Sample packing guidelines',
+    'Sample shipping guidelines', 'Report form']),
+  'page2: "+ Add a link" in Quick links: an address that would not open is a check, the link printed as its words', [s.why, s.quick]);
+  await mouse('[data-list="testingLists.1"] .rp-link[data-i="3"] [data-act="up"]');
+  await waitShown(`s.quick[1] && s.quick[1][3] === 'Report form'`, 'link moved up');
+  check((await p.eval(`document.activeElement.getAttribute('aria-label')`)) === 'Move link 3 up', 'page2: a link moved up with the mouse: printed one place up, the focus on its arrow');
+  await mouse('[data-list="testingLists.1"] .rp-link[data-i="2"] [data-act="remove"]');
+  await waitShown(`s.wild === 'All filled' && s.quick[1].length === 4`, 'link removed');
+  // A resource's address that would not open: "Boxes and resources" says "Check".
+  await mouse('#rp-f-boxes > summary');
+  await typeIn('[data-list="resources.2"] .rp-link[data-i="1"] [data-k="url"]', 'cdc.gov/bird-flu');
+  await waitShown(`s.boxes === 'Check'`, 'resource checked');
+  s = await shown();
+  check(s.boxesWarn === 'Public health, link 2 ("National (CDC)"): its address would not open, so it prints as words only.' && s.resources.length === 9,
+    'page2: a resource\'s address that would not open: said in "Boxes and resources", the link printed as words', [s.boxesWarn, s.resources.length]);
+  await typeIn('[data-list="resources.2"] .rp-link[data-i="1"] [data-k="url"]', 'https://www.cdc.gov/bird-flu/situation-summary/index.html');
+  await typeIn('#rp-p2-call0-headline', 'Report sick birds to WSDA');
+  await waitShown(`s.boxes === 'Kept month to month' && /^Report sick birds to WSDA/.test(s.call)`, 'box headline');
+  check(/Sick Bird Hotline 1-800-606-3056Report Sick Wild Birds to WDFW/.test((await shown()).call),
+    'page2: the box\'s headline typed prints; the hotline\'s name and number from "Boxes and resources" follow its first part');
+
+  // 4. USDA's pictures: one picked as a file, one pasted, a paste with words refused, one removed.
+  const PIC = path.join(OUTF, 'usda-flocks.png');
+  fs.writeFileSync(PIC, Buffer.from((await p.eval(`(() => { const c = document.createElement('canvas'); c.width = 240; c.height = 150; const g = c.getContext('2d');
+    g.fillStyle = '#dfe9ee'; g.fillRect(0, 0, 240, 150); g.fillStyle = '#245566'; g.fillRect(60, 40, 50, 30); return c.toDataURL('image/png').split(',')[1]; })()`)), 'base64'));
+  await mouse('.rp-slot[data-pic="flocks"] [data-pic-act="add"]');
+  await p.setFiles('#rp-pic-file', [PIC]);
+  await waitShown(`s.slots[0].img && s.imgs.length === 1`, 'picture picked');
+  s = await shown();
+  check(s.slots[0].from === 'usda-flocks.png' && s.slots[0].btn === 'Change' && (s.maps[0] || [])[1] && s.imgs[0] === 'data:image/png;base64,' && s.nat === '2 pictures',
+    'page2: "Add USDA\'s picture" and a file picked: the slot shows it and its name, "Change"; page 2 prints it in its frame; "2 pictures" to add', s.slots[0]);
+  await mouse('.rp-slot[data-pic="livestock"] b');
+  await waitShown(`s.slots[1].wait`, 'slot waiting');
+  s = await shown();
+  check(s.slots[1].st === 'Ready: press Ctrl+V to paste' && !s.slots[1].paste && /^Domestic livestock: USDA/.test(s.focus),
+    'page2: a slot clicked: it waits with a dashed edge, "Ready: press Ctrl+V to paste"', s.slots[1]);
+  const paste = what => p.eval(`(async () => { const dt = new DataTransfer();
+    if (${JSON.stringify(what)} === 'picture') { const c = document.createElement('canvas'); c.width = 200; c.height = 120; c.getContext('2d').fillRect(10, 10, 50, 50);
+      const blob = await new Promise(r => c.toBlob(r, 'image/png')); dt.items.add(new File([blob], 'image.png', { type: 'image/png' })); }
+    else dt.setData('text/plain', 'some copied words');
+    document.activeElement.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); return true; })()`);
+  await paste('picture');
+  await waitShown(`s.slots[1].img`, 'picture pasted');
+  s = await shown();
+  check(s.slots[1].from === 'Pasted picture, October 30, 2026' && (s.maps[1] || [])[1] && s.nat === '1 picture',
+    'page2: a snip pasted on the waiting slot: shown as "Pasted picture" with the day; printed in its frame; "1 picture" to add', s.slots[1]);
+  await mouse('.rp-slot[data-pic="wild"] b');
+  await waitShown(`s.slots[2].wait`, 'wild slot waiting');
+  await paste('words');
+  await waitShown(`/clipboard holds no picture/.test(s.slots[2].st)`, 'words refused');
+  s = await shown();
+  check(s.slots[2].st === 'The clipboard holds no picture (it has words). Snip USDA\'s map first: on Windows, Win+Shift+S.' && !s.slots[2].img && !(s.maps[2] || [])[1],
+    'page2: a paste with words on the clipboard: the slot says it holds no picture and how to snip one; nothing added', s.slots[2]);
+  await mouse('#rp-p2-tests-total');
+  await waitShown(`!s.slots[2].wait && s.slots[2].st === 'No picture yet'`, 'slot left');
+  check(true, 'page2: leaving the slot: the dashed edge and the note gone, "No picture yet"');
+  await mouse('.rp-slot[data-pic="livestock"] [data-pic-act="remove"]');
+  await waitShown(`!s.slots[1].img && !s.maps[1][1] && s.nat === '2 pictures'`, 'picture removed');
+  check(true, 'page2: "Remove": the slot and its frame without a picture again, "2 pictures"');
+  await mouse('.rp-slot[data-pic="wild"] [data-pic-act="add"]');
+  await p.setFiles('#rp-pic-file', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await waitShown(`/is not a picture/.test(s.slots[2].st)`, 'a table refused as a picture');
+  check(!(await shown()).slots[2].img, 'page2: a file that is not a picture picked: refused, said in its slot, nothing added');
+  await p.eval(`document.getElementById('rp-form').scrollTop = 0; true`);
+  await shot('page2_filled');
+
+  // 5. "Save for ArcGIS": hpai-monthly-figures.csv, one row, as the page works it out.
+  const arc = await downloaded('#rp-arcgis', 'hpai-monthly-figures.csv');
+  const arcPage = await p.eval(`WSDA.emergencyReportForm.arcgisFile(WSDA.emergency.state.reportText, WSDA.emergency.state.type, '2026-09-01', WSDA.emergencyReportView.last.words).csv`);
+  const arcRow = arc.words ? arc.words.split('\r\n')[1] : '';
+  s = await shown();
+  check(arc.state === 'completed' && arc.name === 'hpai-monthly-figures.csv' && arc.words === arcPage && arc.words.startsWith('report_date,wa_status,wa_livestock,wa_milk_stage,us_as_of,')
+    && /^"September 1, 2026",Washington has active detections of highly pathogenic avian influenza in domestic flocks\.,There is 1 active confirmed livestock case/.test(arcRow)
+    && /,208\.33,2243,1032,1211,50,1,3,4,0\.15,3,1,2,0,"September 1, 2026","August 14, 2026","July 28 to August 27, 2026",690,No detections reported,No detections reported,9575,"January 1, 2024"$/.test(arcRow)
+    && /^Saved "hpai-monthly-figures\.csv": page 2's figures and the status, livestock and milk testing sentences/.test(s.fileNote),
+  'page2: "Save for ArcGIS" downloads hpai-monthly-figures.csv: the monthly table\'s columns, the status and livestock sentences as printed, page 2\'s figures without commas', { arc: arc.name, arcRow, note: s.fileNote });
+
+  // 6. "Save report text", then "Load last month's" a month later: page 2's figures and pictures empty, compared with.
+  const saved = await downloaded('#rp-save', 'report text.json');
+  const so = saved.words ? JSON.parse(saved.words) : { text: {} };
+  check(saved.state === 'completed' && so.text.p2 && so.text.p2.nat.backyard === '1211' && so.text.past[0].date === '2026-09-01' && !/data:image/.test(saved.words),
+    'page2: "Save report text" keeps page 2 as typed and its figures to compare with next month, never the pictures', so.text.past);
+  await setDate('2026-10-01');
+  await soft(`WSDA.emergencyReportView.last.figures.date === '2026-10-01'`, 'the report on Oct 1');
+  await p.setFiles('#rp-load-file', [path.join(OUTF, 'report text.json')]);
+  await waitShown(`/left empty for October 1, 2026/.test(s.fileNote)`, 'loaded for October');
+  s = await shown();
+  const values = await p.eval(`[...document.querySelectorAll('#rp-form [data-p2]')].filter(e => !/source|lvSource|sequencing/.test(e.dataset.p2) && e.value).map(e => e.dataset.p2)`);
+  check(same(values, []) && s.slots.every(x => !x.img) && s.nat === '15 not filled · 3 pictures' && s.compared === 'Compared with: the report text of September 1, 2026 (loaded).'
+    && (s.quick[1] || []).length === 4 && /Page 2's numbers, dates and pictures are left empty for October 1, 2026: type this month's; last month's are kept to check them against\. To go on with that report instead, set the report date to September 1, 2026 and load the file again\./.test(s.fileNote),
+  'page2: "Load last month\'s" on October 1: page 2\'s numbers, dates and pictures empty, the lists as saved, compared with September 1 and said so', { values, s });
+  await typeIn(box('nat-backyard'), '1200');
+  await waitShown(`s.why['nat.backyard']`, 'lower than last month');
+  check((await shown()).why['nat.backyard'] === '1,200 is lower than last month\'s 1,211. A number since the outbreak began never goes down.',
+    'page2: October\'s number typed lower than September\'s: the check names last month\'s 1,211');
+  await setDate('2026-09-01');
+  await soft(`WSDA.emergencyReportView.last.figures.date === '2026-09-01'`, 'the report on Sep 1 again');
+  await p.setFiles('#rp-load-file', [path.join(OUTF, 'report text.json')]);
+  await waitShown(`s.national.length === 6 && s.national[1][1] === '2,243'`, 'loaded for the same day');
+  check(!/left empty/.test((await shown()).fileNote), 'page2: the same report text loaded for its own date (September 1): page 2\'s figures back as saved');
+  await shot('page2_loaded');
+
+  // 7. The map: Yakima 11 and 12 at one point: a badge with 2 on the shown mark, the hover's box naming both.
+  await p.click(`document.getElementById('show-map').click()`);
+  await p.waitFor(`!document.getElementById('view-map').hidden`, 5000, 'Map shown');
+  await p.eval(`(() => { const st = WSDA.emergency.state.map; return new Promise(r => { st.map.resize(); st.map.once('idle', () => r(1)); setTimeout(() => r(2), 3000); }); })()`);
+  const mark = await p.eval(`(() => { const st = WSDA.emergency.state.map, f = st.em.positives.features.find(x => x.properties.at);
+    return f ? { mark: f.properties.mark, at: f.properties.at, shared: st.em.shared[f.properties.at], n: WSDA.emergency.state.mapData.shared } : null; })()`);
+  check(!!(mark && mark.shared) && /^em-positive:[a-z+-]+:(now|past):(zones|none):2:/.test(mark.mark) && mark.n === 1 && mark.shared.head === '2 cases at this map point:'
+    && mark.shared.lines.length === 2 && /^Yakima 11: detected .+, closed/.test(mark.shared.lines[0]) && /^Yakima 12: detected .+, active$/.test(mark.shared.lines[1]),
+  'page2 map: Yakima 11 (closed) and 12 (active) at one point: the shown mark carries a badge with 2; the box names each, the earliest first, with its dates', mark);
+  if (mark && mark.at) {
+    const [lat, lon] = mark.at.split(',').map(Number);
+    await p.eval(`(() => { const m = WSDA.emergency.state.map.map; m.jumpTo({ center: [${lon}, ${lat}], zoom: 11 }); return new Promise(r => { m.once('idle', () => r(1)); setTimeout(() => r(2), 3000); }); })()`);
+    const at = await p.eval(`(() => { const m = WSDA.emergency.state.map.map, q = m.project([${lon}, ${lat}]), r = m.getContainer().getBoundingClientRect(); return { x: r.left + q.x, y: r.top + q.y }; })()`);
+    await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y }, p.sid);
+    await p.waitFor(`document.querySelector('.maplibregl-popup .tip-shared')`, 3000, 'hover box').catch(() => null);
+    const tip = await p.eval(`(() => { const t = document.querySelector('.maplibregl-popup .tip-shared'); return { box: t ? t.textContent : '', label: WSDA.emergency.state.map.hoverLabel || '' }; })()`);
+    check(tip.box.startsWith('2 cases at this map point:Yakima 11: detected') && tip.label.includes('2 cases at this map point:\nYakima 11: detected'),
+      'page2 map: the mouse on the mark: its hover gains the gold-edged box naming both cases', tip);
+    await shot('page2_map_hover');
+  }
+  await b.send('Emulation.setFocusEmulationEnabled', { enabled: false }, p.sid);
+  fs.rmSync(DL, { recursive: true, force: true });
+}
+
+// ---- figures: 2.9, E2, the Report view's "Figures" (report-figures.js) driven as staff would ---------------------------
+// The report scenario on Sep 1, 2026: the switch "Figures | Fill in", the tiles and the banner from the data only (a
+// typed status that does not fit left out), the one date for both, each kind of hover under the real mouse (its words
+// report.js's), a county and a month clicked to narrow the table and clicked again, the "×", Enter on a county, the map's
+// "Places | Counties" and a county clicked on it, printing from Figures (the update's pages, never Figures), 320 pixels
+// wide, Fill in again, a new load starting Figures again, and the Overview's link. Clicks and moves are the mouse's
+// (Chrome's input events); a wait that runs out is a named failed check. Pictures in local-test-artifacts/em/report-figures/.
+// 2.9: the guide "Making the HPAI update", linked from the form's opening line.
+async function partGuide(b) {
+  const p = b.page;
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+  const v = await p.eval('WSDA.emergency.state.version');
+  await p.setFiles('#files-input', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await emReady(p, v);
+  await p.eval(`document.getElementById('show-report').click()`);
+  await p.eval('new Promise(r => setTimeout(r, 300))');
+  const link = await p.eval(`(() => { const a = document.getElementById('rp-guide'); if (!a) return null; a.scrollIntoView({ block: 'center' });
+    // Its first line's box: a link that wraps has an outline whose middle can fall between its lines.
+    const r = a.getClientRects()[0]; return { text: a.textContent, href: a.href, target: a.target, rel: a.rel, shown: !!r && r.width > 0 && r.height > 0,
+      x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+  check(link && link.shown && link.text === 'Making the HPAI update' && link.href === new URL('emergency/making-the-update.html', SITE).href
+    && link.target === '_blank' && link.rel === 'noopener',
+  'guide: the form\'s opening line shows a link "Making the HPAI update", opening the guide in a new tab', link);
+  // The link is the one under the pointer at its first line (a headless browser opens no tab from a file:// link, so
+  // the guide is then opened in this tab, as the kinds part opens its how-to page).
+  check(link && await p.eval(`(() => { const e = document.elementFromPoint(${link ? link.x : 0}, ${link ? link.y : 0}); return !!e && e.id === 'rp-guide'; })()`),
+    'guide: nothing covers the link');
+  await p.goto(new URL('emergency/making-the-update.html', SITE).href);
+  const page = await p.eval(`(() => { const nav = [...document.querySelectorAll('nav a')];
+    return { title: document.title, h1: document.querySelector('h1').textContent, scripts: document.scripts.length,
+      sections: nav.length, lead: nav.every(a => a.getAttribute('href').startsWith('#') && document.getElementById(a.getAttribute('href').slice(1))),
+      wide: document.documentElement.scrollWidth <= innerWidth }; })()`);
+  check(same(page, { title: 'Making the HPAI update', h1: 'Making the HPAI update', scripts: 0, sections: 8, lead: true, wide: true }),
+    'guide: it opens with no script; each of its 8 contents\' links leads to its section; nothing runs past 1280 pixels', page);
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 800, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await p.eval('new Promise(r => setTimeout(r, 300))');
+  const phone = await p.eval('document.documentElement.scrollWidth');
+  check(phone <= 320, 'guide: at 320 pixels wide nothing runs past the screen', phone);
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+}
+
+async function partFigures(b) {
+  const p = b.page, OUTF = path.join(OUT, 'report-figures');
+  fs.rmSync(OUTF, { recursive: true, force: true });
+  fs.mkdirSync(OUTF, { recursive: true });
+  const shot = async name => fs.writeFileSync(path.join(OUTF, name + '.png'),
+    Buffer.from((await b.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false }, p.sid)).data, 'base64'));
+  const wait = async (expr, ms, name) => {
+    try { await p.waitFor(expr, ms, name); return true; } catch (e) { check(false, 'figures: waited for ' + name); return false; }
+  };
+  await b.send('Emulation.setFocusEmulationEnabled', { enabled: true }, p.sid);
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await p.goto(new URL('emergency/index.html', SITE).href);
+  await p.waitFor('window.WSDA && WSDA.emergency && WSDA.emergency.state.map.ready', 20000, 'Emergency map ready');
+  let v = await p.eval('WSDA.emergency.state.version');
+  await p.setFiles('#files-input', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await emReady(p, v);
+  // The mouse on an element's middle (or a point inside it): a press and release, or a move only.
+  const at = sel => p.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({ block: 'center' });
+    const r = e.getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 30), y: r.top + r.height / 2 }; })()`);
+  const mouse = async sel => {
+    const pt = await at(sel);
+    if (!pt) { check(false, 'figures: nothing to click at ' + sel); return; }
+    for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x: pt.x, y: pt.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 }, p.sid);
+    }
+    await p.eval('new Promise(r => setTimeout(r, 60))');
+  };
+  const TIP = `(() => { const t = document.querySelector('#rp-figures .rp-tipbox'), f = document.getElementById('rp-figures').getBoundingClientRect();
+    if (t.hidden) return null; const r = t.getBoundingClientRect();
+    return { text: t.innerText, inside: r.left >= f.left - 1 && r.right <= f.right + 1, w: Math.round(r.width), left: Math.round(r.left) }; })()`;
+  const hoverOn = async sel => {
+    const pt = await at(sel);
+    if (!pt) { check(false, 'figures: nothing to hover at ' + sel); return null; }
+    await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pt.x, y: pt.y }, p.sid);
+    await p.eval('new Promise(r => setTimeout(r, 60))');
+    return p.eval(TIP);
+  };
+  // A hover's words as the page writes them (report.js hover's head, text and lines).
+  const said = js => p.eval(`(() => { const t = ${js}; return t.head + (t.text ? ': ' + t.text : '') + t.lines.map(l => '\\n' + l).join(''); })()`);
+  const F = 'WSDA.emergencyReportFigures.last', RPJ = 'WSDA.emergencyReport';
+  await mouse('#show-report');
+  await wait(`!document.getElementById('view-report').hidden && WSDA.emergencyReportView.last`, 10000, 'Report shown');
+  await p.eval(`(() => { const i = document.getElementById('rp-date'); i.value = '2026-09-01'; i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await wait(`WSDA.emergencyReportView.last.figures.date === '2026-09-01'`, 5000, 'the report on Sep 1');
+  const STATE = `(() => { const $ = id => document.getElementById(id), fig = $('rp-figures'), lay = document.querySelector('.rp-layout');
+    return { fill: $('rp-show-fill').getAttribute('aria-pressed'), figures: $('rp-show-figures').getAttribute('aria-pressed'), shown: !fig.hidden && fig.getClientRects().length > 0,
+      form: getComputedStyle(lay).visibility, pages: document.querySelectorAll('#rp-preview .rp-page').length }; })()`;
+  check(same(await p.eval(STATE), { fill: 'true', figures: 'false', shown: false, form: 'visible', pages: 3 }),
+    'figures: the Report view opens on Fill in, the form and the pages shown, Figures hidden', await p.eval(STATE));
+  // A typed status that does not fit the data ("free" with two active flocks): the pages print it, Figures does not.
+  await mouse('input[name="rp-status"][value="free"]');
+  await wait(`/considered free/.test(document.querySelector('#rp-preview .rp-banner div span').textContent)`, 5000, 'the typed "free" on the pages');
+  await mouse('#rp-show-figures');
+  await wait(`${F} && !document.getElementById('rp-figures').hidden`, 5000, 'Figures shown');
+  check(same(await p.eval(STATE), { fill: 'false', figures: 'true', shown: true, form: 'hidden', pages: 3 }),
+    'figures: "Figures" pressed: Figures shown, the form and the pages out of sight but still drawn (3 pages)', await p.eval(STATE));
+  const FIG = `(() => { const q = s => Array.from(document.querySelectorAll('#rp-fig-body ' + s)), t = s => (document.querySelector('#rp-fig-body ' + s) || {}).textContent || '';
+    return { banner: t('.rp-banner b'), line: t('.rp-banner div span'), src: t('.rp-src'),
+      tiles: q('.rp-tile').map(e => [e.querySelector('.l').textContent, e.querySelector('.v').textContent, (e.querySelector('.s') || {}).textContent || '']),
+      counties: q('.rp-clist [data-county]').map(e => [e.dataset.county, e.querySelector('em').textContent, e.classList.contains('sel')]),
+      heading: (document.querySelector('#rp-fig-table h3') || {}).firstChild ? document.querySelector('#rp-fig-table h3').firstChild.textContent : '',
+      chip: t('#rp-fig-table .rp-chip'), count: t('#rp-fig-table h3 small'),
+      rows: q('#rp-fig-table table.rp-dt tr').slice(1).map(r => Array.from(r.cells).map(c => c.textContent)),
+      places: q('.rp-map .rp-place').length, active: q('.rp-map .rp-place[data-active]').length, shaded: q('.rp-map path[data-county]').length,
+      zones: q('.rp-map .rp-zone').map(e => [e.getAttribute('stroke'), +e.getAttribute('r')]),
+      months: q('.rp-chart .rp-hit').length, clickable: q('.rp-chart .rp-hit[tabindex]').length, picked: q('.rp-chart .rp-hit.sel').map(e => e.dataset.month),
+      look: q('.rp-look [aria-pressed="true"]').map(e => e.dataset.look), date: document.getElementById('rp-fig-date').value }; })()`;
+  let r = await p.eval(FIG);
+  const printed = await p.eval(`Array.from(document.querySelectorAll('#rp-preview .rp-page')[0].querySelectorAll('.rp-tile')).map(e => [e.querySelector('.l').textContent,
+    e.querySelector('.v').textContent, (e.querySelector('.s') || {}).textContent || ''])`);
+  check(same(r.tiles, printed) && r.tiles.length === 6 && r.tiles[0][1] === '3',
+    'figures: the six tiles are the printed page\'s, word for word', [r.tiles, printed]);
+  check(r.banner === '3 active detections: 2 flocks · 1 dairy herd'
+    && r.line === 'Washington has active detections of highly pathogenic avian influenza in domestic flocks. Last detection Aug 28, 2026, 4 days ago.'
+    && r.src.startsWith('Source: WSDA HPAI table, as of September 1, 2026.') && r.date === '2026-09-01',
+    'figures: only what the data says: the banner\'s line is the wording that fits (the typed "free" left out), the source line, the date', r);
+  check(same(r.counties.map(c => [c[0], c[1]]), [['Franklin', '2'], ['King', '2'], ['Pierce', '2'], ['Snohomish', '2'], ['Yakima', '2'], ['Clark', '1'],
+    ['Lewis', '1'], ['Thurston', '1'], ['Whatcom', '1'], ['Multnomah', '1'], ['county not given', '1']]) && r.counties.every(c => !c[2]),
+    'figures: the cases by county as printed, nothing picked', r.counties);
+  check(r.heading === '2026 detections' && r.chip === '' && r.rows.length === 6 && r.count === '6 of 6 · Small under 100 · Medium 100 to 999 · Large 1,000 or more'
+    && r.places === 12 && r.active === 2 && r.shaded === 0 && r.months === 55 && r.clickable === 13 && same(r.look, ['places'])
+    && r.zones.length === 4 && same(r.zones.map(z => z[0]), ['#fd8d3c', '#cb181d', '#fd8d3c', '#cb181d']) && Math.abs(r.zones[0][1] / r.zones[1][1] - 10 / 3) < 0.1,
+    'figures: this year\'s 6 detections; the map on Places, 12 places (the two active crimson, each with its 10 and 3 km rings); 55 months, the 13 with detections clickable', r);
+  await shot('figures_1280');
+  // The hovers under the mouse, each with report.js's words, inside the frame.
+  const W = `${RPJ}.wording(${F}.figures, WSDA.emergency.state.type, {}, 39)`;
+  const hovers = [
+    ['#rp-fig-body .rp-tile:nth-child(1)', `${RPJ}.hover.tile(${F}.figures, WSDA.emergency.state.type, ${W}, 0, 39)`, 'the "Active now" tile'],
+    ['#rp-fig-body .rp-tile:nth-child(4)', `${RPJ}.hover.tile(${F}.figures, WSDA.emergency.state.type, ${W}, 3, 39)`, 'the birds affected tile'],
+    ['#rp-fig-body .rp-tile:nth-child(6)', `${RPJ}.hover.tile(${F}.figures, WSDA.emergency.state.type, ${W}, 5, 39)`, 'the last tile (its hover turned back at the right edge)'],
+    ['#rp-fig-counties [data-county="Franklin"]', `${RPJ}.hover.county(${F}.figures, ${F}.figures.counties[0], false)`, 'a county in the list'],
+    ['.rp-hit[data-month="2026-08"]', `${RPJ}.hover.month(${F}.figures, ${F}.figures.byMonth.find(m => m.month === '2026-08'), false)`, 'a month'],
+    ['[data-split="animals"]', `${RPJ}.hover.split(${F}.figures, WSDA.emergency.state.type, 'animals')`, 'the birds\' bar'],
+    ['.rp-place[data-cases="2"]', `${RPJ}.hover.place(${RPJ}.places(${F}.figures).find(x => x.cases.length === 2))`, 'a place with two cases']];
+  for (const [sel, js, name] of hovers) {
+    const got = await hoverOn(sel), want = await said(js);
+    check(got && got.text === want && got.inside, 'figures: the mouse on ' + name + ': one hover, its number and rule, inside the frame', [got, want]);
+  }
+  // By the right edge the box turns back to the pointer's left at its own width (not wrapped narrow against the edge).
+  const edge = await hoverOn('#rp-fig-body .rp-tile:nth-child(6)'), mid = await hoverOn('#rp-fig-body .rp-tile:nth-child(1)');
+  const tile6 = await at('#rp-fig-body .rp-tile:nth-child(6)');
+  check(edge && mid && edge.w >= 200 && edge.left + edge.w < tile6.x, 'figures: the last tile\'s hover at its own width, to the left of the pointer', [edge, mid, tile6]);
+  // The mouse on an empty part of Figures, then away from it: no hover.
+  const gap = await p.eval(`(() => { const r = document.querySelector('#rp-fig-body .rp-panel').getBoundingClientRect(); return { x: r.left + 3, y: r.top + 3 }; })()`);
+  await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: gap.x, y: gap.y }, p.sid);
+  await p.eval('new Promise(r => setTimeout(r, 60))');
+  check(await p.eval(TIP) === null, 'figures: the mouse on an empty part of Figures: no hover');
+  await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 }, p.sid);
+  await p.eval('new Promise(r => setTimeout(r, 60))');
+  check(await p.eval(TIP) === null, 'figures: the mouse away: no hover');
+  // A county clicked narrows the table; clicked again gives it back; the "×" too.
+  await mouse('#rp-fig-counties [data-county="Franklin"]');
+  r = await p.eval(FIG);
+  check(r.chip === 'Franklin ×' && same(r.rows.map(x => x[0]), ['3/14/26', '8/20/26']) && r.count.startsWith('2 of 6 ·')
+    && same(r.counties.filter(c => c[2]).map(c => c[0]), ['Franklin']) && same(await p.eval(`${F}.pick`), { county: 'Franklin' }),
+    'figures: Franklin clicked: the table lists its 2 cases this year, "2 of 6", the chip, the row marked', r);
+  await mouse('#rp-fig-counties [data-county="Franklin"]');
+  r = await p.eval(FIG);
+  check(r.chip === '' && r.rows.length === 6 && r.counties.every(c => !c[2]), 'figures: Franklin clicked again: every 2026 detection back', r.rows.length);
+  await mouse('#rp-fig-counties [data-county="Yakima"]');
+  await mouse('#rp-fig-table .rp-chip');
+  r = await p.eval(FIG);
+  check(r.chip === '' && r.rows.length === 6 && await p.eval(`${F}.pick`) === null, 'figures: a county picked, then its "×": every 2026 detection back', r);
+  // A month clicked: its cases, whatever the year; again gives this year's back.
+  await mouse('.rp-hit[data-month="2026-08"]');
+  r = await p.eval(FIG);
+  check(r.heading === 'Detections' && r.chip === 'August 2026 ×' && same(r.rows.map(x => x[1]), ['Franklin', 'Yakima', 'Thurston']) && same(r.picked, ['2026-08'])
+    && r.count.startsWith('3 of 6 ·'), 'figures: August 2026 clicked: its 3 cases, the column shaded', r);
+  await mouse('.rp-hit[data-month="2022-03"]');
+  r = await p.eval(FIG);
+  check(r.chip === 'March 2022 ×' && same(r.rows, [['3/10/22', 'King', 'Large', 'Commercial', 'Chicken', 'Released']]) && r.count.startsWith('1 ·'),
+    'figures: March 2022 clicked: the month\'s one case, from another year (no "of")', r);
+  await mouse('.rp-hit[data-month="2022-03"]');
+  r = await p.eval(FIG);
+  check(r.chip === '' && r.rows.length === 6 && r.picked.length === 0, 'figures: March 2022 clicked again: this year\'s back', r);
+  await mouse('.rp-hit[data-month="2023-06"]');
+  check((await p.eval(FIG)).chip === '' && await p.eval(`${F}.pick`) === null, 'figures: a month without detections: a click does nothing');
+  // The keyboard: Enter on a county picks it, the focus stays on it and its hover says so.
+  await p.eval(`document.querySelector('#rp-fig-counties [data-county="King"]').focus()`);
+  for (const type of ['keyDown', 'keyUp']) await b.send('Input.dispatchKeyEvent', { type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }, p.sid);
+  await p.eval('new Promise(r => setTimeout(r, 60))');
+  r = await p.eval(FIG);
+  const kb = await p.eval(`({ on: (document.activeElement || {}).dataset ? document.activeElement.dataset.county : null })`), kTip = await p.eval(TIP);
+  check(r.chip === 'King ×' && r.rows.length === 0 && kb.on === 'King' && kTip && /Listed below; click again to show every county\.$/.test(kTip.text),
+    'figures: Enter on King: picked (none this year, said), the focus kept on it, its hover saying how to give it back', [r.chip, kb, kTip]);
+  const none = await p.eval(`(document.querySelector('#rp-fig-table .rp-none') || {}).textContent`);
+  check(none === 'No detections in 2026 in King so far.', 'figures: a county without detections this year says so', none);
+  await mouse('#rp-fig-table .rp-chip');
+  // The map's "Places | Counties": the counties shaded as printed; a click on one lists its cases.
+  await mouse('.rp-look [data-look="counties"]');
+  r = await p.eval(FIG);
+  const fills = await p.eval(`Array.from(document.querySelectorAll('#rp-fig-body .rp-map path[data-county]')).map(e => [e.dataset.county, e.getAttribute('fill')]).sort()`);
+  check(same(r.look, ['counties']) && r.places === 0 && r.shaded === 9 && same(fills, [['Clark', '#d2dee6'], ['Franklin', '#93b4cb'], ['King', '#93b4cb'], ['Lewis', '#d2dee6'],
+    ['Pierce', '#93b4cb'], ['Snohomish', '#93b4cb'], ['Thurston', '#d2dee6'], ['Whatcom', '#d2dee6'], ['Yakima', '#93b4cb']]),
+    'figures: Counties: the 9 counties with cases shaded in the printed steps (1; 2 to 3), no places', [r, fills]);
+  await mouse('.rp-map path[data-county="Yakima"]');
+  r = await p.eval(FIG);
+  check(r.chip === 'Yakima ×' && same(r.rows.map(x => x[0]), ['8/25/26']) && same(r.counties.filter(c => c[2]).map(c => c[0]), ['Yakima']),
+    'figures: Yakima clicked on the shaded map: listed as a click in the county list lists it', r);
+  await shot('figures_counties');
+  await mouse('.rp-map path[data-county="Yakima"]');
+  await mouse('.rp-look [data-look="places"]');
+  r = await p.eval(FIG);
+  check(same(r.look, ['places']) && r.places === 12 && r.chip === '', 'figures: Places again: the 12 places', r);
+  // The one date: Figures' date moves the form's and the pages', and back.
+  await p.eval(`(() => { const i = document.getElementById('rp-fig-date'); i.focus(); i.value = '2026-08-01'; i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await wait(`${F}.figures.date === '2026-08-01'`, 5000, 'Figures on Aug 1');
+  const dates = await p.eval(`({ form: document.getElementById('rp-date').value, pages: WSDA.emergencyReportView.last.figures.date, banner: document.querySelector('#rp-fig-body .rp-banner b').textContent })`);
+  check(same(dates, { form: '2026-08-01', pages: '2026-08-01', banner: '1 active detection: 1 premises with other animals; none in domestic flocks' }),
+    'figures: Aug 1 typed in Figures\' date: the form\'s date and the pages follow; the goats alone active', dates);
+  await p.eval(`(() => { const i = document.getElementById('rp-fig-date'); i.value = '2026-09-01'; i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await wait(`${F}.figures.date === '2026-09-01'`, 5000, 'Figures on Sep 1 again');
+  // Printing from Figures: the update's pages, never Figures (its real places among them).
+  await b.send('Emulation.setEmulatedMedia', { media: 'print' }, p.sid);
+  const pr = await p.eval(`(() => { const shown = s => Array.from(document.querySelectorAll(s)).filter(e => e.getClientRects().length).length;
+    return { fig: shown('#rp-figures'), sw: shown('.rp-switch'), places: shown('.rp-place'), pages: shown('.rp-page'), w: document.querySelector('.rp-page').getBoundingClientRect().width }; })()`);
+  const pdf = Buffer.from((await b.send('Page.printToPDF', { preferCSSPageSize: true, printBackground: true }, p.sid)).data, 'base64');
+  await b.send('Emulation.setEmulatedMedia', { media: '' }, p.sid);
+  const pdfPages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+  fs.writeFileSync(path.join(OUTF, 'printed_from_figures.pdf'), pdf);
+  check(same(pr, { fig: 0, sw: 0, places: 0, pages: 3, w: 816 }) && pdfPages === 3,
+    'figures: printed from Figures: only the update\'s 3 pages, at their own size; no Figures, no switch, no real place', [pr, pdfPages]);
+  // 320 pixels wide: nothing wider than the screen, tiles two by two, the month chart scrolled to its latest months.
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 800, deviceScaleFactor: 2, mobile: true }, p.sid);
+  await p.eval('new Promise(r => setTimeout(r, 400))');
+  const ph = await p.eval(`(() => { const s = document.querySelector('#rp-fig-body .rp-fig-scroll'), t = Array.from(document.querySelectorAll('#rp-fig-body .rp-tile')).map(e => Math.round(e.getBoundingClientRect().top));
+    const cells = Array.from(document.querySelectorAll('#rp-fig-table tr:first-child th')).filter(c => c.getClientRects().length).map(c => c.textContent);
+    const panel = document.getElementById('rp-fig-table');
+    return { wide: document.documentElement.scrollWidth, rows: new Set(t).size, end: s.scrollWidth > s.clientWidth && s.scrollLeft + s.clientWidth >= s.scrollWidth - 2, cells,
+      fits: panel.scrollWidth <= panel.clientWidth }; })()`);
+  check(ph.wide <= 320 && ph.rows === 3 && ph.end && same(ph.cells, ['Confirmed', 'County', 'Flock type', 'Status']) && ph.fits,
+    'figures: 320 pixels wide: no sideways scrolling, the tiles two by two, the month chart scrolling inside its frame from its latest months, the table without Flock size and Animals, inside its panel', ph);
+  await shot('figures_320');
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, p.sid);
+  await p.eval('new Promise(r => setTimeout(r, 300))');
+  // Fill in again: the form and the pages at their place, fitted to the column.
+  await mouse('#rp-show-fill');
+  const back = await p.eval(`(() => { const b = document.getElementById('rp-preview'); return { st: ${STATE}, h: b.offsetHeight, scale: getComputedStyle(b.querySelector('.rp-sheets')).transform }; })()`);
+  check(same(back.st, { fill: 'true', figures: 'false', shown: false, form: 'visible', pages: 3 }) && back.h > 500 && back.scale !== 'none',
+    'figures: "Fill in" pressed: the form and the pages back, fitted to the column', back);
+  // A new load starts Figures again (nothing picked, Places), opening on the Map.
+  await mouse('#rp-show-figures');
+  await mouse('#rp-fig-counties [data-county="Pierce"]');
+  await mouse('.rp-look [data-look="counties"]');
+  v = await p.eval('WSDA.emergency.state.version');
+  await p.setFiles('#files-input', [path.join(OUT, 'fixtures', 'em_rules_report.csv')]);
+  await emReady(p, v);
+  check(await p.eval(`WSDA.emergency.state.view === 'map'`), 'figures: a new load opens on the Map');
+  await mouse('#show-report');
+  await p.eval(`(() => { const i = document.getElementById('rp-fig-date'); i.value = '2026-09-01'; i.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await wait(`${F}.figures.date === '2026-09-01' && !document.getElementById('rp-figures').hidden`, 5000, 'Figures after the new load');
+  r = await p.eval(FIG);
+  check(r.chip === '' && same(r.look, ['places']) && r.places === 12, 'figures: after the new load nothing is picked and the map is on Places', r);
+  // The Overview's link opens the Report view on Figures.
+  await mouse('#rp-show-fill');
+  await mouse('#show-overview');
+  const link = await p.eval(`(() => { const a = document.getElementById('ov-to-figures'); return { shown: !a.hidden && a.getClientRects().length > 0, words: a.textContent }; })()`);
+  check(same(link, { shown: true, words: 'The update\'s figures: Report' }), 'figures: the Overview\'s link "The update\'s figures: Report"', link);
+  await mouse('#ov-to-figures');
+  check(same(await p.eval(`({ view: WSDA.emergency.state.view, fig: !document.getElementById('rp-figures').hidden, pressed: document.getElementById('rp-show-figures').getAttribute('aria-pressed') })`),
+    { view: 'report', fig: true, pressed: 'true' }), 'figures: the Overview\'s link opens the Report view on Figures');
+  await mouse('#rp-show-fill');
+  await b.send('Emulation.setFocusEmulationEnabled', { enabled: false }, p.sid);
+}
+
 async function partKinds(b) {
   const p = b.page, S = 'WSDA.emergency.state', R = 'WSDA.emergencyRules';
   const species = path.join(TABLES, 'em_rules_species.csv');
@@ -3971,6 +5017,11 @@ async function shot2(b, name) {
       else if (part === 'cvifilter') await partCviFilter(b);
       else if (part === 'byanimal') await partByAnimal(b);
       else if (part === 'kinds') await partKinds(b);
+      else if (part === 'report') await partReport(b);
+      else if (part === 'form') await partForm(b);
+      else if (part === 'page2') await partPage2(b);
+      else if (part === 'figures') await partFigures(b);
+      else if (part === 'guide') await partGuide(b);
       else if (part === 'speed') await partSpeed(b);
       else check(false, 'unknown part ' + part);
     }

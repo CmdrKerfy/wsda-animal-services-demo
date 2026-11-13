@@ -16,9 +16,16 @@ premises sites inside them, and the CVI movements that touch them. HPAI is the f
 | `types.js` | The emergency types' list: checks each type's fields and picks the type for a positives file |
 | `types/hpai.js` | The HPAI type; its top comment explains every field. Copy it to add a type; to change its kinds of animal, see "Changing the kinds of animals" below |
 | `changing-kinds.html`, `changing-kinds.js`, `CHANGING_THE_KINDS_OF_ANIMALS.txt` | The how-to "Changing the kinds of animals" for staff who keep the type file: a page (with its Copy buttons' script) and the same text as plain text |
+| `making-the-update.html`, `MAKING_THE_HPAI_UPDATE.txt` | 2.9, the guide "Making the HPAI update" for staff who make the monthly update in the Report view (linked from the form's opening line): a page with no script, and the same text as plain text |
 | `types/nws.js` | The New World screwworm type: zones from a file, with an example ring until one is loaded |
 | `rules.js` | The rules, with no page work: the positives and their names, which get zones, the locations left out, what lies inside, the "nearest" line, the value boxes, the chart's counts, the Overview's counties, positives, boxes, bars and people inside the zones, the export rows (with `counties.csv`), `zones.csv` and `zones.geojson` (each zone with a `name` property, as `zones.csv`'s "Zone", so the file reopens under "Use a zone file" with its zones named); from 2.6 the drawn zones: the area, the crossing check, the rectangle's and the square's corners, the names, the zone set with the rings giving way, and the exports' area and source; from 2.7 the animal filter (`byAnimals`, `animalsOnly`) |
 | `branded.js` | The map picture (PNG): the branded 11 x 8.5 in page of the map as shown, with no page work (a copy of Premise Lookup's, below); with a CVI master, the CVI premises in a zone drawn hollow under "CVI PREMISES" with the CVI tab's years; from 2.7 each POSITIVES row's sites inside by layer |
+| `report.js` | 2.9, the HPAI update's figures and words, with no page work: every row on the report's date counted as the update counts it, and page 1's sentences and tiles from the type's report words |
+| `report-view.js` | 2.9, the Report view: the update's letter-size pages as they print, drawn from `report.js`, and their fit to the column |
+| `report-form.js` | 2.9, the Report view's form beside the pages: the words and choices staff type (never the numbers), each fold's checks |
+| `report-figures.js` | 2.9, the Report view's "Figures": page 1's figures on screen for reading (internal only, never printed), drawn with the pages' parts, a hover on each figure, a county or a month clicked narrowing the table, the map's "Places \| Counties" |
+| `icons.js` | The page's own small icons: the time views' pin and span, the drawing tools, the Report button and its print button |
+| `message-icons.js`, `phosphor-icons-LICENSE.txt` | 2.9, the key messages' icons in two styles, Filled and Outline (OCHA, Phosphor and Healthicons; four drawn for the page; `site/PROVENANCE.md`), and Phosphor's license |
 | `chart.js` | The charts, drawn as SVG with no page work: "Positives over time" (stacked columns, one per week or month), its counts from `rules.js` `overTime`; the Overview's horizontal bars ("Positives by county", "Sites inside the zones by layer"); E2's chart view is meant to add its charts here |
 
 ## Shared and copied code
@@ -57,3 +64,7 @@ are the type file's `kinds` (`types/hpai.js`). How to add a word or a kind, with
 from other animals"), the rules, the work-PC table check's own copy of the words and what a slip looks like:
 `changing-kinds.html` (open it in a browser; a Copy button beside each line to paste) or its plain-text twin
 `CHANGING_THE_KINDS_OF_ANIMALS.txt` (Notepad, TextEdit). The unit suite checks both against the page's code.
+
+How to make the monthly HPAI update in the Report view, step by step, for a new user: `making-the-update.html` or
+its plain-text twin `MAKING_THE_HPAI_UPDATE.txt`. The unit suite checks that every button, fold and tick they name is
+the page's own.
