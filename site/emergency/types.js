@@ -35,7 +35,7 @@
   // The column roles a type may name, and E1a's names used when it names none.
   const COLUMN_DEFAULTS = { id: ['AnimalDiseaseReportId'], detected: ['Detection Date'], disease: ['Disease Name'],
     status: [], quarantine: [], quarantineStatus: [], flockType: [], inventory: [], shown: [] };
-  const KINDS = [{ key: 'animals', label: 'Animals', word: 'animals', words: [], nameEach: false }];
+  const KINDS = [{ key: 'animals', label: 'Animals', word: 'animals', words: [], weak: [], nameEach: false }];
   const QUARANTINE_VALUES = { under: ['under quarantine', 'quarantined', 'in quarantine'], released: ['released', 'lifted'] };
   // A column whose name holds one of these words is never read (the same words as rules.js PRIVATE).
   const PRIVATE = /address|location|street|premise/i;
@@ -98,9 +98,13 @@
       if (typeof k.key !== 'string' || !/^[a-z0-9-]{1,40}$/.test(k.key)) fail(at + '.key', 'a short key of lowercase letters, digits and dashes');
       const label = text(k.label, at + '.label', fail);
       if (k.nameEach !== undefined && typeof k.nameEach !== 'boolean') fail(at + '.nameEach', 'true or false');
+      const own = last && (k.words === undefined || (Array.isArray(k.words) && !k.words.length)) ? [] : words(k.words, at + '.words', fail);
+      // Weak words (2.9.1): some of the kind's own words that name it only when no other kind is named ("flock").
+      const weak = k.weak === undefined || (Array.isArray(k.weak) && !k.weak.length) ? [] : words(k.weak, at + '.weak', fail);
+      const stray = weak.find(w => !own.includes(w));
+      if (stray !== undefined) fail(at + '.weak', `words from this kind's own "words" ("${stray}" is not one)`);
       return { key: k.key, label, word: k.word === undefined ? label.toLowerCase() : text(k.word, at + '.word', fail),
-        words: last && (k.words === undefined || (Array.isArray(k.words) && !k.words.length)) ? [] : words(k.words, at + '.words', fail),
-        nameEach: k.nameEach === true };
+        words: own, weak, nameEach: k.nameEach === true };
     });
     out.kinds.forEach((k, i) => {
       if (out.kinds.findIndex(x => x.key === k.key) !== i) fail(`kinds[${i}].key`, `a key no other kind has ("${k.key}" is used twice)`);

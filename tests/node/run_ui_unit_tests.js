@@ -221,10 +221,11 @@ const SENSITIVE_FACILITIES = 'Exports and maps contain facility names and locati
   + ' only with authorized responders.';
 const textOf = html => html.replace(/<[^>]+>/g, '').replace(/&middot;/g, '·').replace(/&mdash;/g, '—').replace(/\s+/g, ' ').trim();
 const footLines = [];
-// VERSION.txt at the repository root: the version number and its date, for example "1.0 2026-10-20".
+// VERSION.txt at the repository root: the version number and its date, for example "1.0 2026-10-20" (or a third
+// number for a small release, "2.9.1 2026-11-12").
 const VERSION = (() => {
   const t = fs.readFileSync(path.join(ROOT, 'VERSION.txt'), 'utf8');
-  const m = /^(\d+\.\d+) (\d{4}-\d\d-\d\d)\n$/.exec(t);
+  const m = /^(\d+\.\d+(?:\.\d+)?) (\d{4}-\d\d-\d\d)\n$/.exec(t);
   check(!!m, 'VERSION.txt: one line, the version and its date ("1.0 2026-10-20")', t);
   return m ? m[1] + ' ' + m[2] : null;
 })();
@@ -304,10 +305,10 @@ const SMALL_OK = ['.county-label', '.county-label.pc-name', '.state-label', '.lg
 // update's look, so the floor is the screen's only. Their colors are the brand's names all the same.
 const PRINTED = sel => /^(table)?\.rp-/.test(sel) && sel !== '.rp-bar-top' && !sel.startsWith('.rp-bar-top ') && !sel.startsWith('.rp-note');
 // The Emergency Report's own warning and card colors (2.9), kept as agreed: the brand has no orange dark enough for
-// text, so the form's orange "Check" set (its warnings, the orange edges, "not filled") keeps its own; the key messages'
-// four icon circles keep their soft tints; the live map's hover keeps its gold box for cases at one map point. Colors
-// only: their sizes meet the floor as every other rule does.
-const REPORT_KEEP = ['.maplibregl-popup-content .tip-shared', '.rp-fold summary .tag.warn', '.rp-form .warning', '.rp-msg .pair',
+// text, so the form's orange "Check" set (its warnings, the orange edges, "not filled", and since 2.9.1 a step's chip
+// and a key message's row) keeps its own; the key messages' four icon circles keep their soft tints; the live map's hover keeps its gold box
+// for cases at one map point. Colors only: their sizes meet the floor as every other rule does.
+const REPORT_KEEP = ['.maplibregl-popup-content .tip-shared', '.rp-fold-h .tag.warn', '.rp-chip.warn', '.rp-msg-head .look', '.rp-form .warning', '.rp-msg .pair',
   '.rp-file-note.warn', '.rp-ready-note.warn', '.rp-p2f.chk input', '.rp-form .why', '.rp-slot .none', '.rp-page .rp-nf', '.rp-card .rp-ic.a'];
 const CONTROL = /(^|[\s,>])(button|select|input|textarea|summary)\b|\.btn\b|\.links\b|-toggle\b|\.tip\b|\.dt-filter|\.dt-page/;
 function rules(cssText) {

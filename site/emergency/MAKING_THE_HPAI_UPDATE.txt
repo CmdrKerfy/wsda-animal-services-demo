@@ -22,8 +22,8 @@ Have these ready:
     The first time, you start without one.
   - USDA's and WADDL's pages, open in other browser tabs, for the national,
     wild bird and testing numbers. USDA's addresses are in the National
-    (USDA) fold's address boxes; WADDL's are in the Wild birds and testing
-    (WADDL) fold's link lists.
+    (USDA) step's address boxes; WADDL's are in the Wild birds and testing
+    (WADDL) step's link lists.
 
 
 2. OPEN THE REPORT VIEW
@@ -42,11 +42,16 @@ Have these ready:
 3. EACH MONTH, STEP BY STEP
 ---------------------------
 
-The form is in folds. Click a fold's heading to open or close it. Work from
-the top down.
+The form shows one part at a time, as numbered steps. Press "Next" under the
+part to go on, or "Back" to go back; each button names the part it goes to.
+To jump to any part, click its numbered circle at the top of the form.
+  - A tick in a circle means that part is fine; an orange circle means it
+    needs a look; the dark circle is the part you are on.
+  - The pages on the right scroll to the part you are filling in and outline
+    it, with the label "Filling in". The outline never prints.
 
 STEP 1. Load last month's report text
-  Press "Load last month's" at the bottom of the form and pick last month's
+  Press "Load last month's" under the steps and pick last month's
   report text. It fills in the words, the key messages, the boxes and the
   links. USDA's and WADDL's numbers and pictures stay empty for the new month,
   but last month's numbers are kept to compare with.
@@ -58,13 +63,16 @@ STEP 2. Report date
   row detected after it is left out.
 
 STEP 3. Washington: the status
-  Read the line "From the data on ..." at the top of the fold. It says how
+  Read the line "From the data on ..." at the top of this step. It says how
   many active positives and zones there are. Then pick the status sentence
-  that fits it. If your pick doesn't fit the data, the fold says "Check" (in
+  that fits it. If your pick doesn't fit the data, the heading says "Check" (in
   orange) and explains why. Pick "Write my own" only when no approved wording
   fits.
   Also pick the milk testing stage, and tick "Suspected livestock cases are
-  being tested" only when that's true.
+  being tested" only when that's true. The tick changes the livestock card:
+  with an active livestock case, the card adds "Suspected cases are also being
+  tested."; with none active, it says suspected cases are being tested instead
+  of "no confirmed or suspected" cases.
 
 STEP 4. Washington: from the data
   Nothing to type: Washington's numbers fill themselves in. Choose the map's
@@ -72,17 +80,26 @@ STEP 4. Washington: from the data
   shows a real farm's place. If you know of a gap (for example, cases not yet
   entered in the table), write it in the optional note. You can't type over
   the numbers; the note is the way to explain one.
+  If this step says "Check", a row in the table has no species ("Unknown"
+  or blank) but its type names another animal, such as "Commercial Dairy".
+  It is counted as birds until you fill in Species in the table and load it
+  again.
 
 STEP 5. Key messages
-  Each message has a headline, an icon, its words and an optional link. Tick
-  "Highlight" to shade a card. Use the arrows to move a message, "Set aside"
-  to keep it for another month without printing it, and "+ Add a message"
-  for a new one. "Icon style" (Filled or Outline) changes every card at once.
-  The livestock card comes after your messages; it is made from the data.
+  Each message is a row with its number, icon and headline. Click a row to
+  open it and change its headline, icon, words and optional link; opening
+  another row closes it. On the row, tick "Highlight" to shade its card, and
+  use the arrows to move it. In an open message, "Set aside" keeps it for
+  another month without printing it, and the x button removes it.
+  "+ Add a message" adds a new one, already open. A row that needs a look
+  says "Check" (in orange). "Icon style" (Filled or Outline) changes every
+  card at once. The livestock card comes after your messages; it is made
+  from the data.
 
 STEP 6. National (USDA)
   Copy each number from USDA's page into its box, with USDA's "As of" date.
-  Don't type the flocks in all; the form adds them up.
+  The boxes are four across, in the order of USDA's page, and the form is
+  wider for this step. Don't type the flocks in all; the form adds them up.
   For "USDA's maps, last 30 days", add a picture of each of USDA's three
   maps: press "Add USDA's picture" and pick a saved picture, or take a snip
   of the map (on Windows, Windows key + Shift + S), click the box and press
@@ -110,11 +127,12 @@ STEP 9. Save your work
   without them.
 
 
-4. WHAT THE FOLD HEADINGS TELL YOU
-----------------------------------
+4. WHAT THE HEADINGS AND CIRCLES TELL YOU
+-----------------------------------------
 
-Each fold's heading says how it stands, so you can see what's left without
-opening every fold:
+Each part's heading says how it stands, and its numbered circle at the top
+shows the same (a tick, or orange), so you can see what's left without going
+through every part:
 
   The heading says                      What it means
   ------------------------------------  ------------------------------------
@@ -122,8 +140,9 @@ opening every fold:
   All filled (green)
   Kept month to month, 3 messages       Fine as it is; look it over.
   (gray)
-  Check, 2 to check (orange)            Open the fold: a box with an orange
-                                        edge says what looks wrong under it.
+  Check, 2 to check (orange)            Go to that part (click its orange
+                                        circle): a box with an orange edge
+                                        says what looks wrong under it.
   15 not filled . 3 pictures (orange)   Boxes still empty and pictures still
                                         to add. An empty box prints "not
                                         filled", never last month's number.
@@ -144,7 +163,7 @@ A check is a reminder, not a stop: if the number really is right, leave it.
 
   1. Every page says DRAFT until you tick "Ready to send" (beside the print
      button). If something is still orange, the line beside it names the
-     folds.
+     parts.
   2. Press "Print / Save as PDF".
   3. In the print window, choose "Save as PDF" as the printer (Destination)
      and save. The file name is already "HPAI update" and the date.

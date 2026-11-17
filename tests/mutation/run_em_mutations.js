@@ -112,11 +112,11 @@ const GROUPS = {
       'const a = animalTotals(read, cur.concat(g.past)), rest'],
     ['numbers: cattle counted as birds', RU, '      const k = kindOf(read.type, p);\n      if (k.mixed) {', '      const k = kindOf(read.type, { species: null });\n      if (k.mixed) {'],
     ['numbers: a cattle word matched anywhere in the species', RU,
-      'kinds[i].words.find(w => T().wordStarts(species, w).some(', 'kinds[i].words.find(w => [species.indexOf(w)].filter(at => at >= 0).some('],
+      '\n      && T().wordStarts(species, w).some(', '\n      && [species.indexOf(w)].filter(at => at >= 0).some('],
     ['numbers: "0 cattle" written when no herd has an inventory', RU, '      if (p.inventory === null) {\n        missing++;\n        continue;\n      }\n      const k = kindOf',
       '      if (p.inventory === null) missing++;\n      const k = kindOf'],
-    ['types: a kind\'s species words not checked', TY, "words: last && (k.words === undefined || (Array.isArray(k.words) && !k.words.length)) ? [] : words(k.words, at + '.words', fail),",
-      'words: k.words || [],'],
+    ['types: a kind\'s species words not checked', TY, "const own = last && (k.words === undefined || (Array.isArray(k.words) && !k.words.length)) ? [] : words(k.words, at + '.words', fail);",
+      'const own = k.words || [];'],
     ['zones.csv: not ordered by days since', RU, 'const rows = byQuiet(days).map(', 'const rows = days.map('],
     ['map picture: past rings in the current colors', BRD, 'const pastParts = ringShapes(pastSites, rings, unit, PAST);',
       'const pastParts = ringShapes(pastSites, rings, unit);'],
@@ -469,7 +469,7 @@ const GROUPS = {
     ['layers: precision by place in the filtered list, not by the file\'s row', RU, 'precision: prec[p.ordinal] || {} })) };',
       'precision: prec[l.points.indexOf(p)] || {} })) };'],
     // 2.8 (option E): the kinds of animal from the type
-    ['kinds: only the first kind named, so "Cattle, Chicken" is a bird', RU, '.filter(h => h.hit) : [];', '.filter(h => h.hit).slice(0, 1) : [];'],
+    ['kinds: only the first kind named, so "Cattle, Chicken" is a bird', RU, '.filter(h => h.hit);\n    const hits', '.filter(h => h.hit).slice(0, 1);\n    const hits'],
     ['kinds: "pig" in "pigeon" counted', RU, 'some(at => !covered(i, w, at))', 'some(at => true)'],
     ['kinds: a species no kind names counted under the first kind', RU, 'index: species ? kinds.length - 1 : 0, hit: null', 'index: 0, hit: null'],
     ['kinds: a species no kind names never said', RU, 'const unlisted = !!species && !hits.length && kinds.some(k => k.words.length);', 'const unlisted = false;'],
@@ -559,8 +559,8 @@ const GROUPS = {
     ['table check: a cell not read added up as written', TC, 'total <- sum(as.numeric(gsub(",", "", v[ok])))',
       'total <- sum(suppressWarnings(as.numeric(gsub(",", "", v))), na.rm = TRUE)'],
     // 2.8 (step 5): the release review's fixes
-    ['words: "geese" not a bird word', HP, "'goose', 'geese', 'bird', 'avian', 'layer', 'broiler', 'gamebird',\n", "'goose', 'bird', 'avian', 'layer', 'broiler', 'gamebird',\n"],
-    ['words: "calves" not a cattle word', HP, "'calf', 'calves', 'beef'] },", "'calf', 'beef'] },"],
+    ['words: "geese" not a bird word', HP, "'goose', 'geese', 'bird', 'avian', 'layer', 'broiler', 'gamebird',\n          'pigeon',", "'goose', 'bird', 'avian', 'layer', 'broiler', 'gamebird',\n          'pigeon',"],
+    ['words: "calves" not a cattle word', HP, "'calf', 'calves', 'beef', 'holstein', 'angus', 'hereford'] },", "'calf', 'beef', 'holstein', 'angus', 'hereford'] },"],
     ['words: the table check without "geese"', TC, '"goose", "geese", "bird",', '"goose", "bird",'],
     ['plural: a word already plural made plural again ("geeses")', RU, ' || Object.values(IRREGULAR).includes(last) || ', ' || '],
     ['plural: a species not ending in a plain word made plural ("opossum (juvenile)s")', RU, "    if (!/^[a-z][a-z-]*$/.test(last)) return w;\n", ''],
@@ -695,7 +695,39 @@ const GROUPS = {
     ['guide: a button the page does not have', GH, 'Press <span class="btn">Print / Save as PDF</span>.', 'Press <span class="btn">Print the update</span>.'],
     ['guide: the twin without a button the page names', GT, '2. Press "Print / Save as PDF".', '2. Press "Print".'],
     ['guide: flock sizes as before 2.9', GH, 'Small under 100 birds, Medium 100 to 999, Large 1,000 or more', 'Small under 100 birds, Medium 100 to 1,000, Large above'],
-    ['guide: the twin with a long line', GT, '  - The HPAI table, saved as a .csv file (in Excel: File, Save As, CSV).', '  - The HPAI table, saved as a .csv file (in Excel: File, Save As, CSV), the agreed table of the agency, as it is kept on the R drive.']
+    ['guide: the twin with a long line', GT, '  - The HPAI table, saved as a .csv file (in Excel: File, Save As, CSV).', '  - The HPAI table, saved as a .csv file (in Excel: File, Save As, CSV), the agreed table of the agency, as it is kept on the R drive.'],
+    // 2.9.1: the suspected tick with an active livestock case.
+    ['report words: "suspected" with an active case not said', RPT, "sinceText + '.' + (ch.suspected ? ' Suspected cases are also being tested.' : '')", "sinceText + '.' + ''"],
+    // 2.9.1: the form's steps (report-form.js steps).
+    ['form steps: a part saying "Check" given a tick', RF, 'how: c[key].tag.how === WARN ? WARN : OK }));', 'how: OK }));'],
+    ['form steps: National and Wild birds steps for a type without page 2', RF, 'STEPS.filter(([key]) => c[key]).map(', 'STEPS.filter(() => true).map('],
+    // 2.9.1: the table's new columns (State after County, Quarantine Status after Quarantine Release).
+    ['new columns: State read as the county', RU, "    county: ['county'],", "    county: ['state', 'county'],"],
+    ['new columns: Quarantine Status not found', HP, "      quarantineStatus: ['Quarantine Status'],", "      quarantineStatus: ['Quarantine State'],"],
+    // 2.9.1: the update's links as the PDF has them.
+    ['links: WSDA\'s sick-bird form swapped for WDFW\'s', HP, "              url: 'https://arcg.is/05KT8S' } },", "              url: 'https://survey123.arcgis.com/share/a384e90f69744f2e846135a9ce80027f' } },"],
+    ['links: the outbreak map back to the sick-bird form', HP, "        url: 'https://agr.wa.gov/departments/animals-livestock-and-pets/avian-health/avian-influenza/bird-flu' },", "        url: 'https://arcg.is/05KT8S' },"],
+    // 2.9.1: a species written as not known yet is no species; the words added after the zones tool's reviews.
+    ['species: Unknown, N/A and TBD read as species', RU, "return !s || BLANK_SPECIES.includes(s); };", "return !s; };"],
+    ['species: "-" and "?" read as species', RU, "const s = text(v).toLowerCase().replace(/[^a-z0-9]/g, '');", "const s = text(v).toLowerCase();"],
+    ['species: the table check reads Unknown as a species', TC, 'if (bare == "" || bare %in% BLANK_SPECIES) return', 'if (bare == "") return'],
+    ['species: cowbird left out of the birds', HP, "'goshawk', 'cowbird', 'catbird', 'gosling'", "'goshawk', 'catbird', 'gosling'"],
+    ['species: the table check without the new cattle words', TC, '"beef", "holstein", "angus", "hereford"),', '"beef"),'],
+    // 2.9.1, after the review of the changes: "flock" a weak word, the placeholders with more letters, the young birds.
+    ['flock: a weak word counted like any other ("Sheep flock" birds and other animals)', RU, "(kinds[i].weak || []).includes(w) === weak\n      && ", ''],
+    ['flock: no longer weak in the HPAI type', HP, "        weak: ['flock'] },", "        weak: [] },"],
+    ['flock: a weak word that is not the kind\'s own accepted', TY, "      if (stray !== undefined) fail(at + '.weak',", "      if (false) fail(at + '.weak',"],
+    ['flock: the table check counts a weak word like any other', TC, '(w %in% WEAK) == weak &&', ''],
+    ['species: "Not known" read as a species', RU, "'tbd', 'unknownspecies', 'speciesunknown', 'notknown', 'unk'];", "'tbd', 'unknownspecies', 'speciesunknown', 'unk'];"],
+    ['species: the table check reads "Unk" as a species', TC, '"speciesunknown", "notknown", "unk")', '"speciesunknown", "notknown")'],
+    ['species: gosling left out of the birds', HP, "'catbird', 'gosling', 'duckling', 'poult'],", "'catbird', 'duckling', 'poult'],"],
+    // 2.9.1, after the re-review: a positive with no species but another animal's type, named.
+    ['blank on a dairy: not named under the boxes', RU, "      if (blankOther) lines.push(blankOther);", "      if (false) lines.push(blankOther);"],
+    ['blank on a dairy: a type naming birds and another animal named too', RU, "return !k.unlisted && !k.indices.includes(0); }) || null;", "return !k.unlisted; }) || null;"],
+    ['blank on a dairy: Production Type not read', RU, "const typed = [p.flockType].concat((p.shown || []).map(x => x[1]))", "const typed = [p.flockType]"],
+    ['blank on a dairy: the figures list none', RPT, "blankOther: rows.filter(p => E.blankOtherOf(type, p))", "blankOther: rows.filter(p => false)"],
+    ['blank on a dairy: "From the data" stays "Automatic"', RF, "data: { tag: (f.blankOther || []).length ? { words: 'Check', how: WARN }", "data: { tag: false ? { words: 'Check', how: WARN }"],
+    ['blank on a dairy: "From the data" left out of "Still to check"', RF, "data: 'Washington: from the data', ", ""],
   ],
   page: [
     ['the loader stays open after a clean load', AP, "if (ready && !failed && !notes.length) $('load-fold').open = false;",
@@ -1210,7 +1242,31 @@ const GROUPS = {
     // 2.9, the release review's fixes and the guide.
     ['load: the note never says how to go on with a draft of another date', AP, "(got.reportDate ? ' To go on with that report ' +", "(false ? ' To go on with that report ' +", ['page2']],
     ['guide: the form\'s link to it broken', HT, '<a href="making-the-update.html" target="_blank" rel="noopener" id="rp-guide">', '<a href="making-the-update.htm" target="_blank" rel="noopener" id="rp-guide">', ['guide']],
-    ['guide: the link opening in the same tab', HT, 'target="_blank" rel="noopener" id="rp-guide"', 'rel="noopener" id="rp-guide"', ['guide']]
+    ['guide: the link opening in the same tab', HT, 'target="_blank" rel="noopener" id="rp-guide"', 'rel="noopener" id="rp-guide"', ['guide']],
+    // 2.9.1: the form as guided steps, National four across, the key messages as headline rows.
+    ['steps: every part shown at once', HT, '  .rp-form .rp-fold:not(.cur) { display: none; }\n', '', ['form']],
+    ['steps: Next to the step after the next', RF, 'to = step.list[i + n];', 'to = step.list[i + 2 * n];', ['form']],
+    ['steps: the focus left where it was', RF, "    heading.focus({ preventScroll: true });", '    void heading;', ['form']],
+    ['steps: the pages not scrolled to the part', RF, "if (part) win.scrollTo(0, Math.max(0, win.scrollY + part.getBoundingClientRect().top - 40));", 'void part;', ['form']],
+    ['steps: the current chip a tick', RF, "(s.how === OK && n !== i ? '&#10003;' : n + 1)", "(s.how === OK ? '&#10003;' : n + 1)", ['form']],
+    ['steps: the livestock card not outlined with the status', RF, 'status: \'.rp-blk[data-part="status"], .rp-card[data-m="lv"]\',', 'status: \'.rp-blk[data-part="status"]\',', ['form']],
+    ['steps: the outline printed', HT, '    body.rp-on .rp-here { outline: none !important; }\n', '', ['form']],
+    ['steps: an empty Back shown on the first step', RF, "      el.classList.toggle('none', !to);\n", '', ['form']],
+    ['National: the form not wider on its step', RF, "wide = step.at === 'nat'", 'wide = false', ['page2']],
+    ['National: the form left wide after its step', RF, "layout.classList.toggle('rp-wide', wide);", "layout.classList.toggle('rp-wide', true);", ['page2']],
+    ['National: its numbers two across', RF, "rowOf('nat', ['birds', 'states', 'commercial', 'backyard', 'territories'], null, 'row4')", "rowOf('nat', ['birds', 'states', 'commercial', 'backyard', 'territories'], null)", ['page2']],
+    ['messages: every message open', RF, "no = i + 1, open = list.open === i;", 'no = i + 1, open = true;', ['form']],
+    ['messages: a new message left closed', RF, '      list.open = ms.length - 1;   // a new message opens itself\n', '', ['form']],
+    ['messages: the open message not following its move', RF, 'if (list.open === i) list.open = j; else if (list.open === j) list.open = i;', 'void j;', ['form']],
+    ['messages: a closed row without its "Check"', RF, "el.querySelector('[data-chk]').hidden = !words;", 'void words;', ['form']],
+    ['messages: the row not following a headline typed', RF, "row.querySelector('[data-head]').textContent = words;", 'void words;', ['form']],
+    ['pictures: the paste line\'s room taken away', RF, "paste.style.visibility = wait && !has && !note ? 'hidden' : '';", 'paste.hidden = wait && !has && !note;', ['page2']],
+    // 2.9.1, the short review: the chips compared with the page's own reading (its tick a character), so written again
+    // at each drawing; on a phone the page not scrolled to the chips after Next.
+    ['steps: the chips written again at each drawing', RF, "if ($('rp-chips').drawn !== chips)", "if ($('rp-chips').innerHTML !== chips)", ['page2']],
+    ['steps: a phone not scrolled to the next step', RF, "if (top < 0 || top > win.innerHeight - 60) win.scrollTo", "if (top < 0 && top > win.innerHeight - 60) win.scrollTo", ['page2']],
+    // 2.9.1: the table's new columns, loaded in Chrome: State never read as the county.
+    ['new columns: State read as the county, in the page', RU, "    county: ['county'],", "    county: ['state', 'county'],", ['report']]
   ]
 };
 

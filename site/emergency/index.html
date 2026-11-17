@@ -442,18 +442,44 @@
   body.rp-on .explore { grid-template-columns: minmax(0, 1fr); }
   body.rp-on .em-controls, body.rp-on .em-main > :not(#em-view):not(#view-report) { display: none; }
   .rp-layout { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 1rem; align-items: start; }
+  .rp-layout.rp-wide { grid-template-columns: 560px minmax(0, 1fr); }
   .rp-form { position: sticky; top: 0.5rem; max-height: calc(100vh - 1rem); overflow: auto; border: 1px solid var(--dark-blue-20);
     border-radius: 6px; background: var(--dark-blue-5); padding: 0.75rem; }
   .rp-form h2 { font-size: 1rem; margin: 0 0 0.4rem; color: var(--heading); }
   .rp-form .lead, .rp-form .hint { font-size: 0.8rem; color: var(--black-60); margin: 0 0 0.6rem; }
   .rp-form .hint { margin: 0.25rem 0 0; }
+  /* The form as guided steps (2.9.1): one part shown at a time (report-form.js gives it .cur), the numbered chips
+     above with each part's state, Back and Next under it. */
   .rp-fold { background: #fff; border: 1px solid var(--dark-blue-20); border-radius: 4px; margin: 0 0 0.5rem; }
-  .rp-fold summary { cursor: pointer; padding: 0.45rem 0.6rem; font-weight: 600; font-size: 0.9rem; color: var(--heading); display: flex; gap: 0.4rem; align-items: center; }
-  .rp-fold summary .tag { margin-left: auto; font-weight: 400; font-size: 0.85rem; color: var(--black-60); text-align: right; }
-  .rp-fold summary .tag.ok { color: var(--wsda-evergreen); }
-  .rp-fold summary .tag.warn { color: #9a3b00; font-weight: 700; }
-  .rp-fold summary .tag.warn::before { content: "\25CF"; margin-right: 0.25rem; color: var(--wsda-orange); }
+  .rp-form .rp-fold:not(.cur) { display: none; }
+  .rp-fold-h { margin: 0; padding: 0.45rem 0.6rem; font-weight: 600; font-size: 0.9rem; color: var(--heading); display: flex; gap: 0.4rem; align-items: center; }
+  .rp-fold-h:focus { outline: none; }
+  .rp-fold-h:focus-visible { outline: 2px solid var(--wsda-blue-green); outline-offset: -2px; }
+  .rp-fold-h .tag { margin-left: auto; font-weight: 400; font-size: 0.85rem; color: var(--black-60); text-align: right; }
+  .rp-fold-h .tag.ok { color: var(--wsda-evergreen); }
+  .rp-fold-h .tag.warn { color: #9a3b00; font-weight: 700; }
+  .rp-fold-h .tag.warn::before { content: "\25CF"; margin-right: 0.25rem; color: var(--wsda-orange); }
   .rp-fold .body { padding: 0 0.6rem 0.6rem; }
+  .rp-chips { display: flex; gap: 4px; list-style: none; margin: 0 0 0.6rem; padding: 0; }
+  /* Each chip as wide as its longest word at least (words never broken), the rest shared evenly. */
+  .rp-chips li { flex: 1 1 0; min-width: min-content; display: flex; }
+  .rp-chip { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px 0; border: 0; background: none; cursor: pointer;
+    font: inherit; font-size: 0.75rem; line-height: 1.15; color: var(--black-60); text-align: center; }
+  .rp-chip i { font-style: normal; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700;
+    font-size: 0.8rem; border: 2px solid var(--dark-teal-40); color: var(--wsda-dark-teal); background: #fff; }
+  .rp-chip.ok i { background: var(--ok-bg); border-color: var(--wsda-evergreen); }
+  .rp-chip.warn i { background: #fff1e0; border-color: var(--wsda-orange); color: #9a3b00; }
+  .rp-chip[aria-current] { color: var(--wsda-dark-teal); font-weight: 700; }
+  .rp-chip[aria-current] i { background: var(--wsda-dark-teal); border-color: var(--wsda-dark-teal); color: #fff; }
+  .rp-chip:hover span { text-decoration: underline; }
+  .rp-chip:focus-visible { outline: 2px solid var(--wsda-blue-green); outline-offset: 1px; border-radius: 3px; }
+  .rp-nav { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin: 0.1rem 0 0.4rem; }
+  .rp-nav .of { font-size: 0.8rem; color: var(--black-60); white-space: nowrap; }
+  .rp-nav .btn.none { visibility: hidden; }
+  /* The part of the pages being filled in (never printed). */
+  .rp-here { outline: 3px dashed var(--wsda-blue-green); outline-offset: 3px; position: relative; }
+  .rp-here.first::after { content: "Filling in"; position: absolute; top: -15px; right: 6px; z-index: 2; background: var(--wsda-blue-green); color: #fff;
+    font: 700 11px/1 "Open Sans", Arial, sans-serif; padding: 3px 6px; border-radius: 3px; }
   .rp-form fieldset { border: 0; padding: 0; margin: 0.45rem 0 0; }
   .rp-form legend, .rp-form .body > label:not(.radio), .rp-form #rp-livestock > label:not(.radio), .rp-form #rp-milk-own > label { display: block; font-size: 0.8rem;
     font-weight: 600; color: var(--black-80); margin: 0.5rem 0 0.15rem; padding: 0; }
@@ -470,7 +496,21 @@
   .rp-icon-style .smp { color: var(--wsda-dark-teal); display: inline-flex; }
   .rp-msg { border: 1px solid var(--dark-blue-20); border-radius: 4px; padding: 0.45rem 0.5rem; margin: 0.5rem 0 0; background: var(--dark-blue-5); }
   .rp-msg .top { display: flex; align-items: center; gap: 0.2rem; font-size: 0.8rem; font-weight: 700; color: var(--heading); white-space: nowrap; }
-  .rp-msg .top .sp { flex: 1; }
+  /* A key message's row (2.9.1): a click opens its boxes; the headline on two lines at most, cut short with "..." past
+     them. */
+  .rp-msg-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.3rem; border: 0; background: none; padding: 0.15rem 0; margin: 0 0.2rem 0 0;
+    font: inherit; font-size: 0.85rem; font-weight: 700; color: var(--heading); text-align: left; cursor: pointer; }
+  .rp-msg-head .em-ic { flex: none; color: var(--wsda-dark-teal); }
+  .rp-msg-head .no { flex: none; color: var(--black-60); font-weight: 600; }
+  .rp-msg-head .caret { flex: none; width: 0.8rem; color: var(--black-60); }
+  .rp-msg-head .h { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; line-height: 1.2;
+    overflow-wrap: anywhere; }
+  .rp-msg-head:hover .h { text-decoration: underline; }
+  .rp-msg-head .look { flex: none; color: #9a3b00; font-size: 0.75rem; }
+  .rp-msg-head .look::before { content: "\25CF"; margin-right: 0.2rem; color: var(--wsda-orange); }
+  .rp-msg-head .look[hidden] { display: none; }
+  #rp-msgs .rp-msg:not(.open) { padding-top: 0.3rem; padding-bottom: 0.3rem; }
+  .rp-msg .acts { display: flex; justify-content: flex-end; gap: 0.2rem; margin: 0.3rem 0 0; }
   .rp-msg.hl { border-color: var(--wsda-dark-teal); background: var(--dark-blue-10); box-shadow: inset 4px 0 0 var(--wsda-dark-teal); }
   .rp-msg .top .radio { margin: 0 0.25rem 0 0; gap: 0.25rem; font-size: 0.75rem; font-weight: 600; color: var(--black-80); align-items: center; }
   .rp-msg .top .radio input { margin: 0; }
@@ -502,7 +542,10 @@
   .rp-aside li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rp-aside .mini { border: 1px solid var(--dark-teal-40); background: #fff; border-radius: 3px; height: 1.6rem; padding: 0 0.45rem; font-size: 0.75rem; cursor: pointer; }
   .rp-form .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
-  .rp-form fieldset > label:not(.radio), .rp-form .row2 label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--black-80); margin: 0.4rem 0 0.15rem; }
+  /* National's numbers four across (2.9.1), the labels at the foot of their room so the boxes line up. */
+  .rp-form .row4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 0.5rem; }
+  .rp-form .row4 .rp-p2f label { min-height: 2.5em; line-height: 1.25; display: flex; align-items: flex-end; }
+  .rp-form fieldset > label:not(.radio), .rp-form .row2 label, .rp-form .row4 label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--black-80); margin: 0.4rem 0 0.15rem; }
   .rp-file { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
   .rp-file .btn { font-size: 0.85rem; }
   .rp-file-note { flex-basis: 100%; font-size: 0.8rem; margin: 0.2rem 0 0; color: var(--black-80); }
@@ -572,7 +615,9 @@
   .rp-res b { display: block; font-size: 10.5px; color: var(--wsda-dark-teal); margin-bottom: 2px; }
   .rp-res a, .rp-res span { display: block; margin: 0 0 2px; overflow-wrap: anywhere; }
   .rp-page h3 small a { color: #fff; }
-  @media (max-width: 767px) { .rp-layout { grid-template-columns: minmax(0, 1fr); } .rp-form { position: static; max-height: none; } }
+  @media (max-width: 767px) { .rp-layout, .rp-layout.rp-wide { grid-template-columns: minmax(0, 1fr); } .rp-form { position: static; max-height: none; }
+    .rp-form .row4 { grid-template-columns: 1fr 1fr; }
+    .rp-chips { flex-wrap: wrap; } .rp-chips li { flex: 0 0 calc(25% - 3px); } }
   .rp-preview { overflow: hidden; }
   .rp-sheets { width: 816px; transform-origin: 0 0; }
   .rp-page { width: 816px; height: 1056px; box-sizing: border-box; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); margin: 0 0 16px;
@@ -713,6 +758,8 @@
       max-width: none !important; border: 0 !important; }
     body.rp-on .rp-preview { height: auto !important; overflow: visible; }
     body.rp-on .rp-sheets { transform: none !important; }
+    body.rp-on .rp-here { outline: none !important; }
+    body.rp-on .rp-here.first::after { content: none; }
     body.rp-on .rp-page { box-shadow: none; margin: 0; break-after: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body.rp-on .rp-page:last-child { break-after: auto; }
     body.rp-on .rp-switch, body.rp-on .rp-fig { display: none !important; }
@@ -916,10 +963,11 @@
 <div class="rp-form" id="rp-form" role="group" aria-labelledby="rp-form-h">
 <h2 id="rp-form-h">Fill in the report</h2>
 <p class="lead">The numbers come from the loaded file and fill themselves in. Only the parts below are typed or chosen. <a href="making-the-update.html" target="_blank" rel="noopener" id="rp-guide">Making the HPAI update</a> walks through it.</p>
-<details class="rp-fold" id="rp-f-date" open><summary>Report date<span class="tag" id="rp-t-date"></span></summary><div class="body">
+<ol class="rp-chips" id="rp-chips" aria-label="The report's steps"></ol>
+<section class="rp-fold" id="rp-f-date"><h3 class="rp-fold-h" id="rp-h-date" tabindex="-1">Report date<span class="tag" id="rp-t-date"></span></h3><div class="body">
 <label for="rp-date">Report date</label><input type="date" id="rp-date">
-<p class="hint">The counts are as on this date; a row detected after it is left out.</p></div></details>
-<details class="rp-fold" id="rp-f-status" open><summary>Washington: the status<span class="tag" id="rp-t-status"></span></summary><div class="body">
+<p class="hint">The counts are as on this date; a row detected after it is left out.</p></div></section>
+<section class="rp-fold" id="rp-f-status"><h3 class="rp-fold-h" id="rp-h-status" tabindex="-1">Washington: the status<span class="tag" id="rp-t-status"></span></h3><div class="body">
 <div class="auto" id="rp-data-line"></div>
 <fieldset><legend>The status sentence</legend>
 <label class="radio"><input type="radio" name="rp-status" value="free"><span id="rp-w-free"></span></label>
@@ -933,16 +981,17 @@
 <label for="rp-milk-text">The sentence after it</label><textarea id="rp-milk-text"></textarea></div>
 <div class="warning" id="rp-milk-warn" role="status" hidden></div>
 <label class="radio"><input type="checkbox" id="rp-suspected"><span>Suspected livestock cases are being tested</span></label></div>
-</div></details>
-<details class="rp-fold" id="rp-f-data" open><summary>Washington: from the data<span class="tag" id="rp-t-data"></span></summary><div class="body">
+</div></section>
+<section class="rp-fold" id="rp-f-data"><h3 class="rp-fold-h" id="rp-h-data" tabindex="-1">Washington: from the data<span class="tag" id="rp-t-data"></span></h3><div class="body">
 <div class="auto" id="rp-data-auto"></div>
+<div class="warning" id="rp-data-warn" role="status" hidden></div>
 <fieldset><legend>The map's look</legend>
 <label class="radio"><input type="radio" name="rp-map" value="dots"><span>Soft dots (no exact place)</span></label>
 <label class="radio"><input type="radio" name="rp-map" value="counties"><span>Counties shaded by cases</span></label></fieldset>
 <label for="rp-note-in">A note under Washington's figures (optional)</label><textarea id="rp-note-in"></textarea>
 <p class="hint">For a known gap, such as cases not yet entered. The numbers themselves are never typed.</p>
-</div></details>
-<details class="rp-fold" id="rp-f-msgs" open><summary>Key messages<span class="tag" id="rp-t-msgs"></span></summary><div class="body">
+</div></section>
+<section class="rp-fold" id="rp-f-msgs"><h3 class="rp-fold-h" id="rp-h-msgs" tabindex="-1">Key messages<span class="tag" id="rp-t-msgs"></span></h3><div class="body">
 <fieldset class="rp-icon-style"><legend>Icon style (every card)</legend>
 <label class="radio"><input type="radio" name="rp-icons" value="filled"><span class="smp" data-icon-sample="filled" aria-hidden="true"></span><span>Filled</span></label>
 <label class="radio"><input type="radio" name="rp-icons" value="outline"><span class="smp" data-icon-sample="outline" aria-hidden="true"></span><span>Outline</span></label></fieldset>
@@ -952,10 +1001,10 @@
 <p class="rp-msgs-where" id="rp-msgs-where" role="status"></p>
 <div class="rp-aside" id="rp-aside" hidden></div>
 <p class="hint">The livestock card comes after these, drawn from the data.</p>
-</div></details>
-<details class="rp-fold" id="rp-f-nat" open hidden><summary>National (USDA)<span class="tag" id="rp-t-nat"></span></summary><div class="body" id="rp-nat"></div></details>
-<details class="rp-fold" id="rp-f-wild" open hidden><summary>Wild birds and testing (WADDL)<span class="tag" id="rp-t-wild"></span></summary><div class="body" id="rp-wild"></div></details>
-<details class="rp-fold" id="rp-f-boxes"><summary>Boxes and resources<span class="tag" id="rp-t-boxes"></span></summary><div class="body">
+</div></section>
+<section class="rp-fold" id="rp-f-nat" hidden><h3 class="rp-fold-h" id="rp-h-nat" tabindex="-1">National (USDA)<span class="tag" id="rp-t-nat"></span></h3><div class="body" id="rp-nat"></div></section>
+<section class="rp-fold" id="rp-f-wild" hidden><h3 class="rp-fold-h" id="rp-h-wild" tabindex="-1">Wild birds and testing (WADDL)<span class="tag" id="rp-t-wild"></span></h3><div class="body" id="rp-wild"></div></section>
+<section class="rp-fold" id="rp-f-boxes"><h3 class="rp-fold-h" id="rp-h-boxes" tabindex="-1">Boxes and resources<span class="tag" id="rp-t-boxes"></span></h3><div class="body">
 <label for="rp-heading">The line under the title</label><textarea id="rp-heading"></textarea>
 <fieldset><legend>At every page's foot</legend>
 <label for="rp-hot-ask">The question before the hotline</label><input type="text" id="rp-hot-ask">
@@ -967,7 +1016,8 @@
 <div id="rp-p2-boxes" hidden></div>
 <div class="warning" id="rp-boxes-warn" role="status" hidden></div>
 <p class="hint">Kept in the saved report text, so next month starts the same.</p>
-</div></details>
+</div></section>
+<div class="rp-nav" id="rp-nav"><button type="button" class="btn" id="rp-back"></button><span class="of" id="rp-step-of"></span><button type="button" class="btn primary" id="rp-next"></button></div>
 <div class="rp-file"><button type="button" class="btn" id="rp-save" title="Saves the words and choices in this form (nothing from the table) as one small file, to keep for next month"><span aria-hidden="true">&#8595;</span> Save report text</button>
 <button type="button" class="btn" id="rp-arcgis" title="Saves page 2's figures and the update's sentences as the ArcGIS monthly table's file" hidden><span aria-hidden="true">&#8595;</span> Save for ArcGIS</button>
 <button type="button" class="btn" id="rp-load" title="Fills this form from a report text saved before; the numbers stay this table's">Load last month's</button>
@@ -988,7 +1038,7 @@
 </section>
 </main>
 <footer class="foot"><p class="foot-line"><span class="agency">Washington State Department of Agriculture</span> &middot;
-  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.9 (2026-11-12)</span></p>
+  Runs entirely in this browser tab; the files you load are never uploaded. &middot; <span class="version">Version 2.9.1 (2026-11-16)</span></p>
   <div data-wsda-glossary></div></footer>
 <script src="../shared/release.js"></script>
 <script src="../shared/zip.js"></script>

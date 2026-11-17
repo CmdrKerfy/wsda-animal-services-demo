@@ -78,13 +78,19 @@ QUARANTINE_RELEASED <- c("released", "lifted")
 # The kinds of animal (types/hpai.js kinds, 2.8): each kind's label and species words, in order. A species is every
 # kind with a word at the start of one of its words ("Cattle, Chicken" is "Birds and Cattle"), except a word inside a
 # longer word of another kind ("Pigeon" is birds, not a pig); no species, the first kind; a species no kind names, the
-# last kind, "not listed".
+# last kind, "not listed". A species written as not known yet (BLANK_SPECIES, the whole value with every mark taken
+# out: "N/A", "Not known", "-", "?") counts as none (rules.js, 2.9.1). A weak word (WEAK) names its kind only when no
+# other word names a kind: "Sheep flock" is other animals (types/hpai.js "weak", 2.9.1).
+BLANK_SPECIES <- c("unknown", "na", "tbd", "unknownspecies", "speciesunknown", "notknown", "unk")
+WEAK <- c("flock")
 KINDS <- list(
   Birds = c("poultry", "chicken", "turkey", "duck", "goose", "geese", "bird", "avian", "layer", "broiler", "gamebird", "pigeon",
     "dove", "waterfowl", "fowl", "peafowl", "pheasant", "quail", "chukar", "grouse", "partridge", "emu", "ostrich",
     "rhea", "swan", "gull", "hawk", "eagle", "owl", "falcon", "raptor", "crow", "raven", "magpie", "heron", "egret",
-    "pelican", "cormorant", "songbird", "parrot", "finch", "sparrow", "hen"),
-  Cattle = c("cattle", "dairy", "bovine", "cow", "heifer", "steer", "calf", "calves", "beef"),
+    "pelican", "cormorant", "songbird", "parrot", "finch", "sparrow", "hen", "chick", "rooster", "pullet", "bantam",
+    "peacock", "peahen", "guineafowl", "mallard", "muscovy", "squab", "ratite", "bobwhite", "flock", "seagull",
+    "blackbird", "waterbird", "goshawk", "cowbird", "catbird", "gosling", "duckling", "poult"),
+  Cattle = c("cattle", "dairy", "bovine", "cow", "heifer", "steer", "calf", "calves", "beef", "holstein", "angus", "hereford"),
   `Other animals` = c("goat", "caprine", "sheep", "ovine", "swine", "hog", "porcine", "pig", "alpaca", "llama",
     "camelid", "horse", "equine", "mink", "cat", "feline", "dog", "canine", "seal", "sea lion", "fox", "raccoon",
     "skunk", "bear", "ferret", "rabbit", "deer", "elk", "wolf", "dolphin", "porpoise"))
@@ -396,13 +402,16 @@ word_starts <- function(v, w) {
 # listed".
 kind_of <- function(v) {
   s <- gsub("\\s+", " ", tolower(trimws(v)))
-  if (s == "") return(names(KINDS)[1])
+  bare <- gsub("[^a-z0-9]", "", s)
+  if (bare == "" || bare %in% BLANK_SPECIES) return(names(KINDS)[1])
   covered <- function(k, w, at) {
     others <- unlist(KINDS[names(KINDS) != k])
     any(nchar(others) > nchar(w) & substring(s, at, at + nchar(others) - 1) == others)
   }
-  named <- Filter(function(k) any(vapply(KINDS[[k]], function(w)
+  named_by <- function(weak) Filter(function(k) any(vapply(KINDS[[k]], function(w) (w %in% WEAK) == weak &&
     any(!vapply(word_starts(s, w), function(at) covered(k, w, at), logical(1))), logical(1))), names(KINDS))
+  named <- named_by(FALSE)
+  if (!length(named)) named <- named_by(TRUE)
   if (length(named)) return(paste(named, collapse = " and "))
   paste0(names(KINDS)[length(KINDS)], ", not listed")
 }

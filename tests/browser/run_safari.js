@@ -3369,6 +3369,14 @@ async function runEM() {
       check(rp.shown && rp.fill === 'true' && rp.pages >= 2 && rp.pages === rp.drawn && rp.count === rp.pages + ' pages, as they print'
         && rp.drafts === rp.pages && rp.cases > 0,
       'EM Safari: a real click on "Report" shows Fill in and the update\'s pages, laid out by Safari, each with its DRAFT mark', rp);
+      // 2.9.1: the form as guided steps; Next to the status.
+      await d.click('#rp-next');
+      await d.waitFor(`document.getElementById('rp-f-status').classList.contains('cur')`, 5000, 'the status step');
+      const st = await d.run(`return { of: document.getElementById('rp-step-of').textContent, focus: document.activeElement.id,
+        chips: document.querySelectorAll('#rp-chips .rp-chip').length, shown: Array.prototype.filter.call(document.querySelectorAll('#rp-form .rp-fold'),
+          function (f) { return f.getClientRects().length > 0; }).length };`);
+      check(st.of === 'Step 2 of 7' && st.focus === 'rp-h-status' && st.chips === 7 && st.shown === 1,
+        'EM Safari: a real click on Next: the status step alone, "Step 2 of 7", the focus on its heading (2.9.1)', st);
       await d.click('input[name="rp-status"][value="own"]');
       await d.waitFor(`!document.getElementById('rp-own').hidden`, 5000, 'Write my own box');
       await d.type('#rp-own', 'Typed in Safari for the update.');
@@ -3380,6 +3388,12 @@ async function runEM() {
         Array.prototype.forEach.call(rs,function(r){if(r.type===6)page=r.style.getPropertyValue('size');if(r.type===4&&/print/.test(r.media.mediaText)&&/rp-page/.test(r.cssText))print=true;});});
         return { page: page, print: print };`);
       check(css.page === 'letter' && css.print, 'EM Safari: a real click on "Ready to send" takes the DRAFT marks off; Safari reads the letter page and the print styles', css);
+      await d.click('#rp-chips [data-step="messages"]');
+      await d.click('#rp-msgs .rp-msg[data-i="1"] [data-act="open"]');
+      await d.waitFor(`document.querySelector('#rp-msgs .rp-msg[data-i="1"]').classList.contains('open')`, 5000, 'message 2 open');
+      const opened = await d.run(`return { open: document.querySelectorAll('#rp-msgs .rp-msg.open').length, headline: (document.getElementById('rp-m1-headline') || {}).value };`);
+      check(opened.open === 1 && opened.headline === 'Low risk to the public',
+        'EM Safari: real clicks on the messages chip and a headline row: that message opens alone, its boxes shown (2.9.1)', opened);
       await d.click('#rp-show-figures');
       await d.waitFor(`document.querySelectorAll('#rp-fig-body .rp-tile').length === 6`, 5000, 'Figures drawn');
       const tileAt = await d.run(`var r=document.querySelector('#rp-fig-body .rp-tile').getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];`);

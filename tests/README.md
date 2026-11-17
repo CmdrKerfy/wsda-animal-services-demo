@@ -145,7 +145,9 @@ Emergency dashboard's own, row by row and figure by figure, on every synthetic H
 (`dashboard_rules.js` runs `rules.js` and `report.js` with Node), plus the zones, the cases table, the layers' checks and
 the rows to fix; `test_toolbox.py` runs `HPAI_Zones.pyt` with a stand-in arcpy (`fake_arcpy/`): "Check only", the copy,
 add then remove, the rollback, today's layer refused, a filtered layer, the starter file. About 10 s, Python 3.9 or later
-and Node: `python3 -m unittest discover -s tools/arcgis-zones/tests -v`. ArcGIS itself is tried on the work PC.
+and Node: `python3 -m unittest discover -s tools/arcgis-zones/tests -v`. The public ArcGIS dashboard's counting rules (its
+Arcade file, kept with the ArcGIS build directions, not in this folder) are compared with the tool when the environment
+variable `HPAI_ARCADE_FILE` names that file; otherwise that one test is skipped. ArcGIS itself is tried on the work PC.
 
 ### Chrome suites (fg only)
 

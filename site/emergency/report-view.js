@@ -232,7 +232,9 @@
       '</b> HPAI PCR tests run for Washington since ' + esc(t.since) + '.</p><div class="rp-test"><div><div class="rp-cap">HPAI testing by category</div>' + bars + '</div>' +
       '<div class="rp-res waddl">' + p.testingLists.map(group).join('') + '</div><div class="rp-call">' + call + '</div></div>');
     out.push(h3('Resources') + '<div class="rp-res r3">' + p.resources.map(group).join('') + '</div>');
-    return out.map(html => ({ html, start: html, p2: true }));
+    // Each block's part of the form (2.9.1, the steps' outline): the testing block's lists are typed with the wild birds.
+    const PARTS = ['nat', 'nat', 'wild', 'wild', 'boxes'];
+    return out.map((html, i) => ({ html, start: html, p2: true, part: PARTS[i] }));
   }
 
   // The blocks of the pages, in order; each group starts a new page.
@@ -286,7 +288,9 @@
     // Page 2 after the key messages; this year's detections past page 1's rows stay at the end, as page 1
     // says.
     const p2 = ch.page2 ? page2Blocks(ch.page2, (ch.page && ch.page.hotline) || rp.hotline) : [];
-    return [[banner, tiles, mapRow, chartRow, table].concat(rows, p2, more)];
+    // The banner and Washington's figures carry the form's part they come from (2.9.1, the steps' outline).
+    const part = (html, key) => ({ html, start: html, part: key });
+    return [[part(banner, 'status'), part(tiles, 'data'), part(mapRow, 'data'), chartRow, table].concat(rows, p2, more)];
   }
 
   // ---- The pages: each block on the current page, or the next when it does not fit ----
@@ -315,7 +319,7 @@
     };
     // A block that runs past the page's foot starts the next page (9 px: the last block's own bottom margin). A block
     // is its HTML, or { html, start, cont } for one drawn as start when it begins a page, and as html right under the
-    // block before it (cont: no gap between them).
+    // block before it (cont: no gap between them); part, the form's part it comes from (data-part, for the steps' outline).
     for (const group of groups) {
       let body = newPage();
       for (const x of group) {
@@ -323,6 +327,7 @@
         const b = root.document.createElement('div');
         const first = !body.children.length;
         b.className = 'rp-blk' + (item.cont && !first ? ' cont' : '') + (item.p2 ? ' rp-p2' : '');
+        if (item.part) b.dataset.part = item.part;
         b.innerHTML = first ? item.start : item.html;
         if (item.cont && !first) body.lastElementChild.classList.add('joined');
         body.appendChild(b);

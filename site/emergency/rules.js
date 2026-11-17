@@ -102,9 +102,11 @@
  * The kinds of animal (the type's kinds):
  *   kindOf(type, p) -> { kind, index, indices, mixed, parts, named, one, unlisted }: every kind with a word in p's
  *     species, in the type's order ("Cattle, Chicken" is birds and cattle, mixed); a word inside a longer word of
- *     another kind does not count ("Pigeon" is birds, not a "pig"); no species, the first; a species no kind names,
- *     the last and unlisted. named: the word its animals are counted under ("birds"; with nameEach the species' own,
- *     "goats"; mixed, "animals"), one: the same for one animal. kindKeysOf(type, p) -> its kinds' keys.
+ *     another kind does not count ("Pigeon" is birds, not a "pig"); a kind's weak word counts only when no other word
+ *     names a kind ("Sheep flock" is other animals); no species (or one written as not known yet, BLANK_SPECIES:
+ *     "Unknown", "N/A", "TBD", "Not known", "-", "?"), the first; a species no kind names, the last and unlisted.
+ *     named: the word its animals are counted under ("birds"; with nameEach the species' own, "goats"; mixed,
+ *     "animals"), one: the same for one animal. kindKeysOf(type, p) -> its kinds' keys.
  *     pluralOf(word). inventoryWordOf(type, p) -> the word in p's hover ("2 seals", "1 opossum", "400 animals (birds
  *     and cattle)").
  *   animalShapeOf(type, p) -> the mark's shape: the first kind's place in ANIMAL_SHAPES (circle, square, triangle,
@@ -117,6 +119,9 @@
  *     animalsOnly(type, list, keys) -> "Cattle", "Birds and cattle" when some kinds are left out, else null.
  *     unlistedLine(type, list) -> "1 positive with a species not listed: Opossum", or null. mixedLine(type, list) ->
  *     '1 positive names two kinds: "Cattle, Chicken" (400 animals, counted in neither kind)', or null.
+ *     blankOtherOf(type, p) -> the flock type or Production Type naming another animal ("Commercial Dairy") of a
+ *       positive with no species, or null; blankOtherLine(type, list) -> '1 positive with no species, its type another
+ *       animal: "Commercial Dairy" (counted as birds; fill in Species)', or null (2.9.1).
  *   notMappedLine(dropped) -> "2 not mapped: no coordinates", or null.
  *   details(read, p) -> [[column, value]] shown in the hover and positives.csv: the flock type, the shown columns,
  *     the inventory as written and "Flock size".
@@ -673,11 +678,20 @@
   // (the first of its kinds), indices (all of them), mixed, parts: [{ index, named, one }] one per kind, named and one
   // (the word its animals are counted under: the kind's word, or with nameEach the species' own word, "goats", "goat";
   // mixed, "animals", "animal"), unlisted }.
+  // Written in the species column when it is not known yet: read as no species (the first kind). Compared as a whole
+  // with every character but letters and digits taken out, so "N/A", "T.B.D.", "Unknown?", "Not known", "-" and "?"
+  // all count, "Unknown cattle" does not (2.9.1; tools/arcgis-zones/zone_rules.py and tools/work-pc/check_hpai_table.R
+  // keep copies).
+  const BLANK_SPECIES = ['unknown', 'na', 'tbd', 'unknownspecies', 'speciesunknown', 'notknown', 'unk'];
+  const speciesBlank = v => { const s = text(v).toLowerCase().replace(/[^a-z0-9]/g, ''); return !s || BLANK_SPECIES.includes(s); };
   function kindOf(type, p) {
-    const kinds = type.kinds, species = text(p.species).toLowerCase().replace(/\s+/g, ' ');
+    const kinds = type.kinds, species = speciesBlank(p.species) ? '' : text(p.species).toLowerCase().replace(/\s+/g, ' ');
     const covered = (i, w, at) => kinds.some((k, j) => j !== i && k.words.some(f => f.length > w.length && species.startsWith(f, at)));
-    const hitOf = i => kinds[i].words.find(w => T().wordStarts(species, w).some(at => !covered(i, w, at))) || null;
-    const hits = species ? kinds.map((k, i) => ({ index: i, hit: hitOf(i) })).filter(h => h.hit) : [];
+    // A kind's weak words (2.9.1, "flock") name it only when no other word names a kind: "Sheep flock" is other animals.
+    const hitOf = (i, weak) => kinds[i].words.find(w => (kinds[i].weak || []).includes(w) === weak
+      && T().wordStarts(species, w).some(at => !covered(i, w, at))) || null;
+    const named = weak => kinds.map((k, i) => ({ index: i, hit: hitOf(i, weak) })).filter(h => h.hit);
+    const hits = !species ? [] : named(false).length ? named(false) : named(true);
     const unlisted = !!species && !hits.length && kinds.some(k => k.words.length);
     if (!hits.length) hits.push({ index: species ? kinds.length - 1 : 0, hit: null });
     const parts = hits.map(h => {
@@ -807,6 +821,26 @@
     return hits.length.toLocaleString('en-US') + (hits.length === 1 ? ' positive names ' : ' positives name ') +
       (two ? 'two kinds: ' : 'more than one kind: ') + shown + ' (' +
       (counted.length ? n.toLocaleString('en-US') + (n === 1 ? ' animal' : ' animals') + ', ' : '') + 'counted in neither kind)';
+  }
+
+  // A positive with no species (blank or a placeholder) whose flock type or a shown column (Production Type) names a
+  // kind other than the first and not the first ("Commercial Dairy"): that text, or null (2.9.1). It is counted as the
+  // first kind, so named under the value boxes and in the Report form; the zones tool stops a real run on it.
+  function blankOtherOf(type, p) {
+    if (!speciesBlank(p.species) || type.kinds.length < 2) return null;
+    const typed = [p.flockType].concat((p.shown || []).map(x => x[1])).map(text).filter(v => v && !speciesBlank(v));
+    return typed.find(v => { const k = kindOf(type, { species: v }); return !k.unlisted && !k.indices.includes(0); }) || null;
+  }
+  // The line under the value boxes naming them: '1 positive with no species, its type another animal: "Commercial
+  // Dairy" (counted as birds; fill in Species)' (five names, then how many more), or null.
+  function blankOtherLine(type, list) {
+    const hits = list.filter(p => blankOtherOf(type, p));
+    if (!hits.length) return null;
+    const names = [...new Set(hits.map(p => '"' + blankOtherOf(type, p) + '"'))].sort();
+    const shown = names.length > 6 ? names.slice(0, 5).join(', ') + ' and ' + (names.length - 5) + ' more' : names.join(', ');
+    return hits.length.toLocaleString('en-US') + (hits.length === 1 ? ' positive with no species, its type another animal: '
+      : ' positives with no species, their type another animal: ') + shown + ' (counted as ' + type.kinds[0].label.toLowerCase() +
+      '; fill in Species)';
   }
 
   // One line counting the positives by flock type and adding up their animals: "4 commercial, 67 backyard, 4.1M
@@ -1461,6 +1495,8 @@
       if (unlisted) lines.push(unlisted);
       const mixed = mixedLine(read.type, read.positives.concat(read.dropped || []));
       if (mixed) lines.push(mixed);
+      const blankOther = blankOtherLine(read.type, read.positives.concat(read.dropped || []));
+      if (blankOther) lines.push(blankOther);
     }
     // The animals at the current positives are the Overview's own box (2.3), no longer a line here.
     if (g && g.undated.length) lines.push(g.undated.length.toLocaleString('en-US') + ' without a date');
@@ -1833,7 +1869,7 @@
     PRECISION, toKm, fromKm, KM_PER_MILE, inventoryOf, sizeClass, windowOf, inWindow, isPast, closedDayNotKnown, quarantineOf, stillQuarantined, groups,
     groupOf, weekOf, dayLabel, playSteps, MAX_WEEKS, overTime, dayView, rangeView, openingViews, chartSpan, viewSteps,
     chartKindOf, chartKinds, SEVERAL, siteKey, layerSiteKey,
-    pickColumn, boxesOf, viewBadge, periodLine, viewParams, bigNumber, inventoryWordOf, kindOf, kindKeysOf, pluralOf, ANIMAL_SHAPES, animalShapeOf, animalShapesOf, animalKeys, animalKindsOf, byAnimals, speciesList, animalsOnly, unlistedLine, mixedLine, numbersLine, notMappedLine, details, daysSince, byQuiet,
+    pickColumn, boxesOf, viewBadge, periodLine, viewParams, bigNumber, inventoryWordOf, kindOf, kindKeysOf, BLANK_SPECIES, pluralOf, ANIMAL_SHAPES, animalShapeOf, animalShapesOf, animalKeys, animalKindsOf, byAnimals, speciesList, animalsOnly, unlistedLine, mixedLine, blankOtherOf, blankOtherLine, numbersLine, notMappedLine, details, daysSince, byQuiet,
     zoneRows,
     zonesGeoJson, DRAW, areaM2, areaOf, areaText, lengthText, sidesMeet, crossesAt, isSimple, canClose, drawLabel,
     rectangleCorners, rectangleSize, rectangleLabel, KM_LAT, squareCorners, squareLabel, CIRCLE_SIDES, circleCorners,

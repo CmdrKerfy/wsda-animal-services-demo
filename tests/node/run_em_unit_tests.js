@@ -129,6 +129,8 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
   bad(t => { t.kinds[1].words = []; }, /"kinds\[1\]\.words" should be a list of one or more words/, 'a kind before the last with no words');
   bad(t => { t.kinds[2].nameEach = 'yes'; }, /"kinds\[2\]\.nameEach" should be true or false/, 'nameEach as a word');
   bad(t => { t.kinds[2].words.push('Dairy'); }, /"kinds\[2\]\.words" should be words no earlier kind has \("dairy" is in kinds\[1\], "Cattle", too\)/, 'a word in two kinds');
+  bad(t => { t.kinds[0].weak = ['sheep']; }, /"kinds\[0\]\.weak" should be words from this kind's own "words" \("sheep" is not one\)/, 'a weak word not among the kind\'s words');
+  bad(t => { t.kinds[0].weak = 'flock'; }, /"kinds\[0\]\.weak" should be a list of one or more words/, 'weak words not a list');
   // The printed update's words (2.9): optional, each checked; a type without them has no Report view.
   bad(t => { t.report = 'HPAI update'; }, /"report" should be the printed update's words, in \{ \}/, 'report words that are a word');
   bad(t => { delete t.report.title; }, /"report\.title" should be a text/, 'a report with no title');
@@ -203,8 +205,8 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     t.id = 'test-kinds'; t.kinds = [{ key: 'birds', label: 'Birds', words: ['bird'] }, { key: 'rest', label: 'Every other animal' }];
     delete t.report;   // its case words name kinds this test type does not have
     const c = T.check(t);
-    check(same(c.kinds, [{ key: 'birds', label: 'Birds', word: 'birds', words: ['bird'], nameEach: false },
-      { key: 'rest', label: 'Every other animal', word: 'every other animal', words: [], nameEach: false }]),
+    check(same(c.kinds, [{ key: 'birds', label: 'Birds', word: 'birds', words: ['bird'], weak: [], nameEach: false },
+      { key: 'rest', label: 'Every other animal', word: 'every other animal', words: [], weak: [], nameEach: false }]),
     'types: the last kind may name no species; a kind\'s count word is its label in lowercase when left out', c.kinds);
   }
   bad(t => { t.title = ''; }, /"title" should be a text/, 'an empty title');
@@ -696,6 +698,38 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && same(kindIs(hpai, 'Pigeon'), ['birds', 'birds', 'birds', false]) && same(kindIs(hpai, 'Pigeons and doves'), ['birds', 'birds', 'birds', false])
       && same(kindIs(nws, 'Opossum'), ['animals', 'animals', 'animals', false]) && same(kindIs(nws, 'Cattle'), ['animals', 'animals', 'animals', false]),
     'kinds: "pigeon" a bird though "pig" starts it; pig, seal, fox, wolf and goat other animals each by its own word; no species birds; a species no kind names (Opossum; "cat" does not start "Bobcat") other animals, unlisted; screwworm\'s one kind never unlisted');
+    // A species written as not known yet (2.9.1): "Unknown", "N/A", "TBD", "-", "?" in any capitals and with any
+    // marks are no species (birds, not unlisted); a word with more to it is read as usual.
+    check(['Unknown', 'UNKNOWN?', 'N/A', 'n.a.', 'NA', 'TBD', 't.b.d.', '-', '--', '?', '\u2014', 'Unknown species', 'Species unknown',
+      'Not known', 'Unk', 'UNK.'].every(v => same(kindIs(hpai, v), ['birds', 'birds', 'birds', false]))
+      && same(kindIs(hpai, 'Unknown cattle'), ['cattle', 'cattle', 'cattle', false]) && same(kindIs(hpai, 'None'), ['other', 'nones', 'none', true])
+      && same(kindIs(hpai, 'Unknown goat species'), ['other', 'goats', 'goat', false])
+      && E.unlistedLine(hpai, [{ species: 'N/A' }, { species: '?' }]) === null,
+    'kinds: Unknown, N/A, TBD, Not known, Unk, - and ? (the whole value) are no species (birds, never "not listed"); "Unknown cattle" is cattle');
+    // "flock", a weak word (2.9.1): birds only when no other word names a kind.
+    check(['Sheep flock', 'Goat flock', 'Flock of sheep'].every(v => same(E.kindKeysOf(hpai, { species: v }), ['other']))
+      && ['Backyard flock', 'Flock', 'Flocks', 'Mixed backyard flock'].every(v => same(E.kindKeysOf(hpai, { species: v }), ['birds']))
+      && same(E.kindKeysOf(hpai, { species: 'Chicken flock and sheep' }), ['birds', 'other'])
+      && same(E.kindKeysOf(hpai, { species: 'Dairy flock' }), ['cattle']) && same(hpai.kinds.map(k => k.weak), [['flock'], [], []])
+      && same(kindIs(hpai, 'Sheep flock'), ['other', 'sheep', 'sheep', false]),
+    'kinds: "flock" names birds only when nothing else does: a sheep or goat flock is other animals only, a backyard flock birds, a chicken flock and sheep both');
+    // No species, but a flock type or Production Type naming another animal (2.9.1): counted as birds, so named.
+    const bo = [{ species: 'Unknown', flockType: 'Commercial Dairy' }, { species: '', flockType: 'Backyard', shown: [['Production Type', 'Dairy Cattle']] },
+      { species: 'N/A', flockType: 'Commercial', shown: [['Production Type', 'Commercial Table Egg Layer']] }, { species: 'Cattle', flockType: 'Commercial Dairy' },
+      { species: '', flockType: 'Backyard Poultry and Goats' }, { species: '-', flockType: 'Swanson Farms' }, { species: 'TBD', flockType: 'Goat Dairy' }];
+    check(same(bo.map(p => E.blankOtherOf(hpai, p)), ['Commercial Dairy', 'Dairy Cattle', null, null, null, null, 'Goat Dairy'])
+      && E.blankOtherLine(hpai, bo.slice(0, 1)) === '1 positive with no species, its type another animal: "Commercial Dairy" (counted as birds; fill in Species)'
+      && E.blankOtherLine(hpai, bo) === '3 positives with no species, their type another animal: "Commercial Dairy", "Dairy Cattle", "Goat Dairy" (counted as birds; fill in Species)'
+      && E.blankOtherLine(hpai, bo.slice(2, 6)) === null
+      && E.blankOtherOf(Object.assign({}, hpai, { kinds: hpai.kinds.slice(0, 1) }), bo[0]) === null,
+    'kinds: a positive with no species whose flock type or Production Type names another animal (a dairy) is named under the boxes, counted as birds; a bird, mixed or unknown type is not', bo.map(p => E.blankOtherOf(hpai, p)));
+    // The words added after the zones tool's reviews (2.9.1): a longer word of another kind still wins at the same place.
+    check(['Chicks', 'Rooster', 'Pullets', 'Bantam', 'Peacock', 'Peahen', 'Guineafowl', 'Mallard', 'Muscovy duck', 'Squab',
+      'Ratite', 'Bobwhite', 'Backyard flock', 'Seagull', 'Blackbird', 'Waterbird', 'Goshawk', 'Cowbird', 'Catbird', 'Goslings',
+      'Ducklings', 'Turkey poults', 'Guinea fowl']
+      .every(v => kindIs(hpai, v)[0] === 'birds' && !E.kindOf(hpai, { species: v }).mixed)
+      && ['Holstein', 'Angus', 'Hereford'].every(v => kindIs(hpai, v)[0] === 'cattle'),
+    'kinds: the new bird and cattle words; a cowbird a bird, not a cow; a catbird not a cat');
     // A species naming two kinds is both: mixed, its animals "animals", both marks.
     const mixedIs = (type, species) => { const k = E.kindOf(type, { species });
       return [E.kindKeysOf(type, { species }).join('+'), k.kind.key, k.mixed, k.named, k.one, E.animalShapesOf(type, { species }).join('+')]; };
@@ -829,6 +863,12 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
         && !E.valueBoxes(E.byAnimals(withMixed, ['cattle']), null, agWin).positives.lines.some(l => /names two/.test(l))
         && same(E.animalKeys(hpai, [{ species: 'Pigeon, pig' }]), [row('birds', 'circle', 'Birds'), row('other', 'triangle', 'Other animals')]),
       'the line naming a positive with two kinds under the boxes, there while either kind is ticked; each of its kinds gets a legend row', mLines);
+      const withDairy = Object.assign({}, ag, { positives: ag.positives.concat([Object.assign({}, agAt('Skagit 01'), { name: 'Dairy 01', species: 'Unknown', flockType: 'Commercial Dairy' })]) });
+      const dLines = E.valueBoxes(withDairy, null, agWin).positives.lines;
+      check(dLines.includes('1 positive with no species, its type another animal: "Commercial Dairy" (counted as birds; fill in Species)')
+        && !lineIn.some(l => /no species, its type/.test(l))
+        && !E.valueBoxes(E.byAnimals(withDairy, ['cattle', 'other']), null, agWin).positives.lines.some(l => /no species, its type/.test(l)),
+      'the line naming a positive with no species but a dairy\'s type under the boxes (counted as birds); gone with birds unticked', dLines);
     }
     check(E.numbersLine(ag, early.current) === '1 commercial, 1 backyard, 1,100 birds' && E.numbersLine(ag, []) === null
       && E.numbersLine(read, read.positives) === null, 'the numbers line on an earlier end; none for no positives or a file without the columns');
@@ -2413,6 +2453,19 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(f.cases === 16 && f.later === 1 && f.undated === 1 && f.noPoint === 3 && f.active === 3,
       'report: 16 cases on the date (Skagit 11, detected after it, left out; Pierce 11 without a date and the three rows without a point counted); 3 active (Thurston 11 without a point among them)',
       [f.cases, f.later, f.undated, f.noPoint, f.active]);
+    // The table's new columns (2.9.1): the same rows with Quarantine Status after Quarantine Release and State
+    // after County read to the same figures; State is not read; Pierce 12's "Pending release" and Yakima 12's "Under
+    // quarantine" with two spaces are quarantine statuses not read.
+    {
+      const nRows = csvOf(FX.RULES.newFormat.positives), nRead = E.readPositives(nRows[0], nRows.slice(1), hpai, RR.today);
+      const n = RP.figures(nRead, RR.date, COUNTY_SHAPES), fig = x => [x.cases, x.later, x.undated, x.noPoint, x.active,
+        x.countiesAffected, x.birds, x.flocks.commercial, x.flocks.backyard];
+      check(nRows[0].length === 22 && same(fig(n), fig(f)) && nRead.columns.quarantineStatus === 'Quarantine Status'
+        && nRead.badQuarantineStatus === 2 && same(nRead.positives.concat(nRead.dropped).filter(p => p.unreadQuarantine).map(p => p.id), ['Yakima 12', 'Pierce 12'])
+        && nRead.positives.concat(nRead.dropped).filter(p => p.quarantineStatus === 'under').length === 3,
+        'report (2.9.1): the table in its new columns (Quarantine Status, State) gives the same figures; two quarantine statuses not read',
+        [fig(n), fig(f), nRead.columns, nRead.badQuarantineStatus]);
+    }
     check(same(f.flocks, { total: 14, commercial: 2, backyard: 10, others: [['Live Bird Market', 1]], untyped: 1, active: 2,
       birds: { commercial: 1251000, backyard: 196, rest: 200 } }),
       'report: the flocks are the bird rows (the two-kind one among them; the dairy herd and the goats not): 2 commercial, 10 backyard, one of another type as written, one without a type; their birds by type (King 11 and Franklin 11 commercial; the two-kind Lewis 11 in none, Clark 11 blank; the market\'s 200 the rest), adding up to the birds affected',
@@ -2464,6 +2517,10 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && w.livestock.text === 'There is 1 active confirmed livestock case in Washington state (2 cases since 2022).'
       && same(w.livestock.others, ['Other animals: 1 case since 2022, none active.']) && w.livestock.stage === 'Unaffected / Stage 4',
       'report words: the livestock card from the data (the active cattle case, the total beside it), the other farm animals a line of their own', w.livestock);
+    const wS = RP.wording(f, hpai, { suspected: true }, COUNTY_SHAPES.length);
+    check(wS.livestock.headline === '1 active livestock case in Washington'
+      && wS.livestock.text === 'There is 1 active confirmed livestock case in Washington state (2 cases since 2022). Suspected cases are also being tested.',
+      'report words (2.9.1): "suspected" ticked with an active livestock case adds its own sentence; the headline as without it', wS.livestock);
     const aug1 = RP.wording(RP.figures(rRead, '2026-08-01', COUNTY_SHAPES), hpai, { suspected: true }, 39);
     check(aug1.banner.headline === '1 active detection: 1 premises with other animals; none in domestic flocks'
       && aug1.banner.line.startsWith(hpai.report.status.free)
@@ -2628,6 +2685,18 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     check(same(k0.data.tag, { words: 'Automatic', how: 'ok' })
       && k0.data.auto === 'Filled in from the file, never typed: 2 commercial flocks, 10 backyard flocks, 1,251,396 birds affected, 9 counties; the cases by county; 6 detections in 2026; the map.',
     'form: the figures fold says "Automatic" and lists what the file fills in', k0.data.auto);
+    const fDairy = Object.assign({}, sep1, { blankOther: [{ id: 'SYN 31', county: 'Yakima', typed: 'Commercial Dairy' }] });
+    const kDairy = RF.checks(RF.fresh(hpai), hpai, fDairy, '2026-09-01');
+    const fDairy4 = Object.assign({}, sep1, { blankOther: ['A', 'B', 'C', null].map(id => ({ id, county: null, typed: 'Goat Dairy' })) });
+    check(k0.data.dataWarn === '' && same(kDairy.data.tag, { words: 'Check', how: 'warn' })
+      && kDairy.data.dataWarn === '1 row has no species but a type of another animal: SYN 31 ("Commercial Dairy"). It is counted as birds on these pages. Fill in Species in the table, then load it again.'
+      && RF.checks(RF.fresh(hpai), hpai, fDairy4, '2026-09-01').data.dataWarn === '4 rows have no species but a type of another animal: A ("Goat Dairy"), B ("Goat Dairy"), C ("Goat Dairy") and 1 more. They are counted as birds on these pages. Fill in Species in the table, then load it again.'
+      && same(kDairy.checking, ['Washington: the status', 'Washington: from the data', 'National (USDA)', 'Wild birds and testing (WADDL)']) && same(sep1.blankOther, []),
+    'form: a row with no species but a dairy\'s type: the figures fold says "Check", names the row and asks for Species; "Ready to send" names the fold', kDairy.data);
+    const rDairy = Object.assign({}, rRead, { positives: rRead.positives.map((p, i) => i ? p : Object.assign({}, p, { species: 'Unknown', flockType: 'Commercial Dairy' })) });
+    const figDairy = RP.figures(rDairy, '2026-09-01', SHAPES);
+    check(figDairy.blankOther.length === 1 && figDairy.blankOther[0].typed === 'Commercial Dairy' && figDairy.blankOther[0].id === rRead.positives[0].id,
+      'report: the figures list a counted row with no species but a dairy\'s type (its ID and the type as typed)', figDairy.blankOther);
     // The boxes.
     check(same(k0.boxes.warns, []) && same(k0.boxes.tag, { words: 'Kept month to month', how: '' }), 'form: the update\'s own boxes: no warning, "Kept month to month"', k0.boxes);
     const tBox = RF.fresh(hpai); tBox.hotline.number = '  ';
@@ -2662,6 +2731,13 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const tAll = RF.fresh(hpai); tAll.messages.push({ headline: '', icon: 'truck', text: '', link: { label: '', url: '' }, highlight: false }); tAll.hotline.number = '';
     check(same(RF.checks(tAll, hpai, sep1, '2026-09-01').checking, ['Washington: the status', 'Key messages'].concat(P2, 'Boxes and resources')),
       'form: every fold saying "Check" named, in the form\'s order');
+    // The steps (2.9.1): the form's parts in order, each "warn" while its heading says "Check", else "ok".
+    const stepsOf = k => RF.steps(k).map(x => x.key + ' ' + x.how).join(', ');
+    check(stepsOf(k0) === 'date ok, status warn, data ok, messages ok, nat warn, wild warn, boxes ok'
+      && stepsOf(RF.checks(tAll, hpai, sep1, '2026-09-01')) === 'date ok, status warn, data ok, messages warn, nat warn, wild warn, boxes warn'
+      && same(RF.steps(k0).map(x => x.name), ['Report date', 'Status', 'From the data', 'Messages', 'National (USDA)', 'Wild birds, testing', 'Boxes, resources'])
+      && RF.steps(k0)[4].fold === 'rp-f-nat',
+      'form steps: seven parts in the form\'s order, each a tick or orange from its heading (Sep 1: the milk stage, page 2 not filled)', [stepsOf(k0)]);
     // The cards as drawn: each message's lines (the empty one not printed), a hint for a card much longer than the one
     // beside it, the pages they print on.
     const tL = RF.fresh(hpai);
@@ -2779,10 +2855,15 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       && p0.tests.intro === P.testing.intro && same(p0.tests.cats.map(c => c.n), Array(8).fill('')) && p0.tests.cats[2].name === 'Domestic Cattle/Milk'
       && same(p0.testingLists.map(l => l.length), [4, 3]) && same(p0.resources.map(l => l.length), [4, 4, 2]) && p0.call[1].label === 'online reporting tool',
     'page 2: a new report text: the sources, WADDL\'s sentence, the categories\' names, the box and the lists from the update; every number and date empty', p0);
+    check(p0.call[0].url === 'https://arcg.is/05KT8S' && p0.call[1].url === 'https://survey123.arcgis.com/share/a384e90f69744f2e846135a9ce80027f'
+      && hpai.report.map.url === 'https://agr.wa.gov/departments/animals-livestock-and-pets/avian-health/avian-influenza/bird-flu',
+    'the update\'s links: WSDA\'s domestic sick-bird form, WDFW\'s wildlife form, and the outbreak map\'s page (agr.wa.gov\'s bird flu page)', [p0.call, hpai.report.map]);
     const noP2 = copy(hpai); noP2.id = 'test-no-page2'; delete noP2.report.page2;
     const tNoP2 = T.check(noP2);
     check(RF.fresh(tNoP2).p2 === null && RF.choices(RF.fresh(tNoP2), tNoP2).page2 === null && same(RF.checks(RF.fresh(tNoP2), tNoP2, sep1Fig, '2026-09-01').checking, ['Washington: the status']),
       'page 2: a type with report words but none for page 2 has no page 2: none printed, no folds to check');
+    check(RF.steps(RF.checks(RF.fresh(tNoP2), tNoP2, sep1Fig, '2026-09-01')).map(x => x.key).join() === 'date,status,data,messages,boxes',
+      'form steps: a type without page 2 has five steps, no National or Wild birds');
     p0.nat.birds = '1'; p0.tests.cats.push({ name: 'x', n: '' }); p0.resources[0][0].label = 'changed';
     check(hpai.report.page2.testing.categories.length === 8 && hpai.report.page2.resources[0].links[0].label === 'agr.wa.gov/birdflu' && RF.fresh(hpai).p2.nat.birds === '',
       'page 2: typing into the form never changes the type\'s own words');
@@ -3079,7 +3160,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
   } catch (e) { check(false, 'figures: the checks stopped', String(e && e.stack || e)); }
 
   // ---- 8l. The guide "Making the HPAI update" (2.9: site/emergency/making-the-update.html) --------------------------
-  // Every button, fold, tick and heading word the guide names is the page's own (index.html and the Report view's
+  // Every button, step, tick and heading word the guide names is the page's own (index.html and the Report view's
   // scripts), and its plain-text twin, MAKING_THE_HPAI_UPDATE.txt, names the same; the twin opens in Notepad as it is.
   try {
     const html = fs.readFileSync(path.join(SITE, 'emergency', 'making-the-update.html'), 'utf8');
@@ -3087,7 +3168,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const plain = t => t.replace(/<[^>]+>/g, '').replace(/&#8595;/g, '↓').replace(/&times;/g, '×').replace(/&middot;/g, '·')
       .replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
     const page = plain(html), twin = txt.replace(/\s+/g, ' ');
-    const code = ['index.html', 'app.js', 'report-form.js', 'report-view.js', 'report-figures.js', 'types/hpai.js']
+    const code = ['index.html', 'app.js', 'report.js', 'report-form.js', 'report-view.js', 'report-figures.js', 'types/hpai.js']
       .map(f => fs.readFileSync(path.join(SITE, 'emergency', f), 'utf8')).join('\n').replace(/\\'/g, "'").replace(/&#8595;/g, '↓');
     const NAMES = ['Load your data', 'Report', 'Map', 'Overview', 'Fill in', 'Figures', 'Load last month\'s', 'Report date',
       'Washington: the status', 'From the data on', 'Write my own', 'Suspected livestock cases are being tested',
@@ -3097,7 +3178,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       'Testing (WADDL)', 'Boxes and resources', 'Report online at', 'Save report text', 'Save for ArcGIS',
       'hpai-monthly-figures.csv', ' report text.json', 'Matches the data', 'Automatic', 'All filled', 'Kept month to month',
       'to check', 'not filled', 'Ready to send', 'Print / Save as PDF', 'HPAI update', 'Places', 'Counties',
-      'The update\'s figures: Report'];
+      'The update\'s figures: Report', 'Next', 'Back', 'Filling in', 'Suspected cases are also being tested.'];
     const missing = NAMES.filter(n => !code.includes(n)), notInPage = NAMES.filter(n => !page.includes(n.trim()) && !/json$/.test(n)),
       notInTwin = NAMES.filter(n => !twin.includes(n.trim()) && !/json$/.test(n));
     check(!missing.length, 'guide: every name it gives is the page\'s own (a button, fold, tick or heading word)', missing);
@@ -3279,7 +3360,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const sp = o.species, sRows = csvOf(FX.RULES.species.positives), sr = E.readPositives(sRows[0], sRows.slice(1), hpai);
     const mineRows = sr.positives.map(p => { const k = E.kindOf(hpai, p);
       return { id: p.id, kind: k.kind.key, kinds: E.kindKeysOf(hpai, p), mixed: k.mixed, named: k.named, one: k.one, unlisted: k.unlisted }; });
-    check(sp && sr.positives.length === 20 && !sr.dropped.length && same(sp.kinds, hpai.kinds.map(k => ({ key: k.key, label: k.label, word: k.word, nameEach: k.nameEach })))
+    check(sp && sr.positives.length === 24 && !sr.dropped.length && same(sp.kinds, hpai.kinds.map(k => ({ key: k.key, label: k.label, word: k.word, nameEach: k.nameEach })))
       && same(sp.rows, mineRows), 'R reference: species: the kinds read from the type file, and each row\'s kinds (mixed naming two), count word and listing, as the page',
       sp && sp.rows.filter((x, k) => !same(x, mineRows[k])).concat(mineRows.filter((x, k) => !sp.rows[k] || !same(x, sp.rows[k]))));
     const a = E.animalTotals(sr, sr.positives);
@@ -3429,6 +3510,9 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
       .map(m => [m[1].replace(/`/g, ''), [...m[2].matchAll(/"([^"]*)"/g)].map(x => x[1])]);
     check(same(rKinds, hpai.kinds.map(k => [k.label, k.words])),
       'table check: its kinds of animal and their species words are the HPAI type\'s, in its order (2.8)', rKinds.map(k => k[0]));
+    const rVector = name => [...((new RegExp('^' + name + ' <- c\\(([^)]*)\\)', 'm').exec(rSource) || ['', ''])[1]).matchAll(/"([^"]*)"/g)].map(x => x[1]);
+    check(same(rVector('BLANK_SPECIES'), E.BLANK_SPECIES) && same(rVector('WEAK'), hpai.kinds.flatMap(k => k.weak)),
+      'table check: its placeholders and weak words are rules.js\'s and the HPAI type\'s (2.9.1)', [rVector('BLANK_SPECIES'), rVector('WEAK')]);
     const waBox = /const WA = \{ south: ([\d.-]+), north: ([\d.-]+), west: ([\d.-]+), east: ([\d.-]+) \}/
       .exec(fs.readFileSync(path.join(SITE, 'emergency', 'rules.js'), 'utf8')).slice(1).map(Number);
     const countyNames = globalThis.CVIWA_GEO.counties.features.map(f => f.properties.name).sort();
@@ -3675,7 +3759,7 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     const TABLES = ['em_positives_agreed.csv', 'em_positives_times.csv', 'em_positives_agreed_header.csv',
       'em_positives_tool.csv', 'em_positives_demo.csv', 'em_positives_one_marker.csv', 'em_positives_no_date.csv',
       'em_sample_positives.csv', 'em_rules_positives.csv', 'em_rules_agreed.csv', 'em_rules_overview.csv',
-      'em_rules_quarantine.csv', 'em_rules_closed_day.csv', 'em_table_check_edge.csv'];
+      'em_rules_quarantine.csv', 'em_rules_closed_day.csv', 'em_table_check_edge.csv', 'em_table_check_kinds.csv'];
     for (const name of TABLES) {
       const file = path.join(FXD, name), page = pageOf(file), run = runCheck(file);
       check(!run.failed, 'table check: ' + name + ': R ran and the table is unchanged', run.failed);
@@ -3831,14 +3915,14 @@ const MASTER_HEAD = CVI.datasets[0].columns.join(',');
     // column by its place); the common words as written.
     const typed = path.join(OUTD, 'typed_categories.csv');
     fs.writeFileSync(typed, ['Case ID,Confirmed Diagnosis,Latitude,Longitude,County,Status,Production Type,Flock/Herd Type,Species,Quarantine Status,Note 9/3/2026',
-      'SYN-T-01,9/3/2026,46.55,-120.47,Yakima,Closed 10/1/2026,Smith Farm backyard,Commercial,Chicken,Released 10/2/2026,',
+      'SYN-T-01,9/3/2026,46.55,-120.47,Yakima,Closed 10/1/2026,Sample Farm backyard,Commercial,Chicken,Released 10/2/2026,',
       'SYN-T-02,9/5/2026,46.60,-120.50,Yakima,Open,Benton line,46.6012,Chicken,,',
       'SYN-T-03,9/6/2026,46.61,-120.51,Yakima,Open,Benton line,Commercial,SYN-T-01,Pending,',
       'SYN-T-04,9/7/2026,46.62,-120.52,Yakima,Closed,Commercial,Commercial,SYN-T-01,Pending,'].join('\n') + '\n');
     const typedPage = pageOf(typed), typedRun = runCheck(typed), typedText = typedRun.text || '';
     const typedR = typedRun.text ? reportOf(typedText) : {};
-    check(!typedRun.failed && !leaks(typedText, typedPage).length && !/Smith|Farm|Released 10|Closed 10|46\.6012/.test(typedText)
-      && /"aaaaa aaaa aaaaaaaa": 1/.test(typedText) && /^ {2}Status\s+Open: 2, Closed: 1 \(closed\), "aaaaaa 99\/9\/9999": 1$/m.test(typedText)
+    check(!typedRun.failed && !leaks(typedText, typedPage).length && !/Sample|Farm|Released 10|Closed 10|46\.6012/.test(typedText)
+      && /"aaaaaa aaaa aaaaaaaa": 1/.test(typedText) && /^ {2}Status\s+Open: 2, Closed: 1 \(closed\), "aaaaaa 99\/9\/9999": 1$/m.test(typedText)
       && /"aaaaaaaa 99\/9\/9999": 1 \(not read\)/.test(typedText) && /Pending: 2 \(not read\)/.test(typedText)
       && /"aaa-a-99": 2/.test(typedText) && /"99\.9999": 1/.test(typedText) && /"aaaaaa aaaa": 2/.test(typedText)
       && /^Column 11 \(name not shown\)\s+not used/m.test(typedText)

@@ -22,7 +22,7 @@ premises sites inside them, and the CVI movements that touch them. HPAI is the f
 | `branded.js` | The map picture (PNG): the branded 11 x 8.5 in page of the map as shown, with no page work (a copy of Premise Lookup's, below); with a CVI master, the CVI premises in a zone drawn hollow under "CVI PREMISES" with the CVI tab's years; from 2.7 each POSITIVES row's sites inside by layer |
 | `report.js` | 2.9, the HPAI update's figures and words, with no page work: every row on the report's date counted as the update counts it, and page 1's sentences and tiles from the type's report words |
 | `report-view.js` | 2.9, the Report view: the update's letter-size pages as they print, drawn from `report.js`, and their fit to the column |
-| `report-form.js` | 2.9, the Report view's form beside the pages: the words and choices staff type (never the numbers), each fold's checks |
+| `report-form.js` | 2.9, the Report view's form beside the pages: the words and choices staff type (never the numbers), each part's checks; since 2.9.1 one part at a time as guided steps |
 | `report-figures.js` | 2.9, the Report view's "Figures": page 1's figures on screen for reading (internal only, never printed), drawn with the pages' parts, a hover on each figure, a county or a month clicked narrowing the table, the map's "Places \| Counties" |
 | `icons.js` | The page's own small icons: the time views' pin and span, the drawing tools, the Report button and its print button |
 | `message-icons.js`, `phosphor-icons-LICENSE.txt` | 2.9, the key messages' icons in two styles, Filled and Outline (OCHA, Phosphor and Healthicons; four drawn for the page; `site/PROVENANCE.md`), and Phosphor's license |

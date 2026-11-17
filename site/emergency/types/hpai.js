@@ -35,12 +35,15 @@
  *                   words     species words, matched in the positive's species column (any case, at the start of a
  *                             word: "cow" matches "Dairy cow", "cat" does not match "Bobcat"). Every kind but the
  *                             last needs one or more; a word may be in one kind only
+ *                   weak      some of its own words that name it only when no other kind is named: "Backyard flock"
+ *                             is birds, "Sheep flock" other animals only (left out: none)
  *                   nameEach  true: its animals are counted by each species' own word ("12 goats, 6 pigs, 2 seals")
  *                             instead of the kind's word
  *                 A positive is every kind with a word in its species: "Cattle, Chicken" is both birds and cattle,
  *                 drawn with both marks, shown while either kind is ticked, its animals counted in neither kind and
  *                 named in a line under the value boxes. A longer word of another kind wins where both start:
- *                 "Pigeon" is birds only, though "pig" starts it. A positive with no species is the first kind. A
+ *                 "Pigeon" is birds only, though "pig" starts it. A weak word counts only when no other word names
+ *                 a kind. A positive with no species (or "Unknown", "N/A", "Not known") is the first kind. A
  *                 species no kind's words name is the last kind, and the line under the value boxes names it ("1
  *                 positive with a species not listed: Opossum") so its word can be added here. The order sets the
  *                 marks (circle, square, triangle, diamond, pentagon, hexagon; a seventh kind or later shares the
@@ -123,8 +126,11 @@
         words: ['poultry', 'chicken', 'turkey', 'duck', 'goose', 'geese', 'bird', 'avian', 'layer', 'broiler', 'gamebird',
           'pigeon', 'dove', 'waterfowl', 'fowl', 'peafowl', 'pheasant', 'quail', 'chukar', 'grouse', 'partridge', 'emu', 'ostrich',
           'rhea', 'swan', 'gull', 'hawk', 'eagle', 'owl', 'falcon', 'raptor', 'crow', 'raven', 'magpie', 'heron', 'egret',
-          'pelican', 'cormorant', 'songbird', 'parrot', 'finch', 'sparrow', 'hen'] },
-      { key: 'cattle', label: 'Cattle', words: ['cattle', 'dairy', 'bovine', 'cow', 'heifer', 'steer', 'calf', 'calves', 'beef'] },
+          'pelican', 'cormorant', 'songbird', 'parrot', 'finch', 'sparrow', 'hen', 'chick', 'rooster', 'pullet', 'bantam',
+          'peacock', 'peahen', 'guineafowl', 'mallard', 'muscovy', 'squab', 'ratite', 'bobwhite', 'flock', 'seagull',
+          'blackbird', 'waterbird', 'goshawk', 'cowbird', 'catbird', 'gosling', 'duckling', 'poult'],
+        weak: ['flock'] },
+      { key: 'cattle', label: 'Cattle', words: ['cattle', 'dairy', 'bovine', 'cow', 'heifer', 'steer', 'calf', 'calves', 'beef', 'holstein', 'angus', 'hereford'] },
       { key: 'other', label: 'Other animals', nameEach: true,
         words: ['goat', 'caprine', 'sheep', 'ovine', 'swine', 'hog', 'porcine', 'pig', 'alpaca', 'llama', 'camelid', 'horse',
           'equine', 'mink', 'cat', 'feline', 'dog', 'canine', 'seal', 'sea lion', 'fox', 'raccoon', 'skunk', 'bear', 'ferret',
@@ -151,9 +157,11 @@
     },
     layers: {
       bySpecies: [
-        { words: ['poultry', 'chicken', 'turkey', 'duck', 'goose', 'geese', 'bird', 'avian', 'layer', 'broiler', 'gamebird'],
+        { words: ['poultry', 'chicken', 'turkey', 'duck', 'goose', 'geese', 'bird', 'avian', 'layer', 'broiler', 'gamebird',
+          'chick', 'rooster', 'pullet', 'bantam', 'peacock', 'peahen', 'guineafowl', 'mallard', 'muscovy', 'squab', 'flock',
+          'gosling', 'duckling', 'poult'],
           keys: ['poultry', 'premises', 'markets', 'fairgrounds', 'disposal'] },
-        { words: ['cattle', 'dairy', 'bovine', 'cow', 'heifer', 'steer', 'calf', 'calves', 'beef'],
+        { words: ['cattle', 'dairy', 'bovine', 'cow', 'heifer', 'steer', 'calf', 'calves', 'beef', 'holstein', 'angus', 'hereford'],
           keys: ['milkproducer', 'milkprocessing', 'premises', 'markets', 'feedlots', 'fairgrounds', 'disposal'] }
       ],
       default: ['poultry', 'milkproducer', 'milkprocessing', 'premises', 'markets', 'feedlots', 'fairgrounds', 'disposal']
@@ -182,7 +190,9 @@
       ],
       milkLink: { label: 'National Milk Testing Strategy (NMTS)',
         url: 'https://www.aphis.usda.gov/sites/default/files/national-milk-testing-strategy-5-stage.pdf' },
-      map: { label: 'Washington State Avian Influenza Outbreak Map', url: 'https://arcg.is/05KT8S' },
+      // The update's own link: WSDA's bird flu page, which holds the outbreak map.
+      map: { label: 'Washington State Avian Influenza Outbreak Map',
+        url: 'https://agr.wa.gov/departments/animals-livestock-and-pets/avian-health/avian-influenza/bird-flu' },
       // The update's own key messages; the livestock one is drawn from the data (report.js wording).
       messages: [
         { headline: 'Protect your flock', icon: 'shield-check',
@@ -234,13 +244,15 @@
               { label: 'Sample shipping guidelines', url: 'https://waddl.vetmed.wsu.edu/shipping/' }] }
           ]
         },
-        // The box's two parts; the hotline's name and number (from "Boxes and resources") follow the first.
+        // The box's two parts; the hotline's name and number (from "Boxes and resources") follow the first. WSDA's
+        // form is its Domestic Sick Bird Reporting Form; WDFW's is its Report Wildlife Observations form.
         call: [
           { headline: 'Report Sick Birds to WSDA', text: 'If a flock experiences sudden death or illness of multiple birds, submit a report ' +
             'through Washington State Department of Agriculture\'s', link: { label: 'online reporting tool',
-              url: 'https://survey123.arcgis.com/share/a384e90f69744f2e846135a9ce80027f' } },
+              url: 'https://arcg.is/05KT8S' } },
           { headline: 'Report Sick Wild Birds to WDFW', text: 'Sick or dead wild birds should not be touched or moved and can be reported ' +
-            'using the Washington Department of Fish and Wildlife\'s', link: { label: 'online reporting tool', url: 'https://wdfw.wa.gov/species-habitats/diseases/bird-flu' } }
+            'using the Washington Department of Fish and Wildlife\'s', link: { label: 'online reporting tool',
+              url: 'https://survey123.arcgis.com/share/a384e90f69744f2e846135a9ce80027f' } }
         ],
         resources: [
           { name: 'Animal health', links: [

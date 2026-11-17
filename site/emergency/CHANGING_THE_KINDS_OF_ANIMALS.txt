@@ -16,7 +16,8 @@ Each kind gets its own:
   - color in the Overview's "Columns by: Animal"
   - total in the counts
 
-Changing that one file is the whole change; no other file needs it.
+Changing that one file is the whole change for this page. The work-PC table
+check keeps a copy you change too (Part D), and two more are the maintainer's.
 
 
 BEFORE YOU START
@@ -151,7 +152,9 @@ Order matters
 The catch-all goes last
   The last kind also takes every species no kind names, and the line under the
   value boxes names them. Keep the broadest kind (Other animals) last.
-  A positive with no species at all is the first kind (Birds).
+  A positive with no species at all is the first kind (Birds), and so is one
+  whose species says it is not known yet: Unknown, Unknown species, N/A, TBD,
+  Not known, Unk, - or ?.
 
 Six kinds are told apart
   A seventh kind or later shares the hexagon and the sixth color. Its legend row
@@ -169,6 +172,11 @@ A species naming two kinds is both
   "Cattle, Chicken" shows while either kind is ticked, has both marks side by
   side, its animals are counted in neither kind, and a line under the value boxes
   names it.
+
+A weak word counts only alone
+  Birds' 'flock' is in its weak list as well as its words: it names birds only
+  when no other word names a kind. "Backyard flock" is birds; "Sheep flock" is
+  Other animals only.
 
 What the page refuses (each gives the red notice)
   - the same word in two kinds
@@ -199,6 +207,11 @@ from here:
 
 Tell the platform's maintainer you changed both files: the platform's automatic
 checks flag it when the two lists differ.
+
+Two more copies are the maintainer's to change, together: the HPAI zones tool
+(tools/arcgis-zones/zone_rules.py) and the public ArcGIS dashboard's counting
+rules. Until they change too, the public map and dashboard count that species as
+before.
 
 
 PART E.  WHAT A SLIP LOOKS LIKE

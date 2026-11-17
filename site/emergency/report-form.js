@@ -1,6 +1,8 @@
 /* Emergency Response, the Report view's form (2.9, E2): the parts of the update staff type or choose, beside the pages
  * (report-view.js draws them). The numbers from the loaded file are never fields: the form holds words and choices
- * only, and each fold's heading says how it stands ("Matches the data", "Automatic", or an orange "Check").
+ * only, and each part's heading says how it stands ("Matches the data", "Automatic", or an orange "Check").
+ * Since 2.9.1 the form is guided steps: one part at a time, "Step n of 7" with Back and Next, numbered chips above
+ * with each part's state (any chip a jump), and the part of the pages being filled in outlined ("Filling in").
  *
  * The report text is one plain object, what "Save report text" keeps month to month:
  *   type        the emergency type's id
@@ -28,12 +30,16 @@
  *   choices(text, type, pics) -> what report-view.js draw takes as choices (pics: pictures(), for page 2's maps).
  *   checks(text, type, f, date, cards, pics) -> each fold's heading and warnings, pure (for the unit suite); a tag is
  *     { words, how ('ok', 'warn' or '') }:
- *       date { tag }; status { tag, statusWarn, milkWarn, dataLine, picked }; data { tag, auto };
+ *       date { tag }; status { tag, statusWarn, milkWarn, dataLine, picked }; data { tag, auto, dataWarn (a row with no species but another animal's type) };
  *       messages { tag, warns (a list a message), lines (each message's lines on its card, null for one not printed),
  *         pairs (a hint for a card much longer than the one beside it), pages (where the messages print) };
  *       nat { tag } and wild { tag } (page 2's folds) with page2 (page2Checks'); boxes { tag, warns }; checking (the
  *       folds' names that say "Check").
  *     cards are report-view.js draw's (left out: no lines, hints or pages); pics, how many of USDA's pictures are added.
+ *   steps(c) -> the form's steps from checks' c: [{ key, fold, name (the chip's), how ('ok' or 'warn') }], National and
+ *     Wild birds only for a type with page 2.
+ *   go(doc, key) moves the form to a step: its chip current, the pages scrolled to its part (beside the pages only),
+ *     the keyboard's focus on its heading.
  *   page2Checks(text, date, pics) -> page 2's boxes checked: { why (a box's line, by "part.key"), flocks, flocksLine,
  *     compared (what the numbers are compared with), nat and wild { tag, checks, blanks } }.
  *   arcgisFile(text, type, date, words) -> { csv, blanks }: "Save for ArcGIS", one row in the ArcGIS monthly table's
@@ -486,6 +492,16 @@
     return out;
   }
 
+  // A row with no species whose type names another animal ("Commercial Dairy") is counted as the first kind (a flock
+  // in the update): named, so Species is filled in before the update is sent (2.9.1; the zones tool stops on it).
+  function blankOtherWarn(f, type) {
+    const b = f.blankOther || [];
+    if (!b.length) return '';
+    const shown = b.slice(0, 3).map(x => (x.id || 'a row') + ' ("' + x.typed + '")').join(', ') + (b.length > 3 ? ' and ' + (b.length - 3) + ' more' : '');
+    return many(b.length, 'row has', 'rows have') + ' no species but a type of another animal: ' + shown + '. ' +
+      (b.length === 1 ? 'It is' : 'They are') + ' counted as ' + type.kinds[0].label.toLowerCase() + ' on these pages. Fill in Species in the table, then load it again.';
+  }
+
   // The status sentence is checked against the active flocks (report.js statusFits); the milk testing stage gets a
   // reminder while the livestock kind has active cases; staff's own sentence is not checked, the data's line beside it.
   function checks(text, type, f, date, cards, pics) {
@@ -517,7 +533,7 @@
     const out = {
       date: { tag: { words: when, how: '' } },
       status: { tag: statusTag, statusWarn, milkWarn, dataLine, picked },
-      data: { tag: { words: 'Automatic', how: OK }, auto },
+      data: { tag: (f.blankOther || []).length ? { words: 'Check', how: WARN } : { words: 'Automatic', how: OK }, auto, dataWarn: blankOtherWarn(f, type) },
       boxes: (() => {
         const warns = [];
         if (!trim(text.hotline.number)) warns.push('The hotline has no number: the foot prints without one.');
@@ -547,7 +563,7 @@
       out.wild = { tag: out.page2.wild.tag };
     }
     // The folds that say "Check", for the line beside "Ready to send".
-    const NAMES = { status: 'Washington: the status', messages: 'Key messages', nat: 'National (USDA)', wild: 'Wild birds and testing (WADDL)',
+    const NAMES = { status: 'Washington: the status', data: 'Washington: from the data', messages: 'Key messages', nat: 'National (USDA)', wild: 'Wild birds and testing (WADDL)',
       boxes: 'Boxes and resources' };
     out.checking = Object.keys(NAMES).filter(k => out[k] && out[k].tag.how === WARN).map(k => NAMES[k]);
     return out;
@@ -571,17 +587,26 @@
 
   // ---- The key messages' list ----
   // Drawn again only when its shape changes (list.dirty) or for another report text (list.of), so a box being typed in
-  // keeps its place. One icon list is open at a time (list.picking, the message's index); list.focus is the control
-  // to give the focus back to after a drawing; list.removed the last message removed, for "Undo".
-  const list = { of: null, dirty: true, picking: -1, focus: null, removed: null };
+  // keeps its place. Since 2.9.1 each message is a headline row, opened one at a time (list.open, the message's index,
+  // -1 for none) for its boxes. One icon list is open at a time (list.picking, the message's index); list.focus is the
+  // control to give the focus back to after a drawing; list.removed the last message removed, for "Undo".
+  const list = { of: null, dirty: true, open: -1, picking: -1, focus: null, removed: null };
+  const headlineOf = (m, no) => trim(m.headline) || 'Message ' + no + ' (no headline yet)';
+  // A message: its row (the number, icon and headline, a click opening or closing it; Highlight and the arrows), and
+  // for the open one its boxes, with Set aside and Remove.
   function messageHtml(m, i, n, style) {
-    const at = 'rp-m' + i + '-', no = i + 1;
+    const at = 'rp-m' + i + '-', no = i + 1, open = list.open === i;
     const btn = (act, words, label, off) => '<button type="button" class="mini" data-act="' + act + '" aria-label="' + label + '" title="' + label + '"' +
       (off ? ' disabled' : '') + '>' + words + '</button>';
-    let h = '<div class="rp-msg' + (m.highlight ? ' hl' : '') + '" data-i="' + i + '"><div class="top"><span>Message ' + no + '</span><span class="sp"></span>' +
+    let h = '<div class="rp-msg' + (m.highlight ? ' hl' : '') + (open ? ' open' : '') + '" data-i="' + i + '"><div class="top">' +
+      '<button type="button" class="rp-msg-head" data-act="open" aria-expanded="' + open + '"' + (open ? ' aria-controls="' + at + 'body"' : '') +
+      ' title="' + esc(headlineOf(m, no)) + '"><span class="caret" aria-hidden="true">' + (open ? '&#9662;' : '&#9656;') + '</span><span class="no">' + no + '</span>' +
+      MI.svg(m.icon, style, 18) + '<span class="h" data-head>' + esc(headlineOf(m, no)) + '</span><span class="look" data-chk hidden>Check</span></button>' +
       '<label class="radio" title="Shade this card on the page"><input type="checkbox" data-f="highlight"' + (m.highlight ? ' checked' : '') +
-      '><span>Highlight</span></label>' +
-      btn('up', '&uarr;', 'Move message ' + no + ' up', i === 0) + btn('down', '&darr;', 'Move message ' + no + ' down', i === n - 1) +
+      ' aria-label="Highlight message ' + no + '"><span aria-hidden="true">Highlight</span></label>' +
+      btn('up', '&uarr;', 'Move message ' + no + ' up', i === 0) + btn('down', '&darr;', 'Move message ' + no + ' down', i === n - 1) + '</div>';
+    if (!open) return h + '</div>';
+    h += '<div class="body" id="' + at + 'body"><div class="acts">' +
       '<button type="button" class="mini wide" data-act="aside" title="Keep it in the saved report text, off the pages">Set aside</button>' +
       btn('remove', '&times;', 'Remove message ' + no) + '</div>' +
       '<label for="' + at + 'headline">Headline</label><input type="text" id="' + at + 'headline" data-f="headline" value="' + esc(m.headline) + '">' +
@@ -597,7 +622,7 @@
       '<div class="row2"><div><label for="' + at + 'label">Link words (optional)</label><input type="text" id="' + at + 'label" data-f="label" value="' +
       esc(m.link.label) + '"></div><div><label for="' + at + 'url">Address</label><input type="text" id="' + at + 'url" data-f="url" placeholder="https://..." value="' +
       esc(m.link.url) + '"></div></div><p class="lines" data-lines></p><div class="pair" data-pair role="status" hidden></div>' +
-      '<div class="warning" data-warn role="status" hidden></div></div>';
+      '<div class="warning" data-warn role="status" hidden></div></div></div>';
     return h;
   }
   function drawList(doc, text) {
@@ -625,6 +650,11 @@
       if (f === 'label' || f === 'url') m.link[f] = e.target.value;
       else if (f === 'highlight') return;   // a tick: its change below
       else m[f] = e.target.value;
+      if (f === 'headline') {
+        const row = e.target.closest('.rp-msg'), words = headlineOf(m, i + 1);
+        row.querySelector('[data-head]').textContent = words;
+        row.querySelector('.rp-msg-head').title = words;
+      }
       if (e.target.tagName === 'TEXTAREA') grow(e.target);
       changed(true);
     });
@@ -641,20 +671,28 @@
       const b = e.target.closest('button[data-act]');
       if (!b) return;
       const ms = get().messages, i = at(b), sel = (j, act) => '#rp-msgs .rp-msg[data-i="' + j + '"] [data-act="' + act + '"]';
-      if (b.dataset.act === 'up' || b.dataset.act === 'down') {
+      if (b.dataset.act === 'open') {
+        list.open = list.open === i ? -1 : i;
+        list.picking = -1;
+        redraw(sel(i, 'open'));
+      } else if (b.dataset.act === 'up' || b.dataset.act === 'down') {
         const j = b.dataset.act === 'up' ? i - 1 : i + 1;
         if (j < 0 || j >= ms.length) return;
         [ms[i], ms[j]] = [ms[j], ms[i]];
+        // The open message stays open where it goes.
+        if (list.open === i) list.open = j; else if (list.open === j) list.open = i;
         list.picking = -1;
         redraw(sel(j, j === 0 || j === ms.length - 1 ? (j === 0 ? 'down' : 'up') : b.dataset.act));
       } else if (b.dataset.act === 'aside') {
         get().aside.push(ms.splice(i, 1)[0]);
+        list.open = -1;
         list.picking = -1;
         redraw('#rp-aside [data-back="' + (get().aside.length - 1) + '"]');
       } else if (b.dataset.act === 'remove') {
         list.removed = { m: ms.splice(i, 1)[0], i };
+        list.open = -1;
         list.picking = -1;
-        redraw(ms.length ? sel(Math.min(i, ms.length - 1), 'remove') : '#rp-msg-undo');
+        redraw(ms.length ? sel(Math.min(i, ms.length - 1), 'open') : '#rp-msg-undo');
       } else if (b.dataset.act === 'pick') {
         list.picking = list.picking === i ? -1 : i;
         redraw(list.picking === i ? '#rp-msgs .rp-picker [aria-pressed="true"]' : sel(i, 'pick'));
@@ -676,6 +714,7 @@
       const b = e.target.closest('button[data-back]'), t = get();
       if (!b || !t.aside[+b.dataset.back]) return;
       t.messages.push(t.aside.splice(+b.dataset.back, 1)[0]);
+      list.open = t.messages.length - 1;
       list.picking = -1;
       redraw('#rp-m' + (t.messages.length - 1) + '-headline');
     });
@@ -683,6 +722,7 @@
       const ms = get().messages;
       ms.push(message({ icon: 'information' }));
       list.removed = null;
+      list.open = ms.length - 1;   // a new message opens itself
       list.picking = -1;
       redraw('#rp-m' + (ms.length - 1) + '-headline');
     });
@@ -691,6 +731,7 @@
       const ms = get().messages, i = Math.min(list.removed.i, ms.length);
       ms.splice(i, 0, list.removed.m);
       list.removed = null;
+      list.open = i;
       redraw('#rp-m' + i + '-headline');
     });
     doc.querySelectorAll('input[name="rp-icons"]').forEach(r => r.addEventListener('change', () => {
@@ -712,16 +753,17 @@
       (f.kind === 'date' ? ' placeholder="mm/dd/yyyy"' : f.kind === 'url' ? ' placeholder="https://..."' : '') +
       (f.kind === 'int' || f.kind === 'num' ? ' inputmode="decimal"' : '') + '><div class="why" data-why="' + f.part + '.' + f.key + '" role="status" hidden></div></div>';
   };
-  const rowOf = (part, keys, labels) => '<div class="row2">' + keys.map(k => fieldHtml(FIELD[part + '.' + k], labels && labels[k])).join('') + '</div>';
+  // A row of boxes, two across; National's numbers four across (2.9.1, in USDA's order: row4).
+  const rowOf = (part, keys, labels, cls) => '<div class="' + (cls || 'row2') + '">' + keys.map(k => fieldHtml(FIELD[part + '.' + k], labels && labels[k])).join('') + '</div>';
   const fieldset = (legend, inner) => '<fieldset><legend>' + esc(legend) + '</legend>' + inner + '</fieldset>';
   function build(doc, type) {
     const p = type.report.page2, nat = doc.getElementById('rp-nat');
     if (nat.dataset.built === type.id) return;
     nat.dataset.built = type.id;
     nat.innerHTML = '<p class="rp-cmp" id="rp-p2-cmp"></p>' + rowOf('nat', ['asOf', 'source']) +
-      fieldset('Since the outbreak began', rowOf('nat', ['birds', 'states', 'commercial', 'backyard', 'territories']) + '<div class="auto" id="rp-p2-flocks"></div>') +
-      fieldset('Domestic flocks, last 30 days', rowOf('nat', ['c30', 'b30', 'birds30', 'regional30', 'lastFlock'])) +
-      fieldset('Domestic livestock, last 30 days', rowOf('nat', ['lvStates', 'lvCases', 'lvRegional', 'lastLivestock']) + rowOf('nat', ['lvSource', 'sequencing'])) +
+      fieldset('Since the outbreak began', rowOf('nat', ['birds', 'states', 'commercial', 'backyard', 'territories'], null, 'row4') + '<div class="auto" id="rp-p2-flocks"></div>') +
+      fieldset('Domestic flocks, last 30 days', rowOf('nat', ['c30', 'b30', 'birds30', 'regional30', 'lastFlock'], null, 'row4')) +
+      fieldset('Domestic livestock, last 30 days', rowOf('nat', ['lvStates', 'lvCases', 'lvRegional', 'lastLivestock'], null, 'row4') + rowOf('nat', ['lvSource', 'sequencing'])) +
       fieldset('USDA\'s maps, last 30 days', '<div id="rp-pics"></div><input type="file" id="rp-pic-file" accept="image/*" hidden>' +
         '<p class="hint">A picture of each map from USDA\'s page (a screenshot). Pictures are not kept in the saved report text: each month starts without them.</p>');
     const tick = (key, words) => '<label class="radio"><input type="checkbox" id="rp-p2-wild-' + key + '" data-p2tick="wild.' + key + '"><span>' + words + '</span></label>';
@@ -809,7 +851,9 @@
       st.className = 'none' + (!note && wait && !has ? ' ready' : '');
       st.hidden = !st.textContent;
       paste.textContent = wait && has && !note ? 'Ready: press Ctrl+V to paste' : 'or click this box and paste a snip (Ctrl+V)';
-      paste.hidden = wait && !has && !note;
+      // Hidden, the line keeps its room (2.9.1): a slot that stops waiting as another slot's button is pressed would
+      // otherwise move that button from under the mouse, and its click be lost.
+      paste.style.visibility = wait && !has && !note ? 'hidden' : '';
     });
   }
   // A picture file read as a data: address; a file that is not a picture, or one too big, is refused with its reason.
@@ -1003,8 +1047,88 @@
     $('rp-ready').addEventListener('change', () => { get().ready = $('rp-ready').checked; changed(false); });
     for (const id of TEXTS) $(id).addEventListener('input', () => grow($(id)));
     wireList(doc, get, changed);
-    doc.querySelectorAll('.rp-fold').forEach(d => d.addEventListener('toggle', () => growAll(doc)));
+    // The steps: a chip jumps to its part; Back and Next to the one before and after.
+    $('rp-chips').addEventListener('click', e => { const b = e.target.closest('[data-step]'); if (b) go(doc, b.dataset.step); });
+    const by = n => { const i = step.list.findIndex(x => x.key === step.at), to = step.list[i + n]; if (to) go(doc, to.key); };
+    $('rp-back').addEventListener('click', () => by(-1));
+    $('rp-next').addEventListener('click', () => by(1));
     doc.defaultView.addEventListener('resize', () => growAll(doc));   // a narrower box needs more lines
+  }
+
+  // ---- The steps (2.9.1): the form one part at a time ----
+  // Each part: its key in checks(), its fold and the chip's name. National and Wild birds are steps only for a type
+  // with page 2 (checks() has them then).
+  const STEPS = [['date', 'rp-f-date', 'Report date'], ['status', 'rp-f-status', 'Status'], ['data', 'rp-f-data', 'From the data'],
+    ['messages', 'rp-f-msgs', 'Messages'], ['nat', 'rp-f-nat', 'National (USDA)'], ['wild', 'rp-f-wild', 'Wild birds, testing'],
+    ['boxes', 'rp-f-boxes', 'Boxes, resources']];
+  // A part is "warn" when its heading says "Check", otherwise "ok": it matches the data or is filled in.
+  const steps = c => STEPS.filter(([key]) => c[key]).map(([key, fold, name]) => ({ key, fold, name, how: c[key].tag.how === WARN ? WARN : OK }));
+  // The part of the pages each step fills, outlined while it is filled in; the first in the pages' order says
+  // "Filling in". The livestock card goes with the status (its milk testing stage and "suspected").
+  const ON_PAGES = {
+    date: '.rp-page:first-child .rp-head .d',
+    status: '.rp-blk[data-part="status"], .rp-card[data-m="lv"]',
+    data: '.rp-blk[data-part="data"]',
+    messages: '.rp-card:not([data-m="lv"])',
+    nat: '.rp-blk[data-part="nat"]',
+    wild: '.rp-blk[data-part="wild"]',
+    boxes: '.rp-page:first-child .rp-head .t, .rp-page:first-child .rp-foot, .rp-blk[data-part="boxes"]'
+  };
+  // The step shown (kept while the Report view is left and come back to), the steps and the last checks.
+  const step = { at: 'date', list: [], c: null };
+  const headingOf = (doc, s) => doc.getElementById(s.fold).querySelector('.rp-fold-h').firstChild.textContent;
+
+  // The chips, the part shown, Back and Next, and the outline on the pages (drawn again with the pages, after each
+  // change). The chips are written again only when they change, so a chip keeps the keyboard's focus (compared with
+  // the last chips written, as the page reads its tick back as a character, not as "&#10003;").
+  function drawSteps(doc, c) {
+    const $ = ids(doc), list = steps(c);
+    if (!list.some(s => s.key === step.at)) step.at = list[0].key;
+    Object.assign(step, { list, c });
+    const i = list.findIndex(s => s.key === step.at), prev = list[i - 1], next = list[i + 1];
+    const chips = list.map((s, n) => '<li><button type="button" class="rp-chip ' + s.how + '" data-step="' + s.key + '"' +
+      (n === i ? ' aria-current="step"' : '') + ' aria-label="Step ' + (n + 1) + ': ' + esc(headingOf(doc, s)) + (s.how === WARN ? ', check' : '') + '">' +
+      '<i aria-hidden="true">' + (s.how === OK && n !== i ? '&#10003;' : n + 1) + '</i><span aria-hidden="true">' + esc(s.name) + '</span></button></li>').join('');
+    if ($('rp-chips').drawn !== chips) Object.assign($('rp-chips'), { innerHTML: chips, drawn: chips });
+    for (const [key, fold] of STEPS) $(fold).classList.toggle('cur', key === step.at);
+    const nav = (el, to, words) => {
+      el.innerHTML = to ? words : '';
+      el.disabled = !to;
+      el.classList.toggle('none', !to);
+    };
+    nav($('rp-back'), prev, prev && '<span aria-hidden="true">&larr;</span> Back: ' + esc(prev.name));
+    nav($('rp-next'), next, next && 'Next: ' + esc(next.name) + ' <span aria-hidden="true">&rarr;</span>');
+    $('rp-step-of').textContent = 'Step ' + (i + 1) + ' of ' + list.length;
+    const sheets = doc.querySelector('#rp-preview .rp-sheets'), parts = sheets ? [...sheets.querySelectorAll(ON_PAGES[step.at])] : [];
+    parts.forEach((el, n) => el.classList.add('rp-here', ...(n ? [] : ['first'])));
+    // National's step widens the form (its boxes four across); the pages are fitted again to the room left.
+    const layout = doc.querySelector('#view-report .rp-layout'), wide = step.at === 'nat', RV = root.WSDA.emergencyReportView;
+    if (layout && layout.classList.contains('rp-wide') !== wide) {
+      layout.classList.toggle('rp-wide', wide);
+      if (RV) RV.fit(doc.getElementById('rp-preview'));
+    }
+    return parts[0] || null;
+  }
+
+  // Another step: the form shown from its top; beside the pages (the form kept in view as the page scrolls) the pages
+  // are scrolled to the step's part; on a phone the form is above the pages, and the page is scrolled to the chips
+  // when the step's heading is out of view (Next and Back sit under a step, so a tall step left them far down). The
+  // keyboard's focus goes to the step's heading.
+  function go(doc, key) {
+    if (!step.c || !step.list.some(s => s.key === key)) return;
+    step.at = key;
+    doc.querySelectorAll('#rp-preview .rp-here').forEach(el => el.classList.remove('rp-here', 'first'));
+    const part = drawSteps(doc, step.c), form = doc.getElementById('rp-form'), win = doc.defaultView;
+    growAll(doc);
+    form.scrollTop = 0;
+    const heading = doc.getElementById(step.list.find(s => s.key === key).fold).querySelector('.rp-fold-h');
+    if (win.getComputedStyle(form).position === 'sticky') {
+      if (part) win.scrollTo(0, Math.max(0, win.scrollY + part.getBoundingClientRect().top - 40));
+    } else {
+      const top = heading.getBoundingClientRect().top;
+      if (top < 0 || top > win.innerHeight - 60) win.scrollTo(0, Math.max(0, win.scrollY + doc.getElementById('rp-chips').getBoundingClientRect().top - 8));
+    }
+    heading.focus({ preventScroll: true });
   }
 
   function show(doc, type, text, f, date, drawn) {
@@ -1015,6 +1139,7 @@
     tag('rp-t-date', c.date.tag);
     tag('rp-t-status', c.status.tag);
     tag('rp-t-data', c.data.tag);
+    warn('rp-data-warn', c.data.dataWarn);
     $('rp-data-line').textContent = c.status.dataLine;
     $('rp-w-free').textContent = '"' + rp.status.free + '"';
     $('rp-w-active').textContent = '"' + rp.status.active + '"';
@@ -1040,12 +1165,14 @@
     // The key messages: the list drawn again when its shape changed; each message's warnings; "Undo" while there is
     // a message to put back.
     tag('rp-t-msgs', c.messages.tag);
-    if (list.of !== text) { list.picking = -1; list.removed = null; }
+    if (list.of !== text) { list.open = -1; list.picking = -1; list.removed = null; }
     $('rp-msg-undo').hidden = !list.removed;
     if (list.removed) $('rp-msg-undo').textContent = 'Undo: put message ' + (list.removed.i + 1) + ' back';
     if (list.dirty || list.of !== text) drawList(doc, text);
     doc.querySelectorAll('#rp-msgs .rp-msg').forEach((el, i) => {
       const w = el.querySelector('[data-warn]'), words = (c.messages.warns[i] || []).join(' ');
+      el.querySelector('[data-chk]').hidden = !words;
+      if (!w) return;   // a closed message: its row only
       w.textContent = words;
       w.hidden = !words;
       const n = c.messages.lines[i], p = el.querySelector('[data-pair]');
@@ -1066,10 +1193,11 @@
     doc.querySelectorAll('input[name="rp-icons"]').forEach(r => { r.checked = r.value === (text.iconStyle === 'outline' ? 'outline' : 'filled'); });
     doc.querySelectorAll('[data-icon-sample]').forEach(el => { el.innerHTML = MI.svg('shield-check', el.dataset.iconSample, 18); });
     showPage2(doc, type, text, c);
+    drawSteps(doc, c);
     growAll(doc);
     return c;
   }
 
-  root.WSDA.emergencyReportForm = { fresh, choices, checks, page2Checks, arcgisFile, toFile, fromFile, wire, show, pictures: picture,
+  root.WSDA.emergencyReportForm = { fresh, choices, checks, steps, go, page2Checks, arcgisFile, toFile, fromFile, wire, show, pictures: picture,
     clearPictures, dateOf, numOf, FIELDS, ARC_COLS };
 })(typeof window !== 'undefined' ? window : globalThis);

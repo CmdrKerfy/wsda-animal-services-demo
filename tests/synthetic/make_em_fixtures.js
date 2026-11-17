@@ -30,6 +30,8 @@
 //   em_positives_no_date.csv  the sample's positives without Detection Date and Case Status (the boxes' "Not available")
 //   em_table_check_edge.csv   the work-PC table check's edge cases (dates, coordinates, County forms, quarantine
 //                             values, an unquoted NA, a quoted line break, a byte-order mark), every row synthetic
+//   em_table_check_kinds.csv  the 2.9.1 Species words, each in two rows (so the table check names it): "flock" with
+//                             and without another animal, the placeholders with more letters, the young birds
 //   emergency_synthetic.zip   (test-tables/ only) the Emergency sample, byte for byte as the page's button makes it
 //   em_bundle/                a folder bundle: bundle.json for Emergency, the tool-form positives, a feedlots file
 //                             and the GeoJSON zone (the landing page's hand-off with a zone file)
@@ -104,6 +106,12 @@
 //   em_rules_report.csv       (2.9) the HPAI update's figures on Sep 1, 2026: 17 rows, one per counting rule (a premises
 //                             detected twice, rows without a point, a County not Washington's, an undated row, a row
 //                             after the report's date, a dairy herd, goats, two kinds, 1,000 birds, blank types)
+//   em_rules_new_format.csv   (2.9.1) the same 17 rows in the table's new columns (Quarantine Status after Quarantine
+//                             Release, State after County): the same figures; one State not WA (Multnomah 11), one
+//                             blank, one "Washington", one "Washington  State" (two spaces); two Quarantine Statuses
+//                             not read (Pierce 12's "Pending release", Yakima 12's "Under  quarantine", two spaces)
+//   em_report_blank_dairy.csv (2.9.1) the same 17 rows, the dairy herd's Species "Unknown": named as a row with no
+//                             species but another animal's type (its Production Type "Commercial Dairy")
 // The made-up third type is tests/synthetic/em_made_up_type.js (not generated).
 // Deterministic: no clock, no random numbers (the speed set's generator has a fixed seed).
 //
@@ -234,7 +242,7 @@ FILES['em_table_check_edge.csv'] = '﻿' + csv([EDGE_HEAD,
   edgeRow(9, { Latitude: '45.8400', Longitude: '-119.2900', County: 'Umatilla (Oregon)', Species: 'Racing  Pigeon' }),
   edgeRow(10, { 'Close Date': '13/45/2026', Status: 'Closed', 'Quarantine Status': 'Lifted' }),
   edgeRow(11, { 'Close Date': '9/1/2026', 'Quarantine Release': '2026-12-01', 'Quarantine Status': 'Released' }),
-  edgeRow(12, { 'Close Date': '9/1/2026', 'Quarantine Status': 'on hold' }),
+  edgeRow(12, { 'Close Date': '9/1/2026', 'Quarantine Status': 'on hold', Species: 'Unknown' }),
   edgeRow(13, { Status: 'Closed', Species: '' }),
   edgeRow(14, { 'Confirmed Diagnosis': '10/2/2026 14:30', 'Disposal Method': '"Landfill\nthen burial"' }),
   EDGE_HEAD.map(() => ''),
@@ -243,6 +251,10 @@ FILES['em_table_check_edge.csv'] = '﻿' + csv([EDGE_HEAD,
   edgeRow(16, { Status: 'Closed', 'Close Date': '9/20/2026', 'Quarantine Status': 'UNDER QUARANTINE' }),
   edgeRow(17, { 'Close Date': '11/15/2026', 'Confirmed Diagnosis': '9/15/2026 0:00' })
 ]);
+// The 2.9.1 Species words (the table check and the page read them alike): each value in two rows.
+FILES['em_table_check_kinds.csv'] = '\ufeff' + csv([EDGE_HEAD].concat(['Sheep flock', 'Goat flock', 'Backyard flock',
+  'Chicken flock and sheep', 'Unknown species', 'Not known', 'Unk', 'Goslings', 'Turkey poults', 'Guinea fowl']
+  .flatMap((species, i) => [edgeRow(21 + 2 * i, { Species: species }), edgeRow(22 + 2 * i, { Species: species })])));
 
 // ---- The rules' scenario ------------------------------------------------------------------------------------
 // The shared engine places the layer points, so a point "3 km from a positive" is 3 km by the page's own distance.
@@ -487,11 +499,12 @@ const CLOSED_DAY_RULES = { positives: 'em_rules_closed_day.csv', today: '2026-10
 // naming two kinds is both ("Cattle, Chicken", "Chicken and cattle" birds and cattle; "Pigeon, pig" birds and a pig),
 // its animals in neither kind; "Racing Pigeon" a bird only ("pig" starts it); a blank species, spaces doubled, other
 // animals named one by one (goats twice, a guinea pig among the pigs, a wolf, a fox, sheep and mink as they are),
-// species no kind names ("Opossum"; "Bobcat", where "cat" does not start a word), one animal ("1 wolf"), a blank count.
+// species no kind names ("Opossum"; "Bobcat", where "cat" does not start a word), one animal ("1 wolf"), a blank count;
+// (2.9.1) "Unknown" and "N/A" read as no species (birds), "flock" birds only when no other animal is named.
 const SPECIES_ROWS = [['Chicken', '1,200'], ['Racing Pigeon', '30'], ['Wild Mallard Duck', '4'], ['', '40'],
   ['Dairy cattle', '2,400'], ['Cattle, Chicken', '7'], ['Chicken and cattle', '3'], ['Pigeon, pig', '2'], ['Meat Goat', '12'], ['Pygmy goat', '3'], ['Pig', '6'],
   ['Guinea pig', '2'], ['Harbor  Seal', '2'], ['Gray Wolf', '1'], ['Red fox', '5'], ['Opossum', '1'], ['Bobcat', '1'],
-  ['Sheep', '9'], ['Mink', '7'], ['Alpaca', '']];
+  ['Sheep', '9'], ['Mink', '7'], ['Alpaca', ''], ['Unknown', '10'], ['N/A', '20'], ['Sheep flock', '15'], ['Backyard flock', '25']];
 RULES_FILES['em_rules_species.csv'] = csv([['Case ID', 'Confirmed Diagnosis', 'Latitude', 'Longitude', 'Species', 'Flock/Herd Inventory']]
   .concat(SPECIES_ROWS.map((r, k) => ['SYN-S-' + String(k + 1).padStart(2, '0'), '9/1/2026', (46.5 + k / 100).toFixed(4), '-120.5000', r[0], r[1]]
     .map(quoted))));
@@ -546,6 +559,20 @@ RULES_FILES['em_rules_report.csv'] = csv([AGREED_HEAD].concat(REPORT_ROWS.map((r
   address(300 + 2 * k), address(301 + 2 * k), 'Synthetic Town', r[5], r[6], r[7], r[8], 'H5N1 2.3.4.4b', r[9], r[10], r[11],
   r[12], r[12], '1', 'Landfill'].map(quoted))));
 const REPORT_RULES = { positives: 'em_rules_report.csv', date: '2026-09-01', today: '2026-10-30' };
+// The table's columns from 2.9.1: Quarantine Status (the column added in 2.4) after Quarantine Release, and
+// State after County.
+const AGREED_HEAD_291 = AGREED_HEAD.slice(0, 5).concat('Quarantine Status', AGREED_HEAD.slice(5, 9), 'State', AGREED_HEAD.slice(9));
+const NEW_FORMAT_STATE = { 'Multnomah 11': 'OR', 'Unknown 11': '', 'Lewis 11': 'Washington', 'Whatcom 11': 'Washington  State' };
+RULES_FILES['em_rules_new_format.csv'] = csv([AGREED_HEAD_291].concat(REPORT_ROWS.map((r, k) => [r[0], r[1], r[2], r[3], r[4],
+  r[0] === 'Pierce 12' ? 'Pending release' : r[0] === 'Yakima 12' ? 'Under  quarantine' : r[8] === 'Active' ? 'Under quarantine' : 'Released',
+  address(300 + 2 * k), address(301 + 2 * k), 'Synthetic Town', r[5], r[0] in NEW_FORMAT_STATE ? NEW_FORMAT_STATE[r[0]] : 'WA',
+  r[6], r[7], r[8], 'H5N1 2.3.4.4b', r[9], r[10], r[11], r[12], r[12], '1', 'Landfill'].map(quoted))));
+const NEW_FORMAT_RULES = Object.assign({}, REPORT_RULES, { positives: 'em_rules_new_format.csv' });
+// The same 17 rows with the dairy herd's Species "Unknown" (2.9.1): counted as birds, so named under the value boxes
+// and in the Report form (its Production Type, "Commercial Dairy", names cattle).
+RULES_FILES['em_report_blank_dairy.csv'] = csv([AGREED_HEAD].concat(REPORT_ROWS.map((r, k) => [r[0], r[1], r[2], r[3], r[4],
+  address(300 + 2 * k), address(301 + 2 * k), 'Synthetic Town', r[5], r[6], r[7], r[8], 'H5N1 2.3.4.4b', r[9], r[10],
+  r[0] === 'Franklin 12' ? 'Unknown' : r[11], r[12], r[12], '1', 'Landfill'].map(quoted))));
 
 // The page's zones.geojson for the scenario, as zonesGeoJson writes it, for the R reference to read with sf.
 for (const f of ['site/shared/zones.js', 'site/emergency/message-icons.js', 'site/emergency/types.js', 'site/emergency/types/hpai.js',
@@ -654,6 +681,7 @@ const RULES = {
   closedDay: CLOSED_DAY_RULES,
   species: SPECIES_RULES,
   report: REPORT_RULES,
+  newFormat: NEW_FORMAT_RULES,
   drawn: DRAWN_RULES,
   counties: { positives: 'em_rules_counties.csv', nearKm: 2 }
 };

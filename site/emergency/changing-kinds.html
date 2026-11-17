@@ -65,7 +65,8 @@
 the words in its Species column. The kinds and their words are kept in one file, <span class="file">hpai.js</span>,
 in the dashboards&rsquo; folder under <span class="file">site/emergency/types/</span>. Each kind gets its own mark on
 the map, its own tick under &ldquo;Animals&rdquo;, its own row in the legend and the map picture&rsquo;s key, its own
-color in the Overview, and its own totals. Changing that one file is the whole change; no other file needs it.</p>
+color in the Overview, and its own totals. Changing that one file is the whole change for this page; the work-PC
+table check keeps a copy you change too, and two more are the maintainer&rsquo;s (<a href="#r">the last part</a>).</p>
 
 <nav><b>On this page</b><ol>
   <li><a href="#start">Before you start</a></li>
@@ -146,7 +147,8 @@ its tests), these species change like this:</p>
     colors, the ticks and the legend. A kind put in the middle moves every kind after it to the next mark and color.</dd>
   <dt>The catch-all goes last</dt>
   <dd>The last kind also takes every species no kind names, and the line under the value boxes names them. Keep the
-    broadest kind (Other animals) last. A positive with no species at all is the first kind (Birds).</dd>
+    broadest kind (Other animals) last. A positive with no species at all is the first kind (Birds), and so is one
+    whose species says it is not known yet: Unknown, Unknown species, N/A, TBD, Not known, Unk, - or ?.</dd>
   <dt>Six kinds are told apart</dt>
   <dd>A seventh kind or later shares the hexagon and the sixth color; its legend row says &ldquo;same mark as&rdquo; the
     sixth. It keeps its own tick and counts.</dd>
@@ -160,6 +162,10 @@ its tests), these species change like this:</p>
   <dt>A species naming two kinds is both</dt>
   <dd>&ldquo;Cattle, Chicken&rdquo; shows while either kind is ticked, has both marks side by side, its animals are counted
     in neither kind, and a line under the value boxes names it.</dd>
+  <dt>A weak word counts only alone</dt>
+  <dd>Birds&rsquo; <span class="file">'flock'</span> is in its <span class="file">weak</span> list as well as its words: it
+    names birds only when no other word names a kind. &ldquo;Backyard flock&rdquo; is birds; &ldquo;Sheep flock&rdquo;
+    is Other animals only.</dd>
   <dt>What the page refuses</dt>
   <dd>The same word in two kinds, and a kind with no words (only the last kind may have none). Either one gives the red
     notice.</dd>
@@ -176,6 +182,9 @@ around each list), so copy them from here:</p>
 <div class="paste find"><span class="label">In the line that starts `Other animals` = c(, delete</span><code>"mink", </code></div>
 <p class="muted">Tell the platform&rsquo;s maintainer you changed both files: the platform&rsquo;s automatic checks flag
 it when the two lists differ.</p>
+<p class="muted">Two more copies are the maintainer&rsquo;s to change, together: the HPAI zones tool
+(<span class="file">tools/arcgis-zones/zone_rules.py</span>) and the public ArcGIS dashboard&rsquo;s counting rules.
+Until they change too, the public map and dashboard count that species as before.</p>
 
 <h2 id="slip">What a slip looks like</h2>
 <p>If the page cannot use <span class="file">hpai.js</span>, it leaves HPAI out and shows a red notice at the top of the

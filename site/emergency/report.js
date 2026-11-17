@@ -30,7 +30,9 @@
  *     byMonth: [{ month (YYYY-MM), commercial, backyard, other }] (the first month with a detection to the date's
  *       month; other: every row that is not a commercial or backyard flock),
  *     zones { active (the active rows with a map point: each has zones), counties },
- *     twice { premises, rows } (map points with more than one row: a premises detected more than once) }
+ *     twice { premises, rows } (map points with more than one row: a premises detected more than once),
+ *     blankOther: [{ id, county, typed }] (rows counted with no species whose type names another animal, rules.js
+ *       blankOtherOf: counted as the first kind; 2.9.1) }
  *   COUNTY_NOT_GIVEN, SIZE_LINE: the words the pages print.
  *   statusFits(choice, f) -> true when the status wording picked fits the data, false when it does not, null for "own"
  *     (staff's own words, not checked). The sentence is about domestic flocks ("free of highly pathogenic avian
@@ -172,7 +174,8 @@
       counties: countyList, countiesAffected: countyList.filter(c => c.washington).length,
       thisYear, listed, last, daysSince: last ? daysBetween(last, date) : null, byMonth,
       zones: { active: zoned.length, counties: new Set(zoned.map(p => countyFor(p, counties))).size },
-      twice: { premises: repeated.length, rows: repeated.reduce((s, n) => s + n, 0) }
+      twice: { premises: repeated.length, rows: repeated.reduce((s, n) => s + n, 0) },
+      blankOther: rows.filter(p => E.blankOtherOf(type, p)).map(p => ({ id: p.id, county: p.county, typed: E.blankOtherOf(type, p) }))
     };
   }
 
@@ -282,7 +285,8 @@
     const zones = f.zones.active ? 'Surveillance areas are active around ' + many(f.zones.active, 'case', 'cases') + ' in ' +
       many(f.zones.counties, 'county', 'counties') + '.' : 'There are no currently active surveillance areas.';
     // The livestock card: the livestock kind's active cases on the date, its total since the start beside
-    // it; "suspected" staff's tick; the other farm animals a line of their own when there are any.
+    // it; "suspected" staff's tick (2.9.1: with an active case it adds a sentence of its own); the other farm
+    // animals a line of their own when there are any.
     let livestock = null;
     const lk = f.kinds.find(k => k.key === rp.livestock);
     if (lk) {
@@ -295,7 +299,7 @@
         headline: lk.active ? many(lk.active, 'active livestock case', 'active livestock cases') + ' in Washington'
           : ch.suspected ? 'Suspected livestock cases in Washington' : 'No livestock cases in Washington',
         text: lk.active ? 'There ' + (lk.active === 1 ? 'is ' : 'are ') + many(lk.active, 'active confirmed livestock case', 'active confirmed livestock cases') +
-            ' in Washington state' + sinceText + '.'
+            ' in Washington state' + sinceText + '.' + (ch.suspected ? ' Suspected cases are also being tested.' : '')
           : 'There are ' + (lk.cases ? 'no active confirmed' : 'no confirmed') + (ch.suspected
             ? ' livestock cases in Washington state; suspected cases are being tested' : ' or suspected livestock cases in Washington state') + sinceText + '.',
         stage: milk.stage, stageText: milk.text, others

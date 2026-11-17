@@ -605,8 +605,10 @@ hp_kinds <- lapply(kind_entries, function(e) {
   label <- field("label")
   word <- field("word")
   w <- sub("(?s)^.*words: \\[(.*?)\\].*$", "\\1", e, perl = TRUE)
+  wk <- if (grepl("weak: [", e, fixed = TRUE)) sub("(?s)^.*weak: \\[(.*?)\\].*$", "\\1", e, perl = TRUE) else ""
   list(key = field("key"), label = label, word = if (is.na(word)) tolower(label) else word,
-       name_each = grepl("nameEach: true", e, fixed = TRUE), words = gsub("'", "", regmatches(w, gregexpr("'[^']+'", w))[[1]]))
+       name_each = grepl("nameEach: true", e, fixed = TRUE), words = gsub("'", "", regmatches(w, gregexpr("'[^']+'", w))[[1]]),
+       weak = gsub("'", "", regmatches(wk, gregexpr("'[^']+'", wk))[[1]]))
 })
 if (length(hp_kinds) < 2) stop("types/hpai.js: the kinds were not found")
 plural_of <- function(w) {
@@ -628,8 +630,17 @@ sp <- read_fixture(sr$positives)
 s_species <- gsub("\\s+", " ", tolower(trimws(sp[["Species"]])))
 any_words <- any(vapply(hp_kinds, function(k) length(k$words) > 0, logical(1)))
 # A species' kinds (v in lowercase, spaces single): the kinds with a word at the start of one of its words, a word inside
-# a longer word of another kind left out; no species, the first kind; a species no kind names, the last.
+# a longer word of another kind left out; a kind's weak words (2.9.1, "flock") only when no other word names a kind; no
+# species, the first kind; a species no kind names, the last.
+# Written in Species when it is not known yet (2.9.1): read as no species, compared as a whole with every character but
+# letters and digits taken out (the list read from rules.js's BLANK_SPECIES).
+rules_src <- paste(readLines(file.path(repo_root, "site", "emergency", "rules.js"), warn = FALSE), collapse = "\n")
+blank_src <- regmatches(rules_src, regexpr("const BLANK_SPECIES = \\[[^]]*\\]", rules_src))
+if (!length(blank_src)) stop("rules.js: BLANK_SPECIES was not found")
+blank_species <- gsub("'", "", regmatches(blank_src, gregexpr("'[^']+'", blank_src))[[1]])
+blank_of <- function(v) if (gsub("[^a-z0-9]", "", v) %in% c("", blank_species)) "" else v
 kind_hits <- function(v) {
+  v <- blank_of(v)
   # Where w (of kind i) starts a word of v (1-based), left out where a longer word of another kind starts there.
   starts <- function(w, i) {
     m <- gregexpr(w, v, fixed = TRUE)[[1]]
@@ -639,16 +650,20 @@ kind_hits <- function(v) {
   }
   at <- integer(0)
   hits <- character(0)
-  if (v != "") for (i in seq_along(hp_kinds)) {
-    found <- hp_kinds[[i]]$words[vapply(hp_kinds[[i]]$words, function(w) length(starts(w, i)) > 0, logical(1))]
-    if (length(found)) { at <- c(at, i); hits <- c(hits, found[1]) }
+  for (weak in c(FALSE, TRUE)) {
+    if (v == "" || length(at)) break
+    for (i in seq_along(hp_kinds)) {
+      ws <- hp_kinds[[i]]$words[(hp_kinds[[i]]$words %in% hp_kinds[[i]]$weak) == weak]
+      found <- ws[vapply(ws, function(w) length(starts(w, i)) > 0, logical(1))]
+      if (length(found)) { at <- c(at, i); hits <- c(hits, found[1]) }
+    }
   }
   unlisted <- v != "" && !length(at) && any_words
   if (!length(at)) { at <- if (v == "") 1L else length(hp_kinds); hits <- NA_character_ }
   list(at = at, hits = hits, unlisted = unlisted)
 }
 species_rows <- lapply(seq_len(nrow(sp)), function(r) {
-  v <- s_species[r]
+  v <- blank_of(s_species[r])
   kh <- kind_hits(v)
   at <- kh$at
   hits <- kh$hits

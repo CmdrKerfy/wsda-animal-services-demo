@@ -8,7 +8,7 @@
 <title>Making the HPAI update</title>
 <!-- The Emergency guide for staff who make the monthly HPAI update in the Report view. Its plain-text twin,
      MAKING_THE_HPAI_UPDATE.txt beside it, says the same; the Emergency unit suite checks that both name the page's
-     own buttons and folds. -->
+     own buttons and parts. -->
 <style>
   :root { --blue: #1c5a83; --teal: #245566; --light: #e8f3f6; --line: #c9d6dc; --text: #1f2a30; --muted: #56656d;
     --ok: #2f6b1d; --ok-bg: #e4eedf; --warn: #9a3b00; --warn-bg: #fff1e0; --code-bg: #f4f6f7; }
@@ -59,7 +59,7 @@
     <li><a href="#before">Before you start</a></li>
     <li><a href="#open">Open the Report view</a></li>
     <li><a href="#month">Each month, step by step</a></li>
-    <li><a href="#headings">What the fold headings tell you</a></li>
+    <li><a href="#headings">What the headings and circles tell you</a></li>
     <li><a href="#print">Print or save the PDF</a></li>
     <li><a href="#figures">Figures: the update's figures on screen</a></li>
     <li><a href="#counting">How the update counts</a></li>
@@ -74,8 +74,8 @@
   <li><strong>Last month's report text</strong>, the small file you saved last month, named like
     <span class="file">HPAI update 2026-09-01 report text.json</span>. The first time, you start without one.</li>
   <li><strong>USDA's and WADDL's pages</strong>, open in other browser tabs, for the national, wild bird and testing
-    numbers. USDA's addresses are in the National (USDA) fold's address boxes; WADDL's are in the Wild birds and
-    testing (WADDL) fold's link lists.</li>
+    numbers. USDA's addresses are in the National (USDA) step's address boxes; WADDL's are in the Wild birds and
+    testing (WADDL) step's link lists.</li>
 </ul>
 
 <h2 id="open">2. Open the Report view</h2>
@@ -90,10 +90,18 @@
   are set to.</div>
 
 <h2 id="month">3. Each month, step by step</h2>
-<p>The form is in folds. Click a fold's heading to open or close it. Work from the top down.</p>
+<p>The form shows one part at a time, as numbered steps. Press <span class="btn">Next</span> under the part to go
+  on, or <span class="btn">Back</span> to go back; each button names the part it goes to. To jump to any part, click
+  its numbered circle at the top of the form.</p>
+<ul>
+  <li>A <strong>tick</strong> in a circle means that part is fine; an <strong>orange</strong> circle means it needs a
+    look; the <strong>dark</strong> circle is the part you are on.</li>
+  <li>The pages on the right scroll to the part you are filling in and outline it, with the label
+    <strong>Filling in</strong>. The outline never prints.</li>
+</ul>
 
 <h3><span class="step">1</span>Load last month's report text</h3>
-<p>Press <span class="btn">Load last month's</span> at the bottom of the form and pick last month's report text. It
+<p>Press <span class="btn">Load last month's</span> under the steps and pick last month's report text. It
   fills in the words, the key messages, the boxes and the links. USDA's and WADDL's numbers and pictures stay
   empty for the new month, but last month's numbers are kept to compare with.</p>
 <div class="box tip">To go on with a draft you saved <strong>this</strong> month, set the <strong>Report date</strong> to the
@@ -103,28 +111,36 @@
 <p>Set the date the update is for. Every figure is counted as on that date; a row detected after it is left out.</p>
 
 <h3><span class="step">3</span>Washington: the status</h3>
-<p>Read the line "From the data on ..." at the top of the fold. It says how many active positives and zones there
-  are. Then pick the status sentence that fits it. If your pick doesn't fit the data, the fold says
+<p>Read the line "From the data on ..." at the top of this step. It says how many active positives and zones there
+  are. Then pick the status sentence that fits it. If your pick doesn't fit the data, the heading says
   <span class="tag warn">Check</span> and explains why. Pick <strong>Write my own</strong> only when no approved
   wording fits.</p>
 <p>Also pick the <strong>milk testing stage</strong>, and tick <strong>Suspected livestock cases are being tested</strong>
-  only when that's true.</p>
+  only when that's true. The tick changes the livestock card: with an active livestock case, the card adds
+  "Suspected cases are also being tested."; with none active, it says suspected cases are being tested instead of
+  "no confirmed or suspected" cases.</p>
 
 <h3><span class="step">4</span>Washington: from the data</h3>
 <p>Nothing to type: Washington's numbers fill themselves in. Choose <strong>the map's look</strong>:
   <strong>Soft dots (no exact place)</strong> or <strong>Counties shaded by cases</strong>. Neither shows a real
   farm's place. If you know of a gap (for example, cases not yet entered in the table), write it in the optional
   note. You can't type over the numbers; the note is the way to explain one.</p>
+<p>If this step says <strong>Check</strong>, a row in the table has no species ("Unknown" or blank) but its type
+  names another animal, such as "Commercial Dairy". It is counted as birds until you fill in Species in the table and
+  load it again.</p>
 
 <h3><span class="step">5</span>Key messages</h3>
-<p>Each message has a headline, an icon, its words and an optional link. Tick <strong>Highlight</strong> to shade a
-  card. Use the arrows to move a message, <strong>Set aside</strong> to keep it for another month without printing it,
-  and <span class="btn">+ Add a message</span> for a new one. <strong>Icon style</strong> (Filled or Outline) changes
-  every card at once. The livestock card comes after your messages; it is made from the data.</p>
+<p>Each message is a row with its number, icon and headline. Click a row to open it and change its headline, icon,
+  words and optional link; opening another row closes it. On the row, tick <strong>Highlight</strong> to shade its
+  card, and use the arrows to move it. In an open message, <strong>Set aside</strong> keeps it for another month
+  without printing it, and &times; removes it. <span class="btn">+ Add a message</span> adds a new one, already open.
+  A row that needs a look says <span class="tag warn">Check</span>. <strong>Icon style</strong> (Filled or Outline)
+  changes every card at once. The livestock card comes after your messages; it is made from the data.</p>
 
 <h3><span class="step">6</span>National (USDA)</h3>
-<p>Copy each number from USDA's page into its box, with USDA's <strong>As of</strong> date. Don't type the flocks in
-  all; the form adds them up.</p>
+<p>Copy each number from USDA's page into its box, with USDA's <strong>As of</strong> date. The boxes are four across,
+  in the order of USDA's page, and the form is wider for this step. Don't type the flocks in all; the form adds them
+  up.</p>
 <p>For <strong>USDA's maps, last 30 days</strong>, add a picture of each of USDA's three maps: press
   <span class="btn">Add USDA's picture</span> and pick a saved picture, or take a snip of the map (on Windows,
   Windows key + Shift + S), click the box and press Ctrl+V.</p>
@@ -147,13 +163,14 @@
 </ul>
 <div class="box careful">The pictures are not kept in the report text. Each month starts without them.</div>
 
-<h2 id="headings">4. What the fold headings tell you</h2>
-<p>Each fold's heading says how it stands, so you can see what's left without opening every fold:</p>
+<h2 id="headings">4. What the headings and circles tell you</h2>
+<p>Each part's heading says how it stands, and its numbered circle at the top shows the same (a tick, or orange), so
+  you can see what's left without going through every part:</p>
 <table>
   <tr><th>The heading says</th><th>What it means</th></tr>
   <tr><td><span class="tag ok">Matches the data</span> <span class="tag ok">Automatic</span> <span class="tag ok">All filled</span></td><td>Nothing to do.</td></tr>
   <tr><td><span class="tag plain">Kept month to month</span> <span class="tag plain">3 messages</span></td><td>Fine as it is; look it over.</td></tr>
-  <tr><td><span class="tag warn">Check</span> <span class="tag warn">2 to check</span></td><td>Open the fold: a box with an orange edge says what looks wrong under it.</td></tr>
+  <tr><td><span class="tag warn">Check</span> <span class="tag warn">2 to check</span></td><td>Go to that part (click its orange circle): a box with an orange edge says what looks wrong under it.</td></tr>
   <tr><td><span class="tag warn">15 not filled &middot; 3 pictures</span></td><td>Boxes still empty and pictures still to add. An empty box prints "not filled", never last month's number.</td></tr>
 </table>
 <p>The form checks the numbers you type. It says so when:</p>
@@ -169,7 +186,7 @@
 <h2 id="print">5. Print or save the PDF</h2>
 <ol class="do">
   <li>Every page says <strong>DRAFT</strong> until you tick <strong>Ready to send</strong> (beside the print button).
-    If something is still orange, the line beside it names the folds.</li>
+    If something is still orange, the line beside it names the parts.</li>
   <li>Press <span class="btn">Print / Save as PDF</span>.</li>
   <li>In the print window, choose <strong>Save as PDF</strong> as the printer (Destination) and save. The file name
     is already "HPAI update" and the date.</li>
